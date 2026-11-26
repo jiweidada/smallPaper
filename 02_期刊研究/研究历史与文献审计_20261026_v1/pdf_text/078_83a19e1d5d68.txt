@@ -1,0 +1,192 @@
+Feature Spectrum Learning for Remote Sensing Change Detection
+Qi Zang1∗, Dong Zhao1∗, Shuang Wang1B, Dou Quan1, Zhun Zhong2
+1 School of Artificial Intelligence, Xidian University, Shaanxi, China
+2 School of Computer Science and Information Engineering, Hefei University of Technology, China
+shwang@mail.xidian.edu.cn
+Abstract
+Change detection (CD) holds significant implications for
+Earth observation, in which pseudo-changes between
+bitemporal images induced by imaging environmental fac-
+tors are key challenges. Existing methods mainly regard
+pseudo-changes as a kind of style shift and alleviate it
+by transforming bitemporal images into the same style us-
+ing generative adversarial networks (GANs). Neverthe-
+less, their efforts are limited by the complexity of optimiz-
+ing GANs and the absence of guidance from physical prop-
+erties. This paper finds that the spectrum transformation
+(ST) has the potential to mitigate pseudo-changes by align-
+ing in the frequency domain carrying the style. However,
+the benefit of ST is largely constrained by two drawbacks:
+1) limited transformation space and 2) inefficient param-
+eter search. To address these limitations, we propose a
+F eature Spectrum learning (FeaSpect) that adaptively elim-
+inate pseudo-changes in the latent space. For the draw-
+back 1), FeaSpect directs the transformation towards style-
+aligned discriminative features via feature spectrum trans-
+formation (FST). For the drawback 2), FeaSpect allows FST
+to be trainable, efficiently discovering optimal parameters
+via extraction box with adaptive attention and extraction
+box with learnable strides. Extensive experiments on chal-
+lenging datasets demonstrate that our method remarkably
+outperforms existing methods and achieves a commendable
+trade-off between accuracy and efficiency. Importantly,
+our method can be easily injected into other frameworks,
+achieving consistent improvements.
+1. Introduction
+As one of the fundamental Earth observation tasks, change
+detection (CD) utilizes bitemporal remote sensing data to
+achieve dynamic understanding of the Earth’s surface and
+provides pixel-wise ground object change maps for land use
+survey, urban expansion, and ecological environment mon-
+* Equal contribution. B Co-corresponding author.
+itoring [4, 17, 25–27, 42, 43, 49, 55–58]. Driven by deep
+learning (DL) and dominated by the siamese structure [3],
+change detection has gained tremendous progress in recent
+years [1, 31].
+Nevertheless, challenges persist in handling pseudo-
+changes between bitemporal images induced by variations
+in the imaging environment (sun elevations or seasons)
+[8, 23, 48, 60], as shown in Fig. 1(a). This issue sig-
+nificantly hampers the network’s ability to accurately rec-
+ognize actually changed pixels. The fundamental cause
+of pseudo-changes is the disagreement between sensor-
+measured values and the object’s spectral reflectance and ra-
+diance [13, 41], i.e., spectral shift. Existing transformation-
+based methods regard this spectral shift as essentially anal-
+ogous to a visual appearance or style shift. These meth-
+ods alleviate this issue mainly by leveraging generative ad-
+versarial networks (GANs) to transform bitemporal image
+styles into the same one [14, 15, 32]. However, these ef-
+forts are limited by the complexity of optimizing GANs and
+the absence of guidance from physical properties, leading
+to transformed images susceptible to distortion from arti-
+facts (See the orange rectangles in Fig. 1(b)). Inspired by
+the recently proven effective spectrum transformation (ST),
+a frequency-domain carrying style-oriented style alignment
+method [46], we explore its potential application for the first
+time in the CD task to mitigate pseudo-changes. We de-
+ploy the ST to the CD task by replacing the low-frequency
+(cropped with fixed extraction box) Fourier amplitude spec-
+trum of an image with that of its paired image. Compared
+with GANs, ST attains better visual consistency with tar-
+geted low-level statistics (See Fig. 1(c)) and yields more
+accurate detection performance (See Table 3).
+However, as shown in Fig. 1(d), there have two draw-
+backs: 1) Limited Transformation Space. The transfor-
+mation space of ST aims for visual consistency of im-
+ages, while the optimization space for high-level perception
+tasks focuses on extracting discriminative features of im-
+ages. This mismatched learning goal causes the feature to
+lose essential semantic information (See the pink rectangles
+in Fig. 1(a)-(c)), consequently diminishing discriminabil-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+12647
+
+
+---PAGE---
+
+pseudo-change/style differenceOriginal ST
+Image 𝑥!!
+Image 𝑥!"
+𝑥!"𝑥!!
+Image 𝑥!"
+Image 𝑥"!!!→!"Image 𝑥"!!!→!"
+𝜷
+at the same coordinatesmismatched
+Amplitude of 𝑥!"
+𝑴with optimal hyper-parameter
+try 7try 6try 5try 4try 3try 2try 1try N
+…
+Drawback 1Drawback 2
+❌ Limited transformation space
+❌ Inefficient parameter search
+Our FeaSpect𝑥!"𝑥!!
+𝑴
+Matchedtransformation space
+optimize via backpropagation
+üStyle alignmentüMatched transformüEfficient search
+original pixeloptimally stylized pixelstyle-aligned discriminative featurediscriminative feature
+initial parameter𝑴 Efficient parameter search
+pixel of𝑥!!feature of𝑥!!
+(a) (c) (d) (e) 
+advance adaptively
+GANs𝑥!"𝑥!!
+(b) Image 𝑥!"
+Image 𝑥$%&!!→!"
+Figure 1. (a) Illustration of pseudo-change. (b) Style-aligned images obtained by GANs. (c) Style-aligned images obtained by spectrum
+transformation (ST). (d) Illustration of two drawbacks of ST. (e) Illustration of our FeaSpect solving these two drawbacks.
+ity. 2) Inefficient Parameter Search. The hyper-parameter
+of the fixed extraction box in ST,i.e., the non-differentiable
+stride, necessitates cross-validation to identify its optimal
+value. This empirical manual search in a gigantic search
+space hinders efficient discovery of optimal values, leading
+to imprecise style shielding.
+This paper aims to tackle the above two drawbacks of
+the ST, unlocking its promising potential in the CD. To this
+end, we present a F eature Spectrum learning (FeaSpect)
+approach (See Fig. 1(e)), aiming to enable the model to
+adaptively eliminate the style differences in the latent space.
+Based on the identified challenges, i.e., how to matched
+transform and how to efficient search, we proceed as fol-
+lows: For the former, we formulate the ST into the feature
+space to align the styles between high-dimensional bitem-
+poral features encoding essential semantics, called feature
+spectrum transformation (FST) , directing the transforma-
+tion toward style-aligned discriminative features. For the
+latter, we devise two learning mechanisms for FST from
+two aspects, extraction box with adaptive attention (EB-AA)
+and extraction box with learnable strides (EB-LS) , to cap-
+ture style characterization via gradient descent at a lower
+computational cost. The extraction box is not fixed by
+hyper-parameter but is trainable, allowing backpropagation
+to uncover optimal characterization regions in a virtually in-
+finite search space. In the EB-AA, based on a specific stride,
+the amplitude values within the extraction box are adap-
+tively focused to avoid extracting less informative ampli-
+tude values. In the EB-LS, we propose learning the strides
+of the extraction box along the horizontal and vertical direc-
+tions as well as customize a way to make strides differen-
+tiable during learning.
+In summary, the contributions of this paper are three-
+fold:
+• We exploit spectrum transformation for the first time
+to alleviate the pseudo-changes in CD and indicate two
+drawbacks of deploying it. To tackle these two draw-
+backs, we propose a framework FeaSpect, adaptively
+eliminating the style differences in the feature space.
+• We propose a feature spectrum transformation (FST) to
+maintain the semantics by aligning styles across bitempo-
+ral features. Further, we devise two learning mechanisms
+for FST, extraction box with adaptive attention/learnable
+strides, to efficiently find optimal configurations by gra-
+dient descent.
+• Extensive experiments show that FeaSpect significantly
+surpasses existing methods and achieves a commendable
+trade-off between accuracy and efficiency. Moreover, our
+FeaSpect is a plug-and-play design, which can seamlessly
+integrates into any Siamese-dominated network, boosting
+performance without the need for additional parameters.
+2. Related Work
+Deep Learning-based Change Detection. Remote sens-
+ing change detection (CD) using deep convolutional neu-
+ral networks [28] has garnered substantial attention due to
+its ability to automatically learn hierarchical features from
+bitemporal images. Various existing methods in this domain
+leverage the power of deep learning to alleviate the overde-
+tection of pseudo-changes [1, 12, 18, 31, 36, 44]. Benefit-
+ing from the excellent performance of fully convolutional
+network (FCN) [35] on the segmentation task, many re-
+searchers apply it to the change detection [5, 10, 11, 30, 38,
+52]. Daudt and Lei et al. [11, 30] first introduce the U-Net-
+based FCN architecture. Peng et al. [38] propose an end-
+to-end approach based on the improved UNet ++ network
+and employ a multi-side output fusion strategy to com-
+bine change maps from different semantic levels. Daudt
+et al. [10] propose three fully convolutional siamese neural
+network structures with skip connections, i.e., FC-EF, FC-
+Siam-conc, and FC-Siam-diff, obtaining multi-scale change
+maps by calculating the feature of the two weight-shared en-
+coders at different sizes and decode them to obtain the de-
+12648

@@ -1,0 +1,30 @@
+BASE24既有探针：字段与计算语义可行性核验
+2026-10-27。仅字段/源码核验，不是新实验结果，不计算信号分桶、梯度数值或比例。
+
+范围与实际动作
+固定data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3的A/B development00–07，共16个原预测缓存及其analysis/seal/complete。没有读取heldout。
+inspect_BASE24_schema_readonly.py只对白名单缓存的data.pkl解析张量元数据，未导入torch、未创建张量、未打开张量storage内容，未运行旧脚本、原生计算、匹配或梯度。完整文件仅为SHA核验按字节读取，不能将其称为张量数值读取。
+全部16份预测及其analysis、seal/complete的SHA与223固定表一致；三份原生计算源码和六份生产者源码与原始包/223绑定一致。保存BASE24_schema_preflight.json、BASE24_semantics_preflight.json。
+读223的manifest、native_readers、metadata、validate_batch、input_shapes及执行入口；209的依赖/原修复说明；197全文。未执行它们。197读取188_C0而非这16个BASE24批次，不能直接继承其902GT、loss_calls或分母。
+
+字段结论：固定快照的末层输出端分解可行，不是NA
+每批保存FP32 pred_logits[4,300,10]、pred_boxes[4,300,4]、真实增强targets的boxes/labels、各层辅助输出和DN元数据。analysis保存final、aux_0、aux_1、pre、enc_0各自branch_matches及跨层合并身份。
+已有223接口区分本层final Hungarian与native union，并做过缓存重放核验。本次只核字段和既有实现，不再次重放数值。
+target的area/iscrowd等旁字段可滞后于裁剪/MixUp：首批首图boxes/labels长度516、area574、iscrowd167。它们不能直接按目标序号对齐；局部信号应以实际boxes/labels及其本层配对为准。这个字段事实不是新诊断主线。
+
+必须遵守的原生路由
+deim_criterion.py第621–625行仅对boxes/local使用indices_go与合并分母；末层分类使用自身Hungarian配对与普通GT分母。不能把223的G0合并身份当分类正负身份。
+第274–306行：本层正类软目标为匹配IoU的gamma次方；IoU与pred_score均detach。配置gamma=1.5，mal_alpha未设置且默认None。配置alpha=.75并不等于mal_alpha，在此路径不提供额外.75系数。
+第202–229行与构造默认值：no_weight_vfl_epoch=-1，权重暖启动关闭。普通分母为当前单CPU批次增强GT总数与1取最大；不是合并slot数。原生本路径不使用targets.mixup，不手动加系数。
+生产者probe_runtime按原配置直接构造；evaluate_rules只替换几何相关路由，其注释native-U0不能取代原生forward的实际分类dispatch。
+
+解析方向的形式说明，不代入真实缓存数值
+令p=sigmoid(z)，lambda为原配置末层系数，N为普通GT分母。正类的输出端局部导数为lambda/N乘(p−IoU^1.5)；其他类别为lambda/N乘detach(p)^1.5乘p。保持原生FP32及detach语义；不是对可微focal权重另求导。
+局部导数为负表示直接增大该logit的方向，为正表示直接压低；正类也会在p超过软目标时压低，不能将全部正类项称支持。
+“他类已匹配query”“未匹配query”“本类已匹配但软目标较低”在字段上可区分。未匹配GT代表没有该直接正项，不等于未匹配query的负项；增强GT超过300时尤其不能混淆。没有在本次核验中计算这些桶的计数或质量。
+
+解释能力的边界与取舍
+该分解能回答这16个固定24轮raw训练态快照的即时输出端信号由哪些桶组成。它不能回答成熟132轮低频组错误是怎样形成的。
+缓存没有真实历史有效曝光轨迹，也没有参数Jacobian、所有分支向共享参数的合成和优化状态。输出端信号的大小或符号不等于某类共享参数更新的好坏；大量压低信号可能是在控制真实假阳性。当前错误和当前概率也反过来决定即时信号。
+两个seed共享固定输入，不是两份独立训练史；当前压力平衡也不能反证过去曾不平衡。局部支持/抑制质量不能被包装成原文训练因果链已获证。
+因此本次回答是“字段足够，历史原因仍不可识别”。若后续决策要识别132频次成因，单独再算这些快照不能完成该决策；不因可计算就自动推进。此阶段只完成被请求的字段和语义核验，零新增前向、反传、更新及梯度统计。

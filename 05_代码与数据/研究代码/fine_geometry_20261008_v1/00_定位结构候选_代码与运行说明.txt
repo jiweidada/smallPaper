@@ -1,0 +1,90 @@
+细尺度几何读取与网格中心：隔离实验代码
+日期：2026-10-08
+
+当前状态
+四组结构因素代码、八份双seed配置及原生训练入口已实现。
+35项CPU工程检查通过；没有启动训练、构造优化器、赋值或更新模型参数。
+未使用已训练的基线作新增科学前向；测试只使用合成张量和新初始化的模型。
+尚无AP结果。本机完整训练环境缺少pycocoeval，真实训练、CUDA AMP及完整评估尚未跑通。
+
+一、设计依据与作用范围
+
+已有授权的固定32图、两seed、水平8/32像素冻结检查已完成，不在本轮重复。
+证据定位：指定内部区域的细尺度输入及其局部邻域不变，但粗尺度信息进入P3融合后改变回归响应。
+它支持检验“初始框是否应使用不同于分类的几何读取路径”，并不证明粗尺度语境普遍有害，也不解释所有无好框目标。
+原设计和反例：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\data\00_实验计划与证据索引\查询准入反事实追溯与方案反证_20261008_v1\08_细尺度定位读取方案_坐标相容性与反证.txt
+
+二、四组对照
+
+baseline：原融合特征＋原sigmoid中心表达。
+fine_only：仅让选中的P3初始框读取融合前input_proj[0]特征；中心表达保持原式。
+grid_only：仍读取融合特征；仅P3中心改用网格相对偏移。
+fine_grid：同时使用细尺度几何读取和网格相对中心。
+
+四者都使用原分类、原Top300选择、原query内容和原decoder跨尺度memory；P4/P5初始框沿用原路径。
+全部使用原MAL、框回归和局部蒸馏损失，保留辅助层和DN。没有新增可训练参数。
+此组与coverage_output_budget_20261008_v1的两项筛选损失分别实验，未叠加。
+
+三、实现位置
+
+geometry.py / FineGeometryEncoder：保留原融合计算，显式返回融合后特征和融合前P3旁路。
+geometry.py / selected_geometry_memory：仅提取已选P3格点，先施加原有效掩码，再复用原enc_output的Linear＋LayerNorm。
+geometry.py / GeometryDecoder：分类和语义query仍读融合特征，只有编码器初始框头读取可选几何向量。
+geometry.py / grid_reference：有效P3中心为sigmoid(anchor_logit)+raw_offset×[1/W3,1/H3]，再按1e-5边界裁剪并转回unactivated reference。
+宽高保留原sigmoid(anchor_logit+raw)；P4/P5和无效锚点行为保持原式。
+
+实际训练有多尺度，P3的H3/W3须从本次特征图读取，不能将步长写死为8/640。
+内部区域在相同raw偏移下具备相应网格平移性质；边界裁剪、padding、主干变化和后续decoder都可能破坏整网性质。
+测试支持的是公式和接口，不是原图检测已经平移不变。
+
+runtime.py：原生注册、模型/criterion构造、共享源码校验和严格共同初始化。
+experiment.py：check、prepare、train三个入口。
+configs/：四组×seed1/seed2，实际132轮配置，保持原batch4、增强、学习率日程和EMA。
+prepared_local/：八份已核验的本机路径配置，均为PREPARED_NOT_TRAINED。
+所有训练目录runs/尚未创建。
+
+四、验证结果
+
+test_geometry.py执行一次，35项PASS。
+完整合成模型前向6次：四组eval各一次，baseline/fine_grid训练模式各一次；另有1次主干、2次encoder、1次输入投影和4次decoder入口检查。
+无checkpoint加载、无参数更新；训练模式使用合成目标，BN保持eval，只验证计算和梯度接口，不代替真实训练。
+
+覆盖内容：
+- 细尺度格点选择、掩码顺序、粗尺度保留及梯度去向；无选中P3的边界。
+- 网格公式、尺寸变化、矩形网格、边界饱和、无效锚点和宽高保持。
+- 原sigmoid偏移不严格等距平移的代数反例仍保留。
+- 四组状态key和初始张量完全相同，初始化随机数消耗相同，无新增参数。
+- encoder旁路接口保留原融合结果逐位相同。
+- fine_only零框头时完整输出逐位一致；grid两组按预先写入测试的FP32容差验证，未冒充逐位一致。
+- batch2、不同特征网格时分类分数/query内容/DN前缀保持原流程；编码器辅助框可反传，decoder参考框仍detach。
+- 原损失名称、DN和辅助层保留；完整合成反向传播中编码器框头梯度有限。
+
+另已逐份比较8份resolved配置：除显式模型替换和运行路径等入口字段外，完整原训练设置相同，未改变criterion。
+共同初始化使用既有SHA绑定；运行时要求最终编码器框头权重/偏置为零，以免直接把已训练的非零logit偏移解释成网格偏移。
+既有共同初始化零框头证据来自之前的原件审计，本轮没有重载权重或测试训练。
+
+五、使用
+
+在本目录内，仅静态检查：
+python -B experiment.py check --native-root "C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\p2_candidate_seed1_full132_20261007_v1"
+
+明确启动一个已准备的实验（本轮未执行）：
+python -B experiment.py train --bundle prepared_local/fine_grid_seed1
+
+迁移到原训练环境时，用目标机实际路径重新prepare：
+python -B experiment.py prepare --plan configs/fine_grid_seed1.json --native-root /path/to/bound_native_snapshot --train-images /path/to/train/images --train-ann /path/to/train.json --val-images /path/to/val/images --val-ann /path/to/val.json --common-init /path/to/common_init_seed0.pth --output /path/to/new_run --bundle /path/to/new_bundle
+
+prepare只生成和核验配置，不加载模型或变换数据；完整训练复用原生DetSolver，不执行旧P2脚本。
+本版只声明单GPU入口；CUDA AMP、实际优化器step、EMA恢复、训练吞吐和峰值显存均未验证。
+不修改/替换自定义pycocoeval，不以其他评价器冒充完整框架依赖。
+
+六、如何判定方案失败
+
+只改善平移一致性而没有改善原始验证图的AP/定位，不算成功。
+只改善原固定候选IoU，但全池独立覆盖和最终检出没有净收益，不算解决漏检。
+完整候选若不优于单因素对照，不能宣称两个因素都必要。
+必须同时报告原成功目标损失、遮挡目标退化、逐类/尺寸AP、AP75、两seed结果和成本。
+原AP复现门槛尚未解决，局部CPU计数不能替代官方评价结果。
+
+更多机制限制与目标完成审计见01、02文件。

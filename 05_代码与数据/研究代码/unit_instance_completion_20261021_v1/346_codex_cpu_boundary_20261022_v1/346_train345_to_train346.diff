@@ -1,0 +1,144 @@
+--- C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\345_codex_contracts_20261022_v1\train345.py:execute
++++ C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\346_codex_cpu_boundary_20261022_v1\train346.py:execute_boundary
+@@ -1,4 +1,4 @@
+-def execute(arm, seed, run_dir, device, max_steps, *, _mode='formal', _resume=None):
++def execute_boundary(arm, seed, run_dir, device, max_steps, *, _mode='formal', _resume=None, _case=None):
+     """CLI uses formal order; private acceptance worker also uses mini order/resume.
+ 
+     max_steps is an absolute global endpoint. Resume(3 -> 6) executes three steps.
+@@ -6,10 +6,26 @@
+     """
+     require(isinstance(max_steps, int) and 0 < max_steps <= HARD_TOTAL_STEPS, 'max_steps_budget')
+     require(device == 'cpu', 'CPU_only_authorization')
+-    require(_mode in CURRENT_CPU_CAP and max_steps <= CURRENT_CPU_CAP[_mode], 'acceptance_step_cap')
++    require(_mode == 'formal', '346_formal_only')
++    require(_case in C.CASES, '346_unknown_case')
++    specification=C.CASES[_case]
++    require(max_steps == specification['end'], '346_endpoint_not_whitelisted')
++    require(_resume is not None, '346_fixture_required')
++    C.verify_sources()
++    verify_file(_resume['path'], _resume['sha256'], '346_resume_receipt')
++    preliminary=C.read(_resume['path'])
++    require(preliminary.get('execution_kind') == C.KIND and preliminary.get('case') == _case,
++            '346_fixture_kind_or_case')
++    require(specification['start'] <= preliminary['step'] < max_steps,
++            'resume_endpoint_not_after_checkpoint')
++    require(max_steps - preliminary['step'] <= specification['maximum_actual_updates'],
++            '346_actual_update_cap')
+     run_dir = Path(run_dir).resolve()
++    require(run_dir.is_relative_to(C.RUN_ROOT.resolve()), '346_run_directory_scope')
+     require(not run_dir.exists(), 'run_directory_exists', run_dir)
+     config, order, curve, binding = validate_bindings(arm, seed, _mode)
++    binding=C.binding_for(binding,_case)
++    require(preliminary['binding'] == binding, '346_preliminary_binding')
+     run_dir.mkdir(parents=True, exist_ok=False)
+     np.random.seed(config['head_seed'])
+     random.seed(config['head_seed'])
+@@ -18,7 +34,7 @@
+     require(initial_sha == config['untrained_initial_state_sha256'], 'initial_state_SHA')
+     require(sum(p.numel() for p in model.parameters()) == config['head_parameters'], 'parameter_count')
+     require(all(p.device.type == 'cpu' and p.dtype == torch.float32 for p in model.parameters()), 'CPU_FP32')
+-    with open(run_dir / '345_initial_state.pt', 'xb') as f:
++    with open(run_dir / '346_initial_state.pt', 'xb') as f:
+         torch.save({'model': model.state_dict(), 'state_sha256': initial_sha, 'binding': binding}, f)
+     optimizer = make_optimizer(model, config)
+     step = epoch = batch_index = 0
+@@ -33,6 +49,10 @@
+         checkpoint = torch.load(receipt['checkpoint_path'], map_location='cpu', weights_only=False)
+         require(checkpoint['binding'] == binding and checkpoint['initial_state_sha256'] == initial_sha,
+                 'resume_checkpoint_binding')
++        require(checkpoint['format'] == C.KIND and checkpoint['synthetic_origin_step'] == specification['start'],
++                '346_checkpoint_kind')
++        require(checkpoint['actual_optimizer_updates_since_fixture'] == checkpoint['step']-specification['start'],
++                '346_actual_update_count')
+         model.load_state_dict(checkpoint['model'], strict=True)
+         optimizer.load_state_dict(checkpoint['optimizer'])
+         require([g['lr'] for g in optimizer.param_groups] == checkpoint['param_group_lr'], 'resume_group_lr')
+@@ -41,14 +61,14 @@
+         step_logs = checkpoint['step_logs']
+         epoch_times = checkpoint['epoch_times']
+         epoch_partial_seconds = checkpoint['epoch_partial_seconds']
+-        require(len(step_logs) == step, 'resume_log_length')
++        require(len(step_logs) == step-specification['start'], 'resume_log_length')
+         require(checkpoint['model_state_sha256'] == state_sha(model.state_dict()), 'resume_model_SHA')
+         T.restore_rng(checkpoint['rng'])
+     check_cursor(step, epoch, batch_index, order, config)
+     require(step < max_steps, 'resume_endpoint_not_after_checkpoint')
+-    write_json(run_dir / '345_run_binding.json', {'binding': binding, 'initial_state_sha256': initial_sha,
++    write_json(run_dir / '346_run_binding.json', {'binding': binding, 'initial_state_sha256': initial_sha,
+                'inherited_recipe': config, 'max_steps': max_steps, 'resume': _resume,
+-               'epoch_timing_policy': 'Actual wall times are a separate ledger. Byte equality covers deterministic per-step numeric/batch logs; wall times are not deterministic.'})
++               'epoch_timing_policy': 'Synthetic acceptance: timing covers executed batches only. Cursor/order sizes are not counts of past training. Skipped prefix has no fabricated logs or elapsed time.'})
+     local_steps = loaded_entries = 0
+     checkpoint_receipts = []
+     last_receipt = None
+@@ -56,21 +76,26 @@
+     def save_state():
+         nonlocal last_receipt
+         check_cursor(step, epoch, batch_index, order, config)
+-        path = run_dir / f'345_checkpoint_step{step:06d}.pt'
+-        payload = {'format': '345_full_state_v1', 'binding': binding,
++        path = run_dir / f'346_checkpoint_step{step:06d}.pt'
++        payload = {'format': C.KIND, 'binding': binding,
+                    'initial_state_sha256': initial_sha, 'model_state_sha256': state_sha(model.state_dict()),
+                    'model': model.state_dict(), 'optimizer': optimizer.state_dict(),
+                    'param_group_lr': [g['lr'] for g in optimizer.param_groups],
+                    'step': step, 'epoch': epoch, 'batch_index': batch_index,
+                    'position_in_epoch': batch_index * config['batch'], 'shuffle_sha256': binding['shuffle_sha256'],
+                    'rng': T.capture_rng(), 'step_logs': step_logs, 'epoch_times': epoch_times,
+-                   'epoch_partial_seconds': epoch_partial_seconds}
++                   'epoch_partial_seconds': epoch_partial_seconds,
++                   'synthetic_origin_step': specification['start'],
++                   'actual_optimizer_updates_since_fixture': step-specification['start'],
++                   'real_training_steps':0}
+         with open(path, 'xb') as f:
+             torch.save(payload, f)
+-        receipt_path = run_dir / f'345_checkpoint_step{step:06d}_receipt.json'
++        receipt_path = run_dir / f'346_checkpoint_step{step:06d}_receipt.json'
+         write_json(receipt_path, {'checkpoint_path': str(path), 'checkpoint_sha256': C.sha(path),
+                    'binding': binding, 'step': step, 'epoch': epoch, 'batch_index': batch_index,
+-                   'position_in_epoch': batch_index * config['batch']})
++                   'position_in_epoch': batch_index * config['batch'],
++                   'execution_kind':C.KIND,'case':_case,
++                   'actual_optimizer_updates_since_fixture':step-specification['start']})
+         last_receipt = {'path': str(receipt_path), 'sha256': C.sha(receipt_path)}
+         checkpoint_receipts.append(last_receipt)
+ 
+@@ -110,17 +135,20 @@
+         epoch_finished = batch_index * config['batch'] >= len(order['epochs'][epoch])
+         if epoch_finished:
+             epoch_times.append({'epoch': epoch, 'seconds': epoch_partial_seconds,
+-                                'batches': batch_index, 'windows': len(order['epochs'][epoch])})
++                                'cursor_batches_at_epoch_end': batch_index,
++                                'order_epoch_windows': len(order['epochs'][epoch]),
++                                'actual_batches_since_fixture':sum(r['epoch']==epoch for r in step_logs),
++                                'actual_windows_since_fixture':sum(len(r['image_ids']) for r in step_logs if r['epoch']==epoch)})
+             epoch_partial_seconds = 0.0
+             epoch += 1
+             batch_index = 0
+         # Every epoch and every requested mid-epoch endpoint gets a full snapshot.
+         if epoch_finished or step == max_steps:
+             save_state()
+-    write_json(run_dir / '345_steps.json', step_logs)
+-    write_json(run_dir / '345_epoch_times.json', {'completed_epochs': epoch_times,
++    write_json(run_dir / '346_steps.json', step_logs)
++    write_json(run_dir / '346_epoch_times.json', {'completed_epochs': epoch_times,
+                'partial_epoch': epoch, 'partial_seconds': epoch_partial_seconds})
+-    result = {'status': 'CPU短验收已执行；真实训练未执行', 'arm': arm, 'seed': seed, 'mode': _mode,
++    result = {'status': '346构造边界CPU短验收；真实训练未执行', 'arm': arm, 'seed': seed, 'mode': _mode,
+               'binding': binding, 'initial_state_sha256': initial_sha, 'final_model_state_sha256': state_sha(model.state_dict()),
+               'step': step, 'epoch': epoch, 'batch_index': batch_index,
+               'position_in_epoch': batch_index * config['batch'], 'last_checkpoint': last_receipt,
+@@ -129,6 +157,10 @@
+                   'native_loss_calls': 2 * loaded_entries, 'backward_calls': local_steps,
+                   'optimizer_steps': local_steps, 'cache_loads': loaded_entries,
+                   'global_forwards': 0, 'real_training_steps': 0},
+-              'input_binding_counts_this_process': dict(T.INPUT_COUNTS)}
+-    write_json(run_dir / '345_run_result.json', result)
++              'input_binding_counts_this_process': dict(T.INPUT_COUNTS),
++              'execution_kind':C.KIND,'case':_case,
++              'synthetic_origin_step':specification['start'],
++              'synthetic_unexecuted_prefix_steps':specification['start'],
++              'actual_step_log_records_since_fixture':len(step_logs)}
++    write_json(run_dir / '346_run_result.json', result)
+     return result

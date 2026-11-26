@@ -1,0 +1,1040 @@
+=== PDF PAGE 1 ===
+Learning non-maximum suppression
+Jan Hosang Rodrigo Benenson
+Max Planck Institut für Informatik
+Saarbrücken, Germany
+firstname.lastname@mpi-inf.mpg.de
+Bernt Schiele
+Abstract
+Object detectors have hugely proﬁted from moving to-
+wards an end-to-end learning paradigm: proposals, fea-
+tures, and the classiﬁer becoming one neural network
+improved results two-fold on general object detection.
+One indispensable component is non-maximum suppression
+(NMS), a post-processing algorithm responsible for merg-
+ing all detections that belong to the same object. The de
+facto standard NMS algorithm is still fully hand-crafted,
+suspiciously simple, and — being based on greedy clus-
+tering with a ﬁxed distance threshold — forces a trade-off
+between recall and precision. We propose a new network
+architecture designed to perform NMS, using only boxes
+and their score. We report experiments for person detection
+on PETS and for general object categories on the COCO
+dataset. Our approach shows promise providing improved
+localization and occlusion handling.
+1. Introduction
+All modern object detectors follow a three step recipe:
+(1) proposing a search space of windows (exhaustive by
+sliding window or sparser using proposals), (2) scor-
+ing/reﬁning the window with a classiﬁer/regressor, and (3)
+merging windows that might belong to the same object.
+This last stage is commonly referred to as “non-maximum
+suppression” (NMS) [
+10, 9, 21, 7, 20, 16].
+The de facto standard for NMS is a simple hand-crafted
+test time post-processing, which we call GreedyNMS.
+The algorithm greedily selects high scoring detections and
+deletes close-by less conﬁdent neighbours since they are
+likely to cover the same object. This algorithm is simple,
+fast, and surprisingly competitive compared to proposed al-
+ternatives.
+The most notable recent performance breakthrough in
+general object detection was marked by R-CNN [
+10], which
+effectively replaced features extraction and classiﬁers by
+a neural network, almost doubling performance on Pas-
+cal VOC. Another signiﬁcant improvement was to absorb
+Convnet
+Figure 1: We propose a non-maximum suppression conv-
+net that will re-score all raw detections (top). Our network
+is trained end-to-end to learn to generate exactly one high
+scoring detection per object (bottom, example result).
+the object proposal generation into the network [
+21], while
+other works avoid proposals altogether [ 21, 20], leading to
+both speed and quality improvements. We can see a general
+trend towards end-to-end learning and it seems reasonable
+to expect further improvements by doing complete end-to-
+end training of detectors. NMS is one step in the pipeline
+that, for the most part, has evaded the end-to-end learn-
+ing paradigm. All of the above detectors train the classiﬁer
+in a procedure that ignores the fact that the NMS problem
+exists and then runs GreedyNMS as a disconnected post-
+processing.
+There is a need to overcome GreedyNMS due to its sig-
+niﬁcant conceptual shortcomings. GreedyNMS makes hard
+decision by deleting detections and bases this decision on
+one ﬁxed parameter that controls how wide the suppression
+is. A wide suppression would remove close-by high scor-
+ing detections that are likely to be false positives that hurt
+precision. On the other hand, if objects are close (e.g. in
+crowded scenes), close-by detections can be true positives,
+in which case suppression should be narrow to improve re-
+1
+4507
+
+
+=== PDF PAGE 2 ===
+call. When objects are close-by, GreedyNMS is doomed to
+sacriﬁce precision or recall independent of its parameter.
+It is desirable to learn NMS to overcome these limita-
+tions. An NMS approach based on neural network could
+learn to adapt to the data distribution, overcome the trade-
+off of GreedyNMS, and importantly could be incorporated
+into a detector. In this paper we propose the ﬁrst “pure NMS
+network” which is able to do the task of non-maximum sup-
+pression without image content or access to decisions of
+another algorithm. Our network renders the need for ﬁnal
+GreedyNMS post-processing superﬂuous.
+In section
+3 we start by discussing with the underlying
+issue: why is NMS needed at all? We discuss the task of
+detection and how it relates to the speciﬁcs of detectors and
+NMS. We identify two necessary ingredients that current
+detectors are lacking and design an NMS network that con-
+tains these ingredients (section
+4); the result is conceptually
+different than both GreedyNMS and current detectors. In
+section
+5, we report promising results that show that this
+network is indeed capable of replacing GreedyNMS. We re-
+port both single- (PETS pedestrians) and multi-class results
+(COCO dataset), both showing improvements over Gree-
+dyNMS.
+We believe this work opens the door to true end-to-end
+detectors.
+2. Related work
+Clustering detections. The de facto standard algorithm,
+GreedyNMS, has survived several generations of detectors,
+from Viola&Jones [
+32], over the deformable parts model
+(DPM) [ 7], to the current state-of-the-art R-CNN family
+[10, 9, 21]. Several other clustering algorithms have been
+explored for the task of NMS without showing consistent
+gains: mean-shift clustering [
+6, 35], agglomerative cluster-
+ing [ 2], afﬁnity propagation clustering [ 17], and heuristic
+variants [25]. Principled clustering formulations with glob-
+ally optimal solutions have been proposed in [ 27, 23], al-
+though they have yet to surpass the performance of Gree-
+dyNMS.
+Linking detections to pixels. Hough voting establishes
+correspondences between detections and the image evi-
+dence supporting them, which can avoid overusing image
+content for several detections [
+15, 1, 14, 34]. Overall per-
+formance of hough voting detectors remains comparatively
+low. [
+37, 5] combine detections with semantic labelling,
+while [ 36] rephrase detection as a labelling problem. Ex-
+plaining detections in terms of image content is a sound for-
+mulation but these works rely on image segmentation and
+labelling, while our system operates purely on detections
+without additional sources of information.
+Co-occurrence. One line of work proposes to detect pairs
+of objects instead of each individual objects in order to han-
+dle strong occlusion [
+24, 29, 19]. It faces an even more
+complex NMS problem, since single and double detections
+need to be handled. [
+22] bases suppression decisions on es-
+timated crowd density. Our method does neither use image
+information nor is it hand-crafted to speciﬁcally detect pairs
+of objects.
+Auto-context. Some methods improve object detection by
+jointly rescoring detections locally [
+30, 4] or globally [ 31]
+using image information. These approaches tend to produce
+fewer spread-out double detections and improve overall de-
+tection quality, but still require NMS. We also approach the
+problem of NMS as a rescoring task, but we completely
+eliminate any post-processing.
+Neural networks on graphs. A set of detections can be
+seen as a graph where overlapping windows are represented
+as edges in a graph of detections. [
+18] operates on graphs,
+but requires a pre-processing that deﬁnes a node ordering,
+which is ill-deﬁned in our case.
+End-to-end learning for detectors. Few works have ex-
+plored true end-to-end learning that includes NMS. One
+idea is to include GreedyNMS at training time [
+33, 12],
+making the classiﬁer aware of the NMS procedure at test
+time. This is conceptually more satisfying, but does not
+make the NMS learnable. Another interesting idea is to di-
+rectly generate a sparse set of detections, so NMS is un-
+necessary, which is done in [
+26] by training an LSTM that
+generates detections on overlapping patches of the image.
+At the boundaries of neighbouring patches, objects might
+be predicted from both patches, so post-processing is still
+required. [
+13] design a convnet that combines decisions
+of GreedyNMS with different overlap thresholds, allow-
+ing the network to choose the GreedyNMS operating point
+locally. None of these works actually completely remove
+GreedyNMS from the ﬁnal decision process that outputs a
+sparse set of detections. Our network is capable of perform-
+ing NMS without being given a set of suppression alterna-
+tives to chose from and without having another ﬁnal sup-
+pression step.
+3. Detection and non-maximum suppression
+In this section we review non-maximum suppression
+(NMS) and why it is necessary. In particular, we point out
+why current detectors are conceptually incapable of produc-
+ing exactly one detection per object and propose two neces-
+sary ingredients for a detector to do so.
+Present-day detectors do not return all detections that
+have been scored, but instead use NMS as a post-processing
+step to remove redundant detections. In order to have true
+end-to-end learned detectors, we are interested in detectors
+without any post-processing. To understand why NMS is
+necessary, it is useful to look at the task of detection and
+how it is evaluated.
+4508
+
+
+=== PDF PAGE 3 ===
+Object detection. The task of object detection is to map
+an image to a set of boxes: one box per object of interest
+in the image, each box tightly enclosing an object. This
+means detectors ought to return exactly one detection per
+object. Since uncertainty is an inherent part of the detection
+process, evaluations allow detections to be associated to a
+conﬁdence. Conﬁdent erroneous detections are penalized
+more than less conﬁdent ones. In particular mistakes that
+are less conﬁdent than the least conﬁdent correct detection
+are not penalized at all.
+Detectors do not output what we want. The detection
+problem can be interpreted as a classiﬁcation problem that
+estimates probabilities of object classes being present for
+every possible detection in an image. This viewpoint gives
+rise to “hypothesize and score” detectors that build a search
+space of detections (e.g. sliding window, proposals) and es-
+timate class probabilities independently for each detection.
+As a result, two strongly overlapping windows covering the
+same object will both result in high score since they look at
+almost identical image content. In general, instead of one
+detection per object, each object triggers several detections
+of varying conﬁdence, depending on how well the detection
+windows cover the object.
+GreedyNMS. Since the actual goal is to generate exactly
+one detection per object (or exactly one high conﬁdence
+detection), a common practice (since at least 1994 [
+3]) is
+to assume that highly overlapping detections belong to the
+same object and collapse them into one detection. The pre-
+dominant algorithm (GreedyNMS) accepts the highest scor-
+ing detection, then rejects all detections that overlap more
+than some threshold ϑ and repeats the procedure with the
+remaining detections, i.e. greedily accepting local maxima
+and discarding their neighbours, hence the name. This al-
+gorithm eventually also accepts wrong detections, which is
+no problem if their conﬁdence is lower than the conﬁdence
+of correct detections.
+GreedyNMS is not good enough. This algorithm works
+well if (1) the suppression is wide enough to always sup-
+press high scoring detections triggered by same object and
+(2) the suppression is narrow enough to never suppress high
+scoring detections of the next closest object. If objects are
+far apart condition (2) is easy to satisfy and a wide suppres-
+sion works well. In crowded scenes with high occlusion
+between objects there is a tension between wide and nar-
+row suppression. In other words with one object per image
+NMS is trivial, but highly occluded objects require a better
+NMS algorithm.
+3.1. A future without NMS
+Striving for true end-to-end systems without hand
+crafted algorithms we shall ask: Why do we need a hand
+crafted post processing step? Why does the detector not
+directly output one detection per object?
+Independent processing of image windows leads to over-
+lapping detection giving similar scores, this is a requirement
+of robust functions: similar inputs lead to similar outputs.
+A detector that outputs only one high scoring detection per
+object thus has to be also conditioned on other detections:
+multiple detections on the same object should be processed
+jointly, so the detector can tell there are repeated detections
+and only one of them should receive a high score.
+Typical inference of detectors consist of a classiﬁer that
+discriminates between image content that contains an ob-
+ject and image content that does not. The positive and neg-
+ative training examples for this detector are usually deﬁned
+by some measure of overlap between objects and bound-
+ing boxes. Since similar boxes will produce similar conﬁ-
+dences anyway, small perturbation of object locations can
+be considered positive examples, too. This technique aug-
+ments the training data and leads to more robust detectors.
+Using this type of classiﬁer training does not reward one
+high scoring detection per object, and instead deliberately
+encourages multiple high scoring detections per object.
+From this analysis we can see that two key ingredients
+are necessary in order for a detector to generate exactly one
+detection per object:
+1. A loss that penalises double detections to teach the de-
+tector we want precisely one detection per object.
+2. Joint processing of neighbouring detections so the de-
+tector has the necessary information to tell whether an
+object was detected multiple times.
+In this paper, we explore a network design that accommo-
+dates both ingredients. To validate the claim that these are
+key ingredients and our the proposed network is capable of
+performing NMS, we study our network in isolation with-
+out end-to-end learning with the detector. That means the
+network operates solely on scored detections without im-
+age features and as such can be considered a “pure NMS
+network”.
+4. Doing NMS with a convnet
+After establishing the two necessary requirements for a
+convnet (convolutional network) to perform NMS in sec-
+tion
+3, this section presents our network that addresses both
+(penalizing double detections in § 4.1, joint processing of
+detections in § 4.2).
+Our design avoids hard decisions and does not discard
+detections to produce a smaller set of detections. Instead,
+we reformulate NMS as a rescoring task that seeks to de-
+crease the score of detections that cover objects that al-
+ready have been detected, as in [
+13]. After rescoring, simple
+thresholding is sufﬁcient to reduce the set of detections. For
+evaluation we pass the full set of rescored detections to the
+evaluation script without any post processing.
+4509
+
+
+=== PDF PAGE 4 ===
+4.1. Loss
+A detector is supposed to output exactly one high scoring
+detection per object. The loss for such a detector must in-
+hibit multiple detections of the same object, irrespective of
+how close these detections are. Stewart and Andriluka [
+26]
+use a Hungarian matching loss to accomplish that: success-
+fully matched detections are positives and unmatched detec-
+tions are negatives. The matching ensures that each object
+can only be detected once and any further detection counts
+as a mistake. Henderson and Ferrari [
+12] present an average
+precision (AP) loss that is also based on matching.
+Ultimately a detector is judged by the evaluation crite-
+rion of a benchmark, which in turn deﬁnes a matching strat-
+egy to decide which detections are correct or wrong. This
+is the matching that should be used at training time. Typ-
+ically benchmarks sort detections in descending order by
+their conﬁdence and match detections in this order to ob-
+jects, preferring most overlapping objects. Since already
+matched objects cannot be matched again surplus detections
+are counted as false positives that decrease the precision of
+the detector. We use this matching strategy.
+We use the result of the matching as labels for the clas-
+siﬁer: successfully matched detections are positive training
+examples, while unmatched detections are negative training
+examples for a standard binary loss. Typically all detec-
+tions that are used for training of a classiﬁer have a label
+associated as they are fed into the network. In this case
+the network has access to detections and object annotations
+and the matching layer generates labels, that depend on the
+predictions of the network. Note how this class assignment
+directly encourages the rescoring behaviour that we wish to
+achieve.
+Let di denote a detection, yi ∈ {−1, 1} indicate whether
+or not di was successfully matched to an object, and let
+f denote the scoring function that jointly scores all detec-
+tions on an image f ([di]n
+i=1) = [ si]n
+i=1. We train with the
+weighted logistic loss
+L(si, yi) =
+N∑
+i=1
+wyi · log (1 + exp (−si · yi)) .
+Here loss per detection is coupled to the other detections
+through the matching that produces yi.
+The weighting wyi is used to counteract the extreme
+class imbalance of the detection task. We choose the
+weights so the expected class conditional weight of an ex-
+ample equals a parameter E (w1I (yi = 1)) = γ.
+When generalising to the multiclass setting, detections
+are associated to both a conﬁdence and a class. Since we
+only rescore detections, we allow detections to be “switched
+off” but not to change their class. As a result, we only match
+detections to objects of the same class, but the classiﬁca-
+tion problem remains binary and the above loss still applies.
+...
+Block
+ Block
+ Block
+ FC
+ FC
+ FCzeros
+new
+detection
+score
+detections
+logistic loss
+matching
+detections
+with new score
+annotations
+labels
+loss
+FC
+ FC
+ FC
+(a) Training architecture.
+...
+Block
+ Block
+ Block
+ FC
+ FC
+ FCzeros
+new
+detection
+score
+detections
+FC
+ FC
+ FC
+(b) Test architecture.
+Figure 2: High level diagram of the Gnet. FC denotes
+fully connected layers. All features in this diagram have
+128 dimensions (input vector and features between the lay-
+ers/blocks), the output is a scalar.
+When representing the detection scores, we use a one-hot
+encoding: a zero vector that only contains the score at the
+location in the vector that corresponds to the class. Since
+mAP computation does not weight classes by their size, we
+assign the instance weights in a way that their expected class
+conditional weight is uniformly distributed.
+4.2. “Chatty” windows
+In order to effectively minimize the aforementioned loss,
+we need our network to jointly process detections. To this
+end we design a network with a repeating structure, which
+we call blocks (sketched in ﬁgure
+3). One block gives each
+detection access to the representation of its neighbours and
+subsequently updates its own representation. Stacking mul-
+tiple blocks means the network alternates between allowing
+every detection “talk” to its neighbours and updating its own
+representation. We call this the GossipNet (Gnet), because
+detections talk to their neighbours to update their represen-
+tation.
+There are two non-standard operations here that are key.
+The ﬁrst is a layer, that builds representations for pairs of
+detections. This leads to the key problem: an irregular
+number of neighbours for each detection. Since we want to
+avoid the discretisation scheme used in [
+13], we will solve
+this issue with pooling across detections (the second key).
+Detection features. The blocks of our network take the de-
+tection feature vector of each detection as input and outputs
+an updated vector (see high-level illustration in ﬁgure
+2).
+Outputs from one block are input to the next one. The
+values inside this c = 128 dimensional feature vector are
+learned implicitly during the training. The output of the last
+block is used to generate the new detection score for each
+detection.
+4510
+
+
+=== PDF PAGE 5 ===
+FC
+FC
+ FC
+FC
+ FC
++
+pairwise context
+other
+detections
+pairwise
+computations
+pooling
+per-detection
+computations
+across-detection
+combination and embedding
+to next
+block
+Figure 3: One block of our Gnet visualised for one detection. The representation of each detection is reduced and then
+combined into neighbouring detection pairs and concatenated with detection pair features (hatched boxes, corresponding
+features and detections have the same colour). Features of detection pairs are mapped independently through fully connected
+layers. The variable number of pairs is reduced to a ﬁxed-size representation by max-pooling. Pairwise computations are
+done for each detection independently.
+The ﬁrst block takes an all-zero vector as input. The
+detections’ information is fed into the network in the “pair-
+wise computations” section of ﬁgure
+3 as described below.
+In future work this zero input could potentially be replaced
+with image features.
+Pairwise detection context. Each mini-batch consists of
+all n detections on an image, each represented by a c dimen-
+sional feature vector, so the data has size n × c and access-
+ing to another detection’s representations means operating
+within the batch elements. We use a detection context layer,
+that, for every detection di, generates all pairs of detections
+(di, dj) for which dj sufﬁciently overlaps with di (IoU >
+0.2). The representation of a pair of detections consists of
+the concatenation of both detection representations and g di-
+mensional detection pair features (see below), which yields
+an l = 2 c + g dimensional feature. To process each pair
+of detections independently, we arrange the features of all
+pairs of detections along the batch dimension: if detection
+di has ki neighbouring detection that yields a batch of size
+K × l, where K = ∑n
+i=1(ki + 1) since we also include
+the pair (di, di). Note that the number of neighbours ki (the
+number of pairs) is different for every detection even within
+one mini-batch. To reduce the variable sized neighbourhood
+into a ﬁxed size representation, our architecture uses global
+max-pooling over all detection pairs that belong to the same
+detection (K × l → n × l), after which we can use normal
+fully connected layers to update the detection representation
+(see ﬁgure
+3).
+Detection pair features. The features for each detection
+pair used in the detection context consists of several prop-
+erties of a detection pair: (1) the intersection over union
+(IoU), (2-4) the normalised distance in x and y direction
+and the normalised l2 distance (normalized by the average
+of width and height of the detection), (4-5) scale difference
+of width and height (e.g. log (wi/wj)), (6) aspect ratio dif-
+ference log (ai/aj), (7-8) the detection scores of both de-
+tections. In the multi-class setup, each detection provides a
+scores vector instead of a scalar thus increasing the number
+of pair features. We feed all these raw features into 3 fully
+connected layers, to learn the g detection pair features that
+are used in each block.
+Block. A block does one iteration allowing detections to
+look at their respective neighbours and updating their repre-
+sentation (sketched in ﬁgure
+3). It consists of a dimension-
+ality reduction, a pairwise detection context layer, 2 fully
+connected layers applied to each pair independently, pool-
+ing across detections, and two fully connected layers, where
+the last one increases dimensionality again. The input and
+output of a block are added as in the Resnet architecture
+[
+11]. The ﬁrst block receives zero features as inputs, so
+all information that is used to make the decision is boot-
+strapped from the detection pair features. The output of the
+last block is used by three fully connected layers to predict
+a new score for each detection independently (ﬁgure
+2).
+Parameters. Unless speciﬁed otherwise our networks have
+16 blocks. The feature dimension for the detection features
+is 128 and is reduced to 32 before building the pairwise
+detection context. The detection pair features also have
+32 dimensions. The fully connected layers after the last
+block output 128 dimensional features. When we change
+the feature dimension, we keep constant the ratio between
+the number of features in each layer, so indicating the de-
+tection feature dimension is sufﬁcient.
+Message passing. The forward pass over serveral stacked
+blocks can be interpreted as message passing. Every de-
+tection sends messages to all of its neighbours in order to
+negotiate which detection is assigned an object and which
+detections should decrease their scores. Instead of hand-
+crafting the message passing algorithm and its rules, we de-
+liberately let the network latently learn the messages that
+are being passed.
+4511
+
+
+=== PDF PAGE 6 ===
+4.3. Remarks
+The Gnet is fundamentally different than GreedyNMS in
+the sense that all features are updated concurrently, while
+GreedyNMS operates sequentially. Since Gnet does not
+have access to GreedyNMS decisions (unlike [
+13]), it is sur-
+prising how close performance of the two algorithms turns
+out to be in section
+5. Since we build a potentially big net-
+work by stacking many blocks, the Gnet might require large
+amounts of training data. In the experiments we deliberately
+choose a setting with many training examples.
+The Gnet is a pure NMS network in the sense that it has
+no access to image features and operates solely on detec-
+tions (box coordinates and a conﬁdence). This means the
+Gnet cannot be interpreted as extra layers to the detector.
+The fact that it is a neural network and that it is possible to
+feed in a feature vector (from the image or the detector) into
+the ﬁrst block makes it particularly suitable for combining
+it with a detector, which we leave for future work.
+The goal is to jointly rescore all detections on an im-
+age. By allowing detections to look at their neighbours and
+update their own representation, we enable conditional de-
+pendence between detections. Together with the loss that
+encourages exactly one detection per object, we have sat-
+isﬁed both conditions from section
+3. We will see in sec-
+tion 5 that the performance is relatively robust to parameter
+changes and works increasingly well for increasing depth.
+5. Experiments
+In this section we experimentally evaluate the proposed
+architecture on the PETS and COCO dataset. We report
+results for persons, and as well for the multi-class case.
+Person category is by far the largest class on COCO, and
+provides both crowded images and images with single per-
+sons. Other than overall results, we also report separately
+high and low occlusion cases. We are interested in perfor-
+mance under occlusion, since this is the case in which non-
+maximum suppression (NMS) is hard. All-in-all we show
+a consistent improvement over of GreedyNMS, conﬁrming
+the potential of our approach.
+All results are measured in average precision (AP),
+which is the area under the recall-precision curve. The
+overlap criterion (for matching detections to objects) is tra-
+ditionally 0.5 IoU (as for Pascal VOC, noted as AP 0.5).
+COCO also uses stricter criteria to encourage better locali-
+sation quality, one such metric averages AP evaluated over
+several overlap criteria in the range [0.5, 0.95] in 0.05 incre-
+ments, which we denote by AP 0.95
+0.5 .
+5.1. PETS: Pedestrian detection in crowds
+Dataset. PETS [
+8] is a dataset consisting of several
+crowded sequences. It was used in [ 13] as a roughly sin-
+gle scale pedestrian detection dataset with diverse levels
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+81.4 Gnet
+80.7 Strong Tnet
+55.0 GreedyNMS > 0.0
+66.0 GreedyNMS > 0.1
+71.4 GreedyNMS > 0.2
+75.0 GreedyNMS > 0.3
+76.6 GreedyNMS > 0.4
+73.4 GreedyNMS > 0.5
+64.8 GreedyNMS > 0.6
+Figure 4: Performance on the PETS test set.
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+occlusion range [0.0,0.5)
+81.9 Gnet
+81.5 Strong Tnet
+57.1 GreedyNMS > 0.0
+68.2 GreedyNMS > 0.1
+73.9 GreedyNMS > 0.2
+77.3 GreedyNMS > 0.3
+78.1 GreedyNMS > 0.4
+74.2 GreedyNMS > 0.5
+65.0 GreedyNMS > 0.6
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+occlusion range [0.5,1.0)
+28.7
+28.4
+14.3
+20.0
+21.4
+21.2
+20.6
+17.2
+11.2
+Figure 5: Performance on the PETS test set for different
+occlusion ranges.
+of occlusion. Even though we aim for a larger and more
+challenging dataset we ﬁrst analyse our method in the setup
+proposed in [
+13]. We use the same training and test set as
+well as the same detections from [ 28], a model built specif-
+ically to handle occlusions. We reduce the number of de-
+tections with an initial GreedyNMS of 0.8 so we can ﬁt the
+joint rescoring of all detections into one GPU. (Note that
+these detections alone lead to bad results, worse than “Gree-
+dyNMS > 0.6” in
+4, and this is very different to having input
+of GreedyNMS of 0.5 as an input like in [ 13]).
+Training. We train a model with 8 blocks and a 128 di-
+mensional detection representation for 30k iterations, start-
+ing with a learning rate of 10−3 and decrease it by 0.1 every
+10k iterations.
+Baselines. We compare to the (typically used) classic
+GreedyNMS algorithm using several different overlap
+thresholds, and the Strong Tnet from [
+13]. Since all meth-
+ods operate on the same detections, the results are fully
+comparable.
+Analysis. Figure
+4 compares our method with the Gree-
+dyNMS baseline and the Tnet on the PETS test set. Start-
+4512
+
+
+=== PDF PAGE 7 ===
+ing from a wide GreedyNMS suppression with the threshold
+ϑ = 0 shows almost a step function, since high scoring true
+positives suppress all touching detections at the cost of also
+suppressing other true positives (low recall). Gradually in-
+creasing ϑ improves the maximum recall but also introduces
+more high scoring false positives, so precision is decreasing.
+This shows nicely the unavoidable trade-off due to having
+a ﬁxed threshold ϑ mentioned in section
+3. The reason for
+the clear trade-off is the diverse occlusion statistics present
+in PETS.
+Tnet performs better than the upper envelope of the
+GreedyNMS, as it essentially recombines output of Gree-
+dyNMS at a range of different thresholds. In comparison
+our Gnet performs slightly better, despite not having access
+to GreedyNMS decisions at all. Compared to the best Gree-
+dyNMS performance, Gnet is able to improve by 4.8 AP .
+Figure
+5 shows performance separated into high and low
+occlusion cases. Again, the Gnet performs slightly better
+than Tnet. Performance in the occlusion range [0, 0.5) looks
+very similar to the performance overall. For the highly oc-
+cluded cases, the performance improvement of Gnet com-
+pared to the best GreedyNMS is bigger with 7.3 AP . This
+shows that the improvement for both Gnet and Tnet is
+mainly due to improvements on highly occluded cases as
+argued in section
+3.
+5.2. COCO: Person detection
+Dataset. The COCO datasets consists of 80k training and
+40k evaluation images. It contains 80 different categories
+in unconstrained environments. We ﬁrst mimic the PETS
+setup and evaluate for persons only, and report multi-class
+results in section
+5.3.
+Since annotations on the COCO test set are not available
+and we want to explicitly show statistics per occlusion level,
+we train our network on the full training set and evaluate us-
+ing two different subsets of the validation set. One subset is
+used to explore architectural choices for our network (mini-
+val, 5k images
+1) and the most promising model is evaluated
+on the rest of the validation set (minitest, 35k images).
+We use the Python implementation of Faster R-CNN
+[21]2 for generating detections. We train a model only on
+the training set, so performance is slightly different than the
+downloadable model, which has been trained on the training
+and minitest sets. We run the detector with default param-
+eters, but lower the detection score threshold and use de-
+tection before the typical non-maximum suppression step.
+There is no further preprocessing.
+Training. We train the Gnet with ADAM for 2 · 106 itera-
+tions, starting with a learning rate of 10−4 and decreasing
+1We use the same as used by Ross Girshick https://github.
+com/rbgirshick/py-faster-rcnn/tree/master/data .
+2https://github.com/rbgirshick/py-faster-rcnn
+100 101
+depth
+34
+35
+36
+37
+38AP @0.50:0.95
+Occlusion range [0.0, 0.5)
+GreedyNMS > 0.5, 0.4
+Gnet
+100 101
+depth
+11
+12
+13
+14
+15
+Occlusion range [0.5, 1.0)
+Figure 6: AP 0.95
+0.5 versus number of blocks ( 2, 4, 8, 16) for
+low and high occlusion respectively on COCO persons
+minival. Average over six runs, error bars show the stan-
+dard deviation.
+All Occlusion
+[0, 0.5)
+Occlusion
+[0.5, 1]
+Method AP0.5 AP0.95
+0.5 AP0.5 AP0.95
+0.5 AP0.5 AP0.95
+0.5
+val
+GreedyNMS>0.5 65.6 35.6 65.2 35.2 35.3 12.1
+Gnet, 8 blocks 67.3 36.9 66.9 36.7 36.7 13.1
+test
+GreedyNMS>0.5 65.0 35.5 61.8 33.8 30.3 11.0
+Gnet, 8 blocks 66.6 36.7 66.8 36.1 33.9 12.4
+Table 1: Comparison between Gnet and GreedyNMS on
+COCO persons minival and minitest. Results for the full
+set and separated into occlusion levels.
+it to 10−5 after 106 iterations. The detection feature di-
+mension is 128, the number of blocks is speciﬁed for each
+experiment.
+Speed. On average we have 67.3 person detection per im-
+age, which the 16 block Gnet can process in 14ms/image on
+a K40m GPU and unoptimised Tensorﬂow code.
+Baselines. We use GreedyNMS as a baseline. To show it
+in its best light we tune the optimal GreedyNMS overlap
+threshold on the test set of each experiment.
+Analysis. Figure
+6 shows AP0.95
+0.5 versus number of blocks
+in Gnet. The optimal GreedyNMS thresholds are 0.5 and
+0.4 for low and high occlusion respectively. Already with
+one block our network performs on par with GreedyNMS,
+with two blocks onwards we see a ∼1 AP point gain. As in
+PETS we see gains both for low and high occlusions. With
+deeper architectures the variance between models for the
+high occlusion case seems to be decreasing, albeit we ex-
+pect to eventually suffer from over-ﬁtting if the architecture
+has too many free parameters.
+We conclude that our architecture is well suited to re-
+place GreedyNMS and is not particularly sensitive to the
+number of blocks used. Table
+1 shows detailed results for
+Gnet with 8 blocks. The results from the validation set
+(minival) transfer well to the test case (minitest), provid-
+4513
+
+
+=== PDF PAGE 8 ===
+0 10 20 30 40 50 60 70 80
+3
+2
+1
+0
+1
+2
+3
+4
+AP Gnet - AP GreedyNMS
+Sorted class index
+Figure 7: AP 0.95
+0.5 improvement of Gnet over the best Gree-
+dyNMS threshold for each of the (sorted) 80 COCO classes.
+Gnet improves on ∼ 70 out of 80 categories. On aver-
+age Gnet provides a ∼1 mAP0.95
+0.5 point gain over per-class
+tuned GreedyNMS (23.5 → 24.3% mAP0.95
+0.5 ).
+ing a small but consistent improvement over a well tuned
+GreedyNMS. Qualitative results are included in the supple-
+mentary material.
+We consider these encouraging results, conﬁrming that
+indeed the Gnet is capable of properly performing NMS
+without access to image features or GreedyNMS decisions.
+5.3. COCO multi­class
+As discussed in section
+4, Gnet is directly applicable to
+the multi-class setup. We use the exact same parameters and
+architecture selected for the persons case. The only change
+is the replacement of the score scalar by a per-class score
+vector in the input and output (see §
+4.2). We train one multi-
+class Gnet model for all 80 COCO categories.
+Figure 7 shows the mAP 0.95
+0.5 improvement of Gnet over
+a per-class tuned GreedyNMS. We obtain improved results
+on the bulk of the object classes, and no catastrophic fail-
+ure is observed, showing that Gnet is well suited to handle
+all kind of object categories. Averaged across classes Gnet
+obtains 24.3% mAP0.95
+0.5 , compared to 23.5% for a test-set
+tuned GreedyNMS. Overall we argue Gnet is a suitable re-
+placement for GreedyNMS.
+Supplementary material includes the detailed per-class
+table.
+6. Conclusion
+In this work we have opened the door for training de-
+tectors that no longer need a non-maximum suppression
+(NMS) post-processing step. We have argued that NMS
+is usually needed as post-processing because detectors are
+commonly trained to have robust responses and process
+neighbouring detections independently. We have identiﬁed
+two key ingredients missing in detectors that are necessary
+to build an NMS network: (1) a loss that penalises double
+detections and (2) joint processing of detections.
+We have introduced the Gnet, the ﬁrst “pure” NMS net-
+work that is fully capable of performing the NMS task with-
+out having access to image content nor help from another
+algorithm. Being a neural network, it lends itself to being
+incorporated into detectors and having access to image fea-
+tures in order to build detectors that can be trained truly
+end-to-end. These end-to-end detectors will not require any
+post-processing.
+The experimental results indicate that, with enough
+training data, the proposed Gnet is a suitable replacement
+for GreedyNMS both for single- or multi-class setups. The
+network surpasses GreedyNMS in particular for occluded
+cases and provides improved localization.
+In its current form the Gnet requires large amounts of
+training data and it would beneﬁt from future work on data
+augmentation or better initialisation by pre-training on syn-
+thetic data. Incorporating image features could have a big
+impact, as they have the potential of informing the network
+about the number of objects in the image.
+We believe the ideas and results discussed in this work
+point to a future where the distinction between detector and
+NMS will disappear.
+References
+[1] O. Barinova, V . Lempitsky, and P . Kholi. On detection
+of multiple object instances using hough transforms.
+PAMI, 2012.
+2
+[2] L. Bourdev, S. Maji, T. Brox, and J. Malik. Detecting
+people using mutually consistent poselet activations.
+In ECCV, 2010.
+2
+[3] G. Burel and D. Carel. Detection and localization of
+faces on digital images. Pattern Recognition Letters ,
+1994. 3
+[4] G. Chen, Y . Ding, J. Xiao, and T. X. Han. Detection
+evolution with multi-order contextual co-occurrence.
+In CVPR, 2013.
+2
+[5] J. Dai, K. He, and J. Sun. Convolutional feature mask-
+ing for joint object and stuff segmentation. In CVPR,
+2015. 2
+[6] N. Dalal and B. Triggs. Histograms of oriented gradi-
+ents for human detection. In CVPR, 2005. 2
+[7] P . Felzenszwalb, R. Girshick, D. McAllester, and
+D. Ramanan. Object detection with discriminatively
+trained part-based models. PAMI, 2010.
+1, 2
+[8] J. Ferryman and A. Ellis. Pets2010: Dataset and chal-
+lenge. In A VSS, 2010. 6
+[9] R. Girshick. Fast R-CNN. In ICCV, 2015. 1, 2
+[10] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich
+feature hierarchies for accurate object detection and
+semantic segmentation. In CVPR, 2014.
+1, 2
+4514
+
+
+=== PDF PAGE 9 ===
+[11] K. He, X. Zhang, S. Ren, and J. Sun. Identity map-
+pings in deep residual networks. In ECCV, 2016. 5
+[12] P . Henderson and V . Ferrari. End-to-end training of
+object class detectors for mean average precision. In
+ACCV, 2016.
+2, 4
+[13] J. Hosang, R. Benenson, and B. Schiele. A convnet
+for non-maximum suppression. In GCPR, 2016. 2, 3,
+4, 6
+[14] P . Kontschieder, S. Rota Bulò, M. Donoser, M. Pelillo,
+and H. Bischof. Evolutionary hough games for coher-
+ent object detection. CVIU, 2012.
+2
+[15] B. Leibe, A. Leonardis, and B. Schiele. Robust object
+detection with interleaved categorization and segmen-
+tation. IJCV, 2008.
+2
+[16] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, and
+S. Reed. Ssd: Single shot multibox detector. In ECCV,
+2016. 1
+[17] D. Mrowca, M. Rohrbach, J. Hoffman, R. Hu,
+K. Saenko, and T. Darrell. Spatial semantic regulari-
+sation for large scale object detection. In ICCV, 2015.
+2
+[18] M. Niepert, M. Ahmed, and K. Kutzkov. Learning
+convolutional neural networks for graphs. In ICML,
+2016. 2
+[19] W. Ouyang and X. Wang. Single-pedestrian detection
+aided by multi-pedestrian detection. In CVPR, 2013.
+2
+[20] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi.
+Y ou only look once: Uniﬁed, real-time object detec-
+tion. In CVPR, 2016.
+1
+[21] S. Ren, K. He, R. Girshick, and J. Sun. Faster R-
+CNN: Towards real-time object detection with region
+proposal networks. In NIPS, 2015.
+1, 2, 7
+[22] M. Rodriguez, I. Laptev, J. Sivic, and J.-Y . Audib-
+ert. Density-aware person detection and tracking in
+crowds. In ICCV, 2011.
+2
+[23] R. Rothe, M. Guillaumin, and L. V an Gool. Non-
+maximum suppression for object detection by passing
+messages between windows. In ACCV, 2014.
+2
+[24] M. A. Sadeghi and A. Farhadi. Recognition using vi-
+sual phrases. In CVPR, 2011. 2
+[25] P . Sermanet, D. Eigen, X. Zhang, M. Mathieu, R. Fer-
+gus, and Y . LeCun. Overfeat: Integrated recogni-
+tion, localization and detection using convolutional
+networks. In ICLR, 2014.
+2
+[26] R. Stewart and M. Andriluka. End-to-end people de-
+tection in crowded scenes. In CVPR, 2016. 2, 4
+[27] S. Tang, B. Andres, M. Andriluka, and B. Schiele.
+Subgraph decomposition for multi-target tracking. In
+CVPR, 2015.
+2
+[28] S. Tang, M. Andriluka, A. Milan, K. Schindler,
+S. Roth, and B. Schiele. Learning people detectors
+for tracking in crowded scenes. In ICCV, 2013.
+6
+[29] S. Tang, M. Andriluka, and B. Schiele. Detection and
+tracking of occluded people. In BMVC, 2012. 2
+[30] Z. Tu and X. Bai. Auto-context and its application to
+high-level vision tasks and 3d brain image segmenta-
+tion. PAMI, 2010.
+2
+[31] A. V ezhnevets and V . Ferrari. Object localization in
+imagenet by looking out of the window. In BMVC,
+2015. 2
+[32] P . Viola and M. Jones. Robust real-time face detection.
+In IJCV, 2004. 2
+[33] L. Wan, D. Eigen, and R. Fergus. End-to-end inte-
+gration of a convolutional network, deformable parts
+model and non-maximum suppression. In CVPR,
+2015.
+2
+[34] P . Wohlhart, M. Donoser, P . M. Roth, and H. Bischof.
+Detecting partially occluded objects with an implicit
+shape model random ﬁeld. In ACCV, 2012.
+2
+[35] C. Wojek, G. Dorkó, A. Schulz, and B. Schiele.
+Sliding-windows for rapid object class localization: A
+parallel technique. In DAGM, 2008.
+2
+[36] J. Y an, Y . Y u, X. Zhu, Z. Lei, and S. Z. Li. Object
+detection by labeling superpixels. In CVPR, 2015. 2
+[37] J. Y ao, S. Fidler, and R. Urtasun. Describing the scene
+as a whole: Joint object detection, scene classiﬁcation
+and semantic segmentation. In CVPR, 2012.
+2
+4515

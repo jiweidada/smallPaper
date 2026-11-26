@@ -1,0 +1,30 @@
+Material Passport
+Origin: root primary-source reading notes, academic-research-suite
+Date: 2026-10-21
+Type: 原文阅读笔记，不是已下载原论文；read_scope逐篇标注；不声称作者代码复现
+
+1. Rank & Sort Loss, ICCV2021, arxiv2107.11669v1
+https://arxiv.org/html/2107.11669v1
+实际读取§3.1–3.2与§4式6–12。用既定连续质量标签y_i分正负；先排序正负，再按质量排列正例。式7–8分别当前/目标rank+sort误差；式9–10把误差分配到高分负例或高分低质量正例；式12允许正例同时接收上推、下压信号。已覆盖质量排序、pairwise误差分配和提升/抑制两方向。
+当前指定S-j+i后重新匹配的边际并非这些式中既定y_i；这是一项变量差别，尚非有用增量。强简单对照应保留固定匹配质量标签＋同边界loss，不能只比每候选maxGT-IoU。
+
+2. Rank-DETR, arxiv2310.08854v2
+https://arxiv.org/html/2310.08854v2
+实际读取§3.1–3.4式1–8。架构包含rank-aware分类logit偏置、跨层query排序并融合rank表示。式6质量目标t=(GIoU+1)/2；式8高阶匹配效用p[c]*IoU^alpha，原文采用较大alpha并从训练中段开始。
+已有DETR评分/几何一致性、查询排序和全局匹配竞争，不应声称一般集合监督首次。当前剩余差别仅是部署top300之后指定退出者与进入者的边际，需胜过native MAL、fixed matching及分别增删对照；不能以排序术语否定，也不能靠换术语立创新。
+
+3. Learning Non-Maximum Suppression, CVPR2017
+https://openaccess.thecvf.com/content_cvpr_2017/papers/Hosang_Learning_Non-Maximum_Suppression_CVPR_2017_paper.pdf
+实际读取§4.1及§4.2起始。对整组检测联合重评分，按当前分数贪心匹配生成label：每GT仅高分获匹配者正、重复者负，训练二元加权logistic。标签依赖当前预测与其他框。已覆盖动态匹配标签与duplicate-aware联合重评分。当前预算交换的确定动作不同于该标签生成，但不可主张“首次考虑冗余/相互影响”。
+
+4. NMS-Loss, ICMR2021, arxiv2106.02426v1
+https://arxiv.org/html/2106.02426v1
+实际读取§2.1–2.3式2–3。pull修正同GT未抑制框，push修正不同GT误抑制；用框间IoU和停止梯度的分数权重训练几何。不是当前冻结框的score-only top300交换，不能只因都修重复而判完全相同；但按实际后处理错误造监督的大原则已存在。
+
+5. End-to-end training of object class detectors for mean average precision, Henderson/Ferrari, arxiv1607.03476v2 (2017修订)
+https://arxiv.org/pdf/1607.03476
+实际读取§4.1–4.5，尤其§4.3/4.4，另读§5讨论部分。单score保持其他score固定，寻找最近能改变AP的正/负方向步，计算实际ΔAP构造SDE；MEE取上下分段线性包络平均斜率。§4.4同时处理NMS对误抑制框及其抑制者的依赖，采用两项transitivity近似。不是只给固定正负标签的排序。
+因此把本候选改成“按确定score交换的真实ΔAP加权”后，不能声称一般评测后果驱动监督首次。仍可具体比较：单score最近AP跳变/NMS近似，与跨类top300预算下两个score共同交换并重算按类匹配；这种具体差别有无独立价值，需数据和强简单对照。本文不判定已有工作未覆盖全部预算训练文献。
+
+原文与缓存检查的关系
+H=平均十阈值最大匹配数不是AP；query容量1更非COCO多类独立候选评价。即便标签和fixed matching不同，也可能被分别增删或原MAL同向信号复制；自由logit交换可实现不代表共享头可学。先做158/159确定score对调的零前向表，再冻结真实共享头检查，避免把数学反例或专家共识写成主线已成立。

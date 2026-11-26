@@ -1,0 +1,39 @@
+4. Lecture notes on matroid optimization March 20th, 2009 5
+Exercise 4-7. A family F of sets is said to be laminar if, for any two sets A,B ∈ F , we
+have that either (i)A ⊆B, or (ii)B ⊆A or (iii)A ∩B = ∅. Suppose that we have a laminar
+family F of subsets of E and an integer k(A) for every set A ∈ F . Show that (E, I) deﬁnes
+a matroid (a laminar matroid) where:
+I = {X ⊆E : |X ∩A| ≤ k(A) for all A ∈ F }.
+4.2 Matroid Optimization
+Given a matroid M = (E, I) and a cost function c : E → R, we are interested in ﬁnding
+an independent set S ofM of maximum total cost c(S) = ∑
+e∈Sc(e). This is a fundamental
+problem.
+If all c(e) ≥ 0, the problem is equivalent to ﬁnding a maximum cost base in the matroid.
+Ifc(e)< 0 for some element e then, because of (I1),e will not be contained in any optimum
+solution, and thus we could eliminate such an element from the ground set. In the special case
+of a graphic matroid M(G) deﬁned on a connected graph G, the problem is thus equivalent
+to the maximum spanning tree problem which can be solved by a simple greedy algorithm.
+This is actually the case for any matroid and this is the topic of this section.
+The greedy algorithm we describe actually returns, for everyk, a setSk which maximizes
+c(S) over all independent sets of size k. The overall optimum can thus simply be obtained
+by outputting the best of these. The greedy algorithm is the following:
+⊿ Sort the elements (and renumber them) such that c(e1) ≥c(e2) ≥ · · · ≥ c(e|M|)
+⊿ S0 = ∅, k=0
+⊿ Forj = 1 to |E|
+⊿ if Sk +ej ∈ I then
+⊿ k ←k + 1
+⊿ Sk ←Sk−1 +ej
+⊿ sk ←ej
+⊿ Output S1, S2, · · ·,S k
+Theorem 4.2 For any matroid M = (E, I), the greedy algorithm above ﬁnds, for every k,
+an independent set Sk of maximum cost among all independent sets of size k.
+Proof: Suppose not. Let Sk = {s1,s 2, · · ·,s k} with c(s1) ≥ c(s2) ≥ · · · ≥ c(sk), and
+suppose Tk has greater cost (c(Tk)>c (Sk)) where Tk = {t1,t 2, · · ·,t k} with c(t1) ≥c(t2) ≥
+· · · ≥ c(tk). Let p be the ﬁrst index such that c(tp) > c(sp). Let A = {t1,t 2, · · ·,t p} and
+B = {s1,s 2, · · ·,s p−1}. Since |A| > |B|, there exists ti /∈ B such that B +ti ∈ I . Since
+c(ti) ≥ c(tp) > c(sp), ti should have been selected when it was considered. To be more
+precise and detailed, when ti was considered, the greedy algorithm checked whether ti could
+be added to the current set at the time, say S. But since S ⊆B, adding ti toS should have
+resulted in an independent set (by (I1)) since its addition toB results in an independent set.
+This gives the contradiction and completes the proof. △

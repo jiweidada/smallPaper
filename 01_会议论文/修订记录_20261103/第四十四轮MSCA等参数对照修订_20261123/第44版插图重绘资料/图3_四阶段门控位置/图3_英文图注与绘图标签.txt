@@ -1,0 +1,18 @@
+﻿图 3　四个阶段的门控位置
+
+这幅图要表达什么
+说明四个阶段共有五个门控，以及各门控在 HG 块内部与特征拼接、投影的先后关系。
+
+可复制的英文绘图标签
+• Stage 1 · ESE · 1 HG block · 64 channels · stride 4
+• Stage 2 · SimAM · 1 HG block · 256 channels · stride 8
+• Stage 3 · MSCA-Lite · 2 HG blocks · 512 channels · stride 16
+• Stage 4 · MSCA-Dilated · 1 HG block · 1024 channels · stride 32
+• Within each HG block: concatenate block input and layer outputs → full-width 1 × 1 ConvBNAct → stage-specific gate
+• Stage 3: HG block + MSCA-Lite → HG block + MSCA-Lite
+
+重绘时核对
+Stage 3 的两个 HG 块分别带一个 Lite。若展开第二块的残差，把来自该块输入的连线接到门控之后的加法节点。
+
+第 44 版英文原图注
+Fig. 3. Stage-specific gates in the modified B0 backbone. Each HG block aggregates concatenated features with a full-width 1 × 1 ConvBNAct followed by its gate.

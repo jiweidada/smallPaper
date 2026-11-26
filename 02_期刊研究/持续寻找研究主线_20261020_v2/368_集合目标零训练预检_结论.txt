@@ -1,0 +1,24 @@
+368｜集合期望目标零训练预检：未通过，当前版本停止
+日期：2026-10-26
+
+简单目标：在已知原图取整机制下，集合期望质量目标能否超过点目标和量化格中心修正。
+先冻结再计算；读取两个 seed 各548张图的现有缓存。原tiny共4952个，按事前边界条件保留415张图、4896个GT；两seed同一集合。
+主目标 E[IoU^1.5]，floor/nearest分别报告；最大集合IoU仅描述，不替换失败的主候选。
+
+冻结门槛：两个seed、两规则下，相对点目标和中心目标，MSE都下降至少5%，Spearman都增加至少0.001；图像配对bootstrap 1000次的95%改善区间下界都>0。
+
+相对中心目标的实际结果（负MSE改善表示点估计更差）：
+seed1 floor：MSE改善 -2.2106%，Spearman +0.00013372，未通过。
+seed2 floor：MSE改善 -0.7122%，Spearman +0.00016023，未通过。
+seed1 nearest：MSE改善 +3.8840%，Spearman +0.00027165，未通过。
+seed2 nearest：MSE改善 -0.4865%，Spearman +0.00020553，未通过。
+
+数值精度及样本门槛通过。期望目标相对未经中心修正的floor点目标有较大改善，但中心去量化已经达到或超过其MSE表现。排序改善小且四组均不到冻结门槛。当前版本停止，不为追求通过而换主候选、样本或规则，不启动训练。
+这是对合成附加量化下当前质量目标的结论；不否定所有集合监督方法，不说明真实VisDrone噪声机制，也不代表AP变化。
+
+完整文件：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/annotation_quantization_precheck_20261026_v1/attempt02/368_零训练预检结果.txt
+原始数值：同目录 results.json、per_gt_targets.csv、targets_*.npz。
+协议：同目录 protocol.json、frozen_protocol.sha256。
+独立算术/哈希核对：父目录 verification.json；1097个原输入文件哈希未变，CSV重算指标与结果相符（容差1e-12）。未完整独立复跑实验或bootstrap。
+执行记录：attempt01的输入断言中断已保留；attempt02仅修正未使用无效query的校验，protocol字节相同。7个负高度query未被任何参考配对选中，实际配对全部正面积；未删除query或更改坐标。
+本次仅CPU几何计算，模型加载0、前向0、训练0。

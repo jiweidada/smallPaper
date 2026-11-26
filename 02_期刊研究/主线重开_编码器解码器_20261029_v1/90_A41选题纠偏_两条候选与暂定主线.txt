@@ -1,0 +1,136 @@
+本轮判断：有，前面的工作确实存在选题核查过深、退出过慢、把试验准入和创新成立混在一起的问题。
+本报告将选题阶段收敛到一条建议投入小验证的暂定主线；不把它写成已经证实的算法贡献。
+
+1. 选题标准与直接推荐
+
+采用用户最新提出的三个准入条件：有可信的具体问题；有区别于最近工作的改动理由；能用可承担的实验判别。准入不要求证明所有已有方法无效，也不要求先有完整的因果机制证明。
+后续小验证回答“这个方案是否值得扩大投入”；充分训练、重复与最近方法比较才回答“能否形成论文贡献”。预训练权重下载、模型装载、源码整理不再单独算作主线进展。
+
+推荐暂定主线 A41-A：面向无人机小目标的紧凑 ViT 检测器，复用早期空间细节的定位专用解码。
+具体问题：在查询数、输入尺寸和训练预算一致时，只让最终回归支路读取已有 stride-4 stem 特征的局部网格，能否以较小额外成本，比把同一细节残差共享给分类和定位更有效地提升小目标高 IoU 定位？
+数据集：VisDrone DET 官方训练/验证划分。初始算法宿主：ECDet-S；现有 YOLO26s 结果可作后续外部参照，不把它混入本次成对消融。
+研究内容落在紧凑视觉编码器与检测解码器的接口，不再围绕压缩退化。不是重新预训练基础模型，也不把更换骨干名称当作创新。
+
+结论等级：这是“有文献依据、值得受控小验证的研究方案”。目前没有该方案训练结果，没有 AP 提升证据，尚不能断言能投稿或优于最近方法。
+
+2. 检索策略和记录
+
+类型：定向前期调研，非系统综述。检索日：2026-10-31。来源优先级：作者论文/会议原文、arXiv 的明确版本、作者关联源码。检索围绕候选的具体重合风险，不再以“找不到任何相似工作”为停止条件。
+本轮使用的检索词共 10 条：
+Q1 DESTR object detection split transformer CVPR 2022 classification localization queries decoder
+Q2 BorderDet Dense Object Detection BorderAlign localization classification ECCV 2020
+Q3 compact vision transformer detection shallow stem localization only detail branch
+Q4 "DETRDistill" site:openaccess.thecvf.com
+Q5 "TSC-DETR" site:ieeexplore.ieee.org
+Q6 "DESTR: Object Detection With Split Transformer" site:openaccess.thecvf.com
+Q7 "TSC-DETR" "3699672"
+Q8 "ViT" "stem" "localization" "decoupled" detection
+Q9 "compact" "transformer" "localization-only" detection
+Q10 "query" "shallow" "self-distillation" "object detection"
+同时打开 SD-DETR、EdgeCrafter、DEIMv2、RT-DETRv4 的原文，并重查已固定版本的 ECDet 源码。
+保留依据：明确涉及紧凑 ViT 的空间细节、多尺度适配、分类/定位分支或查询引导特征蒸馏。泛泛换模块、主题不同和无法核实的方法描述不作为创新依据。
+工具返回的部分结果见 A41 目录 browser_source_receipts.json；Q1—Q3 的完整返回未另存原始 JSON，本表是依据会话记录转录。不能据此给出系统综述的查全率或去重文献总量。
+DESTR、SD-DETR、DETRDistill 的 PDF 已归档到统一文献目录；下载地址、SHA256、正文提取结果见 paper_archive_receipts.json。PDF 成功下载不等于读完全篇。
+
+3. 核心文献矩阵：原文做了什么、阅读范围、对选题的限制
+
+[R1] EdgeCrafter / ECDet，arXiv:2603.18739v5（2026-10-22）。
+原文方法：四次 stride-2 的卷积 stem；最终两层 ViT 特征求均值，在 stride-16 表征上通过插值形成 8/16/32 三层，再经 hybrid encoder 和检测 decoder。
+原文结果：卷积 stem 改动在其 COCO 消融中改善小目标指标；这是该作者模型和配方下的证据，不能直接推出 VisDrone 的定位失效。
+阅读范围：沿用 A32 对 3.1—3.3、部分实验及附录的阅读，本轮复核相关原文段落与固定源码；非全篇实验复现。
+限制：不能把“加入卷积 stem”“构造多尺度特征”作为本候选新贡献。其后续 FPN 含非线性处理，不能说全部 decoder 输入仍只是线性插值，或说模型完全没有细节。
+
+[R2] Real-Time Object Detection Meets DINOv3 / DEIMv2，arXiv:2509.20787v5（2026-10-27）。
+原文方法：STA 利用图像 CNN 的多尺度细节和选定 ViT 层的语义特征进行适配，再进入检测网络。
+原文结果：S 型 COCO APs 为 31.4，对照 DEIM-S 为 30.4；同期中/大目标收益更大。作者讨论仍有小目标细节挑战。该表不是本项目的 VisDrone 结果。
+阅读范围：沿用 A32 方法及选定表格与源码阅读；本轮复核相关讨论。未跑作者训练。
+限制：普通浅层 CNN + ViT 多尺度融合已经做过，不能改名后当创新。
+
+[R3] DESTR: Object Detection With Split Transformer，CVPR 2022，9377—9386。
+原文方法：分类和回归使用不同的 cross-attention 分支；mini-detector 初始化对应内容表征，并引入 pair self-attention。
+阅读范围：会议摘要、归档原文 Method 3.1/3.2 的开头及相邻描述。未读完整实验和全部公式，未核查其完整源码。
+限制：“分类和定位需要不同特征”以及“拆分 cross-attention”已有先例，本项目不主张首次解耦。
+
+[R4] Decoupled DETR: Spatially Disentangling Localization and Classification for Improved End-to-End Object Detection / SD-DETR，arXiv:2310.15955v1（2023-10-24）。
+原文方法：共享 self-attention，分别进行分类/定位 cross-attention 和 FFN；利用 RoIAlign 与判别点生成任务相关 query，并提出任务对齐损失。
+阅读范围：HTML Method 3.1、3.2.1、3.2.2 及 3.2.3 开头；PDF 已归档。未读全部实验，不宣称已全面核实其成本优势。
+限制：共享部分解码器、分开读取空间位置和 RoIAlign 均不是空白。
+
+[R5] RT-DETRv4: Painlessly Furthering Real-Time Object Detection with Vision Foundation Models，arXiv:2510.25257v2。
+原文方法：用冻结视觉基础模型，经投影与空间对齐向检测器特征层注入语义；原文包含逐空间位置的余弦对齐目标。
+阅读范围：沿用 A32 相关方法阅读；本轮复核 DSI 的空间/通道对齐与语义注入段落。不是全篇复现。
+限制：一般性的“给浅层/检测特征补语义”或“蒸馏不增加推理支路”不构成充分差别。
+
+[R6] DETRDistill: A Universal Knowledge Distillation Framework for DETR-families，ICCV 2023，6898—6908。
+原文方法：Hungarian-matching logits distillation、target-aware feature distillation、query-prior assignment distillation；特征蒸馏使用教师 query 与特征的相关性构造区域掩码，并结合预测质量加权。
+阅读范围：会议摘要与归档原文 4.2 部分正文；未读全部方法、公式和实验。
+限制：query 引导的区域蒸馏已有明确先例，不能只把它改成无人机场景就宣称新。
+
+TSC-DETR：本轮只保留为需要进一步核查的近邻线索；未取得可据以核实完整方法的作者原文。本报告不把二手摘要当作已读方法，不用它证明研究空白，也不把它列为已核验参考文献。
+
+4. 与最近工作的逐项对比和有依据的研究空间
+
+比较项              ECDet / DEIMv2 已做                   DESTR / SD-DETR 已做             A41-A 拟验证的差别
+空间细节来源        ECDet 卷积 stem；STA 图像细节适配     主要从编码图像特征读取           复用 ECDet 已计算的 stride-4 stem 中间激活
+进入检测器的位置    金字塔/encoder 的共享特征             各解码层的任务相关分支           仅最终回归头前增加局部细节残差
+分类/定位关系       共享主体表征及多尺度融合               已有不同 cross-attention/FFN    原分类 query 特征路径保留，检验细节残差只服务回归的必要性
+新增计算            既有多尺度适配成本                    已有任务分支成本                小范围 RoIAlign + 小 MLP，不复制 ViT 或整个 decoder
+需要比较的关键问题  浅层细节是否已经足够                  解耦本身并不新                  相同细节、相同参数下，定位专用读出是否优于共享读出
+
+文献可以支撑的有限研究空间：对“由较粗 ViT token 构建多尺度特征的紧凑检测器”，比较空间细节是否需要普遍注入共享语义网络，还是可由定位支路按需读取，以获得更好的小目标定位/成本折中。
+这不是“文献中无人做过”的断言。初筛没有发现上述所列最近方法与拟定实现完全相同，不能据此推导全领域不存在同构设计。这个不确定性需要披露，但不阻止一次规模有限、对照明确的试验。
+
+源码直接确认的事实：固定 ECDet 提交 d8752b75c9beaecfcdd0e5cd207bae3b6946ae23 中，ecvit.py 151—172 定义分阶段 stem，475—499 从末层 ViT 特征形成多尺度输出；decoder.py 375—382 使用同一 output 计算回归与分类，随后 LQE 可通过回归分布影响最终分数。
+重要边界：即使保留分类 Linear 的输入，也不能说最终分类分数和分类监督与定位完全独立；原生 LQE 和训练损失的耦合必须保留并报告。
+
+5. 两条候选、可行性与主要风险
+
+A41-A（推荐）：早期空间细节的定位专用解码。
+推断：已有紧凑 ViT 的后期语义特征和浅层空间网格可能更适合承担不同任务。小目标高 IoU 定位可能从早期网格获益；是否获益尚未验证。
+单一改动：保留 stride-4 stem 输出；对进入最后一个 decoder 层时已有的预测参考框做 3×3 RoIAlign，展平后用小 MLP 形成残差，仅加到最终回归头输入。采样坐标使用 detach 的预测框，推理不使用 GT，也不新增一次完整解码。保留格点排列，不再只求一个区域均值。初始残差末层为零。
+最小版本不再叠加边缘损失、专家路由、动态门控、额外 query 或基础模型教师。
+可行性判断：复用现有激活，不额外运行一个骨干，工程规模适合单卡小验证。24GB 的实际训练容量和耗时尚未测得；权重文件下载成功不能代替这项验证。
+主要风险：相对已有解耦检测/局部回归方法的增量可能偏小；浅层噪声可能无益；共享融合可能同样好；新增训练路径可能只改善分数而未改善几何；短测可能尚未适应新分支。
+去留依据：直接比较“原版、共享相同细节残差、只供回归”三组，不靠另做一套复杂探针先证明全部机制。
+
+A41-B（备选，优先级较低）：用实例匹配的最终 query 作为训练期教师，约束早期空间特征的实例判别。
+推断与假设：最终 query 可能含有比局部细节更强的实例语义，可将 stop-gradient query 表征作为相应前景区域的监督；推理时移除训练投影器。
+与 R5/R6 的拟定区别：自模型的实例 query 直接作为局部监督目标，而非额外基础模型的逐位置语义或教师特征图的 query 掩码。这个区别尚不足以直接认定创新成立。
+风险：与 query-guided distillation、自蒸馏以及尚未读全的 TSC-DETR 高度邻近；教师错误可能反向污染细节；蒸馏损害定位。故不与 A 同时铺开训练。
+最小判别：若后续需要启用，只比较原版、普通区域特征蒸馏、实例 query 监督，固定同一教师与预算。若普通蒸馏即可解释收益，则不保留实例 query 监督的创新主张。
+
+历史实验的使用边界：A39 在 Dome-S CNN 宿主上得到细尺度区域均值判别 AUC 0.6961、最终 query 0.7417，差值置信区间跨零；没有支持原候选 R 的细尺度优势。这不能证明紧凑 ViT 丢失定位信息，也不能证明 A41-A/B 会有效。A41-A 改的是任务与读出设计，不是降低 A39 的门槛后复活原候选 R。
+
+6. A41-A 最小验证方案（设计草案，未实施）
+
+共同条件：VisDrone DET 官方划分；现有忽略区和类别映射明确记录；使用同一个 ECDet-S 官方 COCO 检查点，并保存相同的十类分类器初始化。公开检测类别为 10 类，ignored/others 不误当作两个检测类别。训练输入固定 640，300 queries，原始 decoder 层数及损失不变。
+初筛指标为明确实现的 COCO-style 小目标 AP75、APs 和总 AP，不把它们直接称作 VisDrone 官方排行榜分数；后续论文阶段另补一致的官方评估口径。
+
+三组：
+B 原版 ECDet-S。
+S 使用同一个 stride-4、同样 3×3 读出和 MLP 残差，同时提供给最终分类/回归输入。
+L 使用与 S 完全同形、同参数量的支路，但残差只给最终回归输入。
+S/L 不复制 decoder；原始分类 query 主体继续存在。保留原生 LQE，不在本轮追加分数校准搜索。
+接口验收仅需确认零残差时输出还原、实际梯度能到达支路、参数数量和分类路径符合设计；不另建大规模诊断工程。
+
+预算草案：三个组顺序执行；seed 20261031；每组最多 12 轮，不分段续跑绕过上限。先统一 microbatch=2、梯度累积 4（有效 batch=8），保留可兼容的作者数值设置。第一个组测量实际显存和 step 时间；若峰值无法控制在约 22GiB 内，或三组投影耗时明显超出数天预算，则停止该实施方案并报告，不把“单卡可行”写成既成事实。非有限 loss/梯度直接停止排查，不接续旧 A22 或旧 DEIM 实验。
+比较固定第 12 轮同类 checkpoint；不挑每组最好的不同轮数。若完整训练规则需调整，必须在读取新的比较结果前一次定稿，并同步所有组。
+
+建议的实用判据（草案，不是已执行的预注册）：L 相对 B 的小目标 AP75 至少 +0.5 个百分点，并相对 S 至少 +0.3 个百分点；同时检查总 AP 无明显下降、同机同精度延时增幅约不超过 10%。阈值是资源投入判据，不是统计显著性标准。
+若 L 只优于 B、没有优于 S，则说明细节可能有用，不能支持“定位专用读出”这个核心主张。若三组差异不足，则停止 A41-A，不以连续扫特征层、框大小、损失权重来挽救同一候选。短测失败只意味着当前预算下不值得优先投入，不证明任何类似方法永远无效。
+只有初筛达到实用水平后，才进入重复种子、充分训练、最近方法的可比实现和额外数据验证；这些属于下一阶段的论文贡献证据，不再作为本次选题准入条件。
+
+本轮实际执行：文献与代码静态核查、报告及状态更新；无模型装载、无新前向、无训练、无优化器更新。训练参数均为草案，不能当成已跑实验记录。
+
+7. 可核验参考文献与链接
+
+R1 Liu et al. EdgeCrafter: Compact ViTs for Edge Dense Prediction via Task-Specialized Distillation. arXiv:2603.18739v5. https://arxiv.org/abs/2603.18739v5
+固定源码：https://github.com/Intellindust-AI-Lab/EdgeCrafter/tree/d8752b75c9beaecfcdd0e5cd207bae3b6946ae23
+R2 Real-Time Object Detection Meets DINOv3. arXiv:2509.20787v5. https://arxiv.org/abs/2509.20787v5
+R3 He, L., & Todorovic, S. DESTR: Object Detection With Split Transformer. CVPR 2022, 9377–9386. https://openaccess.thecvf.com/content/CVPR2022/html/He_DESTR_Object_Detection_With_Split_Transformer_CVPR_2022_paper.html
+R4 Zhang, M., Song, G., Liu, Y., & Li, H. Decoupled DETR: Spatially Disentangling Localization and Classification for Improved End-to-End Object Detection. arXiv:2310.15955v1. https://arxiv.org/abs/2310.15955v1
+R5 RT-DETRv4: Painlessly Furthering Real-Time Object Detection with Vision Foundation Models. arXiv:2510.25257v2. https://arxiv.org/abs/2510.25257v2
+R6 Chang, J., Wang, S., Xu, H.-M., Chen, Z., Yang, C., & Zhao, F. DETRDistill: A Universal Knowledge Distillation Framework for DETR-families. ICCV 2023, 6898–6908. https://openaccess.thecvf.com/content/ICCV2023/html/Chang_DETRDistill_A_Universal_Knowledge_Distillation_Framework_for_DETR-families_ICCV_2023_paper.html
+VisDrone 官方项目（数据与评估入口）：https://github.com/VisDrone/VisDrone-Dataset
+
+研究诚信说明：这是 AI 辅助的定向选题综合，单助手完成；没有将自动阅读标记为用户本人已读。原文方法、历史观测、推断、假设和建议已分开。未取得完整方法的线索不承担新颖性证据。没有证明全领域空白，没有新增算法效果数据，也没有投稿录用保证。

@@ -1,0 +1,198 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+UHR-DETR: Efficient End-to-End Small Object
+Detection for Ultra-High-Resolution Remote
+Sensing Imagery
+Jingfang Li, Haoran Zhu, Wen Yang,Senior Member, IEEE,Jinrui Zhang, Fang Xu,
+Haijian Zhang,Senior Member, IEEE,Gui-Song Xia,Senior Member, IEEE
+(a) Memory vs. Resolution
+(b) Accuracy vs. Resolution
+(c) Macroscopic Context
+vs. Microscopic Details
+(d) Our Proposed UHR-DETR
+Sliding Window
+UHR Imagery
+Detail: Solar panels
+Context: Power plant
+Method Memory Time Context Accuracy
+Sliding Window
+Downsampling
+Patch Selection
+Ours
+Global 
+Extraction 
+Local 
+Extraction 
+Small Object
+Decoder
+Fig. 1:The perception paradox in UHR imagery and our solution. (a)Standard object detectors suffer from severe Out-
+of-Memory (OOM) bottlenecks on 24GB GPUs, whereas our method efficiently scales up to ultra-high resolutions.(b)Naive
+downsampling leads to a catastrophic drop in small object accuracy.(c)Sliding window strategies inevitably fracture crucial
+macroscopic context.(d)To break these dilemmas, UHR-DETR introduces a global-local decoupled paradigm, achieving an
+optimal balance among memory efficiency, inference speed, context preservation, and detection accuracy.
+Abstract—Ultra-High-Resolution (UHR) imagery has become
+essential for modern remote sensing, offering unprecedented
+spatial coverage. However, detecting small objects in such vast
+scenes presents a critical dilemma: retaining the original reso-
+lution for small objects causes prohibitive memory bottlenecks.
+Conversely, conventional compromises like image downsampling
+or patch cropping either erase small objects or destroy context. To
+break this dilemma, we propose UHR-DETR, an efficient end-
+to-end transformer-based detector designed for UHR imagery.
+First, we introduce a Coverage-Maximizing Sparse Encoder
+that dynamically allocates finite computational resources to
+informative high-resolution regions, ensuring maximum object
+coverage with minimal spatial redundancy. Second, we design
+a Global-Local Decoupled Decoder. By integrating macroscopic
+scene awareness with microscopic object details, this module
+resolves semantic ambiguities and prevents scene fragmentation.
+Extensive experiments on the UHR imagery datasets (e.g., STAR
+and SODA-A) demonstrate the superiority of UHR-DETR under
+J. Li, H. Zhu, W. Yang, J. Zhang, and H. Zhang are with the School of
+Electronic Information, Wuhan University, Wuhan, 430072 China.E-mail:
+{lijingfang, zhuhaoran, yangwen, jrzhang, haijian.zhang}@whu.edu.cn
+F. Xu and G-S. Xia are with the School of Artificial Intelli-
+gence, Wuhan University, Wuhan, 430072, China.E-mail:{xufang,
+guisong.xia}@whu.edu.cn
+Jingfang Li and Haoran Zhu contributed equally to this work.
+Corresponding author: Wen Yang.
+strict hardware constraints (e.g., a single 24GB RTX 3090). It
+achieves a 2.8% mAP improvement while delivering a 10×in-
+ference speedup compared to standard sliding-window baselines
+on the STAR dataset. Our codes and models will be available at
+GitHub.
+Index Terms—Ultra-High-Resolution Remote Sensing Imagery,
+Small Object Detection, Detection Transformer
+I. INTRODUCTION
+D
+ETECTING small objects in remote sensing imagery
+has achieved remarkable progress [1], [2], serving as
+a cornerstone for macroscopic applications such as urban
+planning and maritime surveillance. However, driven by the
+rapid development of modern Earth observation systems and
+the growing demand for continuous wide-area monitoring,
+Ultra-High-Resolution (UHR) imagery is rapidly establishing
+itself as the new standard for macroscopic perception [3]. For
+instance, given a standard Ground Sample Distance (GSD) of
+0.5 m/pixel, DOTA benchmark [4] images (e.g.,1024×1024)
+cover a highly restricted physical area of merely 0.26 km 2.
+In stark contrast, a UHR image easily spans8192×8192pix-
+els [5], encompassing an extensive area of nearly 17 km2. This
+arXiv:2604.21435v1  [cs.CV]  23 Apr 2026
+
+---PAGE---
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+leap in spatial dimensions imposes unprecedented demands
+on object detectors. The challenge is further exacerbated by
+the fact that perceiving small objects requires preserving
+fine-grained, high-resolution features to handle their densely
+packed distributions and the extreme scale disparity against
+the vast UHR canvas. Consequently, maintaining these high-
+resolution representations across such expansive spatial extents
+inevitably triggers an astronomical surge in memory footprint
+and severe bottlenecks in inference speed.
+To alleviate the computational burden of UHR imagery,
+existing UHR object detection strategies generally fall into two
+categories. The first approach utilizes efficient non-uniform
+downsampling strategies to preserve a larger pixel ratio for
+foreground regions [6]–[8]. Alternatively, the second approach
+introduces selective filtering mechanisms into the standard
+sliding-window framework to skip empty backgrounds and
+improve detection efficiency [9], [10]. Yet, despite the progress
+made over naive downsampling and exhaustive cropping,
+detecting small objects in massive scenes still faces profound
+challenges. The first challenge is thesevere conflict between
+resolution and efficiency: precise detection of small objects
+(under32×32pixels [11]) inherently requires high-resolution
+features, making it incredibly difficult to efficiently extract
+such features from UHR images (over8192×8192pixels)
+without exhausting computational resources. As shown in
+Fig. 1(b), increasing the downsampling ratio leads to a catas-
+trophic 96% relative drop in small object accuracy. Secondly,
+the robust perception of small objects heavily relies on suffi-
+cient contextual support to alleviate semantic ambiguity. Since
+sliding window strategies inevitablyfracture the global image
+topology, effectively reconstructing and bridging this severed
+macroscopic context to aid microscopic detection remains
+a critical unsolved obstacle. As shown in Fig. 1(c), rigid
+sliding windows isolate microscopic details (e.g., solar panels)
+from their corresponding macroscopic context (e.g., the power
+plant), depriving the detector of crucial semantic cues.
+Motivated by these challenges, and building upon the
+advanced RT-DETR [12] architecture, we propose UHR-
+DETR, the first efficient, end-to-end transformer-based detec-
+tor designed for UHR imagery. As illustrated in Fig. 1(a),
+UHR-DETR bypasses the prohibitive memory and latency
+bottlenecks that paralyze standard models processing mas-
+sive inputs. Moreover, it resolves the two aforementioned
+dilemmas through two core innovations. First, to tackle the
+severe conflict between resolution and efficiency, we draw
+inspiration from the ’glimpse-and-fixate’ mechanism of the
+human visual system. Just as humans naturally leverage a
+macroscopic glimpse to direct high-resolution foveal attention
+exclusively toward critical localized regions, we introduce a
+Coverage-Maximizing Sparse Encoder to mimic this biological
+paradigm. Instead of exhaustively processing the entire image,
+this module leverages a lightweight backbone to extract global
+features and formulates spatial feature routing as a geometric
+set cover problem. Optimized via a novel Local Peak Mar-
+gin Loss and executed through an Iterative Soft-Subtraction
+Greedy Algorithm, it dynamically allocates finite computa-
+tional resources strictly to informative high-resolution regions.
+By doing so, the encoder effectively extracts the crucial
+regional features containing objects of interest, significantly
+reducing spatial redundancy by bypassing vast uninforma-
+tive backgrounds. Second, to reconstruct the severed holistic
+context, we design a Global-Local Decoupled Decoder. To
+circumvent the compromises of conventional patch inference
+and aggressive downsampling, our decoder introduces a pro-
+gressive global-to-local dual cross-attention paradigm. Object
+queries initially interact with global features to establish
+macroscopic scene awareness, and are subsequently routed
+to the sparse high-resolution patches to perceive microscopic
+object details. This decoupled design explicitly integrates
+global topology with local refinement, facilitating robust local
+feature discrimination through global contextual guidance.
+Extensive experiments on two massive benchmarks, STAR [3]
+(8192×8192) and SODA-A [13] (9600×9600), demonstrate the
+superiority of UHR-DETR in handling densely packed small
+objects. Notably, our method achieves a 2.8 mAP improvement
+and over a 10×inference speedup compared to the exhaustive
+sliding-window RT-DETR. Moreover, it consistently surpasses
+existing state-of-the-art UHR detectors by a significant margin
+of 4.2 mAP, all while maintaining faster processing speeds.
+Our main contributions are summarized as follows:
+•We propose UHR-DETR, the first efficient, end-to-end
+transformer-based detector specifically designed for small
+object detection in UHR remote sensing imagery. It
+addresses severe memory and computational bottlenecks,
+providing a holistic alternative to the traditional frag-
+mented crop-and-detect paradigm.
+•We introduce a detection architecture featuring a
+Coverage-Maximizing Sparse Encoder and a Global-
+Local Decoupled Decoder. This design dynamically
+routes finite computation to high-value regions via a
+geometric set cover formulation, and seamlessly fuses
+macroscopic scene context with microscopic details.
+•Extensive experiments on the STAR and SODA-A
+datasets validate the effectiveness of UHR-DETR. Com-
+pared to standard baselines, our method maintains com-
+parable detection accuracy while achieving over a10×
+reduction in inference latency, successfully processing
+massive UHR inputs and overcoming the severe memory
+limitations inherent in standard architectures.
+The remainder of this paper is organized as follows. First,
+we review related work on transformer-based small object de-
+tection and ultra-high-resolution object detection in Section II.
+Next, we detail the proposed UHR-DETR framework, focusing
+on the Coverage-Maximizing Sparse Encoder and the Global-
+Local Decoupled Decoder, in Section III. Subsequently, we
+present extensive experiments and comprehensive ablation
+studies conducted on multiple public datasets in Section IV.
+Additionally, we discuss the underlying design principles and
+inherent limitations of our approach in Section V. Finally, we
+conclude the paper in Section VI.
+II. RELATEDWORK
+A. Transformer-based Small Object Detection
+Detecting small objects has been a central focus in the
+remote sensing community. Owing to their ability to model

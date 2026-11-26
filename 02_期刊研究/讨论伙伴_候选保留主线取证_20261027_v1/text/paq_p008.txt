@@ -1,0 +1,132 @@
+(a)
+0
+50
+100
+150
+pattern #
+0
+112
+224
+336
+448
+560
+output of detection
+pattern weights for `person` detections
+0.1
+0.2
+0.3
+0.4
+0.5
+0 20 40 60 80 100 120 140
+pattern #
+0.0
+0.1
+0.2
+0.3
+query weight
+average pattern weights for `person`
+mean response
+±1 std dev
+(b)
+0
+50
+100
+150
+pattern #
+0
+38
+76
+114
+152
+190
+output of detection
+pattern weights for `cat` detections
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0 20 40 60 80 100 120 140
+pattern #
+0.1
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+query weight
+average pattern weights for `cat`
+mean response
+±1 std dev
+Figure 5. Pattern activation visualization. Left: activation heat-
+map; Right: statistical distribution of weights over successful de-
+tection for (a) person and (b) cat categories.
+Figure 6. t-SNE visualization ofW D on 200 images from COCO
+val2017. Zoom in to see details.
+Analysis of semantic clustering.Because the dynamic
+weightsW D are conditioned on image features, semanti-
+cally similar images should yield similarW D distributions.
+We flattenW D from 200 COCO validation images and
+project them using t-SNE for 2D visualization. As shown
+in Fig. 6, clear semantic clusters emerge—animals (red)
+occupy the top-left region, aircraft (amber) the bottom-
+left, and vehicles (purple) the bottom-right—indicating that
+PaQ-DETR encodes meaningful semantics when generating
+content-aware dynamic queries.
+4.5. Computational and Memory Efficiency
+We analyze the computational efficiency of PaQ-DETR in
+terms of parameters, FLOPs, memory, and inference speed.
+As shown in Table 7, our PaQ-DINO introduces marginal
+overhead compared to strong DETR baselines. The addi-
+tional cost is less than +5% FLOPs and +0.5 GB memory,
+with only 0.2 FPS decrease in inference speed. It shows that
+our method preserves almost the same runtime while deliv-
+Table 7. Computational efficiency analysis.
+Method Params (M) FLOPs (G) Mem (GB) FPS
+Deformable-DETR++ [47] 40.5 188 3.63 16.4
+DN-DETR++ [22] 41.2 192 3.64 16.6
+DINO++ [42] 42.0 196 3.67 15.8
+PaQ-DINO (ours) 43.8 205 4.15 15.4
+Table 8. Instance segmentation results on COCOval2017 and
+CityScapes 2016 with 300 queries and ResNet-50 backbone.
+Method Epochs Mask mAP Box mAP
+Dataset: COCO val2017
+Baseline [47] 12 32.4 46.5
+PaQ-Def-DETR (ours) 12 34.8 48.4
+Baseline [47] 24 35.1 48.6
+PaQ-Def-DETR (ours) 24 37.2 50.6
+Dataset: CityScapes 2016
+Baseline [47] 12 34.8 52.6
+PaQ-Def-DETR (ours) 12 36.8 54.8
+Baseline [47] 24 36.6 54.4
+PaQ-Def-DETR (ours) 24 38.8 56.2
+ering consistent performance gains of +1.2–4.2 mAP across
+datasets.
+4.6. Instance Segmentation
+We further extend our method to instance segmentation
+by incorporating an additional mask prediction head into
+the transformer-based architecture. We evaluate on COCO
+val2017 [23] and Cityscapes [6] using 300 queries, with
+Deformable-DETR [47] serving as baseline. Table. 8
+presents both mask AP and box AP results under 12 and 24
+epochs. On COCOval2017, we achieve substantial mask
+AP improvements of 2.4 (12 epochs) and 2.1 (24 epochs)
+over the baseline. Similarly, on Cityscapes, we observe con-
+sistent gains of 2.0 and 2.2 for mask AP at 12 and 24 epochs.
+The box AP results also show comparable improvements,
+indicating that our proposed method benefits both localiza-
+tion and segmentation.
+5. Conclusion
+We introduced PaQ-DETR, a novel approach that enhances
+DETR-based object detection through two key innovations:
+dynamic query learning via shared patterns and quality-
+aware one-to-many assignment. Extensive experiments on
+COCO 2017, CityScapes 2016 and two specialized datasets,
+demonstrate consistent performance gains across various
+models and backbones. Our analysis reveals that object
+queries can be effectively represented by a smaller set of
+learnable patterns, and these patterns exhibit meaningful
+semantic clustering properties that adapt to image content.
+25511

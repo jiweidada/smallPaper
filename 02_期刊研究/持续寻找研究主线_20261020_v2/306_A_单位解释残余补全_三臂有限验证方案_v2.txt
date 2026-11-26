@@ -1,0 +1,44 @@
+306｜单位解释残余补全：N/S/R三臂有限验证方案v2
+2026-10-21。仅方案；没有新增自然数据、模型/训练运行或实现。296是保留的历史v1，不回改其N/H22/R安排；本v2以N_density、S_directP_density、R_residual作为首次有限核心。完整RGB编码器、mass/association、decoder、损失与缓存接口沿296，S精确接口沿已亲读304；本文件锁定替换处及结果读法，不能与296旧三臂混用。
+
+1．研究问题与本次可承担的结论
+在同一局部RGB、显式类别密度先验、同15维已有candidate信息和同辅助监督下，单位解释/null/行cap形成的类别残余，是否比普通P-set条件融合更能生成真实遗漏实例？不以原图crop、density prior、OT或新求解器立论；本版不使用联合OT。
+284旧centre供给密度窗a tiny13/14、c tiny66/93，276真实候选回收无tiny Geo0新增，说明需要面对含错条件且真正产生新几何；不证明新头可学或R优越。相交供给和自然3235图是新明确配方，不能借旧计数宣称已验证。289固定读出mixed、290旧ROI主阴性均保留，不救旧小窗版本。
+首次36个head epochs只判别候选的学习可行性和相对方向，不是显著性结论、等效结论或完整论文证据。模型/成本尚未实现验证，不能直接启动。
+
+2．共同固定底座与标签
+两套BASE24 epoch23 checkpoint['model'] raw，训练缓存、末端评估与部署始终同raw；无EMA切换。全局native eval640、参数/状态冻结，原300框及300×10 logits detach。fullP为原native flatten top300且score>.001的candidate实例，同query异类不折叠。
+一图一窗：640平面64²格上原final300预测中心最多的格，row-major解并列，GT-free。自然原RGB按同物理W采128²，三臂同crop。供给P_W为全部fullP中box与W正面积相交者，保留未clip几何，不按GT或额外confidence筛供给。
+M0全图一次固定：fullP×native全有效GT，同类且IoU≥.5合法，lex最大覆盖/最小nativecost/固定索引。它不看W或newhead。G_W仅完整GT；owner g∈G_W的条件目标T*=K_g，其余条件目标null=1；U_W=G_W\M0覆盖。完整g的合法owner必相交W，因此m*−ΣT*=Σ_(g∈U_W)K_g闭合。null表示无本地完整实例解释，不等全局FP。密度目标是每完整GT一单位、10类16²中心双线性散射，边界质量不丢失。
+M0不是P100/COCOgreedy正式FN，U_W也不全是Geo0。全final300任何框均无IoU.5几何边的GT必未被M0解释，故重点报告Geo0出生；不处理全部排序/cap遗漏是此任务的保留限制。不得改M_dep或EMA来修饰结果；改变这些定义须另立整套任务。
+
+3．共同网络和三臂信息通路
+共同：RGB128²→stride8特征16²×128；10类softplus mass m；四learned query，2层d128/4heads/FF512，10类logits与自由local cxcywh；低分数prior1e−4，2×2初始中心/wh=.25W。m-head初始化每格每类1/256；全部公共参数复制同初态。没有FGL/DDF/DN/EMA/额外query特征。具体层序与初始化按296第三节，不另增设计变量。
+所有arm都构造相同association辅助分支，candidate输入恰为15维[未clip局部xyxy(4),类onehot(10),score(1)]，使用同a_j编码；不加rank、flat index、query index或序列位置编码。三臂同M0/U_W、单位mass监督和association监督；不能让R独享额外GT。forward不接GT/M0/U_W。
+共同显式mass接口：mbar=stopgrad(m)。N/S将log1p(mbar类别向量)投影加入图像attention value，并将log(Σ_c mbar_ci+1e−4/256)加入空间attention logit。R只将该接口的mbar换成r。sg约定三臂相同；共享RGB主干仍能被det/assoc更新，只有m-head专属参数仅从density loss直达，不宣称参数完全隔离。
+N_density：生成不读取P，只读取RGB和上述显式density接口；P仅供共同aux分支。固定参数/RGB时，改变P不能改变N的pred_boxes/logits。
+S_directP_density：在N基础上，每层self-attention之后加普通query→P-token cross-attention残差，再走图像cross-attention。每层q←q+MHA_P(LN_P(q),A,A;valid_P)，2层独立d128/4heads/preLN/dropout0，标准投影带bias。P-token正是同15维a_j；J=0直接skip并返回零残差，不调全mask softmax、不放可学习dummy；padding只mask不存在项，无GT筛选。额外P-attention输出投影weight/bias零初始化；实际参数/FLOPs单列，不伪称与R严格等量。
+为避免softmax对重复条件计数弱敏感，S再接类别计数汇总：n_c=Σ_(j∈P_W)1[class_j=c]，h=[log(1+n_0),…,log(1+n_9)]共10维，经Linear10→128（bias=False，weight零初始化）广播加到四query初始表示一次。不另附冗余total，不除J、不归一；仅由同P推导，不添加rank或GT，排列不变。此通路不进N，不改S的显式density接口；score仍逐实例留在token中。S相对公共结构新增参数代数计数133888，尚未实现核验；不是实测成本。此处按304定型，取代303较早建议中的空集dummy处理。
+R_residual：C_ij为图像/条件相似度加固定框外距离，κ为可学null代价；质量参考独立分配p_ij=mbar_ci exp(−C_ij)/[exp(−κ_j)+Σ_l mbar_cl exp(−C_lj)]，p0同分母。u_ci=Σ_j p_ij；a_ci=min(1,mbar_ci/u_ci)，u=0取1；T=a·p，z=p0+Σ_i(1−a_i)p_ij，r=mbar−ΣT。每candidate供应1，过载只退null，不迁往别的位置。R生成仅由r接收P，不另拼token/history。严格u>mbar区的r对u导数0，等号是算子折点，学习可失败；不以不可学习定理提前否决。
+H22-density退出首次核心，保留为IterDet适配的后续对照，不能声称本轮已胜H22。共享e=ΣT的学习融合只检验固定减法，不替代普通P-set控制；E8→4检验更多普通槽/成本。二者仅在有保留信号后另审，不自动追加本轮。
+
+4．共同损失与预算
+全部U_W都进入4×N native Hungarian，匹配min(4,N)；N>4不挑有利GT、不伪称全部已匹配，完整target仍进原生归一化分母。空U_W只有安全分类负项。L_det沿native MAL(γ1.5、IoU.detach正软目标)+5L1+2GIoU；matcher cost沿2/5/2、α.25/γ2；不调用GO/FGL/DN。
+L_mass为单位mass KL/Poisson偏差；L_assoc为本地owner对Tcap的K_g交叉熵与其余条件对z的null交叉熵，两组均值再对非空组平均；三臂相同L_total=L_det+L_mass+L_assoc、权重各1。严格公式及safe-empty处理沿296第五节。记录各项loss、mass误差、null/解释分组及梯度饱和，不能仅detloss下降宣称机制成立。
+仅sample_plan development3235自然图训练，不读隔离heldout3236；每图一窗，空补集窗也保留。每seed三臂共享一次全局预测/M0/crop缓存；首次3235×2=6470个冻结全局forward必须计费，当前尚未采集。
+6轮×3臂×2seed=36 head epochs；每run19410 crop曝光、batch16/drop_last=False、203步/轮、1218步/run，共116460 crop曝光/7308 optimizer steps。原全局零更新。AdamW1e−4，wd1e−4，前100步1e−5→1e−4 warmup，再cosine至1e−5，clip1、FP32；head初始化seed2026102101/2026102102，共同shuffle、相同公共初态。无Mosaic/Mixup/随机增广/重新采窗、无best选轮/中途调参；固定第6轮last。故障续跑只恢复本run完整状态，不加步。
+训练结束后固定native val548独评，两个raw全局各548次可跨arm共用，另1096个全局forward；末端head/crop/评价成本另计。不得提前用val调标签、核或超参。历史项目已看过该val，所以只称本次head训练与末评数据隔离，不声称全新未见测试集。
+融合拼原global300+new4的logits和框，统一native flatten top300→严格score>.001→每类max100；不改温度、gate、NMS或给newhead保底配额。保留同query多类candidate语义。每图新增/挤出/FP/原TP丢失必须记录。
+
+5．事前机械报告和去留
+主机制计数B_{s,a}：固定seed s的原final300框对GT任意类最大IoU<.5，且GT完整在该seed固定W、原生640输入短边<4；在该arm最终统一后处理输出中，经同真类score顺序IoU.5匹配新增覆盖的unique GT数。它是tiny Geo0新增TP，不是候选数量、oracle可命中数、M0全部未匹配数或AP。主计数固定.5；全GT Geo0与.75另报，不改主组救结果。
+每seed对N和S分别计算ΔAPs=APs_R−APs_control，ΔB=B_R−B_control。仅当两seed×两control的ΔAPs全部严格>0，且相同四项ΔB全部严格>0（共8项方向条件）时，记“候选有限学习方向保留”；零也不算正。不是先选较弱control，不以某seed/子组/总和替代。
+若8项中有正有零/负，记mixed或部分不支持；若无相对保留信号，停止该精确参数化。mixed不增加轮次、改M0/η/score/窗或换子组来救。若全部头未学成，报告本配方未给可行性证据，不外推任意补全不可学，也不自动扩轮。
+总体AP必须机械全披露：逐seed分别列R−baseline、R−N、R−S，任何负值原样列出；APs和B方向过关也不得隐藏总体AP代价或直接称“有效益”。baseline/N/S/R每seed均完整保存并列表12项COCO指标：AP、AP50、AP75、APs、APm、APl、AR1、AR10、AR100、ARs、ARm、ARl，不只报AP/APs；另列B、FP、原TP新增/丢失与资源。完整12指标属于固定报告合同，不新增主gate，主判据仍仅上述APs与B的8项方向条件。保留仅意味着可提交下一阶段审议，不是自动批准完整训练。
+同时给按图配对CI和两seed并列表：同一图抽样索引作用于全部arm及seed，固定1000次bootstrap、随机种子2026102103；AP/APs每次按重采样图实例重新计算同native评价，重复图复制为新的评价image_id，不能把逐图AP平均当数据集AP。B以同批重采样图计数；给95%百分位区间。仅读冻结末端预测/GT，无新model forward；这部分分析成本计入待估预算。两seed共享548图，不能当1096独立样本。区间跨零只说明不确定性，不在本6轮试验作显著性或等效断言；任何微小正值都不是方法已成立。
+
+6．工程状态与来源
+完整实现仍按296第六/十节拟接口与合同：新独立目录、源/CP/图像/cache SHA、native loss与后处理parity、M0闭合、单位scatter、cap守恒、N无P生成通路、S排列不变与count通路、三臂sg(m)、global无grad/state不变。实现、单测、参数量/显存/FLOPs/墙钟均未完成；GPU小时/总成本NA，不能用小头参数少宣称低成本，也不能宣称命令已可执行。正式运行仍须代码审查、计费与单独训练授权。
+296历史v1 SHA256：7dd909843afb9536c0fc12c92ad2326d2519c1a1b6fc66bf2aa484f5ce94caa7。
+303强对照选择说明 SHA256：fd8c0285e46b77dd913190c49669d71323bd98b3bc7d3feb6bc8a2ca3c4e35e1。
+304_C_直接条件对照与目标边界.txt SHA256：e37d4095df7682be0a80d2b119628e17a972fd5c91898e2b6bc30a1a9316c744；本轮已通读，S的10维class logcount、空P直接skip和无rank均按该稿。本文明确的v2三臂与机械判定优先于296旧三臂安排，其余原样继承，不覆盖历史证据。

@@ -1,0 +1,17 @@
+Material Passport: academic-research-suite / experiment-agent; frozen CPU audit; exploratory, not independently replicated.
+top-k排序与成员替换的冻结核查；两seed各development00/01；原损失与历史Adam，一次克隆虚拟端点，不是实际训练轨迹。
+seed | ordered_changed/2400 | missing_members/2400 | retained_rank_changed | membership retention
+1 | 2081/2400 | 38/2400 | 2043 | 98.416667%
+seed1 encoder shortside_lt4: 原maxIoU>=.5的GT曝光数6，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 encoder shortside_ge4: 原maxIoU>=.5的GT曝光数376，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 final shortside_lt4: 原maxIoU>=.5的GT曝光数22，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 final shortside_ge4: 原maxIoU>=.5的GT曝光数452，其基点最佳source site换出数1；这不是最终GT丢失数。
+2 | 1855/2400 | 19/2400 | 1836 | 99.208333%
+seed2 encoder shortside_lt4: 原maxIoU>=.5的GT曝光数6，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 encoder shortside_ge4: 原maxIoU>=.5的GT曝光数418，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 final shortside_lt4: 原maxIoU>=.5的GT曝光数16，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 final shortside_ge4: 原maxIoU>=.5的GT曝光数463，其基点最佳source site换出数0；这不是最终GT丢失数。
+旧data10基点topk_indices、全参数梯度范数、裁剪系数、虚拟位移范数、fixed/native跨批几何端点均重现（原始标量相等或指标差<1e-12）。
+同成员逆序控制：1200个ordered槽全部变化，但inverse-permute后框最大误差5.36e-7至2.77e-6，logit误差2.36e-5至9.49e-5。实际learn_query_content=False。不是比特级等变，不能冒充AP复现。
+结论：原77–84%是旧八批有序槽统计，新两批是86.71%/77.29%；新两批实际成员仅1.58%/.79%换出，绝大部分为集合内重排。不支持从有序槽数推出严重候选集合流失。已覆盖tiny的最佳site在这些输入均未换出，但tiny分母仅6/6（encoder）与22/16（final），不能推广所有GT/训练阶段。
+模型/检查点SHA前后不变，CPU2线程BelowNormal，未使用GPU/远端/监测；20次模型前向、4次全参数求导、真实训练步0。完整索引和每图原始表保存于topk_membership_frozen。

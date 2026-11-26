@@ -1,0 +1,38 @@
+318｜固定几何消耗无合法边条件：事前协议
+2026-10-21；只新增318/319。先由主控审查、运行合成，再由主控运行真实缓存；B不运行。默认新输出322_BASE24_fixed_geometry_false_context，禁止覆盖历史结果。320编号由另一合成任务使用；此处仅避让输出命名，不改变科学参数。
+
+问题与范围
+检验一个窄前提：原固定几何独立分配中，在全图GT没有同类IoU≥.5合法边的条件，是否实际消耗完整tiny Geo0处的oracle质量。不是检验AP、学习能力或R能否胜固定控制；无合法边不等于背景，也可能是错类或定位不足。即使有作用面，也不能证明学习C/κ能正确拒绝这些条件。主控后续训练G已拟改为固定d_out加可训练每类κ_c；本诊断仍严格κ=0，只描述原初始固定geometry风险，不能当Gcal训练后的效果或失败。
+严格沿300原A/B各batch00–07，共16批64输入曝光、263固定A_density/B_residual两窗、原centre在窗供给；不换296自然图/相交供给/M0定义。完整可见GT、原actual_input_sub4、primary Geo0身份均继承300/284。primary Geo0指原final300任何类框均无IoU≥.5几何边，不是fullP类别遗漏或正式COCO FN。跨seed为相同开发输入，不伪称独立64张自然图。
+
+现有资产与最小重建
+300各批NPZ存mass、GT_weights、GT_ids、condition_flat、I_cap residual/null，未存独立p；其结果与284共存计数不能直接回答删除效应，所以需319。
+只读取300原16个NPZ，以及同批263/284/300 JSON与固定索引/清单。263提供原native fullflatten top300且score>.001的P_boxes_xyxy/P_flat；284提供对全图GT的all_P_legal_neighbors及full_image_no_legal_P。无需重新算IoU、读244 NPZ、PT/logits、图片或checkpoint，也不导入旧torch脚本。
+原生合法边身份直接继承已锁284的FP32计算；300身份与263/284逐项一致必须验证。所有实际读取文件SHA执行前后核对，300原source_unchanged与完成状态也须成立；继承链的PT/图片只保留历史哈希来源，不重新打开。脚本明确这一区别，不冒称本轮重新读了全部上游原文件。
+锚定：299 SHA c3ba865bd804e7257b6f379bc237035d56e1c5e4d65fcd97d7fb1e2a163b6526；300的00/01/02 SHA分别5d13f97c269436ba30530dd907e41592d7264b66e6d58d0b7b2eb0854c496022、3578581c438d5ee0fe39d6008e2fbab45709b27284489c5e80ede7f4931915d3、089733fb15fba0a15654f0f8d146e8013ec2405fe48cab4815bb34b3ce0daa7c。263/284三清单SHA在319固定。两种窗均不按新结果选择。
+
+算子与数值合同
+grid=16，epsilon=1，kappa=0。每个完整GT在16²格作原单位双线性散射，边界夹邻点累加；直接读取300的m与K_g，再核m=Σ_g K_g、各核和1、身份与类一致，不改变原散射。
+C_ij=Σ_axis max(boxlow−point,point−boxhigh,0)/(boxhigh−boxlow)。非有限/非正面积条件沿原规则C=+inf，因此p=0、null=1。零m行p=0。
+p_ij=m_ci exp(−C_ij)/(1+Σ_l m_cl exp(−C_lj))，只连候选自身类别。
+u_ci=Σ_j p_ij；一趟cap的残余r=[m−u]_+。重建r与cap后的逐条件null必须逐项吻合300 I_cap，沿原绝对容差2e−8；不通过视实现失败，不继续效果读数。NumPy FP64直接指数式等价于299的logsumexp，禁止新优化或调用solver。
+U_bad={j∈原窗供给：284全图合法邻居集合为空}。不依据该候选是否包住遗漏GT筛选，不限制为284的c见证。
+删除后r_del=[m−u+Σ_(j∈U_bad)p_j]_+，Δr=r_del−r≥0。同时从保留条件重新求和检查等价；核Δr不超过被删除独立质量、r_del≤m与删除cap列/行合同。无强行active-face归零。代数校验容差1e−12×(1+总m+条件数)，与作用面阈值分开。
+
+主读数与受影响定义
+每个完整GT，d_g=<K_g,m*真类>；这里m=m*。记录原投影、删后投影、raw Δ_g=<K_g,Δr真类>，以及比例Δ_g/d_g。d_g≤0或非有限为NA，不当0；合法单位核正常应d_g>0，若非有限输入则fail closed。不是除全窗总残余，故不继承300 normalized attention的NA。
+“受影响”在读取结果前固定为raw Δ_g>1e−8；比例用于效应量而不另换门槛。未受影响的合法0读数保留在均值内。报告所有完整GT、primary Geo0、geometry covered、primary完整tiny Geo0、covered tiny；不把GT核重叠投影和叫解释对象数。
+每窗和每seed保存全部GT行、原始/比例mean/median/min/max及q05/q25/q75/q95，受影响GT曝光唯一数、输入数与分母；按图先对其GT求均值再跨图汇总，不把GT池均值冒称图均值。两个窗的合并表以(batch,image,GT)去重，若GT在两窗出现，其数值取两窗均值；受影响集合按任一窗raw>阈值取并。相同窗可能被两策略同时选中，完整标明，不能当两个独立输入。seed间不把GT曝光身份混成独立观测。
+
+强简单随机控制
+每窗每次对各类别，从全部原供给候选中无放回均匀删除与U_bad相同数量；不排除bad候选，保留同query异类独立candidate。32次固定随机实验，基础seed=2026102105。
+每次使用PCG64(SeedSequence([2026102105,seed编号1或2,batch,image_index,窗编号0或1,重复编号0..31]))；候选按原供应顺序，选中索引排序记录。随机输入身份不依赖运行先后。bad为空则随机同为空；某类全bad则该类随机删全部。
+逐GT保存32次raw/比例，报告bad减去32次随机均值的paired差，同时保存32次面板/图均值分布；负差合法。随机重复不是32个独立数据集，不计算伪统计功效、显著性或AP。额外比较仍在同一固定cohort，无事后挑有利subset。
+
+唯一预设停止读法
+仅当A/B两seed的所有primary完整tiny Geo0 raw Δ_g均≤1e−8且受影响图均为0，停止当前“无合法边条件实际消耗该组质量”的动机。任一primary分母为空/NA则不能把空集合当无作用面。两seed非零或混合均如实报告；没有最小受益比例、必须胜随机、训练准入或AP门槛。随机控制决定“是否比随便删同类条件更特异”的解释力度，不改变此停止口径。观察到扣除也不是已救回检测。
+
+合成与执行
+先合成后读任何真实JSON/NPZ：空质量、空供给、单条件解析值、过容量删少量仍零/删全部恢复、类别隔离、框内/框外cost及尺度等价、无效框null、删除重算与一趟cap一致、全图合法邻居不被本地遗漏误删、随机class数/固定seed/无放回、单位核与正d_g、NA/负paired差、两窗去重及受影响并集。任何失败停止，不放宽容差。
+仅标准库+NumPy；CPU2线程，MKL_THREADING_LAYER=SEQUENTIAL，Windows BelowNormal、affinity[13,15]，每批前available RAM>8GiB。逐批释放NPZ。无torch/scipy导入、solver、模型、CP、图像、梯度、更新、远端、heldout。
+输出00_sources_and_synthetic.json、16个逐批JSON、01_results.json、02_output_sha256.json；失败留FAILED.json和已完成批。保存源SHA、输出SHA、输入/预测原SHA、GT/candidate身份、随机删除名单及算子校验误差。预计秒级至一分钟，实际时间/峰值RSS由主控执行记录，不承诺速度。

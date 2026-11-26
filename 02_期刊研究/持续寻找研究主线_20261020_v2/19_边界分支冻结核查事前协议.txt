@@ -1,0 +1,22 @@
+执行前登记；本文件写入时尚未计算任何候选边界特征或虚拟更新结果。
+
+问题：冻结BASE24原初始pre框附近的P2内外差分，能否比同批采样的均值和完整拼接，提供可跨批迁移的初始几何改正方向？这是A的特征前提核查，不验证完整检测器效益或新颖性。
+
+资产：data09_DN初始化冻结诊断_20261020_v1中的seed1/2、batch00/01原CPU同前向的pre_boxes、原ordinary union、targets、denominator；对应data08 shared_inputs同640增强输入；对应原online BASE24 checkpoint（原last_epoch23）。仅development，不读heldout，不拼接GPU data08 indices。每seed两批方向00→01和01→00固定。
+
+前向：仅按原权重和原train-mode冻结规范提取backbone.stem→stages[0]的P2，预期stride4，实际形状核对。每批开始恢复原BN缓冲；特征detach。不构建检测器新训练循环，不修改历史代码，不使用GPU/远端/监测。
+
+采样：原pre框及条带位置均detach，四边各内/外等宽2px条带（P2步长一半），条带沿边8个均匀中点、法线2个中点，共16采样点。grid_sample bilinear，align_corners=False，padding_mode=border。所有臂使用同一采样值；报告越出图像的采样点比例。特征感受野不等于采样点，条带未与GT相交不能证明没有信息。
+
+模型：原pre框b固定为同前向缓存，u=logit(b)（FP64），新b'=sigmoid(u+XW^T)。W无bias、全零；其他全部冻结。原输出/原union/原num_boxes不变，几何沿原5L1+2GIoU。仅更新新W一次独立虚拟AdamW，不写模型或checkpoint，不累计步数。
+
+臂：original；difference=(in-out)/sqrt2；mean=(in+out)/sqrt2；full_concat=[in;out]（参数是前两者两倍，明确报告，不能声称同参数）。再加mean_matched与concat_matched：使用生成批的logit改变量RMS按difference的RMS缩放其W，评价批不参与缩放。它们检验差异是否仅因更新幅度；不证明范数机制。
+AdamW：W是新参数，moment从0开始、step1，lr/betas/eps/weight_decay取该seed原pre末层所属组；clip只对当前可训练的新W，maxnorm=.1。不是完整网络历史Adam反事实。记录梯度、clip、W和生成批logit位移范数，所有臂起点相同。
+
+生成目标：完整ordinary pre几何（保持原normalizer，不能先按最终失败挑选训练W）。评价主群体：同评价批原ordinary pre union中，原pre IoU==0且GT输入shortside<4；另报全部IoU0、all、IoU>=.5、N<=Q/N>Q。此群体不是07的final-IoU0/固定支持外，不能沿用其分母。主群体分母为0返回NA，不按0收益。全局损失分母仍原ordinary num_boxes，各组只是贡献拆分。
+
+聚合：每seed将两个cross方向的未归一化损失分子相加/原normalizer之和，不能按组均值稀释密集图；同时保留两个方向，不把同批结果当跨批。
+
+去留：若difference在两个seed的主群体均较original下降、且均严格优于mean、full_concat、mean_matched、concat_matched，同时all ordinary不比original上升，才保留本版的训练前几何前提；任一seed方向混合/失败/NA，不以此申请训练当前版。不得看到结果后调条带宽、学习率、数据组或门槛救方案。即使通过，也还要核实BorderDet/SABL等实际方法增量，不能直接宣称创新或AP提高。
+
+合成/一致检查先于数据：常数特征内外差0，拼接线性层包含差分，零W输出还原缓存框，fresh AdamW函数与torch实际单步合成参数一致。缓存/检查点输入SHA，原参数和BN缓冲提取前后哈希保持（缓冲恢复）。CPU两线程低优先级，内存可用>8GiB；运行上限15分钟，仅此新进程可在超时终止，不触碰其他任务。无原脚本失败重跑；如实现异常先保留回执，核实原因后另写修订版协议。

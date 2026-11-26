@@ -1,0 +1,110 @@
+Academic Editors: Tao Tang and
+Deliang Xiang
+Received: 8 May 2026
+Revised: 16 June 2026
+Accepted: 17 June 2026
+Published: 18 June 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+Remote Sensing Small Object Detection Network Based on
+Wavelet-Convolution and Fine-Grained Preservation
+Hangyu Li
+ and Tiecheng Song *
+School of Communications and Information Engineering, Chongqing University of Posts and
+Telecommunications, Chongqing 400065, China; 2023210433@stu.cqupt.edu.cn
+* Correspondence: songtc@cqupt.edu.cn
+Abstract
+Small object detection in remote sensing imagery is a fundamental task for visual in-
+formation extraction, yet it remains challenging due to extremely small target scales,
+complex backgrounds, and the loss of discriminative feature information caused by re-
+peated downsampling. To address these issues, this paper proposes a Wavelet-Convolution
+and Fine-Grained Preservation Network (WCFPNet) based on YOLOv8n. Specifically, a
+Wavelet-Convolution Module (WCM) is introduced into the backbone to decompose feature
+maps into low- and high-frequency sub-bands, thereby enhancing structural feature mod-
+eling and preserving subtle target details. To compensate for the weakened fine-grained
+information after repeated downsampling, an Enhanced Spatial Pyramid Pooling-Fast
+(ESPPF) module is embedded at the end of the backbone to strengthen multi-scale contex-
+tual aggregation. In addition, an Enhanced Feature Pyramid Network (EFPN) is designed
+in the neck to facilitate the propagation of shallow and intermediate fine-grained features
+to high-level semantic features through cross-level fusion and the Convolutional Block
+Attention Module (CBAM). Experiments on the NWPU VHR-10 dataset show that WCF-
+PNet achieves 0.879 mAP@0.5 and 0.515 mAP@0.5:0.95, outperforming YOLOv8n by 1.7
+and 2.5 percentage points, respectively. Moreover, the proposed WCFPNet achieves a com-
+petitive performance compared with several representative detectors while maintaining
+moderate model complexity. These results demonstrate the effectiveness of WCFPNet in
+challenging remote sensing scenes characterized by complex backgrounds, dense object
+distributions, and weak textures.
+Keywords: remote sensing images; small object detection; wavelet transform;
+fine-grained perception
+1. Introduction
+Remote sensing small object detection is a fundamental problem in the field of re-
+mote sensing visual perception and has important application value in environmental
+monitoring, resource exploration, maritime surveillance, disaster assessment, and military
+reconnaissance [1]. With the rapid development of remote sensing platforms, unmanned
+aerial vehicle imaging, and deep learning techniques, object detection in remote sens-
+ing images has made remarkable progress. Nevertheless, this task is still constrained
+by several critical challenges, including large scale variations, dense object distributions,
+arbitrary orientations, complex backgrounds, and insufficient cross-scene generalization
+capability [2–4]. In particular, in high-resolution and long-range aerial imaging scenarios,
+small objects usually occupy only a very limited number of pixels, while weak textures, low
+Information 2026, 17, 609 https://doi.org/10.3390/info17060609
+
+---PAGE---
+
+Information 2026, 17, 609 2 of 26
+contrast, and occlusion effects become more pronounced. These factors make remote sens-
+ing small objects an important research topic that poses significant theoretical challenges
+and urgent practical demands [5,6].
+From the perspective of benchmark datasets, general object detection benchmarks
+such as COCO [7] have greatly advanced the development of detection frameworks for
+natural scenes. In contrast, remote sensing and aerial image benchmarks, such as DOTA [8],
+tiny object detection in Aerial Images [ 9], and the tiny object detection benchmark con-
+structed based on the Normalized Wasserstein Distance [10], further highlight the unique
+characteristics of small objects in remote sensing and aerial imagery, particularly in terms
+of scale variation, object density, orientation variations, and background complexity. Com-
+pared with natural images, small objects in remote sensing imagery usually exhibit larger
+intra-class variations and higher inter-class similarity and are more susceptible to detail
+loss and localization deviation during repeated downsampling and feature aggregation. As
+a result, existing general-purpose detectors often struggle to maintain stable performance
+when directly applied to such detection scenarios. To address these challenges, existing
+studies have explored various solutions, including multi-scale feature fusion, attention
+mechanisms, dynamic convolution, dilated convolution, Transformer-based global mod-
+eling, loss function optimization, and label assignment strategies. These techniques have
+been widely adopted in modern detectors, including YOLO-series models, to improve fea-
+ture extraction and contextual modeling for remote sensing small object detection [11–14].
+In particular, deformable convolution enhances geometric modeling capability through
+adaptive sampling and provides important insights for object representation in complex
+remote sensing scenes.
+However, most existing multi-scale and attention-based detectors primarily enhance
+feature representation in the spatial domain through resampling, feature aggregation, or
+attention recalibration. Although these strategies improve semantic interaction among dif-
+ferent feature levels, such spatial-domain designs do not explicitly decouple low-frequency
+structural information from high-frequency edge and texture details before feature fusion.
+For small objects in remote sensing imagery, such high-frequency features are usually weak
+and easily entangled with background clutter during repeated downsampling. Therefore,
+spatial-domain multi-scale fusion alone may be insufficient to preserve discriminative
+small-object details.
+This reveals a specific research gap: existing methods usually attempt to recover or
+enhance features after spatial resolution degradation has occurred, whereas the preser-
+vation of discriminative fine-grained information before it is severely weakened remains
+insufficiently explored. In particular, for remote sensing small objects with weak textures,
+low contrast, and high background similarity, simply increasing multi-scale fusion paths or
+attention modules may not fundamentally address the frequency-domain entanglement
+between target details and background noise.
+To address this gap, we build upon YOLOv8n and propose a Wavelet-Convolution and
+Fine-Grained Preservation Network (WCFPNet) for remote sensing small object detection.
+Specifically, a Wavelet-Convolution Module (WCM) is introduced into the backbone to
+explicitly decompose feature maps into low-frequency structural components and high-
+frequency detail components, thereby improving frequency-selective representation under
+complex background interference. An Enhanced Spatial Pyramid Pooling-Fast (ESPPF)
+module is further employed to enhance deep contextual aggregation while reducing exces-
+sive smoothing of local details. In addition, an Enhanced Feature Pyramid Network (EFPN)
+is designed to propagate shallow and intermediate fine-grained cues to high-level semantic
+features through attention-guided cross-level fusion. In this way, the proposed framework
+improves current approaches by combining frequency-aware detail preservation with
+https://doi.org/10.3390/info17060609

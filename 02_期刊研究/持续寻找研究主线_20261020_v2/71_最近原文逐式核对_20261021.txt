@@ -1,0 +1,18 @@
+2026-10-21 America/Los_Angeles。仅记录当前实际阅读范围，不把资料转述冒充独立核验。
+
+一、RA-MOSAIC，ACM TOMM 2025，DOI 10.1145/3715133
+主助手通过搜索返回的同DOI出版社全文索引，独立读到§3.1.2、§3.2、完整式2；直接HTML/PDF仍403。原文地址 https://doi.org/10.1145/3715133 。此处是索引文本阅读，不是完整PDF/结构图核验。
+式2显示：min sum_i [alpha*x_i+(1-alpha)*(x_i-mu)/sigma]，x_i=w_i^k/(t_w*t_h)，w_i=1-mean_conf_i，mu=mean_i(x_i)，sigma=sqrt(mean_i((x_i-mu)^2))，k=2、alpha=.9；面积总和不超过Pb，.95<=t_w/t_h<=1.1。其WACC还做估计RoI覆盖、可重复RoI、多尺度tile选择、装箱和动态canvas。
+数学复核：若同一组xi的sigma>0，标准化项求和为0，因此所写目标等价于alpha*sum_i wi^2/area_i；sigma=0原文式未定义。不能替作者改成绝对值或平方、也不能声称逐式复现了其完整系统。
+它已做尺度/置信度驱动的有限像素分配，不能把“困难区域多给像素”或固定640上限当创新。当前sum_i n_sub4_i*s_i不是它的同公式；计数替代均值、线性尺度效用和当前可行域是具体差别，但差别本身不证明贡献足够。不能说其必丢GT；它保护的是估计RoI集合，和真实训练GT occurrence完全保留不是同一声明。
+
+二、Transmission Line Bird Species Detection and Identification Based on Double Data Enhancement and Improvement of YOLOv8s
+Applied Sciences 2025,15(24),12953。官方入口 https://www.mdpi.com/2076-3417/15/24/12953 （429）；出版全文 https://www.researchgate.net/publication/398497227_Transmission_Line_Bird_Species_Detection_and_Identification_Based_on_Double_Data_Enhancement_and_Improvement_of_YOLOv8s 。主助手已独立读§3.2、式7–9和算法1，不只读摘要。
+密度Di=sum_j(wj*hj)/(WH)，按密度排序邻域±5选另外三源；特征尺度Si=median_j sqrt(wj^2+hj^2)；lambda_i=clip(ST/Si,.5,1.5)。ST原文是标准输入尺寸，不能擅自改成期望目标尺寸。缩放后四象限放到2ST画布，再RandomCrop到ST。文字称拼接中心按缩放尺寸最大化目标保留，但无明确求解公式，算法未保证全部GT与可见支持保留。
+因此已有训练期GT尺度驱动Mosaic。当前固定同源/同GT的计数效用和硬约束未被此式直接覆盖；训练/推理场景或离散27个候选本身不能充当创新。
+
+三、已有已核原文
+Scale-Aware Mosaic，Electronics2026 DOI10.3390/electronics15051075，官方PDF已归档并读§3.1和A1/图3、4；LZU CVPR2023 arXiv2303.15390v1，已读§3.2/4/5.1及方法图。两者已覆盖尺度补采样/受限画布非均匀放大的一般原理。
+Stitcher/Dynamic Scale Training原文尚未在本次独立完成方法核验。不可按Claude记忆就判当前同法或不同。公开代码入口 https://github.com/yukang2017/Stitcher ，论文 https://arxiv.org/abs/2004.12432 。
+
+当前判断：simple_risk有真实冻结前提，但尚未证明独立方法增量；下一项需检验sub4计数是否优于普通全部GT计数，不能继续包装已经失败的instance_objective。

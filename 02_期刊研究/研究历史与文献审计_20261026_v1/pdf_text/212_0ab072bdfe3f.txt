@@ -1,0 +1,183 @@
+Single-Shot Reﬁnement Neural Network for Object Detection
+Shifeng Zhang1,2, Longyin Wen3, Xiao Bian 3, Zhen Lei 1,2*
+, Stan Z. Li 4,1,2
+1 CBSR & NLPR, Institute of Automation, Chinese Academy of Sciences, Beijing, China.
+2 University of Chinese Academy of Sciences, Beijing, China.
+3 GE Global Research, Niskayuna, NY .
+4 Faculty of Information Technology, Macau University of Science and Technology, Macau, China.
+{shifeng.zhang,zlei,szli}@nlpr.ia.ac.cn, {longyin.wen,xiao.bian}@ge.com
+Abstract
+F or object detection, the two-stage approach ( e.g.,
+Faster R-CNN) has been achieving the highest accuracy,
+whereas the one-stage approach ( e.g., SSD) has the ad-
+vantage of high efﬁciency. To inherit the merits of both
+while overcoming their disadvantages, in this paper , we pro-
+pose a novel single-shot based detector , called ReﬁneDet,
+that achieves better accuracy than two-stage methods and
+maintains comparable efﬁciency of one-stage methods. Re-
+ﬁneDet consists of two inter-connected modules, namely,
+the anchor reﬁnement module and the object detection mod-
+ule. Speciﬁcally, the former aims to (1) ﬁlter out negative
+anchors to reduce search space for the classiﬁer , and (2)
+coarsely adjust the locations and sizes of anchors to pro-
+vide better initialization for the subsequent regressor . The
+latter module takes the reﬁned anchors as the input from
+the former to further improve the regression accuracy and
+predict multi-class label. Meanwhile, we design a trans-
+fer connection block to transfer the features in the anchor
+reﬁnement module to predict locations, sizes and class la-
+bels of objects in the object detection module. The multi-
+task loss function enables us to train the whole network
+in an end-to-end way. Extensive experiments on PASCAL
+VOC 2007, PASCAL VOC 2012, and MS COCO demon-
+strate that ReﬁneDet achieves state-of-the-art detection ac-
+curacy with high efﬁciency. Code is available at
+https:
+//github.com/sfzhang15/RefineDet.
+1. Introduction
+Object detection has achieved signiﬁcant advances in re-
+cent years, with the framework of deep neural networks
+(DNN). The current DNN detectors of state-of-the-art can
+be divided into two categories: (1) the two-stage approach,
+including [
+3, 15, 36, 41], and (2) the one-stage approach,
+*Corresponding author
+including [ 29, 35]. In the two-stage approach, a sparse set
+of candidate object boxes is ﬁrst generated, and then they
+are further classiﬁed and regressed. The two-stage meth-
+ods have been achieving top performances on several chal-
+lenging benchmarks, including PASCAL VOC [
+8] and MS
+COCO [28].
+The one-stage approach detects objects by regular and
+dense sampling over locations, scales and aspect ratios. The
+main advantage of this is its high computational efﬁciency.
+However, its detection accuracy is usually behind that of
+the two-stage approach, one of the main reasons being due
+to the class imbalance problem [
+27].
+Some recent methods in the one-stage approach aim to
+address the class imbalance problem, to improve the detec-
+tion accuracy. Kong et al. [
+23] use the objectness prior con-
+straint on convolutional feature maps to signiﬁcantly reduce
+the search space of objects. Lin et al. [
+27] address the class
+imbalance issue by reshaping the standard cross entropy
+loss to focus training on a sparse set of hard examples and
+down-weights the loss assigned to well-classiﬁed examples.
+Zhang et al . [
+54] design a max-out labeling mechanism to
+reduce false positives resulting from class imbalance.
+In our opinion, the current state-of-the-art two-stage
+methods, e.g., Faster R-CNN [ 36], R-FCN [ 5], and FPN
+[26], have three advantages over the one-stage methods as
+follows: (1) using two-stage structure with sampling heuris-
+tics to handle class imbalance; (2) using two-step cascade to
+regress the object box parameters; (3) using two-stage fea-
+tures to describe the objects
+1. In this work, we design a new
+object detection framework, called ReﬁneDet, to inherit the
+merits of the two approaches ( i.e., one-stage and two-stage
+approaches) and overcome their shortcomings. It improves
+the architecture of the one-stage approach, by using two
+1In case of Faster R-CNN, the features (excluding shared features) in
+the ﬁrst stage ( i.e., RPN) are trained for binary classiﬁcation (being an ob-
+ject or not), while the features (excluding shared features) in the second
+stage(i.e., Fast R-CNN) are trained for multi-class classiﬁcation (back-
+ground or object classes).
+4203
+
+
+---PAGE---
+
+Anchor Refinement Module
+Object Detection Module
+Transfer 
+Connection 
+Block
+Object Multi-Class 
+Classification and 
+Regression Loss
+Refined
+Anchors
+Anchor Binary 
+Classification and  
+Regression Loss
+Refined
+Anchors
+Refined
+Anchors
+Refined
+Anchors
+Image
+Transfer 
+Connection
+Block
+Transfer 
+Connection 
+Block
+Transfer 
+Connection 
+Block
+Figure 1: Architecture of ReﬁneDet. For better visualization, we only display the layers used for detection. The celadon
+parallelograms denote the reﬁned anchors associated with different feature layers. The stars represent the centers of the
+reﬁned anchor boxes, which are not regularly paved on the image.
+inter-connected modules (see Figure
+1), namely, the anchor
+2 reﬁnement module (ARM) and the object detection mod-
+ule (ODM). Speciﬁcally, the ARM is designed to (1) iden-
+tify and remove negative anchors to reduce search space for
+the classiﬁer, and (2) coarsely adjust the locations and sizes
+of anchors to provide better initialization for the subsequent
+regressor. The ODM takes the reﬁned anchors as the in-
+put from the former to further improve the regression and
+predict multi-class labels. As shown in Figure
+1, these two
+inter-connected modules imitate the two-stage structure and
+thus inherit the three aforementioned advantages to produce
+accurate detection results with high efﬁciency. In addition,
+we design a transfer connection block (TCB) to transfer the
+features
+3 in the ARM to predict locations, sizes, and class
+labels of objects in the ODM. The multi-task loss function
+enables us to train the whole network in an end-to-end way.
+Extensive experiments on PASCAL VOC 2007, PAS-
+CAL VOC 2012, and MS COCO benchmarks demonstrate
+that ReﬁneDet outperforms the state-of-the-art methods.
+Speciﬁcally, it achieves 85.8% and 86.8% mAPs on VOC
+2007 and 2012, with VGG-16 network. Meanwhile, it out-
+2We denote the reference bounding box as “anchor box”, which is also
+called “anchor” in [ 36]. However, in [ 29], it is called “default box”.
+3The features in the ARM focus on distinguishing positive anchors
+from background. We design the TCB to transfer the features in the ARM
+to handle the more challenging tasks in the ODM, i.e., predict accurate
+object locations, sizes and multi-class labels.
+performs the previously best published results from both
+one-stage and two-stage approaches by achieving 41.8%
+AP
+4 on MS COCO test-dev with ResNet-101. In ad-
+dition, ReﬁneDet is time efﬁcient, i.e., it runs at 40.2 FPS
+and 24.1 FPS on a NVIDIA Titan X GPU with the input
+sizes 320 × 320 and 512 × 512 in inference.
+The main contributions of this work are summarized as
+follows. (1) We introduce a new one-stage framework for
+object detection, composed of two inter-connected mod-
+ules, i.e., the ARM and the ODM. This leads to perfor-
+mance better than the two-stage approach while maintain-
+ing high efﬁciency of the one-stage approach. (2) To ensure
+the effectiveness, we design the TCB to transfer the fea-
+tures in the ARM to handle more challenging tasks, i.e., pre-
+dict accurate object locations, sizes and class labels, in the
+ODM. (3) ReﬁneDet achieves the latest state-of-the-art re-
+sults on generic object detection ( i.e., PASCAL VOC 2007
+[
+10], PASCAL VOC 2012 [11] and MS COCO [ 28]).
+2. Related Work
+Classical Object Detectors. Early object detection meth-
+ods are based on the sliding-window paradigm, which ap-
+ply the hand-crafted features and classiﬁers on dense image
+4Based on the evaluation protocol in MS COCO [ 28], AP is computed
+by averaging over all 10 intersection over union (IoU) thresholds ( i.e., in
+the range [0.5:0.95] with uniform step size 0.05) of 80 categories.
+4204

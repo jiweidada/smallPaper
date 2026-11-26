@@ -1,0 +1,185 @@
+Dynamic Zoom-in Network for Fast Object Detection in Large Images
+Mingfei Gao1 Ruichi Y u1 Ang Li2∗ Vlad I. Morariu 3∗ Larry S. Davis 1
+1University of Maryland, College Park 2DeepMind 3Adobe Research
+{mgao,richyu,lsd}@umiacs.umd.edu anglili@google.com morariu@adobe.com
+Abstract
+We introduce a generic framework that reduces the com-
+putational cost of object detection while retaining accuracy
+for scenarios where objects with varied sizes appear in high
+resolution images. Detection progresses in a coarse-to-ﬁne
+manner , ﬁrst on a down-sampled version of the image and
+then on a sequence of higher resolution regions identiﬁed
+as likely to improve the detection accuracy. Built upon re-
+inforcement learning, our approach consists of a model (R-
+net) that uses coarse detection results to predict the poten-
+tial accuracy gain for analyzing a region at a higher reso-
+lution and another model (Q-net) that sequentially selects
+regions to zoom in. Experiments on the Caltech Pedestri-
+ans dataset show that our approach reduces the number of
+processed pixels by over 50% without a drop in detection
+accuracy. The merits of our approach become more signiﬁ-
+cant on a high resolution test set collected from YFCC100M
+dataset, where our approach maintains high detection per-
+formance while reducing the number of processed pixels by
+about 70% and the detection time by over 50%.
+1. Introduction
+Most recent convolutional neural network (CNN) detec-
+tors are applied to images with relatively low resolution,
+e.g., VOC2007/2012 (about 500 ×400) [12, 13] and MS
+COCO (about 600 ×400) [26]. At such low resolutions, the
+computational cost of convolution is low. However, the res-
+olution of everyday devices has quickly outpaced standard
+computer vision datasets. The camera of a 4K smartphone,
+for instance, has a resolution of 2,160 ×3,840 pixels and
+a DSLR camera can reach 6,000 ×4,000 pixels. Applying
+state-of-the-art CNN detectors directly to those high reso-
+lution images requires a large amount of processing time.
+Additionally, the convolution output maps are too large for
+the memory of current GPUs.
+Prior works address some of these issues by simplifying
+the network architecture [14, 41, 9, 23, 38] to speed up de-
+∗The work was done while the author was at the University of Maryland
+State	Representation
+R-net
+Q-net
+Update	
+&	Iterate
+Step	1
+Step	2
+Zoom	Region	1
+Zoom	Region	2
+Fine	
+Detector
+Fine	
+Detector
+Figure 1: Illustration of our approach. The input is a down-
+sampled version of the image to which a coarse detector is
+applied. The R-net uses the initial coarse detection results to
+predict the utility of zooming in on a region to perform de-
+tection at higher resolution. The Q-net, then uses the com-
+puted accuracy gain map and a history of previous zooms
+to determine the next zoom that is most likely to improve
+detection with limited computational cost.
+tection and reduce GPU memory consumption. However,
+these models are tailored to particular network structures
+and may not generalize well to new architectures. A more
+general direction is treating the detector as a black box that
+is judiciously applied to optimize accuracy and efﬁciency.
+For example, one could partition an image into sub-images
+that satisfy memory constraints and apply the CNN to each
+sub-image. However, this solution is still computationally
+burdensome. One could also speed up detection process and
+reduce memory requirements by running existing detectors
+on down-sampled images. However, the smallest objects
+may become too small to detect in the down-sampled im-
+ages. Object proposal methods are the basis for most CNN
+6926
+
+
+---PAGE---
+
+detectors, restricting expensive analysis to regions that are
+likely to contain objects of interest [11, 35, 44, 43]. How-
+ever, the number of object proposals needed to achieve good
+recall for small objects in large images is prohibitively high
+which leads to huge computational cost.
+Our approach is illustrated in Fig. 1. We speed up object
+detection by ﬁrst performing coarse detection on a down-
+sampled version of the image and then sequentially select-
+ing promising regions to be analyzed at a higher resolution.
+We employ reinforcement learning to model long-term re-
+ward in terms of detection accuracy and computational cost
+and dynamically select a sequence of regions to analyze at
+higher resolution. Our approach consists of two networks:
+a zoom-in accuracy gain regression network (R-net) learns
+correlations between coarse and ﬁne detections and predicts
+the accuracy gain for zooming in on a region; a zoom-in Q
+function network (Q-net) learns to sequentially select the
+optimal zoom locations and scales by analyzing the output
+of the R-net and the history of previously analyzed regions.
+Experiments demonstrate that, with a negligible drop
+in detection accuracy, our method reduces processed pix-
+els by over 50% and average detection time by 25% on
+the Caltech Pedestrian Detection dataset [10], and reduces
+processed pixels by about 70% and average detection time
+by over 50% on a high resolution dataset collected from
+YFCC100M [21] that has pedestrians of varied sizes. We
+also compare our method to recent single-shot detectors [32,
+27] to show our advantage when handling large images.
+2. Related work
+CNN detectors. One way to analyze high resolu-
+tion images efﬁciently is to improve the underlying detec-
+tor. Girshick [16] speeded up the region proposal based
+CNN [17] by sharing convolutional features between pro-
+posals. Ren et al . proposed Faster R-CNN [33], a fully
+end-to-end pipeline that shares features between proposal
+generation and object detection, improving both accuracy
+and computational efﬁciency. Recently, single-shot detec-
+tors [27, 31, 32] have received much attention for real-time
+performance. These methods remove the proposal gener-
+ation stage and formulate detection as a regression prob-
+lem. Although these detectors performed well on PASCAL
+VOC [12, 13] and MS COCO [26] datasets, which generally
+contain large objects in images with relatively low resolu-
+tion, they do not generalize as well on large images with ob-
+jects of variable sizes. Also, their processing cost increases
+dramatically with image size due to the large number of
+convolution operations.
+Sequential search. Another strategy to handle large im-
+age sizes is to avoid processing the entire image and instead
+investigate small regions sequentially. However, most exist-
+ing works focus on mining informative regions to improve
+detection accuracy without considering computational cost.
+Lu et al . [28] improve localization by adaptively focusing
+on subregions likely to contain objects. Alexe et al . [1]
+sequentially investigated locations based on what has been
+seen to improve detection accuracy. However, the proposed
+approach introduces a large overhead leading to long detec-
+tion time (about 5s per object class per image). Zhang et
+al. [42] improved the detection accuracy by penalizing the
+inaccurate location of the initial object proposals, which in-
+troduced more than 15% overhead to detection time.
+A sequential search process can also make use of con-
+textual cues from sources, such as scene segmentation. Ex-
+isting approaches have explored this idea for various object
+localization tasks [8, 37, 30]. Such cues can also be incorpo-
+rated within our framework ( e.g., as input to predicting the
+zoom in reward). However, we focus on using only coarse
+detections as a guide for sequential search and leave addi-
+tional contextual information for future work. Other previ-
+ous work [25] utilizes a coarse-to-ﬁne strategy to speed up
+detection, but this work does not select promising regions
+sequentially.
+Reinforcement learning (RL). RL a is popular mech-
+anism for learning sequential search policies, as it allows
+models to consider the effect of a sequence of actions rather
+than individual ones. Ba et al . use RL to train a attention
+based model in [3] to sequentially select most relevant re-
+gions for object recognition and Jie et al. [20] select regions
+for localization in a top-down search fashion. However,
+these methods require a large number of selection steps and
+may lead to long running time. Caicedo et al. [7] designed
+an active detection model for object localization, which uti-
+lizes Deep Q Networks (DQN) [29] to learn a long-term
+reward function to transform an initial bounding box se-
+quentially until it converges to an object. However, as re-
+ported in [7], the box transformation takes about 1.5s de-
+tection time on a typical Pascal VOC image which is much
+slower than recent detectors [33, 27, 32]. In addition, [7]
+does not explicitly consider selection cost. Although, RL
+implicitly forces the algorithm to take a minimum number
+of steps, we need to explicitly penalize cost since each step
+can yield a high cost. For example, if we do not penalize
+cost, the algorithm will tend to zoom in on the whole im-
+age. Existing works have proposed methods to apply RL
+in cost sensitive settings [18, 22]. We follow the approach
+of [18] and treat the reward function as a linear combination
+of accuracy and cost.
+3. Dynamic zoom-in network
+Our work employs a coarse-to-ﬁne strategy, applying a
+coarse detector at low resolution and using the outputs of
+this detector to guide an in-depth search for objects at high
+resolution. The intuition is that, while the coarse detector
+will not be as accurate as the ﬁne detector, it will identify
+image regions that need to be further analyzed, incurring the
+6927

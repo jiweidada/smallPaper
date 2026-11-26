@@ -1,0 +1,111 @@
+0 10 20 30 40 50 60 70 80
+3
+2
+1
+0
+1
+2
+3
+4
+AP Gnet - AP GreedyNMS
+Sorted class index
+Figure 7: AP 0.95
+0.5 improvement of Gnet over the best Gree-
+dyNMS threshold for each of the (sorted) 80 COCO classes.
+Gnet improves on ∼ 70 out of 80 categories. On aver-
+age Gnet provides a ∼1 mAP0.95
+0.5 point gain over per-class
+tuned GreedyNMS (23.5 → 24.3% mAP0.95
+0.5 ).
+ing a small but consistent improvement over a well tuned
+GreedyNMS. Qualitative results are included in the supple-
+mentary material.
+We consider these encouraging results, conﬁrming that
+indeed the Gnet is capable of properly performing NMS
+without access to image features or GreedyNMS decisions.
+5.3. COCO multi­class
+As discussed in section
+4, Gnet is directly applicable to
+the multi-class setup. We use the exact same parameters and
+architecture selected for the persons case. The only change
+is the replacement of the score scalar by a per-class score
+vector in the input and output (see §
+4.2). We train one multi-
+class Gnet model for all 80 COCO categories.
+Figure 7 shows the mAP 0.95
+0.5 improvement of Gnet over
+a per-class tuned GreedyNMS. We obtain improved results
+on the bulk of the object classes, and no catastrophic fail-
+ure is observed, showing that Gnet is well suited to handle
+all kind of object categories. Averaged across classes Gnet
+obtains 24.3% mAP0.95
+0.5 , compared to 23.5% for a test-set
+tuned GreedyNMS. Overall we argue Gnet is a suitable re-
+placement for GreedyNMS.
+Supplementary material includes the detailed per-class
+table.
+6. Conclusion
+In this work we have opened the door for training de-
+tectors that no longer need a non-maximum suppression
+(NMS) post-processing step. We have argued that NMS
+is usually needed as post-processing because detectors are
+commonly trained to have robust responses and process
+neighbouring detections independently. We have identiﬁed
+two key ingredients missing in detectors that are necessary
+to build an NMS network: (1) a loss that penalises double
+detections and (2) joint processing of detections.
+We have introduced the Gnet, the ﬁrst “pure” NMS net-
+work that is fully capable of performing the NMS task with-
+out having access to image content nor help from another
+algorithm. Being a neural network, it lends itself to being
+incorporated into detectors and having access to image fea-
+tures in order to build detectors that can be trained truly
+end-to-end. These end-to-end detectors will not require any
+post-processing.
+The experimental results indicate that, with enough
+training data, the proposed Gnet is a suitable replacement
+for GreedyNMS both for single- or multi-class setups. The
+network surpasses GreedyNMS in particular for occluded
+cases and provides improved localization.
+In its current form the Gnet requires large amounts of
+training data and it would beneﬁt from future work on data
+augmentation or better initialisation by pre-training on syn-
+thetic data. Incorporating image features could have a big
+impact, as they have the potential of informing the network
+about the number of objects in the image.
+We believe the ideas and results discussed in this work
+point to a future where the distinction between detector and
+NMS will disappear.
+References
+[1] O. Barinova, V . Lempitsky, and P . Kholi. On detection
+of multiple object instances using hough transforms.
+PAMI, 2012.
+2
+[2] L. Bourdev, S. Maji, T. Brox, and J. Malik. Detecting
+people using mutually consistent poselet activations.
+In ECCV, 2010.
+2
+[3] G. Burel and D. Carel. Detection and localization of
+faces on digital images. Pattern Recognition Letters ,
+1994. 3
+[4] G. Chen, Y . Ding, J. Xiao, and T. X. Han. Detection
+evolution with multi-order contextual co-occurrence.
+In CVPR, 2013.
+2
+[5] J. Dai, K. He, and J. Sun. Convolutional feature mask-
+ing for joint object and stuff segmentation. In CVPR,
+2015. 2
+[6] N. Dalal and B. Triggs. Histograms of oriented gradi-
+ents for human detection. In CVPR, 2005. 2
+[7] P . Felzenszwalb, R. Girshick, D. McAllester, and
+D. Ramanan. Object detection with discriminatively
+trained part-based models. PAMI, 2010.
+1, 2
+[8] J. Ferryman and A. Ellis. Pets2010: Dataset and chal-
+lenge. In A VSS, 2010. 6
+[9] R. Girshick. Fast R-CNN. In ICCV, 2015. 1, 2
+[10] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich
+feature hierarchies for accurate object detection and
+semantic segmentation. In CVPR, 2014.
+1, 2
+4514

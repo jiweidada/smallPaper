@@ -1,0 +1,51 @@
+load_from: weight/hgnetv2/deim_dfine_hgnetv2_s_coco_120e.pth
+
+task: detection
+
+evaluator:
+  type: CocoEvaluator
+  iou_types: ['bbox', ]
+
+num_classes: 2 # <-- CORRECTED based on your JSON
+remap_mscoco_category: False
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+
+    # +++ TinyPerson Training Paths +++
+    img_folder: tiny_set/train
+    ann_file: tiny_set/annotations/tiny_set_train.json
+
+    return_masks: False
+    transforms:
+      type: Compose
+      ops: ~
+  shuffle: True
+  num_workers: 4
+  drop_last: True
+  pin_memory: True
+  collate_fn:
+    type: BatchImageCollateFunction
+
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+
+    # +++ TinyPerson Validation (Test) Paths +++
+    img_folder: tiny_set/test
+    ann_file: tiny_set/annotations/tiny_set_test.json
+
+    return_masks: False
+    transforms:
+      type: Compose
+      ops: ~
+  shuffle: False
+  num_workers: 4
+  drop_last: False
+  pin_memory: True
+  collate_fn:
+    type: BatchImageCollateFunction

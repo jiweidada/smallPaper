@@ -1,0 +1,199 @@
+Dome-DETR: DETR with Density-Oriented Feature-Query
+Manipulation for Efficient Tiny Object Detection
+Zhangchi Hu
+huzhangchi@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Peixi Wu
+wupeixi@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Jie Chen
+chenjie02@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Huyue Zhu
+huyuezhu@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Yijun Wang
+wangyijun@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Yansong Peng
+pengyansong@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Hebei Li∗
+lihebei@mail.ustc.edu.cn
+University of Science and Technology
+of China
+Hefei, Anhui, China
+Xiaoyan Sun
+sunxiaoyan@ustc.edu.cn
+University of Science and Technology
+of China
+Institute of Artificial Intelligence,
+Hefei Comprehensive National
+Science Center
+Hefei, Anhui, China
+Abstract
+Tiny object detection plays a vital role in drone surveillance, re-
+mote sensing, and autonomous systems, enabling the identifica-
+tion of small targets across vast landscapes. However, existing
+methods suffer from inefficient feature leverage and high com-
+putational costs due to redundant feature processing and rigid
+query allocation. To address these challenges, we propose Dome-
+DETR, a novel framework with Density-Oriented Feature-Query
+Manipulation for Efficient Tiny Object Detection. To reduce fea-
+ture redundancies, we introduce a lightweight Density-Focal Ex-
+tractor (DeFE) to produce clustered compact foreground masks.
+Leveraging these masks, we incorporate Masked Window Atten-
+tion Sparsification (MWAS) to focus computational resources on
+the most informative regions via sparse attention. Besides, we
+propose Progressive Adaptive Query Initialization (PAQI), which
+adaptively modulates query density across spatial areas for better
+∗Corresponding author.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+MM ’25, Dublin, Ireland.
+© 2025 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 979-8-4007-2035-2/2025/10
+https://doi.org/10.1145/3746027.3754861
+query allocation. Extensive experiments demonstrate that Dome-
+DETR achieves state-of-the-art performance (+3.3 AP on AI-TOD-
+V2 and +2.5 AP on VisDrone) while maintaining low computa-
+tional complexity and a compact model size. Code is available at
+https://github.com/RicePasteM/Dome-DETR.
+CCS Concepts
+•Computing methodologies → Object detection.
+Keywords
+tiny object detection, detection transformer, visual object detection
+ACM Reference Format:
+Zhangchi Hu, Peixi Wu, Jie Chen, Huyue Zhu, Yijun Wang, Yansong Peng,
+Hebei Li, and Xiaoyan Sun. 2025. Dome-DETR: DETR with Density-Oriented
+Feature-Query Manipulation for Efficient Tiny Object Detection. In Pro-
+ceedings of the 33rd ACM International Conference on Multimedia (MM ’25),
+October 27–31, 2025, Dublin, Ireland. ACM, New York, NY, USA, 15 pages.
+https://doi.org/10.1145/3746027.3754861
+1 Introduction
+Object detection is a core task in computer vision, supporting ap-
+plications like autonomous driving and robotic navigation. Re-
+cent progress has been largely driven by CNN-based methods
+[5, 7, 8, 16, 20, 28, 30, 31, 33, 38]. More recently, Detection Transform-
+ers (DETR) introduced Transformer-based end-to-end detection
+[3]. Subsequent variants [4, 10, 19, 22, 27, 47, 51, 53] have further
+enhanced performance and speed. However, these advancements
+primarily target generic object detection, leaving critical challenges
+unresolved for detecting tiny objects—particularly in aerial imagery
+from drones or satellites.
+arXiv:2505.05741v2  [cs.CV]  8 Aug 2025
+
+---PAGE---
+
+MM ’25, October 27–31, 2025, Dublin, Ireland. Zhangchi Hu et al.
+DQ-DETR
+1805
+Model Params
+100 M50 M10 M
+//
+GFLOPs
+Ours-S Ours-M
+Ours-L
+D-FINE-S D-FINE-M D-FINE-L
+RT-DETR-S
+RT-DETR-M
+RT-DETR-L
+DNTR DINO-DETRDetectoRS w/ RFLA
+DetectoRS w/ NWD
+DetectoRS Deformable-DETR
+YOLOv12-X
+YOLOv12-L
+YOLOv12-M
+YOLOv12-S
+Cascade R-CNN
+DETR-DC5
+AP on AI−TOD𝑡𝑒𝑠𝑡
+Figure 1: Comparisons with other detectors on the AI-TOD-
+V2 test set. More statistics is on Table 1.
+Tiny object detection, which focuses on localizing and classify-
+ing objects occupying only a few pixels, is critical for tasks like
+remote sensing, drone monitoring, and autonomous navigation.
+Its challenge stems from the fragile and sparse feature represen-
+tation of tiny objects. These objects heavily rely on low-level spa-
+tial details, which are often lost in deeper layers of feature hier-
+archies. Maintaining high-resolution feature maps help preserve
+such information but comes at the cost of increased computational
+complexity and memory consumption. Deformable DETR [53] al-
+leviates some of this burden through sparse deformable attention,
+yet still suffers from high inference latency due to its broad multi-
+scale attention. RT-DETR [51] improves inference speed by decou-
+pling intra-scale and cross-scale interactions but relies heavily on
+deep, low-resolution features, resulting in degraded performance
+on small-scale targets. These issues highlight the pressing need
+for detection frameworks that can balance fine-grained feature
+preservation with computational efficiency.
+Beyond feature representation, query allocation poses another
+challenge for tiny object detection, especially in aerial images with
+dense and complex object distributions [40, 52]. Existing DETR-like
+methods [3, 15, 19, 47, 51, 53] use a fixed number of queries (𝐾 = 100
+in DETR, 𝐾 = 300 in Deformable-DETR), which simplifies imple-
+mentation but reduces recall in dense scenes and wastes resources
+in sparse ones. Some aerial images [ 40] contain over 1,500 tiny
+objects, far exceeding typical query capacities. DDQ-DETR [ 49]
+increases query density (using 𝐾 = 900) and applies class-agnostic
+NMS with manually set IoU thresholds to filter redundant predic-
+tions. However, its rigid query count and fixed NMS thresholds
+introduce low recall in dense scenes and remain insensitive to vari-
+ations in instance density. Meanwhile, DQ-DETR [12] introduces
+dynamic query adjustment through a categorical counting module
+that estimates a classified number for query allocation. Although
+promising, its counting head relies on manually tuned classification
+hyperparameters across different datasets, and module design leads
+to substantial computational overhead. These challenges under-
+score the need for an adaptive query mechanism that dynamically
+AI-TOD-V2 VisDrone2019 COCO2017
+(A)
+(B)
+Figure 2: (A) Comparison of foreground proportions across
+different datasets; and (B) Visualization of foreground re-
+gions (highlighted in yellow) in samples from these datasets.
+aligns query density with instance distributions while eliminating
+manual tuning and preserving efficiency. To this end, tiny object
+detection remains challenging due to the fragile nature of small
+object features and the inefficiency of fixed-query mechanisms in
+handling diverse instance densities.
+In this paper, we introduce Dome-DETR, a novel and efficient
+end-to-end object detection framework which improves small and
+tiny object detection. First, in satellite, drone, and natural imagery,
+the foreground typically occupies only a small portion of the frame
+(see Figure 2), leading to excessive computation on less informative
+background regions. This highlights the potential for acceleration
+by emphasizing foreground areas. Moreover, shallow CNN features
+inherently capture rich spatial density cues. To leverage this, we
+design a lightweight (A) Density-Focal Extractor (DeFE) that
+produces density response heatmaps closely aligned with ground-
+truth annotations. These heatmaps enhance multi-scale encoder
+features and guide progressive query initialization in the decoder.
+Second, while deep features provide scene-level context, instance-
+level details in shallow features are essential for detecting small
+objects—but come with high attention costs. To mitigate this, we
+use DeFE-generated maps to suppress irrelevant regions via (B)
+Masked Window Attention Sparsification (MW AS), focusing
+attention on meaningful windows. Finally, fixed-query mechanisms
+in DETR struggle with large variations in object counts. We address
+this with (C) Progressive Adaptive Query Initialization (PAQI),
+which adaptively allocates queries by decoding density maps into
+dynamic suppression thresholds, removing the need for hand-tuned
+hyperparameters while improving recall in dense scenes.

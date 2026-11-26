@@ -1,0 +1,105 @@
+Elliptical Attention
+Stefan K. Nielsen∗
+FPT Software AI Center
+Ha Noi, Vietnam
+stefannvkp@fpt.com
+Laziz U. Abdullaev∗
+Department of Mathematics
+National University of Singapore
+Singapore 119077, Singapore
+laziz.abdullaev@u.nus.edu
+Rachel S.Y. Teo
+Department of Mathematics
+National University of Singapore
+Singapore 119077, Singapore
+rachel.teo@u.nus.edu
+Tan M. Nguyen
+Department of Mathematics
+National University of Singapore
+Singapore 119077, Singapore
+tanmn@nus.edu.sg
+Abstract
+Pairwise dot-product self-attention is key to the success of transformers that achieve
+state-of-the-art performance across a variety of applications in language and vi-
+sion. This dot-product self-attention computes attention weights among the input
+tokens using Euclidean distance, which makes the model prone to representation
+collapse and vulnerable to contaminated samples. In this paper, we propose using
+a Mahalanobis distance metric for computing the attention weights to stretch the
+underlying feature space in directions of high contextual relevance. In particular,
+we define a hyper-ellipsoidal neighborhood around each query to increase the
+attention weights of the tokens lying in the contextually important directions. We
+term this novel class of attention Elliptical Attention. Our Elliptical Attention
+provides two benefits: 1) reducing representation collapse, and 2) enhancing the
+model’s robustness as Elliptical Attention pays more attention to contextually
+relevant information, rather than focusing on some small subset of informative
+features. We empirically demonstrate the advantages of Elliptical Attention over
+the baseline dot-product attention and state-of-the-art attention methods on vari-
+ous practical tasks, including object classification, image segmentation, and lan-
+guage modeling across different data modalities. The code is publicly available at
+https://github.com/stefvk/Elliptical-Attention.
+1 Introduction
+Attention mechanisms and transformers [82] have achieved state of the art performance across a wide
+variety of tasks in machine learning [27, 35, 75] and, in particular, within natural language processing
+[1, 2, 13, 65, 12], computer vision [ 16, 39, 78, 66, 62], and reinforcement learning [ 25, 5]. They
+have also demonstrated strong performance in knowledge transfer from pretraining tasks to various
+downstream tasks with weak or no supervision [63, 64, 15]. At the core of these models is the dot-
+product self-attention mechanism, which learns self-alignment between tokens in an input sequence
+by estimating the relative importance of each token with respect to all others. The mechanism then
+transforms each token into a weighted average of the feature representations of the other tokens
+with weights proportional to the learned importance scores. The relative importance scores capture
+contextual information among tokens and are key to the success of the transformer architecture
+[83, 76, 8, 59, 36, 55].
+∗Equal contribution. Correspondence to stefannvkp@fpt.com
+38th Conference on Neural Information Processing Systems (NeurIPS 2024).
+
+---PAGE---
+
+Figure 1: Comparison of Attention Heatmaps. Elliptical pays attention to more relevant information. DeiT
+focuses on just a subset of informative features while Elliptical considers a wider set of contextually relevant
+information, helping to produce more accurate and robust predictions. Attention scores are min-max scaled for
+visualization purposes.
+Recent work has begun exploring the connections between self-attention and non-parametric kernel
+regression [54, 23]. Under this interpretation, there is an unknown, underlying function f mapping
+the tokens in the input sequence to the output sequence. The self-attention mechanism estimates
+f by performing Nadaraya-Watson (NW) regression with isotropic Gaussian kernels. Our work
+leverages this perspective on self-attention, where we notice that Gaussian isotropic kernels are
+spherically invariant. This has the drawback of assuming all dimensions of the feature space are equal
+in terms of importance, meaning nearby tokens are assigned contextual relevance weights dependant
+only on their Euclidean distance from a query, regardless of direction. From the non-parametric
+regression perspective, we show that spherical invariance in the kernel causes the estimator to suffer
+provably higher variance. This causes two connected disadvantages in the self-attention setting. First,
+high variance in the estimator impairs robustness as small contaminations in the input cause large,
+erroneous changes in the self-attention output. Second, the high variance of the estimator reduces the
+capacity of the self-attention mechanism as hidden representations passing through the model are
+increasingly composed of uninformative noise.
+Contribution. In this work, we propose Elliptical Attention, a new class of self-attention that
+constructs hyper-ellipsoidal, rather than hyper-spherical, neighborhoods around the attention queries.
+The key idea is to stretch the neighborhoods around the queries to upweight keys in directions of high
+importance. We achieve this by computing a Mahalanobis transformation that stretches the axes of the
+underlying feature space according to a learned measure of coordinate-wise relevance. Constructing
+hyper-ellipsoidal neighborhoods following this scheme allows the self-attention mechanism to learn
+higher-quality contextual representations that prevent representation collapse while simultaneously
+exhibiting stronger robustness. We additionally propose an estimator of coordinate-wise relevance in
+the self-attention mechanism that can be computed highly efficiently and with no learnable parameters.
+We theoretically prove that our estimator accurately estimates the relative coordinate-wise relevance
+in the feature space. Finally, our approach of constructing hyper-ellipsoidal neighborhoods is linked to
+theoretical improvements in the mean squared error (MSE) of non-parametric estimators by reducing
+variance without introducing bias. We demonstrate that this provable reduction in variance is related
+to both representation collapse and robustness, proposing a unifying framework for both phenomena.
+This framework is based on the geometry of the predictive neighborhood around queries in the
+attention mechanism. In summary, our contributions are three-fold:
+1. We develop the novel Elliptical Attention, which learns better contextual representations by
+constructing hyper-ellipsoidal neighborhoods around queries.
+2. We propose an efficient estimator of the coordinate-wise relevance in the self-attention mech-
+anism, which requires no learnable parameters, and provide theoretical guarantees for this
+estimator.
+3. We derive a theoretical framework unifying representation collapse and robustness in trans-
+formers based only on the implicit geometry of the attention mechanism.
+We empirically demonstrate that 1) Elliptical Attention outperforms baseline self-attention models
+in terms of accuracy and robustness on a variety of practical benchmarks, including WikiText-103
+language modelling, ImageNet-1K object classification, LRA long sequence modeling, and ADE20K
+image segmentation, 2) Elliptical Attention attains robust improvements with lower memory require-
+ments and faster computational speed than baseline robust transformers, and 3) Elliptical Attention
+can be combined with state-of-the-art robust transformers to further boost robust performance in
+ImageNet-1K under adversarial attack.
+2

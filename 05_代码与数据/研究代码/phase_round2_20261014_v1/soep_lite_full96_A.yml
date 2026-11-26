@@ -1,0 +1,44 @@
+__include__:
+- proto96.yml
+output_dir: /25085400120/DEIM/experiments/phase_mechanism_20261012/outputs/soep_lite_full96
+DEIM:
+  backbone: HGNetv2
+  encoder: HybridEncoder_SOEP_Lite
+HGNetv2:
+  return_idx:
+  - 0
+  - 1
+  - 2
+  - 3
+  pretrained: false
+HybridEncoder_SOEP_Lite:
+  in_channels:
+  - 256
+  - 512
+  - 1024
+  feat_strides:
+  - 8
+  - 16
+  - 32
+  hidden_dim: 256
+  use_encoder_idx:
+  - 2
+  num_encoder_layers: 1
+  nhead: 8
+  dim_feedforward: 1024
+  dropout: 0.0
+  enc_act: gelu
+  expansion: 0.5
+  depth_mult: 0.34
+  act: silu
+  p2_channels: 64
+  bridge_width: 16
+optimizer:
+  params:
+  - params: ^(?=.*(?:backbone|encoder\.p2_fusion))(?!.*(?:bn|norm|bias)).*$
+    lr: 0.0001
+  - params: ^(?=.*(?:backbone|encoder\.p2_fusion))(?=.*(?:bn|norm|bias)).*$
+    lr: 0.0001
+    weight_decay: 0.0
+  - params: ^(?!.*(?:backbone|encoder\.p2_fusion))(?=.*(?:bn|norm|bias)).*$
+    weight_decay: 0.0

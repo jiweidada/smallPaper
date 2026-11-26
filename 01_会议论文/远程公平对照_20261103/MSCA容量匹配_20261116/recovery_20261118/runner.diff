@@ -1,0 +1,125 @@
+--- frozen/train_runner.py
++++ resume_train.py
+@@ -56,29 +56,61 @@
+         'validation_loader': val.generator.get_state(),
+     }
+ 
++def restore_rng(fair, saved, train, val):
++    torch = fair.torch
++    require(not train.persistent_workers and not val.persistent_workers
++            and isinstance(val.sampler, torch.utils.data.SequentialSampler), 'Unexpected loader workers or sampler')
++    rng = saved['rng_state']
++    require(set(rng) == {'python', 'numpy', 'torch_cpu', 'torch_cuda_all', 'train_loader',
++                        'train_sampler', 'validation_loader'}, 'Incomplete saved RNG state')
++    fair.random.setstate(rng['python'])
++    name, keys, position, has_gauss, cached = rng['numpy']
++    fair.np.random.set_state((name, fair.np.asarray(keys, dtype=fair.np.uint32), position, has_gauss, cached))
++    torch.set_rng_state(rng['torch_cpu'])
++    require(len(rng['torch_cuda_all']) == torch.cuda.device_count() == 1, 'CUDA device count changed')
++    torch.cuda.set_rng_state_all(rng['torch_cuda_all'])
++    train.generator.set_state(rng['train_loader'])
++    train.sampler.generator.set_state(rng['train_sampler'])
++    val.generator.set_state(rng['validation_loader'])
++    current = capture_rng(fair, train, val)
++    require(current['python'] == rng['python'] and current['numpy'] == rng['numpy'], 'Python or NumPy RNG differs')
++    for key in ('torch_cpu', 'train_loader', 'train_sampler', 'validation_loader'):
++        require(torch.equal(current[key], rng[key]), 'Restored RNG differs: ' + key)
++    require(all(torch.equal(a, b) for a, b in zip(current['torch_cuda_all'], rng['torch_cuda_all'])),
++            'Restored CUDA RNG differs')
++
+ def train_run(fair, args, bindings, gate):
+     torch = fair.torch
+     out = args.output
+     arm = args.arm
+-    first_epoch = 0
+-    out.mkdir(parents=True, exist_ok=False)
+-    sync_dir(out.parent)
+-    attempts = 0
+-    last_epoch = -1
+-    best_ap = -math.inf
+-    best = stage_one = None
++    recovery = args.recovery
++    first_epoch = recovery['accepted_rounds']
++    require(out.is_dir(), 'Existing run is missing')
++    require(fair.sha(out / 'next_epoch.pt') == recovery['checkpoint_sha256'], 'Recovery checkpoint changed')
++    saved = torch.load(out / 'next_epoch.pt', map_location='cpu', weights_only=True)
++    require(saved['resume_format'] == ROLLING_FORMAT and saved['next_epoch'] == first_epoch
++            and saved['actual_loop_epoch'] == saved['last_epoch'] == first_epoch - 1
++            and saved['optimizer_step_attempts'] == first_epoch * BATCHES, 'Recovery boundary differs')
++    require(all(saved[k] == v for k, v in bindings.items()), 'Recovery checkpoint bindings differ')
++    require(saved['best'] == recovery['best'] and saved['stage_one'] == recovery['stage_one'],
++            'Recovery selections differ')
++    attempts = saved['optimizer_step_attempts']
++    last_epoch = saved['last_epoch']
++    best, stage_one = saved['best'], saved['stage_one']
++    best_ap = fair.readj(package_path(out, best) / 'best.metrics.json')['metrics']['AP']
+     origin = fair.readj(out.parent / 'inputs/preflight.json')['initialization']
+     receipt = {
+         **bindings, 'config_sha256': bindings['configuration_sha256'],
+         'status': 'INITIALIZING', 'pid': os.getpid(), 'started_utc': fair.now(),
+-        'actual_loop_epoch': -1, 'completed_epochs': 0, 'next_epoch': 0,
+-        'first_epoch_in_this_segment': 0, 'optimizer_step_attempts': 0,
++        'actual_loop_epoch': last_epoch, 'completed_epochs': first_epoch, 'next_epoch': first_epoch,
++        'first_epoch_in_this_segment': first_epoch, 'optimizer_step_attempts': attempts,
++        'recovery_plan_sha256': args.recovery_sha256,
++        'resumed_from_checkpoint_sha256': recovery['checkpoint_sha256'],
+         'initialization_origin': origin, 'runner_sha256': fair.sha(Path(__file__)),
+         'torch_version': str(torch.__version__), 'cuda_runtime': torch.version.cuda,
+     }
+     fair.savej(out / 'receipt.json', receipt)
+     try:
+-        (out / 'selected').mkdir()
+         fair.controls()
+         cfg, model, criterion, post, train, val, evaluator, lrfn = fair.build(arm)
+         initial = torch.load(out.parent / 'inputs/initial.pt', map_location='cpu', weights_only=True)
+@@ -149,12 +181,20 @@
+             receipt['local_backup_verified'] = gate.protect(loop_epoch, rolling_sha, best, stage_one, evaluated)
+             return rolling_sha
+ 
+-        fair.seeds(0)
++        load_state(saved)
++        ema.decay = saved['ema_decay_attribute']
++        require(ema.updates == saved['ema']['updates'], 'Restored EMA updates differ')
++        require(fair.tensor_hash(model.state_dict()) == fair.tensor_hash(saved['model'])
++                and fair.tensor_hash(ema.module.state_dict()) == fair.tensor_hash(saved['ema']['module']),
++                'Restored model or EMA tensors differ')
++        restore_rng(fair, saved, train, val)
++        receipt.update(status='RUNNING', phase='epoch_complete', best_epoch=best['epoch'], best_AP=best_ap,
++                       latest_metrics=saved['latest_evaluated_row']['metrics'], updated_utc=fair.now())
++        fair.savej(out / 'receipt.json', receipt)
++        del saved
+         expected = fair.readj(out.parent / 'inputs/first100.json')
+ 
+         lrpath = out / 'executed_learning_rates.csv.gz'
+-        with gzip.open(lrpath, 'wt', compresslevel=1) as lrlog:
+-            lrlog.write('attempt,actual_epoch,batch,' + ','.join(f'group{i}' for i in range(len(base_lrs))) + '\n')
+         for epoch in range(first_epoch, EPOCHS):
+             started = time.monotonic()
+             fair.prepare_epoch(train, epoch)
+@@ -263,7 +303,13 @@
+     here = Path(__file__).resolve().parent
+     parser = argparse.ArgumentParser()
+     parser.add_argument('--protocol-sha256', required=True)
++    parser.add_argument('--recovery-sha256', required=True)
+     args = parser.parse_args()
++    require(fair.sha(here / 'recovery_plan.json') == args.recovery_sha256, 'Recovery plan differs')
++    args.recovery = fair.readj(here / 'recovery_plan.json')
++    require(args.recovery['runner_sha256'] == fair.sha(Path(__file__))
++            and args.recovery['repeated_updates'] == args.recovery['repeated_evaluations'] == 0,
++            'Recovery scope differs')
+     plan = fair.readj(here / 'execution_protocol.json')
+     require(fair.sha(here / 'execution_protocol.json') == args.protocol_sha256 == backup.PROTOCOL,
+             'Execution protocol differs')
+@@ -301,6 +347,12 @@
+     require(len(prior_frozen['frozen_files']) == 247, 'Original source scope changed')
+     gate = backup.EpochGate(args.output)
+     gate.require_probe()
++    epoch = args.recovery['accepted_rounds'] - 1
++    payload = backup.local_metadata(gate.stage(epoch) / 'manifest.json')
++    manifest = backup.parse_manifest(payload, args.arm, epoch)
++    require(manifest['rolling_sha256'] == args.recovery['checkpoint_sha256']
++            and backup.local_metadata(gate.stage(epoch) / 'accepted.json')
++                == backup.accepted_bytes(payload, manifest), 'Recovery epoch has no matching acceptance')
+     bindings = {'arm': args.arm, 'protocol_sha256': backup.PROTOCOL,
+                 'configuration_sha256': backup.CONFIG,
+                 'environment_sha256': fair.sha(here / 'environment.current.json'),

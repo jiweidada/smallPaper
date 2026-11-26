@@ -1,0 +1,82 @@
+BorderDet: Border Feature for Dense Object
+Detection
+Han Qiu1,2∗, Yuchen Ma1∗, Zeming Li 1, Songtao Liu 1, and Jian Sun 1
+1 MEGVII Technology
+{qiuhan, mayuchen, lizeming, liusongtao, sunjian }@megvii.com
+2 Xi’an Jiaotong University
+qiuhan@stu.xjtu.edu.cn
+Abstract. Dense object detectors rely on the sliding-window paradigm
+that predicts the object over a regular grid of image. Meanwhile, the fea-
+ture maps on the point of the grid are adopted to generate the bounding
+box predictions. The point feature is convenient to use but may lack the
+explicit border information for accurate localization. In this paper, We
+propose a simple and eﬃcient operator called Border-Align to extract
+“border features” from the extreme point of the border to enhance the
+point feature. Based on the BorderAlign, we design a novel detection
+architecture called BorderDet, which explicitly exploits the border infor-
+mation for stronger classiﬁcation and more accurate localization. With
+ResNet-50 backbone, our method improves single-stage detector FCOS
+by 2.8 AP gains (38.6 v.s. 41.4). With the ResNeXt-101-DCN backbone,
+our BorderDet obtains 50.3 AP, outperforming the existing state-of-
+the-art approaches. The code is available at https://github.com/Megvii-
+BaseDetection/BorderDet.
+Keywords: Dense Object Detection, Border Feature
+1 Introduction
+Sliding-window object detector [4,11,16 –19,21,28], which generates bounding-box
+predictions over a dense and regular grid, plays an essential role in modern object
+detection. Most sliding-window object detectors like SSD [17], RetinaNet [16]
+and FCOS [21] adopt a point-based feature representation of the bounding box,
+where the bounding box is predicted by the feature on each point of the grid,
+shown as the “Single Point” in Fig. 1. This single point feature is convenient to
+be used for object localization and object classiﬁcation because no additional
+feature extraction is conducted.
+* The ﬁrst two authors contributed equally to this work.
+This work was supported in part by the National Key Research and Development
+Program of China under Grant 2017YFA0700800.
+arXiv:2007.11056v3  [cs.CV]  9 Apr 2021
+
+---PAGE---
+
+2 H. qiu, Y. Ma, Z. Li, S. Liu and J. Sun
+1
+(b) Dense prediction (c) RoIAlign (d) Deformable Conv 
+(Guided Anchor)
+(e) BorderAlign
+(Ours)
+(a) Image
+Fig. 1. Diﬀerent feature extraction strategy. The red pentagram represents the current
+point that predicts the bounding box. The black rectangle denotes the bounding box
+predicted on the red pentagrams. And the blue point indicates where the features
+are extracted. Diﬀerent from the deformable Convolution and RoIAlign which densely
+extract the features from the whole bounding box, Our BorderAlign only extracts the
+features from ﬁve points for the current single point and four extreme points of the
+borders respectively. The orange points in (a) are the extreme points
+However, the point feature may contain insuﬃcient information for represent-
+ing the full instance with its limited receptive ﬁeld. Meanwhile, it may also lack
+the information of the object boundary to precisely regress the bounding box.
+Many studies have been focused on the feature representation of the object,
+such as the GA-RPN [2], RepPoints [26] and Cascade RPN [23], or pooling based
+methods like RoI pooling [7] and RoIAlign [9]. As shown in Fig. 1, these methods
+extract more representative features than the point features. However, there
+are two limitations of implementing these methods for dense object detection:
+(1) The feature extracted within the whole boxes may involve unnecessary
+computation and easily be aﬀected by the background. (2) These methods extract
+the border features implicitly and indirectly. Since the features are discriminated
+and extracted adaptively within the whole boxes, no speciﬁc extraction on the
+border features is conducted in these methods.
+In this work, we propose a powerful feature extraction operator called Bor-
+derAlign, which directly utilizes the border features pooled from each boundary
+to enhance the original point feature. It diﬀers from the other feature extraction
+operators as shown in Fig. 1, which densely extracts the feature from the whole
+box. Our proposed BorderAlign focuses on the object border and is designed
+to adaptively discriminate the representative part of the object border, e.g. the
+extreme point [29], which is shown in Fig. 1(e).
+We design BorderDet which utilizes Border Alignment Modules (BAM) to
+reﬁne the classiﬁcation score and bounding box regression. Our BorderDet uses
+less computation than similar feature enhancement methods and achieves better
+accuracy. Moreover, our method can be easily integrated into any dense object
+detectors with/without anchors.
+To summarize, our contribution is three-fold as follows:
+1 We analyze the feature representation for the dense object detector and demon-
+strate the signiﬁcance of supplementing the single-point feature representation
+with the border feature.

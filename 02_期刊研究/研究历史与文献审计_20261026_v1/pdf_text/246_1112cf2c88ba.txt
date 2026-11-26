@@ -1,0 +1,124 @@
+Object Detection Benchmarks are Incomplete:
+The Role of Label Errors and Annotation
+Uncertainty
+1st Sarina Penquitt ∗
+Institute of Computer Science
+Osnabr¨uck University
+Osnabr¨uck, Germany
+sarina.penquitt@uni-osnabrueck.de
+1st Jonathan Klees ∗
+Institute of Computer Science
+Osnabr¨uck University
+Osnabr¨uck, Germany
+jonathan.klees@uni-osnabrueck.de
+3rd Antonia van Betteray
+Institute of Computer Science
+Osnabr¨uck University
+Osnabr¨uck, Germany
+antonia.vanbetteray@uni-osnabrueck.de
+4th Parssa Jashnieh
+Institute of Computer Science
+Osnabr¨uck University
+Osnabr¨uck, Germany
+parssa.jashnieh@uni-osnabrueck.de
+5th Peter Stehr
+Department of Mathematics
+University of Wuppertal
+Wuppertal, Germany
+stehr@uni-wuppertal.de
+6th Matthias Rottmann †
+Institute of Computer Science
+Osnabr¨uck University
+Osnabr¨uck, Germany
+matthias.rottmann@uni-osnabrueck.de
+7th Lars Schmarje †
+Wayve
+London, United Kingdom
+lars.schmarje@wayve.ai
+Abstract
+While object detection has advanced through improved architectures and open-vocabulary models, we provide strong evidence
+that benchmark quality is limited by annotation incompleteness. Across four widely used datasets (COCO, Pascal VOC, Cityscapes,
+KITTI), re-annotation reveals substantial increases in annotated objects (e.g., up to +60% on KITTI and +40% on COCO), driven
+primarily by previously unlabeled small, occluded, or densely packed instances. While some differences arise from dataset-specific
+annotation conventions, we consistently find that missing annotations are the main source of label errors across all datasets. To
+achieve high data quality, we introduce a scalable annotation pipeline that emphasizes high recall and captures ambiguity through
+soft labels aggregated from at least 11 annotators per object. The resulting annotations improve coverage and align well with
+human calibration. We show that benchmark performance is highly sensitive to annotation quality, although model rankings remain
+largely stable. We introduce two large-scale benchmarks: (i) an uncertainty-aware object detection benchmark, and (ii) a label error
+detection benchmark grounded in real label errors. We show that current detectors are strongly depended on annotation quality
+and are misaligned with human perception. Current label error detection methods, which have been shown to perform well on
+synthetic noise, struggle to achieve high recall and precision on real label errors. Our results highlight the need for future object
+detection benchmarks to move beyond deterministic annotations toward high-recall, uncertainty-aware evaluation that maximizes
+valid instances and better reflects real-world ambiguity.
+Index Terms
+Object Detection Benchmark, Label Error Detection Benchmark, Soft Labels, Annotation Uncertainty, Real Label Errors
+I. INTRODUCTION
+In widely used object detection datasets, annotations are often incomplete, ambiguous, and overconfident [1]–[3], leading to
+systematic biases in both model training and evaluation [4], [5]. In particular, missing annotations are the main source of label
+errors, as many small, occluded, or densely packed objects are not labeled at all [3]. At the same time, existing datasets rely
+on deterministic hard labels, assigning a single class to each object and ignoring inherent ambiguity [6], [7]. This results in
+overconfident annotations and limits the ability to properly assess model uncertainty [2].
+∗ Equal contribution.
+† Equal contribution.
+arXiv:2609.21822v1  [cs.CV]  18 Sep 2026
+
+---PAGE---
+
+TABLE 1: Summary of related annotation-focused datasets. In Table a,Detection (Det.)refers to object detection datasets,
+Re-annotation (Re-ann.)denotes efforts to improve annotation completeness through systematic relabeling,Uncertainty
+(Uncert.)denotes annotation uncertainty captured via multiple annotators and soft labels, andMulti-dataset (Multi-DS)
+indicates application of a consistent methodology across multiple datasets. Prior work typically addresses either annotation
+completeness or uncertainty, while our work combines both across multiple object detection benchmarks. Table b summarizes
+the number of images and classes that were re-annotated in this paper for each dataset.
+(a) Related datasets
+Work Det. Re-ann. Uncert. Multi-DS
+LVIS [14]✓ ✓
+OpenImages [15]✓ ✓
+ReLabel [12]✓ ✓
+Pascal+ [13]✓ ✓
+CIFAR-10H [6]✓
+DCIC [2]✓ ✓
+REC✓D [3]✓ ✓ ✓
+Ours✓ ✓ ✓ ✓
+(b) Overview of re-annotated datasets
+Dataset #Train #Val #Cls.
+KITTI [11] 7,481 – 7
+Cityscapes [10] 2,975 500 8
+COCO [8] – 5,000 80
+Pascal VOC [9] 5,717 5,823 20
+To address both annotation incompleteness and ambiguity, we re-annotate four widely used object detection benchmarks:
+COCO [8], Pascal VOC [9], Cityscapes [10], and KITTI [11]. Using a multi-stage, crowdsourcing-based annotation pipeline,
+we construct annotations that emphasize high recall and capture inter-annotator disagreement through soft labels, i.e., probability
+distributions over classes derived from multiple independent annotations. Across datasets, this results in substantial increases in
+annotated objects (e.g., up to +60% on KITTI and +40% on COCO), primarily due to previously unlabeled small, occluded, or
+densely distributed instances. While some differences arise from dataset-specific annotation conventions (e.g., group annotations
+or “don’t care” regions), we consistently observe that missing annotations are the main source of label errors across all datasets.
+Through comprehensive data quality assessment, we show that the rate of missing objects in re-annotated datasets is at least
+halved, compared to original data. Additionally, the re-annotated data consists of soft labels which are well calibrated towards
+human perception. Overall, we not only find more objects, but annotations are of higher quality and capture human uncertainty.
+Based on these validated annotations, we investigate how annotation quality affects model evaluation and find that benchmark
+performance differs between original and refined annotations, while model rankings remain largely stable. This suggests that
+absolute performance metrics depend on annotation quality and may be biased by incomplete ground truth (GT). Since current
+object detection evaluation protocols do not account for annotation uncertainty, we introduce a new evaluation protocol that
+generalizes average precision to soft labels and enables instance-wise comparison between predictions and soft labels. We
+identify real label errors through direct comparison of refined annotations with the original GT. We categorize these errors into
+missing annotations, misaligned bounding boxes, and incorrect class labels, and provide a thorough analysis of their distribution
+across all four datasets. This way, we establish the first large-scale benchmark for label error detection in object detection on
+real data, evaluating state-of-the-art label error detection methods beyond synthetic settings [12], [13]. The code used in this
+work will be publicly available on GitHub, which also provides access to the validated annotations for all four datasets.
+II. RELATEDWORK
+Crowdsourcing and Re-annotation of Existing Datasets:Several works have focused on improving existing datasets to study
+annotation quality and its effect on model performance. As summarized in Table 1a, prior work typically addresses only
+subsets of this problem. For object detection, datasets such as LVIS [14] and OpenImages [15] improve annotation coverage
+and increase label granularity, but do not explicitly model annotation uncertainty. Similarly, Kim et al. [13] construct Pascal+ by
+refining annotations, while Ma et al. [4] partially re-annotate COCO [8] and Open Images [15] to study the effect of corrected
+annotations on detector performance. Works such as CIFAR-10H [6], DCIC [2], and ReLabel [12] focus on capturing human
+uncertainty or systematic re-annotation, but focus on image classification. Rechecked [3] provides refined object detection
+annotations with soft labels for a subset of KITTI, but is limited to a single dataset and class. In contrast, our work provides
+large-scale re-annotation for object detection across multiple datasets, enabling a systematic analysis of annotation completeness,
+human uncertainty and label errors.
+Soft Labels and Uncertainty Quantification in Object Detection:Soft labels were originally introduced to represent confidence
+in binary classification [16] and later extended to multiclass settings to capture aleatoric uncertainty [17]. While prior work
+has explored training schemes that leverage soft labels [17], dataset construction typically focuses on deriving consensus or
+hard labels from multiple annotations [18], [19], rather than explicitly modeling annotation uncertainty. Current research shows
+that a single annotation per instance is insufficient as it cannot reflect aleatoric uncertainty inherent in class affiliations [1],

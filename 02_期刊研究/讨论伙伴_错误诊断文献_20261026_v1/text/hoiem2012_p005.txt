@@ -1,0 +1,164 @@
+Diagnosing Error in Object Detectors 5
+% Top False Positives, AP Impact: FGMR (v4) Detector 
+% Top False Positives, AP Impact: VGVZ’09 Detector 
+Loc
+17%
+Sim
+51%
+Oth
+10%
+BG
+22%
+Animals
+Loc
+36%
+Sim
+30%
+Oth
+11%
+BG
+23%
+Vehicles
+Loc
+19%
+Sim
+17%Oth
+35%
+BG
+29%
+Furniture
+Loc
+56%Sim
+10%
+Oth
+12%
+BG
+22%
+Person
+Loc
+10%
+Sim
+71%
+Oth
+5%
+BG
+14%
+Cow
+Loc
+53%
+Sim
+21%
+Oth
+6%
+BG
+20%
+Car
+Loc
+30%
+Sim
+37%
+Oth
+19%
+BG
+14%
+Motorbike
+Loc
+21%
+Sim
+16%Oth
+40%
+BG
+23%
+Furniture
+Loc
+31%
+Sim
+32%
+Oth
+13%
+BG
+24%
+Vehicles
+Loc
+22%
+Sim
+63%
+Oth
+6%
+BG
+9%
+Animals
+Loc
+50%
+Sim
+11%
+Oth
+15%
+BG
+24%
+Person
+Loc
+26%
+Sim
+39%
+Oth
+27%
+BG
+8%
+Motorbike
+Loc
+20%
+Sim
+66%
+Oth
+3%
+BG
+11%
+Cow
+Loc
+24%
+Sim
+31%
+Oth
+12%
+BG
+33%
+Car
+dog 
+horse 
+sheep
+bus
+bicycle
+dog 
+horse 
+sheep
+mbike
+bicycle
+Fig. 2. Analysis of Top-Ranked False Positives.Pie charts: fraction of top-ranked false positives
+that are due to poor localization (Loc), confusion with similar objects (Sim), confusion with other
+VOC objects (Oth), or confusion with background or unlabeled objects (BG). Each category
+named within ‘Sim’ is the source of at least 10% of the top false positives. Bar graphs display
+absolute AP improvement by removing all false positives of one type (‘B’ removes confusion
+with background and non-similar objects). ’L’: the ﬁrst bar segment displays improvement if
+duplicate or poor localizations are removed; the second displays improvement if the localization
+errors were corrected, turning false detections into true positives.
+fusion with similar categories are both common. In looking at trends of false positives
+with increasing rank, localization errors and confusion with similar objects tend to be
+more common among the top-ranked than the lower-ranked false positives. Confusion
+with “other” objects and confusion with background may be similar types of errors.
+Some categories were often confused with semantically dissimilar categories. For ex-
+ample, bottles were often confused with people, due to the similarity of exterior con-
+tours. Removing only one type of false positives may have a small effect, due to the
+T P
+T P +F P form of precision. In particular, the potential improvement by removing all
+background false detections is surprisingly small (e.g., 0.02 AP for animals, 0.04 AP
+for vehicles). Improvements in localization or differentiating between similar categories
+would lead to the largest gains. If poor localizations were corrected, e.g. with an effec-
+tive category-based segmentation method, performance would improve greatly from
+additional high-conﬁdence true positives, as well as fewer false positives.
+3 False Negatives and Impact of Object Characteristics
+Detectors may incur a false negative by assigning a low conﬁdence to an object or by
+missing it completely. Intuitively, an object may be difﬁcult to detect due to occlusion,
+truncation, small size, or unusual viewpoint. In this section, we measure the sensitivity
+of detectors to these characteristics and others and also try to answer why so many
+objects (typically about 40%) are not detected with even very low conﬁdence.

@@ -1,0 +1,29 @@
+12 D. Bolya et al.
+(a) Classiﬁcation Error
+ (b) Localization Error
+Fig. 5: Comparison of Scales between HTC and TridentNet. Both HTC and Trident-
+Net have the same classiﬁcation and localization error on COCO detection. Using ﬁne
+analysis, we can isolate the cause of these errors further.
+(a) Object Detection
+ (b) Instance Segmentation
+Fig. 6: Performance of Mask R-CNN Across Datasets. Because our toolkit is dataset
+agnostic, we can ﬁx a detection architecture and compare performance across datasets to
+gain valuable insights into properties of each dataset.
+Comparing Across Scale As an example of using this approach across different
+scales of objects, we return to the case of TridentNet vs. HTC discussed in Sec. 3.1.
+Both models have the same classiﬁcation and localization error and we would like to
+understand where the difference, if any, lies. Since TridentNet focuses speciﬁcally on
+scale-invariance, we turn our attention to performance across scales. We deﬁne objects
+with pixel areas of between 0 and 162 as extra small (XS), 162 to 322 as small (S),
+322 to 962 as medium (M), 962 to 2882 as (L), and 2882 and above as extra large
+(XL). In Fig. 5 we apply our approach across HTC and TridentNet (with Mask R-CNN
+detections included for reference). This comparison reveals that TridentNet localizes and
+classiﬁes medium sized objects better than HTC, while HTC is better at large objects.
+This could potentially be why the authors of TridentNet ﬁnd that they can achieve nearly
+the same performance by only evaluating their branch for medium sized objects [ 18].
+Other comparisons between subsets of detections such as across aspect ratios, anchor
+boxes, FPN layers, etc. are possible with the same approach.
+3.3 Comparing Performance Across Datasets
+Our toolkit is dataset agnostic, allowing us to compare the same model across several
+datasets, as in Fig. 6, where we compare Mask R-CNN (Faster R-CNN for Pascal) across
+Pascal VOC [10], COCO [20], Cityscapes [6], and LVIS [12].

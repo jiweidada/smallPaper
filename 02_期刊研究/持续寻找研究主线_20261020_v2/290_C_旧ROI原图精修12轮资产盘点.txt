@@ -1,0 +1,55 @@
+290 C：旧ROI原图精修12轮资产盘点——准确作用范围，不扩大成全部局部读出禁令
+2026-10-21。只读本地归档summary/比较/协议/ledger/源码并做SHA和简单JSON计算；没有模型/CP加载、PT/NPZ读取、前向、训练、远端操作或重新评估。没有读取本轮heldout，旧正式val仅查看已归档结果摘要，不读取其图像/GT来开发新规则。
+
+一、资产确实存在且训练已完成
+归档根：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/data/00_实验计划与证据索引/ROI原图精修12轮_20261009_v1/collections/20261010T011020_717773Z_deimB_b948659c01644efbb0a79fcbaa180e4f/files
+最近collection receipt为COMPLETE，原归档9085个文件；本次只独立核了所读18个关键文件相对snapshot_manifest的SHA，18/18一致，不声称重新核遍全部归档。
+冻结检测器是成熟132轮seed1末次EMA，checkpoint SHA 30febfa18e6e21dc67b16169bd26875b82340eb3435534719a963904dadf68b5；不是目前BASE24，也不是BASE12/C0。raw与degraded是同一检测器下的配对输入臂，不是两个独立检测器seed。ROI头初始化seed20261009、53205参数；两臂初始state一致。
+每臂完成12个pass：前8个refiner pass，后4个gate pass。官方train内部固定组划分A=5183图用于refiner、B=1142图用于gate、C=146图用于阈值校准；这不等于每轮遍历全部6471图。每臂最终46032 optimizer steps。C图检测器以前见过，不能称独立外部验证；文件名首段分组也没有验证是真实飞行序列。
+raw在第8轮后的评估遇到Too many open files，保留ledger/epoch8后按已归档FD修复继续；最终12行ledger完整，恢复链校验VERIFIED。degraded用相同FD修复完成全12轮。不能将工程中断当作方案根本没训练，也不能把恢复当额外偷偷续轮。
+
+二、实际方法比“ROI看原图”具体得多
+1) 只处理原最终候选，类别、score、query ID、顺序和候选数量全冻结；不生成新候选、不新增类别、不重新排序、不额外NMS。
+2) 资格：原预测框映射到640输入后的短边<16。以旧框中心取context=2倍、原图至少32px的连续ROI，保持宽高比放入64×64，RGB+有效像素mask共4通道。同query的ROI计算共享，但同query不同类别的检测实例未删除。
+3) raw读原始RGB；degraded先按原native PIL bilinear整图缩为640，再在相同物理ROI网格采样。不是将已经裁好的高分辨率小块再缩放来伪造控制。
+4) 小CNN编码ROI，与旧框局部坐标、类别one-hot、256维原query特征拼接。每条边位移为0.2*tanh(head)*旧框对应宽/高；没有自由跨窗出生，边范围也并非固定±2px。
+5) 几何监督先固定原预测真类.75 greedy绑定，再绑定剩余真类.5；只对有绑定且ROI合格的条目计算IoU/GIoU/旧wh归一L1及旧.75伤害惩罚。源码明确未匹配项不虚构最近GT几何目标。这意味着原全部框IoU<.5的GT没有成为几何正目标；本实验不是训练补出Geo0实例。
+6) gate学习单个候选替换后的全输出十IoU阈值新增−丢失均值，所有候选得失可重匹配；它不是AP梯度、不是原COCO max100，也不保证多框一起接纳时收益可加。gate四轮冻结ROI编码/几何头，正/零/负组等权。
+
+三、事前主结果：两臂均停止
+正式548图、164400候选。原生基线百分数：AP27.400224328，AP50 45.682228760，AP75 27.628217701，APs18.920042551。
+阈值只在C选择：在AP不低于C基线的候选中最大化APs，精确并列选更高tau。候选tau=[0,.05,.1,.2,.3,.5,1]。两臂最后均tau=1、accepted=0；gain=tanh且严格gain>tau，因此全部拒绝是定义决定，主输出与基线相同。
+两臂主ΔAP、ΔAPs及所有正式指标均0；事前要求epoch12 APs严格升且AP不降，均为STOP_NO_EXTENSION。paired_result里的COMPLETE_PAIRED_12_PASS_SCREEN是“12次pass完成”的状态文字，不能误读成方法screen通过。
+
+四、保留always-refine的微小正值，不替换原主结果
+不经已选gate的always-refine是独立诊断；变化单位均为百分点评估值（pp）：
+                  ΔAP          ΔAPs          ΔAP75
+raw              +.008246450   +.016327713   −.002745666
+degraded         +.021384099   +.024486581   −.001158183
+raw−degraded     −.013137649   −.008158868   −.001587483
+因此确有极小框修正收益，但没有原图细节优于降采样控制的证据。不能选always-refine替换原gated主端点并撤销停止，也不能把这些点估计叫显著/稳定改善。
+同原native GT匹配下，全GT .5新增/丢失：raw6/3，degraded8/2；.75为20/21、23/19。原图面积<1024的small子组 .5同为6/3、8/2，.75为19/19、22/18。这里small按原标注面积，不是本轮actual短边<4，更不是完整final300的Geo0；不能与276的2707 tiny分母直接拼接。
+训练末轮gate正/零/负标签数为raw227/30399/222091、degraded241/30376/222100。负组包含身份有效性拒绝约定，不能把222091全部解释成实测伤害事件，也不能仅由标签不平衡推断训练失败原因。
+
+五、成本和可复用物
+归档端到端计时为32固定图、batch4、3重复，RTX3090；范围含已驻留压缩图解码、PIL640、检测器、CPU ROI准备、GPU小头、最终CPU输出，不含磁盘/模型加载/核验。BASE23.1465ms/图，raw69.5694ms，degraded69.2259ms，约3.006/2.991倍。每32图4157个unique ROI（平均约130），合格候选6535；只增加5.32万参数不代表低时延。不能把这个多ROI串行实现成本直接套到新“每图一个固定窗、四槽”上，也不能省略它当作零成本证据。
+可复用的本地文件：code/refiner.py/data.py的原图与降采样同网格采样、固定输出身份检查；code/evaluate.py的原生评价/匹配导出；metadata/locked_plan.json和splits.json；arms/{raw,degraded}/epochs.jsonl；两臂evaluation_epoch12中的primary/always比较与threshold_selection；benchmark.json；receipts/train_raw_recovery_chain.json。这些是工程和对照资产，不是可直接不改协议启动的新实验入口。
+
+六、对当前主线的实际约束
+不能再把“给局部RGB、旧query/类别作条件、小头预测框”单独当本项目未做过的设计；上述训练已经做过，而且有原图/降采样配对强对照，主结果阴性。
+但不能由此否定四槽追加新实例：旧方法冻结全部候选身份与类别分数，位移被旧框wh限制，几何正监督只覆盖原.5/.75已成功绑定。当前若真改成固定窗内自由四槽、所有完整GT的单位密度以及真实遗漏正目标，改变了生成能力和监督对象，必须明确这些区别；它们也不是“原图更清晰”这一旧机制已经获证。
+因此当前合理推进对象仍是明确的新输出与监督变量，并面对同crop无条件补全、同额外监督、同融合预算的控制；270联合分配还须面对286的一趟容量截断退null控制。旧ROI权重是否适合作初始化尚未检查，不把旧精修成功绑定分布冒充新Geo0学习分布。旧停止精确保留，不复跑、不加轮、不据这份盘点授权新训练。
+
+关键SHA256
+snapshot_manifest.json：56c4f8f531ce828a84303c3efff8c7a61b58c028a641b450458e287a8468f569
+paired_result.json：8c461230f276504181336b8d7d5951c3438df50df7cb1ff4a21a302ed295da80
+metadata/locked_plan.json：6c6700e00d68703f076ecd0a2e0baf59d897f5d0781e4177c120c1ce7344aa34
+metadata/splits.json：6c30e5f5e6e7e7c12ca85a22d315fd7dda16cadbd40858503dd9e4bd4c8b9b98
+baseline_eval/summary.json：801319a6e2780514c20d22e6988d1d30e888c343f79cbe0bb6b4ea08e29ad514
+code/refiner.py：fe41362dbc4a5ffd914cdd52de01674fc329ffc495f1cf475e5c3f28235a415e
+code/train.py：2ca4d702f300eb76635d2ed286bb84e46dde88e0529db59a517bba325af29d07
+code/data.py：611462aa6933b2e1468ab76ed29fd77a1803e94921cc5f0df365aed09f61532d
+raw always_refine_comparison.json：1c1c764bcfe8017cf00793aabb2443b5cac1833e808fea237f0e1a959410689d
+degraded always_refine_comparison.json：e3e1c61127f670426acd684c5bf81ca9f5fd08c46cacee05c33f4c202f88a683
+benchmark.json：23b9cc5798bc9c4854b136ca74cb21f486cfc78adbbc48c0882afcd81adfb33f

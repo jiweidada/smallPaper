@@ -1,0 +1,44 @@
+Diagnosing Error in Object Detectors 13
+Reducing Confusion with Similar Categories: By far, the biggest task of detectors
+is to quickly discard random background patches, and they do well with features that
+are made robust to illumination, small shifts, and other variations. But a detector that
+sorts through millions of windows per second may not be suited for differentiating be-
+tween dogs and cats or horses and cows. Such differences require detailed comparison
+of particular features, such as the shape of the head or eyes. Some recent work has
+addressed ﬁne-grained differentiation of birds and plants [26–28], and the ideas of ﬁnd-
+ing important regions for comparison may apply to category recognition as well. Also,
+while HOG features [29] are well-suited to whole-object detection, some of the feature
+representations originally developed for detection of small faces (e.g., [30]) may be
+better for differentiating similar categories based on their localized parts. We encourage
+such work to evaluate speciﬁcally on differentiating between similar objects. It may be
+worthwhile to pose the problem simply as categorizing a set of well-localized objects
+(even categorizing objects given PASCAL VOC bounding boxes is not easy).
+Robustness to Object Variation: One interpretation of our results is that existing de-
+tectors do well on the most common modes of appearance (e.g., side views of airplanes)
+but fail when a characteristic, such as viewpoint, is unusual. Greatly improved recogni-
+tion will require appearance models that better encode shape with robustness to moder-
+ate changes in viewpoint, pose, lighting, and texture. One approach is to learn feature
+representations from paired 3D and RGB images; a second is to learn the natural vari-
+ations of existing features within categories for which examples are plentiful and to
+extend that variational knowledge to other categories.
+More Detailed Analysis: Most important, we hope that our work will inspire research
+that targets and evaluates reduction in speciﬁc modes of error. In the supplemental ma-
+terial, we include automatically generated reports for four detectors. Authors of future
+papers can use our tools to perform similar analysis, and the results can be compactly
+summarized in 1/4 page, as shown in Figs. 2, 6. We also encourage analysis of other
+aspects of recognition, such as the effects of training sample size, cross-dataset gener-
+alization, cross-category generalization, and recognition of pose and other properties.
+References
+1. Grifﬁn, G., Holub, A., Perona, P.: Caltech-256 object category dataset. Technical Report
+7694, California Institute of Technology (2007)
+2. Everingham, M., Van Gool, L., Williams, C.K.I., Winn, J., Zisserman, A.: The PAS-
+CAL Visual Object Classes Challenge 2007 (VOC2007) Results. (http://www.pascal-
+network.org/challenges/VOC/voc2007/workshop/index.html)
+3. Vedaldi, A., Gulshan, V ., Varma, M., Zisserman, A.: Multiple kernels for object detection.
+In: ICCV . (2009)
+4. Felzenszwalb, P., McAllester, D., Ramanan, D.: A discriminatively trained, multiscale, de-
+formable part model. In: CVPR. (2008)
+5. Felzenszwalb, P., Girshick, R., McAllester, D., Ramanan, D.: Object detection with discrim-
+inatively trained part based models. PAMI (2009)
+6. Wu, B., Nevatia, R.: Detection of multiple, partially occluded humans in a single image by
+bayesian combination of edgelet part detectors. In: ICCV . (2005)

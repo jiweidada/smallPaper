@@ -1,0 +1,50 @@
+当前结论：不把“微小目标定位失败主要来自最后一层特征汇聚抹平空间变化”定为论文主线。本轮预设对照没有发现足够的错误特异信号；通用抗平滑/高频增强也有明确近邻方法。对应模块不进入训练。当前仍无通过机制、方法差异和可行性核查的投稿主线。
+
+1. 检索策略与可复查记录
+本轮是围绕实际空间响应、注意力汇聚和过平滑的定向补充检索，不是系统综述。关键词包括deformable attention、spatial derivative/Jacobian、cancellation、anti-oversmoothing、frequency-dynamic attention，以及完整题名回查。只以作者论文、arXiv元数据和作者仓库作为方法证据，不把搜索无命中视为创新证明。
+source_audit_v1/A16_*.json保留精确请求、返回、访问限制、作者仓库提交与完整源码树。FDAM的CVF网页此次返回403，方法阅读使用公开arXiv正文；不将该403写成全文不可得。FDAM公开源码固定至210232fc807bcaf55bfe799f848fcac20fbb5427，关键文件Git blob校验通过；未安装或执行FDAM模型。
+
+2. 核心文献矩阵增补及阅读范围
+How Do Vision Transformers Work?，Namuk Park、Songkuk Kim，ICLR2022：核对摘要、引言/相关正文片段和书目信息，未逐节读完整论文或执行代码。作者讨论MSA和卷积的频率差异、提出AlterNet。它支持通用机制已有研究，不证明Dome的微小目标失败原因。
+Anti-Oversmoothing in Deep Vision Transformers via the Fourier Domain Analysis: From Theory to Practice，Peihao Wang等，ICLR2022：已读正文2.2—2.3及3.1—3.2，未完整审阅附录证明或执行作者代码。AttnScale/FeatScale已调整注意力与特征的频率成分。其深层方阵self-attention理论不能直接等同于固定query的非方阵多尺度cross-attention。
+Frequency-Dynamic Attention Modulation for Dense Prediction，Linwei Chen、Lin Gu、Ying Fu，ICCV2025，所读arXiv v4：已读完整3.1—3.2、摘要/引言及部分实验设置和检测表格，未整篇/附录阅读。作者代码已核查GroupDynamicScale、AttentionwithAttInv和Layer_scale_init_Block；公开树此次为133项，核查范围为发布的mmseg/DeiT实现，未据此声称复现了MaskDINO实验。
+原57条矩阵保留，增补以上3条，各自阅读范围单列；没有推断用户已读任何论文。
+
+3. 与最接近工作的逐项对比
+研究对象：上述工作研究一般ViT特征频率或深层token平滑；本轮只审计Dome最后一层原生多尺度读取对微小目标定位的关联，任务差异本身不是创新。
+算子：FDAM发布代码含V减去加权注意力输出的互补分量，以及输入依赖的频率滤波权重；不能把“增加高频残差”或“动态恢复细节”当独有增量。此次仅阅读源码，未测其作者模型。
+测量：本轮固定原生cross-attention query、偏移、权重和value场，只移动采样reference中心±1/8输入像素，计算每个读取点与汇聚输出的对称有限响应。它不是整图平移实验、完整decoder Jacobian或编码器信息量估计。
+数学：加权汇聚响应的二阶量不大于逐点加权二阶量，是Jensen不等式的直接结果；该收缩关系不是新定理。只有额外的定位错误关联和可部署改善才可能支持算法研究，当前两者均未建立。
+
+4. 有依据的空白判断：当前未建立
+原文结论：通用注意力过平滑分析、频率重加权及动态高低频组合已有先例，且FDAM已报告检测和遥感检测应用。
+本次测量：在下述固定规则下，定位较差的微小query没有明显更大的空间响应抵消。
+我们的推断：不能用通用“attention抹平小目标”叙述支撑当前方案，也不据此训练保梯度/抗平滑模块。
+仍未知：其他层、其他架构、编码器下采样、跨实例特征可分性以及框读出是否存在另一个具体瓶颈。它们只是开放问题，尚非已证实的研究空白。本轮负结果不证明编码器丢信息，也不排除所有特征交互设计。
+
+5. 候选增量、可行性与主要风险
+候选K：按实际空间响应保留局部差异的解码汇聚。预设错误特异关联门槛未通过，当前降级，不训练对应新模块。
+候选“通用动态高频恢复”：已有AttnScale/FeatScale/FDAM近邻，缺少独立算法差异；直接移植到VisDrone不构成已核验创新。
+A15采样中心重定向的负结论保持。不得将A15/A16相加写成所有解码器方案无效，也不得顺势认定换encoder必然有效。
+资源：冻结诊断在单张3090上可运行，自身GPU allocated峰值约0.723GiB；它不验证端到端训练显存、训练时间或检测AP。单卡约24GB、数天训练的约束继续保留。
+主要限制是单一checkpoint、官方val可能参与作者模型选择、探索性案例、有限样本及残余混杂；对初始框质量的控制只回答最后一层的条件关联问题。
+
+6. 已完成的最小验证及核验
+协议：A16_实际特征空间变化审计_v1/protocol.json，SHA256为666f2d2fb14c22c7be6d5e00b027565fe1710014d75e30f121b8f15197e10ce8。先冻结代码、数据选择、epsilon、匹配、指标及资源门槛，再上传、启动；本地与服务器时钟有偏移，顺序以hash、传输和单次启动回执确认。
+数据：复用12个A12/A15前缀、263个微小GT；从官方val按文件名和标注筛出其余25个满足条件的不同前缀，各取一图、590个微小GT。共37图853GT，微小定义为800方形输入下sqrt面积<8。新增选图未使用新预测；整个集合不称独立盲测。853个微小GT均有原生Hungarian配对。
+基线：固定Dome提交2dde3bc1946a3e9fad9abd0612b59fc39bd6b861及原作者权重，已有P2/P3/P4/P5，8头、每级每头4点。原预处理、FP32/TF32off，无权重更新。
+调用：26次完整前向=1次无hook身份对照+25次原生观测；0次新后缀、0拟合/训练。另单列25次CPU双精度作者采样核心核验和10次线性投影核验；不隐藏计入整图前向。原226次完整前向阶段已关闭，当前累计252；历史72次后缀重放保持单列。
+数值：首图无hook与有hook的raw boxes/logits精确一致；state前后均为82c3ba49d69370a3d0105e47fc0ab5d715a9e7b1ad15feb275b1b497b5b0ccce。3×3邻域重建与作者CPU双精度采样核心最大差6.29e-14；这是算子数值核验，不冒充原GPU FP32逐位复现。整套包装进程及三阶段均exit0。
+指标：Gstack为逐点有限响应的加权二阶量，Gpool为最终汇聚响应的二阶量；C=1-tr(Gpool)/tr(Gstack)，为无量纲抵消量。全体C均值约0.325；有收缩本身不能说明检测失败原因。
+对照：同图、同类、初始reference IoU的四分之一分箱一致，GT尺寸及reference尺寸比均<=1.5；原生最终IoU>=0.75为成功、否则为失败。逐图平均失败减成功的C，再对图像前缀做2000次bootstrap。119对来自20图，36个不同成功GT、85个不同失败GT；新增子集68对来自13图，28成功、36失败，均满足预先冻结的最低数据量。相关配对不当作119个独立样本。
+结果：合并差0.00378194，区间[-0.02414313,0.03378660]；新增差0.00524851，区间[-0.02876478,0.04576833]。换成C的百分点分别为+0.378、+0.525；这些不是AP/召回增益。两者均未达到预设差>=0.10且区间下界>0的资源筛选条件。该条件不称论文确认性显著性检验。
+独立复核：853行、2559个Gram矩阵及图像bootstrap重新计算通过，矩阵最大差1.46e-13，没有再调用检测器或作者采样核心。下载归档80280884字节、53成员，SHA256为b18062de4d682eeb067fee0c385c2bdc0a50f8eca6d2882ceefbf15eddf96b2a；52项完成清单及预算、exit0已核验。
+下一步：本轮固定算子抵消审计结束，不追加阈值/epsilon/案例或模块训练。后续重新筛选encoder、特征交互和decoder的具体问题，必须先给最近工作差异和新的有限验证协议。当前目标保持ACTIVE，尚未找到投稿主线；旧DEIM、压缩和恢复分支未重启。
+
+7. 可核验参考及原始结果
+Park N, Kim S. How Do Vision Transformers Work? ICLR2022. https://arxiv.org/abs/2202.06709
+Wang P, Zheng W, Chen T, Wang Z. Anti-Oversmoothing in Deep Vision Transformers via the Fourier Domain Analysis: From Theory to Practice. ICLR2022. https://arxiv.org/abs/2203.05962
+Chen L, Gu L, Fu Y. Frequency-Dynamic Attention Modulation for Dense Prediction. ICCV2025. https://arxiv.org/abs/2507.12006
+FDAM固定源码：https://github.com/Linwei-Chen/FDAM/blob/210232fc807bcaf55bfe799f848fcac20fbb5427/FDAM_mmseg/mmcv_custom/deit_fdam.py
+Dome固定源码：https://github.com/RicePasteM/Dome-DETR/tree/2dde3bc1946a3e9fad9abd0612b59fc39bd6b861
+本轮协议、逐GT、配对、逐图统计、终态、数值复核：A16_实际特征空间变化审计_v1目录。以上论文结论与本次测量独立标识，没有把搜索范围、oracle或局部诊断写成已证实的创新。

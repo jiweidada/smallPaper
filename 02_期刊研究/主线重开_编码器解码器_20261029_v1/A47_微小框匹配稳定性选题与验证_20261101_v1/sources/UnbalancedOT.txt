@@ -1,0 +1,716 @@
+                             This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+                                          Except for this watermark, it is identical to the accepted version;
+                                    the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+   Unbalanced Optimal Transport: A Unified Framework for Object Detection
+
+      Henri De Plaen1*      Pierre-François De Plaen2* Johan A. K. Suykens1 Marc Proesmans2
+                                    Tinne Tuytelaars2 Luc Van Gool2,3
+                  1
+                    ESAT-STADIUS, KU Leuven, Belgium 2 ESAT-PSI, KU Leuven, Belgium
+                             3
+                               Computer Vision Lab, ETH Zürich, Switzerland
+
+
+                             Abstract                                    1 A
+                                                                             4                                            1 0.61 0.96 0.8
+    During training, supervised object detection tries to cor-                                    5
+                                                                             B                                            2 1.34 0.88 0.8
+rectly match the predicted bounding boxes and associated                                                  2
+classification scores to the ground truth. This is essen-                                                                 3 0.88 0.89 0.8
+tial to determine which predictions are to be pushed to-                                                                  4 0.4 0.65 0.8
+wards which solutions, or to be discarded. Popular match-                            3
+ing strategies include matching to the closest ground truth                                                                5 1.11 0.73 0.8
+box (mostly used in combination with anchors), or match-                                                                      A B ∅
+                                                                                                                         (b) Costs between
+ing via the Hungarian algorithm (mostly used in anchor-                                                                  the predictions and
+free methods). Each of these strategies comes with its own                                                               the ground truth
+properties, underlying losses, and heuristics. We show how            (a) Image №163 from the COCO training              (1 − GIoU). The
+Unbalanced Optimal Transport unifies these different ap-              dataset. The ground truth boxes are colored, and   background cost is
+                                                                      the predictions are outlined in black.             c∅ = 0.8.
+proaches and opens a whole continuum of methods in be-
+tween. This allows for a finer selection of the desired prop-            1                       1                        1
+erties. Experimentally, we show that training an object de-              2                       2                        2
+tection model with Unbalanced Optimal Transport is able
+to reach the state-of-the-art both in terms of Average Preci-            3                       3                        3
+sion and Average Recall as well as to provide a faster initial           4                       4                        4
+convergence. The approach is well suited for GPU imple-                  5                       5                        5
+mentation, which proves to be an advantage for large-scale                     B ∅
+                                                                                 A                    A B ∅                   A B ∅
+models.                                                               (c)      Prediction      (d)     Hungarian         (e) Ground truth to
+                                                                      to best ground           matching (OT with         best prediction (Un-
+                                                                      truth (Unbalanced        ϵ = 0, τ1 → +∞            balanced OT with
+                                                                      OT with ϵ = 0,           and τ2 → +∞).             ϵ = 0, τ1 = 0 and
+1. Introduction                                                       τ1 → +∞ and                                        τ2 → +∞).
+                                                                      τ2 = 0).
+   Object detection models are in essence multi-task mod-                1                       1                        1
+els, having to both localize objects in an image and classify
+                                                                         2                       2                        2
+them. In the context of supervised learning, each of these
+tasks heavily depends on a matching strategy. Indeed, deter-             3                       3                        3
+mining which predicted object matches which ground truth                 4                       4                        4
+object is a non-trivial yet essential task during the training
+                                                                         5                       5                        5
+(Figure 1a). In particular, the matching strategy must en-
+                                                                           A B ∅                    A B ∅                     A B ∅
+sure that there is ideally exactly one prediction per ground          (f) Unbalanced OT        (g) OT with ϵ =           (h) Unbalanced OT
+truth object, at least during inference. Various strategies           with ϵ = 0.05,           0.05 (τ1 → +∞             with ϵ = 0.05,
+have emerged, often relying on hand-crafted components.               τ1 = 100 and τ2 =        and τ2 → +∞).             τ1 = 0.01 and
+They are proposed as scattered approaches that seem to have           0.01.                                              τ2 = 100.
+nothing in common, at least at first glance.                         Figure 1. Different matching strategies. All are particular cases of
+                                                                     Unbalanced Optimal Transport.
+  * These authors contributed equally.
+
+
+
+
+                                                                  3198
+1.1. A Unifying Framework                                             scaling algorithms [10, 8], of which we provide a compiled
+                                                                      implementation on GPU. Our code and additional resources
+   To perform any match, a matching cost has to be deter-
+                                                                      are publicly available1 .
+mined. The example at Fig. 1b uses the Generalized Inter-
+section over Union (GIoU) [46]. Given such a cost matrix,             1.2. Related Work
+matching strategies include:
+                                                                          Matching Strategies Most two-stage models often
+   • Matching each prediction to the closest ground truth             rely on a huge number of initial predictions, which is then
+     object. This often requires that the cost lies under a           progressively reduced in the region proposal stage and re-
+     certain threshold [37, 45, 44, 33], to avoid matching            fined in the classification stage. Many different strategies
+     predictions that may be totally irrelevant for the current       have been proposed for the initial propositions and sub-
+     image. The disadvantage of this strategy is its redun-           sequent reductions, ranging from training no deep learn-
+     dancy: many predictions may point towards the same               ing networks [21], to only train those for the proposi-
+     ground truth object. In Fig. 1c, both predictions 1 and          tions [20, 32, 25], to training networks for both propositions
+     4 are matched towards ground truth object A. Further-            and reductions [45, 42, 24, 5, 11]. Whenever a deep learn-
+     more, some ground truth objects may be unmatched. A              ing network is trained, each prediction is matched to the
+     solution to this is to increase the number of predicted          closest ground truth object provided it lies beneath a certain
+     boxes drastically. This is typically the case with an-           threshold. Moreover, the final performance of these models
+     chors boxes and region proposal methods.                         heavily depends on the hand-crafted anchors [35].
+                                                                          Many one-stage models rely again on predicting a large
+   • The opposite strategy is to match each ground truth              number of initial predictions or anchor boxes, covering the
+     object to the best prediction [25, 37]. This ensures that        entire image. As before, each anchor box is matched to-
+     there is no redundancy and every ground truth object is          wards the closest ground truth object with certain threshold
+     matched. This also comes with the opposite problem:              constraints [44, 33]. In [37], this is combined with match-
+     multiple ground truth objects may be matched to the              ing each ground truth object to the closest anchor box and a
+     same prediction. In Fig. 1e, both ground truth objects           specific ratio heuristic between the matched and unmatched
+     A and B are matched to prediction 4. This can be mit-            predictions. The matching of the fixed anchors is justified to
+     igated by having more predictions, but then many of              avoid a collapse of the predictions towards the same ground
+     those are left unmatched, slowing convergence [37].              truth objects. Additionally, this only works if the number
+                                                                      of initial predictions is sufficiently large to ensure that ev-
+   • A compromise is to perform a Bipartite Matching                  ery ground truth object is matched by at least one predic-
+     (BM), using the Hungarian algorithm [29, 40], for ex-            tion. Therefore, it requires further heuristics, such as Non-
+     ample [6, 55]. The matching is one-to-one, minimiz-              Maximal Suppression (NMS) to guarantee a unique predic-
+     ing the total cost (Definition 2). Every ground truth            tion per ground truth object, at least during the inference.
+     object is matched to a unique prediction, thus reducing              By using the Hungarian algorithm, DETR [6] removed
+     the number of predictions needed, as shown in Fig. 1d.           the need for a high number of initial predictions. The
+     A downside is that the one-to-one matches may vary               matched predictions are improved with a multi-task loss,
+     from one epoch to the next, again slowing down con-              and the remaining predictions are trained to predict the
+     vergence [31]. This strategy is difficult to parallelize,        background class ∅. Yet, the model converges slowly due
+     i.e. to take advantage of GPU architectures.                     to the instability of BM, causing inconsistent optimization
+                                                                      goals at early training stages [31]. Moreover, the sequen-
+   All of these strategies have different properties and it
+                                                                      tial nature of the Hungarian algorithm does not take full ad-
+seems that one must choose either one or the other, option-
+                                                                      vantage of the GPU architecture. Several subsequent works
+ally combining them using savant heuristics [37]. There is
+                                                                      accelerate the convergence of DETR by improving the ar-
+a need for a unifying framework. As we show in this paper,
+                                                                      chitecture of the model [55, 36] and by adding auxiliary
+Unbalanced Optimal Transport [9] offers a good candidate
+                                                                      losses [31], but not by exploring the matching procedure.
+for this (Figure 1). It not only unifies the different strategies
+                                                                          Optimal Transport The theory of Optimal Trans-
+here above, but also allows to explore all cases in between.
+                                                                      port (OT) emerges from an old problem [38], relaxed by a
+The cases presented in Figures 1c, 1d and 1e correspond to
+                                                                      newer formulation [26]. It gained interest in the machine
+the limit cases. This opens the door for all intermediate set-
+                                                                      learning community since the re-discovery of Sinkhorn’s
+tings. Furthermore, we show how regularizing the problem
+                                                                      algorithm [10] and opened the door for improvements
+induces smoother matches, leading to faster convergence of
+                                                                      in a wide variety of applications ranging from graphical
+DETR, avoiding the problem described for the BM. In addi-
+                                                                      models [39], kernel methods [28, 13], loss design [17],
+tion, the particular choice of entropic regularization leads to
+a class of fast parallelizable algorithms on GPU known as                  1 https://hdeplaen.github.io/uotod
+
+
+
+
+                                                                    3199
+auto-encoders [50, 27, 47] or generative adversarial net-           is the target class in one-hot encoding with Nc the number
+works [3, 22].                                                      of classes and bj ∈ [0, 1]4 defines the relative bounding box
+   More recent incursions in computer vision have been at-          center coordinates and dimensions. The predictions are de-
+tempted, e.g. for the matching of predicted classes [23], a         fined similarly ŷi = [ ĉi , b̂i ] ∈ RNc +4 , but the predicted
+                                                                                                              N
+loss for rotated object boxes [54] or a new metric for perfor-      classes may be non-binary ĉi ∈ [0, 1] c . Sometimes, pre-
+mance evaluation [41]. Considering the matching of predic-          dictions are defined relatively to fixed anchor boxes b̃i .
+tions to ground truth objects, recent attempts using OT bare
+promising results [18, 19]. However, when the Hungarian             2. Optimal Transport
+algorithm is mentioned, it is systematically presented in op-
+position to OT [18, 53]. We lay a rigorous connection be-              In this section, we show how Optimal Transport and
+tween those two approaches in computer vision.                      then its Unbalanced extension unify both the Hungarian al-
+   Unbalanced OT has seen a much more recent theoretical            gorithm used in DETR [6], and matching each prediction
+development [9, 7]. The hard mass conservation constraints          to the closest ground truth object used in both Faster R-
+in the objective function are replaced by soft penalization         CNN [45] and SSD [37]. We furthermore stress the advan-
+terms. Its applications are scarcer, but we must mention            tages of entropic regularization, both computationally and
+here relatively recent machine learning applications in mo-         qualitatively. This allows us to explore a new continuum of
+tion tracking [30] and domain adaptation [16].                      matching methods, with varying properties.
+                                                                    Definition 1 (Optimal Transport). Given a distribution α ∈
+1.3. Contributions                                                                                               Np
+                                                                    ∆Np associated to the predictions {ŷi }i=1     , and another
+ 1. We propose a unifying matching framework based on               distribution β ∈ ∆Ng associated with the ground truth ob-
+    Unbalanced Optimal Transport. It encompasses both                             Ng
+                                                                    jects {yj }j=1    . Let us consider a pair-wise matching cost
+    the Hungarian algorithm, the matching of the predic-            Lmatch (ŷi , yj ) between a prediction ŷi and a ground truth
+    tions to the closest ground truth boxes and the ground          object yj . We now define Optimal Transport (OT) as finding
+    truth boxes to the closest predictions;                         the match P that minimizes the following problem:
+ 2. We show that these three strategies correspond to par-
+    ticular limit cases and we subsequently present a much                                     \hat {\bm {P}} = \underset {\bm {P} \,\in \, \mathcal {U}(\bm {\alpha },\bm {\beta })}{\mathrm {arg\,min}} \left \{\sum _{i,j=1}^{N_p,N_g} P_{i,j}\mathcal {L}_{\text {match}}\left (\hat {\bm {y}}_i, \bm {y}_j \right )\right \},    (1)
+    broader class of strategies with varying properties;
+ 3. We demonstrate how entropic regularization can speed            n transport polytope
+                                                                    with                 (admissible solutions) U(α,
+                                                                                                                  o β) =
+    up the convergence during training and additionally                   Np ×Ng PNg               PNp
+                                                                     P ∈ R≥0     : j=1 Pi,j = αi , i=1 Pi,j = βj .
+    take advantage of GPU architectures;
+                                                                       Provided that certain conditions apply to the underly-
+ 4. We justify the relevancy of our framework by explor-            ing cost Lmatch , the minimum defines a distance between
+    ing its interaction with NMS and illustrate how it is on        α and β, referred to as the Wasserstein distance W(α, β)
+    par with the state-of-the-art.                                  (for more information, we refer to monographs [52, 48, 43];
+                                                                    see also Appendix A.2).
+1.4. Notations and Definitions
+    Notations Throughout the paper, we use small bold               2.1. The Hungarian Algorithm
+letters to denote a vector a ∈ RN , with elements ai ∈ R.             The Hungarian algorithm solves the Bipartite Matching
+Similarly, matrices are denoted by bold capital letters such        (BM). We will now show how this is a particular case of
+as A ∈ RN ×M , with elements Ai,j ∈ R. The notation 1N              Optimal Transport.
+represents a column-vector of ones, of size N , and 1N ×M
+the matrix equivalent of size N × M . The identity matrix of        Definition 2 (Bipartite Matching). Given the same objects
+size N is IN,N . With JN K = {1, 2, . . . , N }, we denote the      as in Definition 1, the Bipartite Matching (BM) minimizes
+set of integers from 1 to N . The                                  the cost of the pairwise matches between the ground truth
+                                   Pprobability simplex uses        objects with the predictions:
+the notation ∆N = u ∈ RN      ≥0      i ui = 1 and represents
+the set of discrete probability distributions of dimension N .
+This extends to the set of discrete joint probability distribu-       \hat {\sigma } = \mathrm {arg\, min} \left \{\sum _{j=1}^{N_g} \mathcal {L}_{\text {match}}\left (\hat {\bm {y}}_{\sigma (j)}, \bm {y}_{j} \right ): \sigma \in \mathcal {P}_{N_g}(\llbracket N_p \rrbracket )\right \}, 
+tions ∆N ×M .
+                                                   Np
+    Definitions For each image, the set {ŷi }i=1      denotes                                                           (2)
+                          Ng                                                               
+the predictions and {yj }j=1   the ground truth samples. Each       where PNg (JNp K) = σ ∈ P(JNp K) |σ| = Ng is the set
+ground truth sample combines a target class and a bounding          of possible combinations of Ng in Np , with P(JNp K) the
+box position: yj = [ cj , bj ] ∈ RNc +4 where cj ∈ {0, 1}Nc         power set of JNp K (the set of all subsets).
+
+
+
+                                                                  3200
+(a) BM as a particular case of OT      (b) OT with regularization (ϵ ̸= (c) Unbalanced OT with regulariza-                                                                                                      (d) Matching each ground truth ob-
+with no regularization (ϵ = 0).        0). The regularization smoothens the tion (ϵ ̸= 0 and τ1 ≪ τ2 ). The                                                                                                     ject to the closest prediction as Un-
+The Hungarian algorithm obtains the    matching allowing for multiple con- smoothing is also visible.                                                                                                           balanced OT without regularization
+same solution.                         nections.                                                                                                                                                                with ϵ = 0, τ1 = 0 and τ2 → ∞.
+
+Figure 2. Example of the influence of the parameters. The blue dots represent predictions ŷi . The red squares represent ground truth
+objects yj . The distributions α and β are defined as in Prop. 1. The thickness of the lines is proportional to the amount transported Pi,j .
+Only sufficiently thick lines are plotted. The dummy background ground truth yNg +1 = ∅ is not shown, nor are the connections to it.
+
+
+    BM tries to assign each ground truth yj to a different pre-                 In other words, we can read the matching to each ground
+diction ŷi in a way to minimize the total cost. In contrast                truth in the columns of P̂ . The last columns represents all
+to OT, BM does not consider any underlying distributions                    the predictions matched to the background σ̂(Ng + 1). Al-
+α and β, all ground truth objects and predictions are im-                   ternatively and equivalently, we can read the matching of
+plicitly considered to be of same mass. Furthermore, it only                each prediction i in the rows, the ones being matched to the
+allows one ground truth to be matched to a unique predic-                   background have a P̂i,Ng +1 = 1/Np .
+tion, some of these predictions being left aside and matched                    Solving the Problem         Both OT and BM are linear
+to nothing (which is then treated as a matching to the back-                programs. Using generic formulations would lead to a
+ground ∅). The OT must match all ground truth objects to                    (Np + Ng + 1) × Np (Ng + 1) equality constraint matrix.
+all predictions, not allowing any predictions to be left aside.             It is thus better to exploit the particular bipartite structure
+However, the masses of the ground truth objects are allowed                 of the problem. In particular, two families of algorithms
+to be split between different predictions and inversely, as                 have emerged: Dual Ascent Methods and Auction Algo-
+long as their masses correctly sum up (P ∈ U(α, β)).                        rithms [43]. The Hungarian algorithm is a particular     case
+    Particular Case of OT A solution for an imbalanced                      of the former and classically runs with an O Np4 com-
+number of predictions compared to the number of ground                      plexity [40], further reduced to cubic by [14]. Although
+truth objects would be to add dummy ground truth objects—                   multiple GPU implementations of a BM solver have been
+the background ∅—to even the balance. Concretely, one                       proposed [51, 12, 15], the problem remains poorly paral-
+could add a new ground truth yNg +1 = ∅, with the mass                      lelizable because of its sequential nature. To allow for effi-
+equal to the unmatched number of predictions. In fact, do-                  cient parallelization, we must consider a slightly amended
+ing so directly results in performing a BM.                                 problem.
+
+Proposition 1. The Hungarian algorithm with Np predic-                      2.2. Regularization
+tions and Ng ≤ Np ground truth objects is a particular                          We show here how we can replace the Hungarian algo-
+case of OT with P ∈ U(α, β) ⊂ RNp ×(Ng +1) , consist-                       rithm by a class of algorithms well-suited for paralleliza-
+ing of the predictions and the ground truth objects, with the               tion, obtained by adding an entropy regularization.
+                         Ng +1         Ng                  
+background added {yj }j=1      = {yj }j=1  ∪ yNg +1 = ∅ .
+The chosen underlying distributions are                                     Definition 3 (OT with regularization). We consider a regu-
+                                                                            larization parameter ϵ ∈ R≥0 . Extending Definition 1 (OT),
+                  1                                                         we define the Optimal Transport with regularization as the
+       α    =       [ 1, 1, 1, . . . , 1 ],                       (3)
+                  Np |      {z         }                                    following minimization problem:
+                            Np predictions
+                  1
+       β    =        [      1, 1, . . . , 1 , (Np − Ng ) ],       (4)            \hat {\bm {P}} = \underset {\bm {P}\, \in \, \mathcal {U}(\bm {\alpha },\bm {\beta })}{\mathrm {arg\,min}} \left \{\sum _{i,j=1}^{N_p,N_g} P_{i,j}\mathcal {L}_{\text {match}}\left (\hat {\bm {y}}_i, \bm {y}_j\right ) - \epsilon \,\mathrm {H}(\bm {P}) \right \}, 
+                  Np        |    {z       }   | {z }
+                         Ng ground truth objects   background ∅
+                                                                                                                                      (5)
+provided the background cost is constant: Lmatch (ŷi , ∅) =                with H : ∆N ×M → R≥0 : P 7→ − i,j Pi,j (log(Pi,j )−1)
+                                                                                                                 P
+c∅ . In particular for j ∈ JNg K, we have σ̂(j) =                           the entropy of the match P , with 0 ln(0) = 0 by definition.
+{i : Pi,j ̸= 0}, or equivalently σ̂(j) = {i : Pi,j = 1/Np }.
+                                                                               Sinkhorn’s Algorithm      The entropic regularization
+Proof. We refer to Appendix B.1.                                            used when finding the match P̂ ensures that the problem is
+
+
+
+                                                                        3201
+                      P Lmatch                   Machine              ization [8] as the following minimization problem:
+                                                 precision
+                                                                                             \begin {aligned} \hat {\bm {P}} = \underset {\bm {P} \in \mathbb {R}_{\geq 0}^{N_p\times N_g}}{\mathrm {arg\, min}}\biggl \{\epsilon \,\kl {\bm {P}}{\bm {K}_{\epsilon }}\, + &\,\tau _1\kl {\bm {P}\bm {1}_{N_g}}{\bm {\alpha }} \\ + &\,\tau _2\kl {\bm {1}_{N_p}^\top \bm {P}}{ \bm {\beta }}\biggr \}, \end {aligned}
+   Matching cost
+
+
+
+
+                                    Bipartite
+                                    Matching
+
+
+                                                       P Lmatch
+                   Regularized OT                                                                                              (6)
+                                                       − ϵ H(P )                      N ×M          N ×M
+                                                                      where KL : R≥0            × R>0     → R≥0 : (U , V ) 7→
+                                     Matches P                        PN ×M
+                                                                        i,j=1 Ui,j log(Ui,j /Vi,j ) − Ui,j + Vi,j is the Kullback-
+Figure 3. Effect of the regularization on the minimization of the     Leibler divergence – also called relative entropy – between
+matching cost. The red line corresponds to the regularized prob-      matrices or vectors when M = 1, with 0 ln(0) = 0 by
+lem (ϵ ̸= 0) and the blue to the unregularized one (ϵ = 0).           definition. The Gibbs kernel Kϵ is given by (Kϵ )i,j =
+                                                                      exp (−Lmatch (ŷi , yj ) /ϵ).
+
+smooth for ϵ ̸= 0 (see Figure 3). The advantage is that it can            We can see by development that the first term corre-
+now be solved very efficiently using scaling algorithms and           sponds to the matching term P Lmatch and an extension
+in this particular case the algorithm of Sinkhorn. It is partic-      of the entropic regularization term H(P ). The two ad-
+ularly suited for parallelization [10], with some later speed         ditional terms replace the transport polytope’s hard con-
+refinements [2, 1]. Reducing the regularization progres-              straints U(α, β) that required an exact equality of mass
+sively renders the scaling algorithms numerically unstable,           for both marginals. These new soft constraints allow for
+although some approaches have been proposed to reduce the             a more subtle sensitivity to the mass constraints as it allows
+regularization further by working in log-space [49, 8]. In            to slightly diverge from them. It is clear that in the limit of
+the limit of ϵ → 0, we recover the exact OT (Definition 1)            τ1 , τ2 → +∞, we recover the “balanced” problem (Defi-
+and the scaling algorithms cannot be used anymore. Paral-             nition 3). This definition naturally also defines Unbalanced
+lelization is lost and we must resolve to use the sequential          OT without regularization if ϵ = 0. The matching term
+algorithms developed in Section 2.1. In brief, regularization         would remain and the entropic one disappear.
+allows to exploit GPU architectures efficiently, whereas the              Matching to the Closest Another limit case is how-
+Hungarian algorithm and similar cannot.                               ever particularly interesting in the quest for a unifying
+                                                                      framework of the matching strategies. If the mass constraint
+    Smoother Matches When no regularization is used as
+                                                                      is to be perfectly respected for the predictions (τ1 → ∞),
+in the Hungarian algorithm, close predictions and ground
+                                                                      but not at all for the ground truth objects (τ2 = 0), it suf-
+truth objects can exchange their matches from one epoch
+                                                                      fices to assign the closest ground truth to each prediction.
+to the other, during the training. This causes a slow con-
+                                                                      The same ground truth object could be assigned to mul-
+vergence of DETR in the early stages of the training [31].
+                                                                      tiple predictions and another could not be matched at all,
+The advantage of the regularization not only lies in the ex-
+                                                                      not respecting the hard constraint for the ground truth β.
+istence of efficient algorithms but also allows for a reduc-
+                                                                      Each prediction however is exactly assigned once, perfectly
+tion of sparsity. This results in a less drastic match than the
+                                                                      respecting the mass constraint for the predictions α. By
+Hungarian algorithm obtains. A single ground truth could
+                                                                      assigning a low enough value to the background, a predic-
+be matched to multiple predictions and inversely. The pro-
+                                                                      tion would be assigned to it provided all the other ground
+portion of these multiple matches is controlled by the regu-
+                                                                      truth objects are further. In other words, the background
+larization parameter ϵ. An illustration can be found in Fig-
+                                                                      cost would play the role of a threshold value.
+ures 2a and 2b.
+                                                                      Proposition 2 (Matching to the closest). We consider the
+2.3. Unbalanced Optimal Transport                                     same objects as Proposition 1. In the limit of τ1 →
+                                                                      ∞ and τ2 = 0, Unbalanced OT (Definition 4) with-
+   We will now show how considering soft constraints in-              out regularization (ϵ = 0) admits as solution each pre-
+stead of hard leads to an even greater generalization of the          diction being matched to the closest ground truth ob-
+various matching techniques used in object detection mod-             ject unless that distance
+els. In particular, matching each prediction to the closest                                    is greater than a threshold value
+                                                                      Lmatch ŷi , yNg +1 = ∅ = c∅ . It is then matched to the
+ground truth is a limit case of the Unbalanced OT.                    background ∅. In particular, we have
+
+Definition 4 (Unbalanced OT). We consider two constraint                 \hat {P}_{i,j} = \left \{ \begin {array}{ll} \frac {1}{N_p} & \text {if } j = \mathrm {\arg \, min}_{j \in \llbracket N_g+1 \rrbracket }\left \{\mathcal {L}_{\text {match}}\left (\hat {\bm {y}}_i, \bm {y}_j \right )\right \},\\ 0 & \text {otherwise}. \end {array}\right . 
+parameters τ1 , τ2 ∈ R≥0 . Extending Definition 3 (OT with
+regularization), we define the Unbalanced OT with regular-                                                                                                                                                                                                                                                                                                                                                     (7)
+
+
+
+                                                                    3202
+Proof. We refer to Appendix B.2.                                                 3.1. Detection Transformer (DETR)
+                                                                                     The object detection is performed by matching the pre-
+                     ∞
+                                                    Bipartite                    dictions to the ground truth boxes with the Hungarian al-
+   Ground truth object
+                                                    Matching                     gorithm applied to the loss Lmatch (ŷi , yj ) = λprob (1 −
+   to best prediction
+                                                                                 ⟨ĉi , cj ⟩) + λℓ1 ∥b̂i − bj ∥1 + λGIoU (1 − GIoU(b̂i , bj )) (Def-
+                       τ2                                                        inition 2). To do so, the number of predictions and ground
+                                                                                 truth boxes must be of the same size. This is achieved by
+                                                    Prediction to best
+                                                    ground truth object          padding the ground truths with (Np − Ng ) dummy back-
+        (degenerate)
+                                                                                 ground ∅ objects. Essentially, this is the same as what is
+                       0             τ1               ∞
+                                                                                 developed in Proposition 1. The obtained match is then
+Figure 4. Limit cases of Unbalanced OT without regularization                    used to define an object-specific loss, where each matched
+(ϵ = 0).                                                                         prediction is pushed toward its corresponding ground truth
+                                                                                 object. The predictions that are not matched to a ground
+    The converse also holds. If the ground truth objects                         truth object are considered to be matched with the back-
+mass constraints were to be perfectly respected (τ2 → ∞),                        ground and are pushed to predict the background class.
+but not the predictions (τ1 → 0), each ground truth would                        The training loss uses the cross-entropy (CE) for classifi-
+then be matched to the closest prediction. The background                        cation: Ltrain (ŷi , yj ) = λCE LCE (ĉi , cj ) + λℓ1 ∥b̂i − bj ∥1 +
+would be matched to the remaining predictions. Some                              λGIoU (1 − GIoU(b̂i , bj )). By directly applying Proposi-
+predictions could not be matched and other ones multiple                         tion 1 and adding entropic regularization (Definition 3), we
+times. The limits of Unbalanced OT are illustrated in Fig. 4.                    can use Sinkhorn’s algorithm and push each prediction ŷi
+By setting the threshold sufficiently high, we get an exact                      to ground truth yj according to weight P̂i,j . In particular,
+minimum, i.e., where every prediction is matched to the                          for any non-zero P̂i,Ng +1 ̸= 0, the prediction ŷi is pushed
+closest ground truth. This can be observed in Figure 2d.                         toward the background yNg +1 = ∅ with weight P̂i,Ng +1 .
+    Scaling Algorithm Similarly as before, adding en-
+tropic regularization (ϵ ̸= 0) to the Unbalanced OT allows                       3.2. Single Shot MultiBox Detector (SSD)
+it to be solved efficiently on GPU with a scaling algorithm,
+as an extension of Sinkhorn’s algorithm [8, 7]. The regular-                         The Single Shot MultiBox Detector [37] uses a match-
+ization still also allows for smoother matches, as shown in                      ing cost only comprised of the IoU between the fixed an-
+Figure 2c.                                                                       chor boxes b̃i and the ground truth boxes: Lmatch (ŷi , yj ) =
+    Softmax In the limit of τ1 → +∞ and τ2 = 0, the                              1 − IoU(b̃i , bj ) (the GIoU was not published yet [46]).
+solution corresponds to a softmax over the ground truth ob-                      Each ground truth is first matched toward the closest an-
+jects for each prediction. The regularization ε controls then                    chor box. Anchor boxes are then matched to a ground
+the “softness” of the softmax, with ε = 1 corresponding to                       truth object if the matching cost is below a threshold of
+the conventional softmax and ε → 0 the matching to the                           0.5. In our framework, this corresponds to applying τ1 = 0
+closest. We refer to Appendix C.2 for more information.                          and τ2 → ∞ for the first phase and then τ1 → ∞ and
+                                                                                 τ2 = 0 with c∅ = 0.5 (see Proposition 2). Here again, by
+3. Matching                                                                      adding entropic regularization (Definition 4), we can solve
+                                                                                 this using a scaling algorithm. We furthermore can play
+   Following previous work [6, 55, 45, 44, 37], we define                        with the parameters τ1 and τ2 to make the matching tend
+a multi-task matching cost between a prediction ŷi and a                        slightly more towards a matching done with the Hungar-
+ground truth object yj as the composition of a classifica-                       ian algorithm (Figure 2). Again, the training uses a dif-
+tion loss ensuring that similar object classes are matched                       ferent loss than the matching, in particular Ltrain (ŷi , yj ) =
+together and a localization loss ensuring the correspon-
+                                                                                 λCE LCE (ĉi , cj ) + λsmooth ℓ1 Lsmooth ℓ1 (b̂i , bj ).
+dence of the positions and shapes of the matched boxes
+L(ŷi , yj ) = Lclassification (ĉi , cj ) + Llocalization (b̂i , bj ). Most         Hard Negative Mining Instead of using all negative
+models, however, do not use the same loss to determine the                       examples Nneg = (Np − Ng ) (predictions matched to back-
+matches as the one used to train the model. We therefore re-                     ground), the method sorts them using the highest confidence
+fer to these two losses as Lmatch and Ltrain . The training pro-                 loss LCE (ĉi , ∅) and picks the top ones so that the ratio be-
+cedure is the following: first find a match P̂ given a match-                    tween the hard negatives and positives Npos = Ng is at most
+ing strategy and matching cost Lmatch , then compute the loss                    3 to 1. Since P̂ is non-binary, we define the number of nega-
+    PNp PNg                                                                      tives and positives to be the sum of the matches to the back-
+Np i=1        j=1 P̂ij Ltrain (ŷi , yj ) where the particular train-                                  PNp
+ing loss for the background ground truth includes only a                         ground Nneg = Np i=1         P̂i,(N +1) and to the ground truth
+                                                                                                       PNg PNpg
+classification term Ltrain (ŷi , ∅) = Lclassification (ĉi , ∅).                objects Npos = Np j=1 i=1 P̂ij . We verify that for any
+
+
+
+                                                                               3203
+       50                                                                                 Model     Matching    τ2     Epochs   AP     AR
+
+       40                                                                                 DETR      Hungarian   (∞)    300      50.9   65.7
+
+
+
+
+                                                                            Color Boxes
+                                      Hungarian with finetuning                           DETR      Hungarian   (∞)    150      45.3   60.7
+       30                             at epoch 200                                        DETR      OT          (∞)    150      50.3   65.7
+  AP
+
+
+
+
+                                          OT with finetuning                              D. DETR   Hungarian   (∞)    50       64.0   75.9
+       20                                                                                 D. DETR   OT          (∞)    50       63.5   76.5
+                                          at epoch 100
+                      Hungarian
+       10                             Hungarian with finetuning                           D. DETR   Hungarian   (∞)    50       44.5   63.0
+                      OT
+
+
+
+
+                                                                            COCO
+                                      at epoch 100                                        D. DETR   OT          (∞)    50       44.2   62.0
+       0
+            0   50     100        150       200      250       300                        SSD300    Two Stage   —-     120      24.9   36.8
+                                  Epoch                                                   SSD300    Unb. OT     0.01   120      24.7   36.4
+Figure 5. Convergence curves for DETR on the Color Boxes
+dataset. The model converges faster with a regularized matching.       Table 1. Object detection metrics for different models and loss
+                                                                       functions on the Color Boxes and COCO datasets.
+
+P ∈ U(α, β), we have the same number of positives and
+negatives as the initial model: Nneg = (Np − Ng ) and                  For Deformable DETR, we found the classification cost
+Npos = Ng . Hence, hard negatives are the K predictions                to be overwhelmed by the localization costs in the reg-
+with the highest confidence loss P̂k,(Ng +1) LCE (ĉk , ∅) such        ularized minimization problem (Definition 3). We there-
+that the mass of kept                                                  fore set λprob = 5. We, however keep λCE = 2 so
+                  PKnegatives
+                          s
+                                is at most triple the number
+                                                                       that the final loss value for a given matching remains un-
+of positives: Np k=1 P̂k,(N   g +1)
+                                      ≤ 3Npos , where P̂ s is
+                                                                       changed. SSD is trained with original hyper-parameters
+a permutation of transport matrix P̂ with rows sorted by               λCE = λsmooth ℓ1 = 1. For OT, we set the entropic regu-
+highest confidence loss.                                               larization to ϵ = ϵ0 /(log (2Np ) + 1) where ϵ0 = 0.12 for
+                                                                       all models (App. D). In the following experiments, the Un-
+4. Experimental Results & Discussion                                   balanced OT is solved with multiple values of τ2 whereas
+    We show that matching based on Unbalanced Optimal                  τ1 is fixed to a large value τ1 = 100 to simulate a hard con-
+Transport generalizes many different matching strategies               straint. In practice, we limit the number of iterations of the
+and performs on par with methods that use either Bipar-                scaling algorithm. This provides a good enough approxi-
+tite Matching or anchor boxes along with matching each                 mation [19].
+prediction to the closest ground truth box with a threshold.
+We then analyze the influence of constraint parameter τ2 by
+                                                                       4.2. Unified Matching Strategy
+training SSD with and without NMS for multiple parameter                  DETR and Deformable DETR Convergence curves
+values. Finally, we show that OT with entropic regulariza-             for DETR on the Color Boxes dataset are shown in Fig. 5
+tion both improves the convergence and is faster to compute            and associated metrics are presented in Table 1. DETR con-
+than the Hungarian algorithm in case of many matches.                  verges in half the number of epochs with the regularized
+                                                                       balanced OT formulation. This confirms that one reason
+4.1. Setup
+                                                                       for slow DETR convergence is the discrete nature of BM,
+   Datasets We perform experiments on a synthetic ob-                  which is unstable, especially in the early stages of training.
+ject detection dataset with 4.800 training and 960 valida-             Training the model for more epochs with either BM or OT
+tion images and on the large-scale COCO [34] dataset with              does not improve metrics as the model starts to overfit. Ap-
+118,287 training and 5,000 validation test images. We re-              pendix E provides qualitative examples and a more detailed
+port on mean Average Precision (AP) and mean Average                   convergence analysis. We evaluate how these results trans-
+Recall (AR). The two metrics are an average of the per-                late to faster converging DETR-like models by addition-
+class metrics following COCO’s official evaluation proce-              ally training Deformable DETR [55]. In addition to model
+dure. For the Color Boxes synthetic dataset, we uniformly              improvements, Deformable DETR makes three times more
+randomly draw between 0 and 30 rectangles of 20 different              predictions than DETR and uses a sigmoid focal loss [33]
+colors from each image. Appendix I provides the detailed               instead of a softmax cross-entropy loss for both classifica-
+generation procedure and sample images.                                tion costs. Table 1 gives results on Color Boxes and COCO.
+   Training For a fair comparison, the classification and              We observe that the entropy term does not lead to faster
+localization costs for matching and training are identical             convergence. Indeed, Deformable DETR converges in 50
+to the ones used by the models. Unless stated other-                   epochs with both matching strategies. Nevertheless, both
+wise, we train the models with their default hyper-parameter           OT and bipartite matching lead to similar AP and AR.
+sets. DETR and Deformable DETR are trained with hyper-                    SSD and the Constraint Parameter To better under-
+parameters λprob = λCE = 2, λℓ1 = 5 and λGIoU = 2.                     stand how unbalanced OT bridges the gap between DETR’s
+
+
+
+                                                                     3204
+                             with NMS      w/o NMS                                                                Model
+         Matching    τ2                                                                    DETR Def. DETR                          SSD
+                            AP     AR     AP     AR
+                                                                                                 Scaling alg. for OT (Sinkhorn)
+         Two Stage   —-     51.6   67.0   23.2   77.8                                            Scaling alg. for Unb. OT
+         Unb. OT     0.01   51.1   66.3   25.3   76.5                                            Hungarian alg.
+                                                                                    10-2
+
+
+
+
+                                                                         Time [s]
+         Unb. OT     0.1    50.9   66.8   35.9   75.4
+         Unb. OT     1      48.3   64.4   44.3   73.4
+         Unb. OT     10     48.0   64.1   44.9   72.9
+         OT          (∞)    48.1   64.3   45.2   73.0                               10-3
+
+Table 2. Comparison of matching strategies on the Color Boxes
+                                                                                           100       300        1000               8732
+dataset. SSD300 is evaluated both with and without NMS.                                                    Number of predictions
+
+                                                                    Figure 6. Average and standard deviation of the computation time
+and SSD’s matching strategies, we analyze the variation in          for different matching strategies on COCO with batch size 16. The
+performance of SSD for different values of τ2 . Results for         Hungarian algorithm is computed with SciPy and its time includes
+an initial learning rate of 0.0005 are displayed in Table 2. In     the transfer of the cost matrix from GPU memory to RAM. We run
+                                                                    20 Sinkhorn iterations. Computed with an Nvidia TITAN X GPU
+the second row, the parameter value is close to zero. From
+                                                                    and Intel Core i7-4770K CPU @ 3.50GHz.
+Proposition 2 and when ϵ → 0, each prediction is matched
+to the closest ground truth box unless the matching cost ex-
+ceeds 0.5. Thus, multiple predictions are matched to each
+ground truth box, and NMS is needed to eliminate near du-              Experimentally, using OT and Unbalanced OT with en-
+plicates. When NMS is removed, AP drops by 25.8 points              tropic regularization is on par with the state-of-the-art for
+and AR increases by 10.2 points. We observe similar results         DETR, Deformable DETR and SSD. Moreover, we showed
+for the original SSD matching strategy (1st row), which sug-        that entropic regularization lets DETR converge faster on
+gests matching each ground truth box to the closest anchor          the Color Boxes dataset and that parameter τ2 offers bet-
+box does not play a huge role in the two-stage matching pro-        ter control of the precision-recall trade-off. Finally, we
+cedure from SSD. The lower part of Table 1 shows the same           showed that the scaling algorithms compute large numbers
+for COCO. When τ2 → +∞, one recovers the balanced for-              of matches faster than the Hungarian algorithm.
+mulation used in DETR (last row). Removing NMS leads
+to a 2.9 points drop for AP and a 9.7 points increase for AR.           Limitations and Future Work The convergence im-
+Depending on the field of application, it may be preferable         provement of the regularized OT formulation compared to
+to apply a matching strategy with a low τ2 and with NMS             bipartite matching seems to hold only for DETR and on
+when precision is more important or without NMS when                small-scale datasets. Further investigations may include
+the recall is more important. Moreover, varying parameter           Wasserstein-based matching costs for a further unification
+τ2 offers more control on the matching strategy and there-          of the theory and the reduction of the entropy with time, as
+fore on the precision-recall trade-off [4].                         it seems to boost convergence only in early phases, but not
+    Computation Time For a relatively small number of               in fine-tuning.
+predictions, implementations of Sinkhorn perform on par
+with the Hungarian algorithm (Fig. 6). The “balanced”
+algorithm is on average 2.6ms slower than the Hungar-
+ian algorithm for 100 predictions (DETR) and 1.5ms faster
+                                                                    Acknowledgements
+for 300 predictions (Deformable DETR). For more predic-
+tions, GPU parallelization of the Sinkhorn algorithm makes             EU: The research leading to these results has received funding
+a large difference (more than 50x speedup). As a reference          from the European Research Council under the European Union’s
+point, SSD300 and SSD512 make 8, 732 and 24, 564 pre-               Horizon 2020 research and innovation program / ERC Advanced
+dictions.                                                           Grant E-DUALITY (787960). This paper reflects only the authors’
+                                                                    views and the Union is not liable for any use that may be made of
+                                                                    the contained information. Research Council KUL: Optimization
+5. Conclusion and Future Work
+                                                                    frameworks for deep kernel machines C14/18/068. Flemish Gov-
+   Throughout the paper, we showed both theoretically and           ernment: FWO: projects: GOA4917N (Deep Restricted Kernel
+experimentally how Unbalanced Optimal Transport unifies             Machines: Methods and Foundations), PhD/Postdoc grant; This
+the Hungarian algorithm, matching each ground truth ob-             research received funding from the Flemish Government (AI Re-
+ject to the best prediction and each prediction to the best         search Program). All the authors are also affiliated to Leuven.AI -
+ground truth, with or without threshold.                            KU Leuven institute for AI, B-3000, Leuven, Belgium.
+
+
+
+
+                                                                  3205
+References                                                             [15] Bas O Fagginger Auer and Rob H Bisseling. A gpu algo-
+                                                                            rithm for greedy graph matching. In Facing the Multicore-
+ [1] Mokhtar Z Alaya, Maxime Berar, Gilles Gasso, and Alain                 Challenge II, pages 108–119. Springer, 2012. 4
+     Rakotomamonjy. Screening sinkhorn algorithm for regular-          [16] Kilian Fatras, Thibault Séjourné, Rémi Flamary, and Nicolas
+     ized optimal transport. In Advances in Neural Information              Courty. Unbalanced minibatch optimal transport; applica-
+     Processing Systems, volume 32, 2019. 5                                 tions to domain adaptation. In International Conference on
+ [2] Jason Altschuler, Jonathan Niles-Weed, and Philippe Rigol-             Machine Learning, pages 3186–3197. PMLR, 2021. 3
+     let. Near-linear time approximation algorithms for opti-          [17] Charlie Frogner, Chiyuan Zhang, Hossein Mobahi, Mauricio
+     mal transport via sinkhorn iteration. In I. Guyon, U. Von              Araya, and Tomaso A Poggio. Learning with a wasserstein
+     Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vish-                    loss. Advances in neural information processing systems, 28,
+     wanathan, and R. Garnett, editors, Advances in Neural Infor-           2015. 2
+     mation Processing Systems, volume 30. Curran Associates,          [18] Zheng Ge, Songtao Liu, Zeming Li, Osamu Yoshie, and Jian
+     Inc., 2017. 5                                                          Sun. Ota: Optimal transport assignment for object detection.
+ [3] Martin Arjovsky, Soumith Chintala, and Léon Bottou.                   In Proceedings of the IEEE/CVF Conference on Computer
+     Wasserstein generative adversarial networks. In Interna-               Vision and Pattern Recognition, pages 303–312, 2021. 3
+     tional conference on machine learning, pages 214–223.             [19] Zheng Ge, Songtao Liu, Feng Wang, Zeming Li, and Jian
+     PMLR, 2017. 3                                                          Sun. Yolox: Exceeding yolo series in 2021. arXiv preprint
+ [4] Michael Buckland and Fredric Gey. The relationship be-                 arXiv:2107.08430, 2021. 3, 7
+     tween recall and precision. Journal of the American society       [20] Ross Girshick. Fast r-cnn. In Proceedings of the IEEE In-
+     for information science, 45(1):12–19, 1994. 8                          ternational Conference on Computer Vision (ICCV), pages
+ [5] Zhaowei Cai and Nuno Vasconcelos. Cascade r-cnn: Delv-                 1440–1448, December 2015. 2
+     ing into high quality object detection. In Proceedings of the     [21] Ross Girshick, Jeff Donahue, Trevor Darrell, and Jitendra
+     IEEE conference on computer vision and pattern recogni-                Malik. Rich feature hierarchies for accurate object detection
+     tion, pages 6154–6162, 2018. 2                                         and semantic segmentation. In Proceedings of the IEEE con-
+ [6] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas             ference on computer vision and pattern recognition, pages
+     Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-             580–587, 2014. 2
+     end object detection with transformers. In European confer-       [22] Ishaan Gulrajani, Faruk Ahmed, Martin Arjovsky, Vincent
+     ence on computer vision, pages 213–229. Springer, 2020. 2,             Dumoulin, and Aaron C Courville. Improved training of
+     3, 6                                                                   wasserstein gans. Advances in neural information processing
+ [7] Lenaic Chizat. Unbalanced Optimal Transport : Models,                  systems, 30, 2017. 3
+     Numerical Methods, Applications. Theses, Université Paris        [23] Yuzhuo Han, Xiaofeng Liu, Zhenfei Sheng, Yutao Ren, Xu
+     sciences et lettres, Nov. 2017. 3, 6                                   Han, Jane You, Risheng Liu, and Zhongxuan Luo. Wasser-
+ [8] Lenaic Chizat, Gabriel Peyré, Bernhard Schmitzer, and                 stein loss-based deep object detection. In Proceedings of
+     François-Xavier Vialard. Scaling algorithms for unbalanced            the IEEE/CVF Conference on Computer Vision and Pattern
+     optimal transport problems. Mathematics of Computation,                Recognition (CVPR) Workshops, June 2020. 3
+     87(314):2563–2609, 2018. 2, 5, 6                                  [24] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Gir-
+                                                                            shick. Mask r-cnn. In Proceedings of the IEEE international
+ [9] Lenaic Chizat, Gabriel Peyré, Bernhard Schmitzer, and
+                                                                            conference on computer vision, pages 2961–2969, 2017. 2
+     François-Xavier Vialard. Unbalanced optimal transport: Dy-
+                                                                       [25] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+     namic and kantorovich formulations. Journal of Functional
+                                                                            Spatial pyramid pooling in deep convolutional networks for
+     Analysis, 274(11):3090–3123, 2018. 2, 3
+                                                                            visual recognition. IEEE transactions on pattern analysis
+[10] Marco Cuturi. Sinkhorn distances: Lightspeed computation               and machine intelligence, 37(9):1904–1916, 2015. 2
+     of optimal transport. Advances in neural information pro-
+                                                                       [26] L. Kantorovitch. On the translocation of masses. Manage-
+     cessing systems, 26, 2013. 2, 5
+                                                                            ment Science, 5(1):1–4, 1958. 2
+[11] Jifeng Dai, Yi Li, Kaiming He, and Jian Sun. R-fcn: Object        [27] Soheil Kolouri, Phillip E Pope, Charles E Martin, and Gus-
+     detection via region-based fully convolutional networks. Ad-           tavo K Rohde. Sliced wasserstein auto-encoders. In Interna-
+     vances in neural information processing systems, 29, 2016.             tional Conference on Learning Representations, 2018. 3
+     2                                                                 [28] Soheil Kolouri, Yang Zou, and Gustavo K Rohde. Sliced
+[12] Ketan Date and Rakesh Nagi. Gpu-accelerated hungarian                  wasserstein kernels for probability distributions. In Proceed-
+     algorithms for the linear assignment problem. Parallel Com-            ings of the IEEE Conference on Computer Vision and Pattern
+     puting, 57:52–72, 2016. 4                                              Recognition, pages 5258–5267, 2016. 2
+[13] Henri De Plaen, Michaël Fanuel, and Johan AK Suykens.            [29] Harold W Kuhn. The hungarian method for the assignment
+     Wasserstein exponential kernels. In 2020 International Joint           problem. Naval research logistics quarterly, 2(1-2):83–97,
+     Conference on Neural Networks (IJCNN), pages 1–6. IEEE,                1955. 2
+     2020. 2                                                           [30] John Lee, Nicholas P. Bertrand, and Christopher J. Rozell.
+[14] Jack Edmonds and Richard M. Karp. Theoretical improve-                 Unbalanced optimal transport regularization for imaging
+     ments in algorithmic efficiency for network flow problems.             problems. IEEE Transactions on Computational Imaging,
+     J. ACM, 19(2):248–264, apr 1972. 4                                     6:1219–1232, 2020. 3
+
+
+
+
+                                                                     3206
+[31] Feng Li, Hao Zhang, Shilong Liu, Jian Guo, Lionel M Ni,           [44] Joseph Redmon, Santosh Divvala, Ross Girshick, and Ali
+     and Lei Zhang. Dn-detr: Accelerate detr training by intro-             Farhadi. You only look once: Unified, real-time object de-
+     ducing query denoising. In Proceedings of the IEEE/CVF                 tection. In Proceedings of the IEEE conference on computer
+     Conference on Computer Vision and Pattern Recognition,                 vision and pattern recognition, pages 779–788, 2016. 2, 6
+     pages 13619–13627, 2022. 2, 5                                     [45] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.
+[32] Tsung-Yi Lin, Piotr Dollár, Ross Girshick, Kaiming He,                Faster r-cnn: Towards real-time object detection with region
+     Bharath Hariharan, and Serge Belongie. Feature pyra-                   proposal networks. In Advances in Neural Information Pro-
+     mid networks for object detection. In Proceedings of the               cessing Systems, volume 28. Curran Associates, Inc., 2015.
+     IEEE conference on computer vision and pattern recogni-                2, 3, 6
+     tion, pages 2117–2125, 2017. 2                                    [46] H. Rezatofighi, N. Tsoi, J. Gwak, A. Sadeghian, I. Reid, and
+[33] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and              S. Savarese. Generalized intersection over union: A metric
+     Piotr Dollár. Focal loss for dense object detection. In Pro-          and a loss for bounding box regression. In 2019 IEEE/CVF
+     ceedings of the IEEE international conference on computer              Conference on Computer Vision and Pattern Recognition
+     vision, pages 2980–2988, 2017. 2, 7                                    (CVPR), pages 658–666, Los Alamitos, CA, USA, jun 2019.
+                                                                            IEEE Computer Society. 2, 6
+[34] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+     Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence        [47] Paul K Rubenstein, Bernhard Schoelkopf, and Ilya Tol-
+     Zitnick. Microsoft coco: Common objects in context. In                 stikhin. On the latent space of wasserstein auto-encoders.
+     European conference on computer vision, pages 740–755.                 arXiv preprint arXiv:1802.03761, 2018. 3
+     Springer, 2014. 7                                                 [48] Filippo Santambrogio. Optimal transport for applied mathe-
+                                                                            maticians. calculus of variations, pdes and modeling. 2015.
+[35] Li Liu, Wanli Ouyang, Xiaogang Wang, Paul Fieguth, Jie
+                                                                            3
+     Chen, Xinwang Liu, and Matti Pietikäinen. Deep learning
+     for generic object detection: A survey. International journal     [49] Bernhard Schmitzer. Stabilized sparse scaling algorithms for
+     of computer vision, 128(2):261–318, 2020. 2                            entropy regularized transport problems. SIAM Journal on
+                                                                            Scientific Computing, 41(3):A1443–A1481, 2019. 5
+[36] Shilong Liu, Feng Li, Hao Zhang, Xiao Yang, Xianbiao Qi,
+                                                                       [50] Ilya Tolstikhin, Olivier Bousquet, Sylvain Gelly, and Bern-
+     Hang Su, Jun Zhu, and Lei Zhang. Dab-detr: Dynamic an-
+                                                                            hard Schoelkopf. Wasserstein auto-encoders. In Interna-
+     chor boxes are better queries for detr. In International Con-
+                                                                            tional Conference on Learning Representations, 2018. 3
+     ference on Learning Representations, 2021. 2
+                                                                       [51] Cristina Nader Vasconcelos and Bodo Rosenhahn. Bipartite
+[37] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian
+                                                                            graph matching computation on gpu. In International Work-
+     Szegedy, Scott Reed, Cheng-Yang Fu, and Alexander C
+                                                                            shop on Energy Minimization Methods in Computer Vision
+     Berg. Ssd: Single shot multibox detector. In European con-
+                                                                            and Pattern Recognition, pages 42–55. Springer, 2009. 4
+     ference on computer vision, pages 21–37. Springer, 2016. 2,
+                                                                       [52] Cédric Villani. Optimal transport: old and new, volume 338.
+     3, 6
+                                                                            Springer, 2009. 3
+[38] Gaspard Monge. Mémoire sur la théorie des déblais et des
+                                                                       [53] Xuan-Thuy Vo and Kang-Hyun Jo. A review on anchor as-
+     remblais. Mem. Math. Phys. Acad. Royale Sci., pages 666–
+                                                                            signment and sampling heuristics in deep learning-based ob-
+     704, 1781. 2
+                                                                            ject detection. Neurocomputing, 2022. 3
+[39] Grégoire Montavon, Klaus-Robert Müller, and Marco Cu-           [54] Xue Yang, Junchi Yan, Qi Ming, Wentao Wang, Xiaopeng
+     turi. Wasserstein training of restricted boltzmann machines.           Zhang, and Qi Tian. Rethinking rotated object detection
+     Advances in Neural Information Processing Systems, 29,                 with gaussian wasserstein distance loss. In Marina Meila and
+     2016. 2                                                                Tong Zhang, editors, Proceedings of the 38th International
+[40] James Munkres. Algorithms for the assignment and trans-                Conference on Machine Learning, volume 139 of Proceed-
+     portation problems. Journal of the society for industrial and          ings of Machine Learning Research, pages 11830–11841.
+     applied mathematics, 5(1):32–38, 1957. 2, 4                            PMLR, 18–24 Jul 2021. 3
+[41] Mayu Otani, Riku Togashi, Yuta Nakashima, Esa Rahtu,              [55] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang,
+     Janne Heikkilä, and Shin’ichi Satoh. Optimal correction               and Jifeng Dai. Deformable detr: Deformable transformers
+     cost for object detection evaluation. In Proceedings of                for end-to-end object detection. In International Conference
+     the IEEE/CVF Conference on Computer Vision and Pattern                 on Learning Representations, 2021. 2, 6, 7
+     Recognition, pages 21107–21115, 2022. 3
+[42] Jiangmiao Pang, Kai Chen, Jianping Shi, Huajun Feng,
+     Wanli Ouyang, and Dahua Lin. Libra r-cnn: Towards
+     balanced learning for object detection. In Proceedings of
+     the IEEE/CVF conference on computer vision and pattern
+     recognition, pages 821–830, 2019. 2
+[43] Gabriel Peyré, Marco Cuturi, et al. Computational optimal
+     transport: With applications to data science. Foundations
+     and Trends® in Machine Learning, 11(5-6):355–607, 2019.
+     3, 4
+
+
+
+
+                                                                     3207
+

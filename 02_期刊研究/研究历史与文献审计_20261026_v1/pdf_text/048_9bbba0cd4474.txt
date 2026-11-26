@@ -1,0 +1,101 @@
+Published as a conference paper at ICLR 2021
+DEFORMABLE DETR: D EFORMABLE TRANSFORMERS
+FOR END-TO-E ND OBJECT DETECTION
+Xizhou Zhu1∗, Weijie Su2∗‡ , Lewei Lu1, Bin Li2, Xiaogang Wang1,3, Jifeng Dai1†
+1SenseTime Research
+2University of Science and Technology of China
+3The Chinese University of Hong Kong
+{zhuwalter,luotto,daijifeng}@sensetime.com
+jackroos@mail.ustc.edu.cn, binli@ustc.edu.cn
+xgwang@ee.cuhk.edu.hk
+ABSTRACT
+DETR has been recently proposed to eliminate the need for many hand-designed
+components in object detection while demonstrating good performance. However,
+it suffers from slow convergence and limited feature spatial resolution, due to the
+limitation of Transformer attention modules in processing image feature maps. To
+mitigate these issues, we proposed Deformable DETR, whose attention modules
+only attend to a small set of key sampling points around a reference. Deformable
+DETR can achieve better performance than DETR (especially on small objects)
+with 10× less training epochs. Extensive experiments on the COCO benchmark
+demonstrate the effectiveness of our approach. Code is released at https://
+github.com/fundamentalvision/Deformable-DETR.
+1 I NTRODUCTION
+Modern object detectors employ many hand-crafted components (Liu et al., 2020), e.g., anchor gen-
+eration, rule-based training target assignment, non-maximum suppression (NMS) post-processing.
+They are not fully end-to-end. Recently, Carion et al. (2020) proposed DETR to eliminate the need
+for such hand-crafted components, and built the ﬁrst fully end-to-end object detector, achieving very
+competitive performance. DETR utilizes a simple architecture, by combining convolutional neural
+networks (CNNs) and Transformer (Vaswani et al., 2017) encoder-decoders. They exploit the ver-
+satile and powerful relation modeling capability of Transformers to replace the hand-crafted rules,
+under properly designed training signals.
+Despite its interesting design and good performance, DETR has its own issues: (1) It requires
+much longer training epochs to converge than the existing object detectors. For example, on the
+COCO (Lin et al., 2014) benchmark, DETR needs 500 epochs to converge, which is around 10 to 20
+times slower than Faster R-CNN (Ren et al., 2015). (2) DETR delivers relatively low performance
+at detecting small objects. Modern object detectors usually exploit multi-scale features, where small
+objects are detected from high-resolution feature maps. Meanwhile, high-resolution feature maps
+lead to unacceptable complexities for DETR. The above-mentioned issues can be mainly attributed
+to the deﬁcit of Transformer components in processing image feature maps. At initialization, the
+attention modules cast nearly uniform attention weights to all the pixels in the feature maps. Long
+training epoches is necessary for the attention weights to be learned to focus on sparse meaning-
+ful locations. On the other hand, the attention weights computation in Transformer encoder is of
+quadratic computation w.r.t. pixel numbers. Thus, it is of very high computational and memory
+complexities to process high-resolution feature maps.
+In the image domain, deformable convolution (Dai et al., 2017) is of a powerful and efﬁcient mech-
+anism to attend to sparse spatial locations. It naturally avoids the above-mentioned issues. While it
+lacks the element relation modeling mechanism, which is the key for the success of DETR.
+∗Equal contribution.†Corresponding author.‡Work is done during an internship at SenseTime Research.
+1
+arXiv:2010.04159v4  [cs.CV]  18 Mar 2021
+
+---PAGE---
+
+Published as a conference paper at ICLR 2021
+Decoder
+Object Queries
+Bounding Box Predictions
+× 4
+Multi-scale Feature Maps
+Encoder
+Multi-scale Deformable
+Self-Attention in Encoder
+Multi-scale Deformable 
+Cross-Attention in Decoder
+Transformer 
+Self-Attention in Decoder
+Image
+Image Feature Maps
+× 4
+Figure 1: Illustration of the proposed Deformable DETR object detector.
+In this paper, we propose Deformable DETR, which mitigates the slow convergence and high com-
+plexity issues of DETR. It combines the best of the sparse spatial sampling of deformable convo-
+lution, and the relation modeling capability of Transformers. We propose the deformable attention
+module, which attends to a small set of sampling locations as a pre-ﬁlter for prominent key elements
+out of all the feature map pixels. The module can be naturally extended to aggregating multi-scale
+features, without the help of FPN (Lin et al., 2017a). In Deformable DETR , we utilize (multi-scale)
+deformable attention modules to replace the Transformer attention modules processing feature maps,
+as shown in Fig. 1.
+Deformable DETR opens up possibilities for us to exploit variants of end-to-end object detectors,
+thanks to its fast convergence, and computational and memory efﬁciency. We explore a simple and
+effective iterative bounding box reﬁnement mechanism to improve the detection performance. We
+also try a two-stage Deformable DETR, where the region proposals are also generated by a vaiant of
+Deformable DETR, which are further fed into the decoder for iterative bounding box reﬁnement.
+Extensive experiments on the COCO (Lin et al., 2014) benchmark demonstrate the effectiveness
+of our approach. Compared with DETR, Deformable DETR can achieve better performance (es-
+pecially on small objects) with 10× less training epochs. The proposed variant of two-stage De-
+formable DETR can further improve the performance. Code is released at https://github.
+com/fundamentalvision/Deformable-DETR.
+2 R ELATED WORK
+Efﬁcient Attention Mechanism. Transformers (Vaswani et al., 2017) involve both self-attention
+and cross-attention mechanisms. One of the most well-known concern of Transformers is the high
+time and memory complexity at vast key element numbers, which hinders model scalability in many
+cases. Recently, many efforts have been made to address this problem (Tay et al., 2020b), which can
+be roughly divided into three categories in practice.
+The ﬁrst category is to use pre-deﬁned sparse attention patterns on keys. The most straightforward
+paradigm is restricting the attention pattern to be ﬁxed local windows. Most works (Liu et al.,
+2018a; Parmar et al., 2018; Child et al., 2019; Huang et al., 2019; Ho et al., 2019; Wang et al.,
+2020a; Hu et al., 2019; Ramachandran et al., 2019; Qiu et al., 2019; Beltagy et al., 2020; Ainslie
+et al., 2020; Zaheer et al., 2020) follow this paradigm. Although restricting the attention pattern
+to a local neighborhood can decrease the complexity, it loses global information. To compensate,
+Child et al. (2019); Huang et al. (2019); Ho et al. (2019); Wang et al. (2020a) attend key elements
+2

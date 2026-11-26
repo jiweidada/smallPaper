@@ -1,0 +1,187 @@
+RealDroneVision: Dataset and Architecture Advancements for Small-Object
+Drone Detection
+Arun Kumar Sivapuram
+Indian Institute of Technology Tirupati, India
+ee19d506@iittp.ac.in
+Pranav R T Peddinti
+SRM University AP, India
+pranav.rt@srmap.edu.in
+Harish Puppala
+SRM University AP, India
+harish.s@srmap.edu.in
+Komuravelli Prashanth
+Deepraksha Lab, India
+prashanth@deepraksha.com
+Jaladi Sri Harsha
+Deepraksha Lab, India
+sriharsha.jaladi@deepraksha.com
+Rama Krishna Sai Gorthi
+Indian Institute of Technology Tirupati, India
+rkg@iittp.ac.in
+Abstract
+Drones are increasingly used in civilian and defense do-
+mains, but reliable detection remains challenging due to
+their small size, fast motion, and diverse environments. Ex-
+isting datasets, such as synthetic benchmarks, fail to cap-
+ture real-world variability. We introduce RealDroneVi-
+sion, a unified contribution that advances both dataset
+and methodology. First, we curate a large-scale real-
+world drone detection dataset comprising 173,023 im-
+ages, constructed via a semi-automatic pipeline inspired
+by self-annotated labeling from videos, enhanced with a
+human-in-the-loop to iteratively reduce false positives and
+false negatives. This approach yields high-quality an-
+notations with reduced manual effort. Second, we pro-
+pose the Nano Object Vision Attention (NOVA) module, a
+drop-in replacement for YOLOv8’s C2f block. By com-
+bining depthwise separable convolutions, scale-aware di-
+lated branches, lightweight mixing, and coordinate-aware
+attention, our design improves small-object detection while
+remaining computationally efficient. Extensive bench-
+marks against YOLOv8m/l and YOLOv9c/e demonstrate
+that YOLOv8-NOVA dominates across precision (0.912), re-
+call (0.870), and mAP@50 (0.920) while being significantly
+more lightweight (2.3M params, 5 MB weights). These re-
+sults establish RealDroneVision as a strong foundation for
+advancing real-world drone detection research.
+1. Introduction
+Drones have rapidly emerged in civilian, commercial, and
+defense applications, ranging from aerial photography and
+package delivery to surveillance and public safety monitor-
+ing. Alongside these benefits, the misuse of drones poses
+serious concerns for security, privacy, and airspace safety.
+Consequently, robust drone detection systems are essential
+for enabling effective countermeasures and ensuring safe in-
+tegration of drones into society.
+Despite advances in general-purpose object detection,
+drone detection remains particularly challenging. Drones
+are typically small, fast-moving, and visually similar to
+background clutter, making them harder to localize than
+large, well-defined objects. Detection performance is fur-
+ther hindered by variations in altitude, lighting, weather,
+and drone type. Addressing these challenges requires not
+only representative datasets but also architectural innova-
+tions that explicitly focus on small-object detection.
+Recent works have attempted to close this gap, most no-
+tablySynDroneVision[15], which introduced a large-scale
+synthetic dataset for drone detection. While synthetic data
+offers scalability, it does not fully capture real-world vari-
+ability, and SynDroneVision is limited to dataset contribu-
+tion without proposing new architectures. As a result, cur-
+rent benchmarks may not reflect real-world performance,
+and existing detectors often fail to generalize effectively.
+In this paper, we presentRealDroneVision, a dual con-
+tribution that advances bothdatasetsandarchitecturesfor
+drone detection. Our key contributions are as follows:
+•Real-World Dataset with Human-in-the-Loop Anno-
+tation:We construct a high-quality drone detection
+This WACV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+6687
+
+
+---PAGE---
+
+dataset using a semi-automatic pipeline inspired by self-
+annotated labeling from videos (SA-LfV) [19]. By com-
+bining tracker-based initial detections, iterative detector
+refinement, and human-in-the-loop verification, we sig-
+nificantly reduce annotation effort while ensuring accu-
+racy.
+•Nano Object Vision Attention(NOV A) architecture for
+small object detection:We introduce a NOV A module
+replacement for YOLOv8’s C2f module. Our design inte-
+grates depthwise separable convolutions, scale-aware di-
+lated branches, lightweight mixing, and coordinate-aware
+attention, improving localization of small drones while
+maintaining computational efficiency.
+•Comprehensive Benchmarks:We evaluate Re-
+alDroneVision against strong baselines including
+YOLOv8m/l and YOLOv9c/e. Results demonstrate
+consistent improvements in mean Average Precision
+(mAP), especially for small objects, alongside favorable
+parameter and inference efficiency.
+By unifying a real-world dataset with a tailored architec-
+ture, RealDroneVision establishes a robust foundation for
+advancing research in drone detection and provides practi-
+cal insights for deploying detectors in real-world scenarios.
+2. Related Work
+2.1. Drone Detection Datasets
+The availability of datasets has been central to advanc-
+ing drone detection and tracking.DUT Anti-UAV[14] re-
+mains one of the most comprehensive benchmarks, span-
+ning diverse urban and suburban environments across mul-
+tiple Chinese cities. It provides tracks for image detec-
+tion, video detection, and tracking, but its heavy reliance
+on manual annotations makes it costly to scale. The ex-
+tendedAnti-UAVdataset further expands this direction with
+over 580K annotated bounding boxes in long video se-
+quences, highlighting challenges such as drift and occlu-
+sion during real-time tracking. Air-to-air benchmarks, such
+asDet-Fly[29] (13K UA V images captured from another
+UA V) and the dataset by Walter et al. [21] (automatic an-
+notation using UVDAR sensors for relative localization),
+shift focus to UA V-on-UA V perspectives. More recent ef-
+forts attempt to broaden domain variability:SynDroneVi-
+sion[15] provides a large synthetic dataset with diverse con-
+ditions, whileDrIFT[9] blends synthetic and real domains
+across 14 settings to tackle domain shifts. TheICG-Drone
+dataset [23] emphasizes multi-drone pursuit–evasion tasks,
+while theMDMTbenchmark [16] introduces occlusion-
+aware multi-target tracking from multiple drones. Finally,
+motion-intensive datasets such asUZH-FPV Drone Rac-
+ing[10] capture aggressive quadrotor maneuvers, provid-
+ing unique stress tests for vision-based algorithms. Despite
+these advances, persistent challenges include scalable anno-
+tation, robustness to domain shifts, and the accurate label-
+ing of very small or distant UA Vs. Our dataset addresses
+these issues via a semi-automatic annotation pipeline with
+human verification, yielding high-quality labels for small-
+object drones in real-world environments.
+2.2. Architectures for Small-Object UA V Detection
+Alongside dataset efforts, many works propose architectural
+modifications to enhance UA V detection. Several extend the
+YOLO family.TGC-YOLOv5[28] integrates transformer
+encoders, a global attention module, and coordinate atten-
+tion to improve robustness against scale variation and clut-
+ter.SOD-YOLO[24] modifies the backbone with a P2 de-
+tection layer and attentional fusion modules, demonstrating
+improved performance on UA V imagery.Universal Small-
+Object YOLO[11] introduces a universal structural design
+across YOLO versions, whileImproved YOLOv8[12] bal-
+ances small-object accuracy with deployment efficiency.
+Beyond UA V-specific works,YOLO-World[7] generalizes
+detection to an open-vocabulary setting, providing insights
+into robust recognition for small and rare objects. Other
+strategies include multi-stage refinement such as theCas-
+caded Zoom-In Detector[17], which leverages cropping
+and progressive refinement for aerial images. Together,
+these efforts highlight the importance of architectural in-
+novations for UA V detection, but few combine lightweight
+design with explicit optimization for small objects as in our
+proposedNOVAblock.
+2.3. Applications, Tracking, and System-Level
+Works
+Drone detection is increasingly integrated into broader anti-
+UA V or multi-drone systems. Zhao et al. [27] developed a
+vision-based Anti-UA V framework that jointly detects and
+tracks drones in intelligent transportation contexts. Xiao
+et al. [23] combined the ICG-Drone dataset with Drone-
+YOLOSORT, a real-time multi-drone pursuit–evasion sys-
+tem optimized for edge deployment. Bari ˇsi´c et al. [5] used
+stereo cameras with YOLOv3-Tiny to reconstruct UA V tra-
+jectories for interception, validated in field experiments in-
+spired by MBZIRC challenges.
+2.4. Positioning of Our Work
+In contrast to prior efforts,RealDroneVisionunifies both
+dataset and methodology contributions. We introduce a
+large-scale real-world UA V dataset of173,023 images, con-
+structed with a semi-automatic SA-LfV [19] pipeline and
+human verification, providing high-quality labels for small
+drones across varied environments. In parallel, we propose
+NOVA, a lightweight attention module that integrates scale-
+aware dilated convolutions, coordinate-aware attention, and
+efficient mixing. Together, these contributions address per-
+sistent gaps in annotation scalability and architectural spe-
+6688

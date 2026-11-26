@@ -1,0 +1,117 @@
+--- C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\345_codex_contracts_20261022_v1\train345.py
++++ C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\347_codex_cpu_entry_20261023_v1\train347.py
+@@ -1,10 +1,12 @@
+-"""345 entry: frozen train344 mathematics, persisted order and resumable cursor.
+-
+-Current authorization permits CPU acceptance only (formal order <=2 steps;
+-private miniature acceptance <=6 steps). Real training: 需另行授权.
+-The 1218-step loop and epoch checkpoint machinery are implemented below;
+-the authorization cap is separate from that immutable scientific budget.
++"""347 fixed-budget CPU entry, based on sealed train345.
++
++Formal execution permits at most1218 steps; the private miniature cap remains6.
++Current authorization executes G_seed1 ten steps for acceptance only.
++Eight complete scientific runs require separate explicit user authorization.
+ """
++import sys as _bootstrap_sys
++from pathlib import Path as _BootstrapPath
++_bootstrap_sys.path.insert(0,str(_BootstrapPath(__file__).resolve().parent.parent/'345_codex_contracts_20261022_v1'))
+ import argparse
+ import hashlib
+ import importlib
+@@ -15,13 +17,14 @@
+ from pathlib import Path
+ 
+ C = importlib.import_module('345_context')
++META = importlib.import_module('347_context')
+ import numpy as np
+ import torch
+ T = importlib.import_module('train344')
+ torch.set_num_threads(2)
+ 
+ HARD_TOTAL_STEPS = 1218
+-CURRENT_CPU_CAP = {'formal': 2, 'mini_acceptance': 6}
++CURRENT_CPU_CAP = {'formal': 1218, 'mini_acceptance': 6}
+ 
+ 
+ class GuardError(RuntimeError):
+@@ -163,6 +166,7 @@
+                'raw_checkpoint_sha256': config['global_checkpoint_sha256'],
+                'shuffle_sha256': order_record['sha256'], 'shuffle_path': order_record['path'],
+                'lr_curve_sha256': curve_record['sha256'], 'arm': arm, 'seed': seed, 'mode': mode}
++    binding = {**binding, '347_source_bundle_sha256': META.verify_sources(), 'entry_version': 'train347'}
+     return config, order, curve, binding
+ 
+ 
+@@ -210,7 +214,7 @@
+     require(initial_sha == config['untrained_initial_state_sha256'], 'initial_state_SHA')
+     require(sum(p.numel() for p in model.parameters()) == config['head_parameters'], 'parameter_count')
+     require(all(p.device.type == 'cpu' and p.dtype == torch.float32 for p in model.parameters()), 'CPU_FP32')
+-    with open(run_dir / '345_initial_state.pt', 'xb') as f:
++    with open(run_dir / '347_initial_state.pt', 'xb') as f:
+         torch.save({'model': model.state_dict(), 'state_sha256': initial_sha, 'binding': binding}, f)
+     optimizer = make_optimizer(model, config)
+     step = epoch = batch_index = 0
+@@ -238,7 +242,7 @@
+         T.restore_rng(checkpoint['rng'])
+     check_cursor(step, epoch, batch_index, order, config)
+     require(step < max_steps, 'resume_endpoint_not_after_checkpoint')
+-    write_json(run_dir / '345_run_binding.json', {'binding': binding, 'initial_state_sha256': initial_sha,
++    write_json(run_dir / '347_run_binding.json', {'binding': binding, 'initial_state_sha256': initial_sha,
+                'inherited_recipe': config, 'max_steps': max_steps, 'resume': _resume,
+                'epoch_timing_policy': 'Actual wall times are a separate ledger. Byte equality covers deterministic per-step numeric/batch logs; wall times are not deterministic.'})
+     local_steps = loaded_entries = 0
+@@ -248,8 +252,8 @@
+     def save_state():
+         nonlocal last_receipt
+         check_cursor(step, epoch, batch_index, order, config)
+-        path = run_dir / f'345_checkpoint_step{step:06d}.pt'
+-        payload = {'format': '345_full_state_v1', 'binding': binding,
++        path = run_dir / f'347_checkpoint_step{step:06d}.pt'
++        payload = {'format': '347_full_state_v1', 'binding': binding,
+                    'initial_state_sha256': initial_sha, 'model_state_sha256': state_sha(model.state_dict()),
+                    'model': model.state_dict(), 'optimizer': optimizer.state_dict(),
+                    'param_group_lr': [g['lr'] for g in optimizer.param_groups],
+@@ -259,7 +263,7 @@
+                    'epoch_partial_seconds': epoch_partial_seconds}
+         with open(path, 'xb') as f:
+             torch.save(payload, f)
+-        receipt_path = run_dir / f'345_checkpoint_step{step:06d}_receipt.json'
++        receipt_path = run_dir / f'347_checkpoint_step{step:06d}_receipt.json'
+         write_json(receipt_path, {'checkpoint_path': str(path), 'checkpoint_sha256': C.sha(path),
+                    'binding': binding, 'step': step, 'epoch': epoch, 'batch_index': batch_index,
+                    'position_in_epoch': batch_index * config['batch']})
+@@ -309,10 +313,10 @@
+         # Every epoch and every requested mid-epoch endpoint gets a full snapshot.
+         if epoch_finished or step == max_steps:
+             save_state()
+-    write_json(run_dir / '345_steps.json', step_logs)
+-    write_json(run_dir / '345_epoch_times.json', {'completed_epochs': epoch_times,
++    write_json(run_dir / '347_steps.json', step_logs)
++    write_json(run_dir / '347_epoch_times.json', {'completed_epochs': epoch_times,
+                'partial_epoch': epoch, 'partial_seconds': epoch_partial_seconds})
+-    result = {'status': 'CPU短验收已执行；真实训练未执行', 'arm': arm, 'seed': seed, 'mode': _mode,
++    result = {'status': 'CPU步骤执行完成', 'arm': arm, 'seed': seed, 'mode': _mode,
+               'binding': binding, 'initial_state_sha256': initial_sha, 'final_model_state_sha256': state_sha(model.state_dict()),
+               'step': step, 'epoch': epoch, 'batch_index': batch_index,
+               'position_in_epoch': batch_index * config['batch'], 'last_checkpoint': last_receipt,
+@@ -320,14 +324,15 @@
+               'counts_this_process': {'head_forwards': local_steps, 'loss_adapter_calls': local_steps,
+                   'native_loss_calls': 2 * loaded_entries, 'backward_calls': local_steps,
+                   'optimizer_steps': local_steps, 'cache_loads': loaded_entries,
+-                  'global_forwards': 0, 'real_training_steps': 0},
+-              'input_binding_counts_this_process': dict(T.INPUT_COUNTS)}
+-    write_json(run_dir / '345_run_result.json', result)
++                  'global_forwards': 0},
++              'input_binding_counts_this_process': dict(T.INPUT_COUNTS),
++              'full_budget_completed': step == HARD_TOTAL_STEPS}
++    write_json(run_dir / '347_run_result.json', result)
+     return result
+ 
+ 
+ def main(argv=None):
+-    parser = argparse.ArgumentParser(description='345 CPU entry acceptance; 真实训练需另行授权', allow_abbrev=False)
++    parser = argparse.ArgumentParser(description='347 fixed-budget CPU entry; full scientific runs require separate authorization', allow_abbrev=False)
+     parser.add_argument('--arm', choices=list('NSGR'), required=True)
+     parser.add_argument('--seed', type=int, choices=(1, 2), required=True)
+     parser.add_argument('--run_dir', required=True)

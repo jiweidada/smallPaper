@@ -1,0 +1,31 @@
+282：270第6节的固定窗现实前提核查（执行前冻结）
+日期：2026-10-21。仅既有development缓存；主控审核后执行283，默认新284目录。
+
+1. 问题与边界
+核查有无合法条件覆盖额外遗漏、重复解释条件与遗漏同窗、无合法解释条件覆盖遗漏这些真实位置；不运行运输、补全头或模型，不证明联合分配必要、可学习性、AP、新颖性或训练许可。独立单位归一化＋null＋clip在一些情形与联合残差相同，co-occurrence不是胜过该强控制的证据。没有新的数值效果门槛，不改变263或其他停止结论；零/稀少作用面如实交回决定是否继续。
+
+2. 固定来源和计算
+固定263的A/B两seed、development batch00–07、每批4图，共64曝光；每图只用263原A_density、B_residual两个64网格窗，NA保持NA，不读C_oracle，不重选、不扩窗16px。输入shape按原记录640/512/544，不默认640。
+使用244 NPZ中i{image}_final_cached_boxes、GT、GT_labels、actual_input_sub4（原FP32无损提升的FP64，脚本先证明可精确回FP32）。使用263保存的native full-flatten top300后score>.001的P_flat/P_scores/P_boxes；逐项验证natural_top300与threshold_kept子序列及P框等于244对应query框。P保留同query多类别实例，不用P100、不做NMS/匹配裁剪。263已证明native postprocessor exact；本轮继承其冻结证据，不冒称重新从logits运行postprocessor。原logits PT只核SHA，不反序列化。
+两个producer manifest/results/输出索引与源码固定SHA。所有共同source path/SHA、逐batch input/prediction SHA、图序、GT数、GT类别、实际sub4与旧窗完整可见GT行相互校验，前后SHA不变。仅NPZ所需成员读取，不展开PMF/其他层。原producer的GO兼容说明继承，但本核查不使用GO也不重做匹配。
+IoU复用262的FP32原生box_ops计算，合法阈值>=.5；.75完全同算但只作描述。不clip框，非有限/非正面积条件另报、几何边为0；GT必须有效。中心采用原normalized cxcy乘实际宽高（FP32），不能用已舍入xyxy求均值代替。供应P_W只以预测中心的原cell_id等于选中cell判断，绝不按GT过滤；x=64归下一格，image边界归最后格，余边窗保留。
+
+3. 两种遗漏严格分报
+primary G_geo0：全图GT，对全部原final300 query框不考虑类别，IoU>=阈值边为零。它不受top300类别选择影响。
+secondary D0_P：全图GT，对完整P（非P100）没有真类且IoU>=阈值的边。每条件的合法邻居N(p)也由全图全部GT确定。
+各窗只取其GT框完整在原W内的上述遗漏作为目标；完整可见严格沿263四边包含定义。actual_input_sub4为normalized GT宽高乘本批实际shape后的最短边<4，与original_sub4无关；后者不可得，不伪造。
+零入度与有边却因容量匹配未覆盖不是同一队列。本脚本不选择一个最大匹配的未匹配GT来当遗漏，不重新声称263的任意未匹配GT是本队列。
+
+4. 三类位置及见证
+(a) p∈P_W且N(p)非空，p框内同时含至少一个N(p)中GT的中心及至少一个本窗完整可见遗漏中心。按p保存合法邻居、框内合法GT与框内遗漏ID。
+(b) 某全图GT g被至少两个P_W条件的合法边共享，且本原窗有完整可见遗漏。按g保存全部条件和遗漏ID（仅同窗，不另调距离）。另列至少两个条件各自全图邻居集合严格等于{g}的不歧义重复组。g本身可在窗外，另记其完整/中心可见性；不得把有窗外合法边的条件叫FP。
+(c) p∈P_W且全图N(p)为空，并含至少一个本窗完整可见遗漏中心。穷尽互斥细分：①无类maxIoU>=阈值（错类几何关系，不等于语义误分类已证）；②否则同类maxIoU>0且<阈值（同类定位不足）；③任意类maxIoU=0（没有重叠，不能叫语义背景）；④否则仅异类低IoU重叠。无效条件框单列，不能构造面积包含见证。
+框包含中心采用闭区间；窗口供应采用cell_id，两者勿混。
+
+5. 输出与解读
+每seed、每batch、每图、每原窗、每阈值、每遗漏定义输出所有见证GT/condition flat ID；计数含unique遗漏GT、其中actual_sub4、unique条件实例/物理query、可解释GT、条件×遗漏去重关联、输入数。类别(a)(b)(c)、singleton子集、两个窗可能重叠；另输出同图两窗的集合并集，不将各项相加成独立收益。条件/GT的唯一性只在同一曝光内成立，不跨图混ID。共有两seed的同图也不叫独立样本。
+先验仅是上述位置存在性。特别(b)普遍同窗可只反映密度，不证明竞争运输有帮助；(a)(c)只说明面积遮罩可能牵连遗漏，不证明模型实际这样使用条件。后续强简单方法还应有高置信条件子集或score加权抑制，不能把full score>.001候选的硬面积遮罩当唯一弱基线；本轮不测这些策略，也不根据276结果修改统计或挑子集。
+
+6. 合成检查与资源
+先synthetic-only，不读真实JSON/NPZ/预测；检验同query异类实例保留、>100同类P未裁、primary与secondary差、全图窗外邻居、防任意匹配遗漏、边界/余边窗、共享与singleton重复、三类加残余类、类别重叠集合去重、包含边界、空集合、IoU阈值包含。
+CPU线程2、interop1、affinity[13,15]、BelowNormal、每批可用RAM>8GiB、MKL_THREADING_LAYER=SEQUENTIAL，禁止CUDA/模型/CP/梯度/优化器/heldout。结果只写全新284_*目录，失败封闭并保存阶段。可复用262纯函数但锁SHA，不调用其main。预计计算规模64图，每图300×GT两张IoU图；时间以实测为准，哈希全源可能比统计更耗时。

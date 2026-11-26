@@ -1,0 +1,188 @@
+Feature Information Driven Position Gaussian Distribution Estimation
+for Tiny Object Detection
+Jinghao Bian1 Mingtao Feng1,3* Weisheng Dong1 Fangfang Wu1 Jianqiao Luo2
+Yaonan Wang2 Guangming Shi1
+1Xidian University, 2Hunan University
+3Jiangxi Communication Terminal Industrial Technology Research Institute
+Abstract
+Tiny object detection remains challenging in spite of the
+success of generic detectors. The dramatic performance
+degradation of generic detectors on tiny objects is mainly
+due to the the weak representations of extremely limited
+pixels. To address this issue, we propose a plug-and-play
+architecture to enhance the extinguished regions. We for
+the first time exploit the regions to be enhanced from the
+perspective of pixel-wise amount of information. Specifi-
+cally, we model the entire image pixels feature information
+by minimizing Information Entropy loss, generating an in-
+formation map to attentively highlight weak activated re-
+gions in an unsupervised way. To effectively assist the above
+phase with more attention to tiny objects, we next introduce
+the Position Gaussian Distribution Map, explicitly modeled
+using a Gaussian Mixture distribution, where each Gaus-
+sian component’s parameters depend on the position and
+size of object instance labels, serving as supervision for fur-
+ther feature enhancement. Taking the information map as
+prior knowledge guidance, we construct a multi-scale po-
+sition gaussian distribution map prediction module, simul-
+taneously modulating the information map and distribution
+map to focus on tiny objects during training. Extensive ex-
+periments on three public tiny object datasets demonstrate
+the superiority of our method over current state-of-the-art
+competitors.
+1. Introduction
+Deep learning-based architectures have significantly ad-
+vanced general object detection [27, 32, 34]. However,
+their performance declines sharply when detecting tiny ob-
+jects [8]. As defined in the AI-TOD benchmark [44], tiny
+objects are categorized by pixel count: very tiny (2-8 pix-
+els), tiny (8–16 pixels), and small (16-32 pixels). Given the
+prevalence of tiny objects in real-world contexts (e.g., traf-
+fic monitoring [24], sea rescue [56], and wildlife population
+*Corresponding author
+Figure 1. (a) Input image; (b) feature map P2 from Detec-
+toRS [31]; (c) enhanced feature; (d) and (e) are proposed infor-
+mation map σ and predicted position distribution map Mpd2.
+assessment [19]), it is crucial to bridge the gap between tiny
+and general object detection.
+Several pioneering efforts have been introduced to ad-
+dress this challenge. One prominent approach is scale-
+aware feature fusion, which constructs hierarchical feature
+representations [12, 22, 25, 26, 31, 38, 49]. This method
+leverages network features at varying depths to detect ob-
+jects at corresponding scales, and fusion between deep and
+shallow features bridges the spatial-semantic gap between
+lower and higher pyramid levels, enhancing small object de-
+tection. Another approach emphasizes target regions using
+attention mechanisms [23, 29, 50, 52, 55]. Inspired by the
+human visual system [3, 9], attention-based methods filter
+irrelevant information and highlight tiny objects by model-
+ing feature map importance weights.
+Although existing methods partially mitigate this issue,
+they remain ineffective when tiny object pixel counts are
+extremely limited. We contend that previous approaches
+overlook a fundamental challenge: weak tiny object repre-
+sentations of extremely limited pixels. Unlike normal-sized
+objects, tiny object representations with limited pixels are
+consistently diminished through successive neural network
+downsampling, ultimately resulting in the suppressed acti-
+vation of features. The information loss caused by down-
+sampling is extremely fatal to tiny objects compared to gen-
+eral objects, leading to extremely weak and indiscrimina-
+tive representations. As shown in Fig. 1(b), representations
+for tiny objects in generic detectors are faint and nearly in-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+30376
+
+
+---PAGE---
+
+distinguishable from the background. Consequently, even
+when tiny object features are enriched through scale-aware
+feature fusion, the intrinsic weak representations of tiny
+objects still struggle with accurate detection. Moreover,
+attention-based methods, which rely on heuristic attention
+map generation, often fail due to the sparse pixels of tiny ob-
+jects, allowing the background to dominate in local patches.
+So the attention map derived from such weak regions be-
+comes unreliable, leading to suboptimal detection results.
+Based on the preceding discussion, we argue that en-
+hancing indiscriminative regions suffering from informa-
+tion loss is crucial for detecting tiny objects. To achieve
+this, we propose a novel plug-and-play framework for fea-
+ture enhancement. Inspired by information theory [37],
+we first estimate entire image pixel-wise amount of infor-
+mation unsupervisedly by minimizing Information Entropy
+loss (which is a reflection of encoding cost of all pixels).
+The generated information map emphasizes salient regions,
+with salient targets having more amount of information than
+smooth background, displaying attentive regions for en-
+hancement. To assist the information map with more at-
+tention to tiny objects, we introduce the Position Gaussian
+Distribution Map, which is modeled via Gaussian Mixture
+distribution, with each Gaussian component parameters ad-
+justing to the position and size of the instance label. The
+distribution map can capture salient targets, with tiny ob-
+jects having higher pixel intensities than general objects, in-
+creasing more attention to tiny objects for enhancement. We
+incorporate information map prior with multi-scale features
+to predict the distribution map in a supervised manner, si-
+multaneously modulating the information map and distribu-
+tion map to focus on tiny objects during training. As shown
+in Fig. 1, our information map and predicted distribution
+map successfully identify and enhance the key information
+loss regions, making the tiny object representation salient.
+Extensive experiments on three datasets validate the superi-
+ority of our method. Our main contributions are:
+• We are the first to enhance the weak representations of
+tiny objects from the perspective of pixel-wise amount of
+information. The attentive information map is captured
+by minimizing Information Entropy loss in an unsuper-
+vised manner.
+• With the information map as a prior guide, we leverage
+multi-scale features to predict Position Gaussian Distri-
+bution Map, further highlighting tiny objects.
+• The proposed method can be flexibly integrated into any
+FPN-like detectors. Experimental results demonstrate the
+consistent gain of our plug-and-play module and its supe-
+riority over existing state-of-the-art methods.
+2. Related works
+2.1. General Object Detection
+Anchor-based. Anchor-based detectors predefine anchors
+covering different scales and aspect ratios and train the
+network through a label assignment strategy to adjust and
+refine the anchors. Specifically, they can be subdivided
+into one-stage methods (such as YOLOV3 [33], SSD [27],
+RetinaNet [35]) and two-stage methods (such as Faster R-
+CNN [34], Cascade R-CNN [5], Cascade RPN [42]).
+Anchor-free. Anchor-free detectors use the center point or
+key point to predict the target position directly, which effec-
+tively alleviates the problem of hyper-parameter sensitivity
+of predefining anchors. FCOS [40] and FoveaBox [18] pre-
+dict the bounding box in a central points fashion. Another
+type of paradigm is to locate objects by key point. The rep-
+resentative works are CornerNet [20], Grid R-CNN [28],
+ExtremeNet [57] and RepPoints [51].
+2.2. Tiny Object Detection
+Sample-oriented strategies. Kisantal et al. [17] over-
+samples images with small objects and augments them by
+copy-pasting small objects. NWD-RKA [47] replaces the
+standard label assignment strategy IoU with Normalized
+Wasserstein Distance and ranking-based assigning strategy.
+RFLA [48] measures the similarity between the Gaussian
+receptive filed and ground truth to alleviate the problem of
+insufficient positive samples for tiny objects.
+Scale-aware methods. FPN [25] constructs feature-level
+pyramid for multi-scale learning, promoting promising
+improvement of tiny objects. BiFPN [38] employs a
+weighted bi-directional feature pyramid architecture to fa-
+cilitate multi-scale fusion. DetectoRS [31] further develops
+it by incorporating extra feedback connections and switch-
+able atrous convolution. Gong et al. [12] introduces fusion
+factor to control the information flow between two adjacent
+layers of FPN, easing the burden of learning for tiny objects.
+Attention-based frameworks. Attention mechanisms are
+used to filter out unimportant regions and increase attention
+to tiny objects. KB-RANN [52] utilizes attention mecha-
+nism to refine key features in an iterative way. SCRDet [50]
+introduces channel attention and pixel attention network to
+jointly explore tiny objects. AFF-SSD [29] designs a dual-
+path attention module to screen feature information, im-
+proving the detection performance of one-stage methods.
+Mimic learning algorithms. The core of mimic learn-
+ing is to use high-quality features of large instances to
+boost low-quality representations of tiny objects. Percep-
+tual GAN [21] and MT-GAN [1] draw inspiration from
+generative adversarial networks [13] and generate super-
+resolved representations for tiny objects. Another line of
+efforts [16, 46, 53] aim to narrow the distance between large
+and small instances in feature space with the help of simi-
+larity measurement.
+Previous methods often overlook the performance lim-
+itations caused by weak representations suffering from in-
+formation loss. The recent work, SR-TOD [6], uses a dif-
+ference map created by subtracting the restored image from
+the original to identify regions affected by information loss.
+30377

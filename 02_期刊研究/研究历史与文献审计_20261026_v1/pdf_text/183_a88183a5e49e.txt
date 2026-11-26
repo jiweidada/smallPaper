@@ -1,0 +1,197 @@
+Dual-R-DETR: Resolving Query Competition with
+Pairwise Routing in Transformer Decoders
+Ye Zhang1, Qi Chen 2, Wenyou Huang 3, Rui Liu 4, Zhengjian Kang 5,∗
+1University of Pittsburgh, 2University of California, Irvine, 3Stevens Institute of Technology
+4Illinois Institute of Technology, 5New York University
+1yez12@pitt.edu, 2qic7@uci.edu, 3nealhuang0.0@gmail.com, 4liuruiabc1@gmail.com, 5zk299@nyu.edu
+Abstract—Detection Transformers (DETR) formulate object
+detection as a set prediction problem and enable end-to-end
+training without post-processing. However, object queries in
+DETR interact through symmetric self-attention, which enforces
+uniform competition among all query pairs. This often leads to in-
+efficient query dynamics, where multiple queries converge to the
+same object while others fail to explore alternative regions. We
+propose Dual-R-DETR, a competition-aware DETR framework
+that explicitly regulates query interactions viapairwise routing
+in transformer decoders. Dual-R-DETR distinguishes query-to-
+query relations as either competitive or cooperative based on ap-
+pearance similarity, prediction confidence, and spatial geometry.
+It introduces two complementary routing behaviors:suppressor
+routingto attenuate interactions among queries targeting the
+same object, anddelegator routingto encourage diversification
+across distinct regions. These behaviors are realized through
+lightweight, learnable low-rank biases injected into decoder self-
+attention, enabling asymmetric query interactions while pre-
+serving the standard attention formulation. To ensure inference
+efficiency, routing biases are applied only during training using
+a dual-branch strategy, and inference reverts to vanilla self-
+attention with no additional computational cost. Extensive experi-
+ments on COCO and Cityscapes demonstrate that Dual-R-DETR
+consistently improves multiple DETR variants, outperforming
+DINO by 1.7% mAP with a ResNet-50 backbone and achieving
+57.6% mAP with Swin-L under comparable settings. Code is
+available at https://github.com/YZk67/Dual-R-DETR.
+Index Terms—Object Detection, Detection Transformer, Self-
+Attention, Low-Rank Representation.
+I. INTRODUCTION
+Object detection [1] is a fundamental task in computer
+vision, aiming to recognize and localize objects in images. De-
+tection Transformers (DETR) [2] reformulate object detection
+as a set prediction problem and eliminate hand-crafted com-
+ponents such as non-maximum suppression (NMS), enabling
+end-to-end optimization with learnable object queries.
+A defining characteristic of DETR is its ability to pro-
+duce non-duplicate detections through one-to-one label as-
+signment [2]–[4]. However, this exclusivity is enforced only
+at the output level. During decoding, object queries interact
+through self-attention and cross-attention, leading to implicit
+competition throughout feature refinement. As illustrated in
+Fig. 1, multiple queries are often attracted to the same target
+objects during early decoder layers, while other queries fail to
+explore alternative regions. Although redundant queries are
+*Corresponding author. Email: zk299@nyu.edu
+(a) (b) (c)
+Fig. 1: Query competition evolution in DETR decoder layers.
+(a) Ground truth objects; (b) initial query predictions before
+decoder processing; (c) query predictions after decoder layers,
+where multiple queries converge to the same targets.
+eventually suppressed by Hungarian matching, this compe-
+tition is resolved implicitly and late, resulting in inefficient
+query utilization and unstable optimization.
+This behavior reveals a fundamental limitation of standard
+DETR decoders: query-to-query interactions are modeled by
+symmetric self-attention, which applies the same interaction
+mechanism to all query pairs. Such uniform treatment cannot
+simultaneously suppress redundant queries converging to the
+same object and encourage complementary queries to coordi-
+nate over distinct regions. In particular, symmetric attention
+induces mutual reinforcement between competing queries,
+causing them to repeatedly focus on the same targets and
+delaying effective competition resolution.
+Recent efforts have explored improving DETR from vari-
+ous perspectives, including deformable attention [3], denois-
+ing training [5], and enhanced query representations [6]–
+[9]. While these approaches improve convergence speed or
+representation quality, they largely retain the standard decoder
+self-attention mechanism and do not explicitly regulate inter-
+query interactions during feature refinement.
+Several recent works have also investigated query dynamics
+more directly by modifying query interactions or selection
+strategies. For example, EASE-DETR [4] introduces early sup-
+pression mechanisms to mitigate redundant query responses,
+and query selection-based approaches [10] aim to improve
+efficiency by pruning less informative queries during decoding.
+These methods operate at the level of query selection or lifecy-
+cle management. In contrast, our approach does not remove or
+terminate queries. Instead, Dual-R-DETR explicitly regulates
+pairwise query–query interactionsthroughout decoding, selec-
+tively suppressing competitive interactions while preserving
+arXiv:2512.13876v2  [cs.CV]  11 Apr 2026
+
+---PAGE---
+
+cooperative interactions among complementary queries.
+Motivated by this observation, we proposeDual-R-DETR,
+which explicitly resolves query competition by introducing
+adaptivepairwise routinginto decoder self-attention. Instead
+of treating all query pairs uniformly, Dual-R-DETR learns to
+modulate query interactions based on readily available signals,
+including appearance similarity, prediction confidence, and
+spatial geometry. It introduces two complementary routing
+behaviors: suppressor routing, which attenuates interactions
+between competing queries targeting the same object, and
+delegator routing, which promotes diversification by encour-
+aging queries to explore different regions. Prior works manage
+which queries live or die, but we model how surviving queries
+interact via asymmetric pairwise modulation.
+Our main contributions are summarized as follows:
+•Competition-Aware Query Routing: We introduce a
+pairwise routing mechanism that explicitly distinguishes
+competitive and cooperative query interactions in DETR
+decoders.
+•Dual Routing Behaviors: We propose suppressor and
+delegator routing to respectively attenuate redundant
+query interactions and encourage exploration of comple-
+mentary regions.
+•Efficient Training Strategy: We employ dual-branch
+training to incorporate routing during training while in-
+curring no additional inference cost.
+Extensive experiments on COCO [11] and Cityscapes [12]
+for object detection and instance segmentation demonstrate
+that Dual-R-DETR consistently improves multiple DETR
+baselines across different backbones.
+II. RELATEDWORK
+A. DETR Variants and Query Competition.
+Detection Transformer (DETR) [2] casts object detection
+as a set prediction problem with a fixed number of learnable
+queries and one-to-one Hungarian matching, enabling end-to-
+end training without non-maximum suppression. Subsequent
+works mainly improve convergence, stability, and represen-
+tation quality. Deformable DETR [3] introduces multi-scale
+deformable attention and encoder-driven proposals, while DN-
+DETR [5] and DINO [6] stabilize optimization through denois-
+ing and contrastive objectives. DAB-DETR [13] injects spatial
+priors via anchor parameterization. Despite these advances,
+a fundamental issue persists:inefficient query competition.
+During decoding, cross-attention may pull multiple queries
+toward the same object, yet one-to-one matching provides
+positive supervision to only a single query, leaving other well-
+localized queries without positive signals. This mismatch leads
+to redundant computation and underutilized query capacity,
+while standard decoder self-attention does not explicitly dis-
+tinguish competitive versus cooperative query interactions.
+B. Query Routing and Interaction Modeling.
+Several recent methods investigate query dynamics by
+modifying query interactions or selection strategies. EASE-
+DETR [4] introduces query-level routing and suppression
+mechanisms during decoding, while QR-DETR [10] explores
+query reassignment and early termination to reduce ineffective
+query updates. These approaches primarily operate at the
+level ofquery selection or lifecycle control, deciding which
+queries should be retained or suppressed, rather than explicitly
+modeling how different queriesinteractwith each other. From
+a different perspective, DAC-DETR [7] decouples attention
+layers using parallel decoders to improve training efficiency,
+but still treats self-attention as a uniform operation without
+distinguishing diverse query-to-query relationships.
+In contrast,Dual-R-DETRfocuses onpairwise query in-
+teractionswithin decoder self-attention. Instead of selecting or
+pruning queries, we differentiate competing query pairs from
+complementary ones and modulate their interactions through
+asymmetric suppressor and delegator routes. These routing
+biases are introduced only during training, while inference pre-
+serves standard self-attention without additional computational
+overhead.
+C. Assignment Strategies and Structured Pairwise Biases.
+Another line of work revisits label assignment to increase
+supervision density. Group-DETR [14], H-DETR [15], and
+Stable-DETR [16] introduce one-to-many or hybrid matching
+strategies, while Co-DETR [17] combines one-to-one and
+one-to-many branches through collaborative training. These
+methods mainly modifyhow manyqueries are supervised per
+object, but often leave the underlying query interaction mech-
+anism unchanged. Our approach is orthogonal to assignment
+design and can be combined with such strategies. Dual-R-
+DETR reshapes query dynamics throughstructured pairwise
+attention biases. Inspired by low-rank representations [18],
+[19], we parameterize pairwise routing biases with low-rank
+factorization, enabling fine-grained, competition-aware inter-
+action modeling during training while preserving standard self-
+attention at inference with no additional computational cost.
+III. METHOD
+A. DETR Architecture
+DETR-style detectors consist of three main components: a
+backbone network, a transformer encoder–decoder, and pre-
+diction heads. The backbone extracts tokensX∈R m×d from
+an input imageI∈R h×w×3, wheremdenotes the number of
+tokens anddthe embedding dimension. The encoder enhances
+contextual representations via self-attention as
+O=Encoder(X)∈R m×d.(1)
+The decoder processes a fixed set ofnlearnable object
+queriesQ={q 1, . . . , qn} ∈R n×d throughLsequential
+layers. Each layer consists of self-attention (query–query in-
+teractions), cross-attention (query–image interactions), and a
+feed-forward network (FFN). Notably, decoder self-attention
+models query–query interactions symmetrically, implicitly as-
+suming that all query pairs benefit equally from mutual inter-
+action.

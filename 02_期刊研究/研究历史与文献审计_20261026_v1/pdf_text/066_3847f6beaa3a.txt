@@ -1,0 +1,103 @@
+ 
+ 
+ 
+ 
+ 
+Appl. Sci. 2026, 16, 6062 https://doi.org/10.3390/app16126062 
+Article 
+SPTD-YOLO: Small-Object-Aware Pyramidal and  
+Task-Aligned Dynamic YOLO for UAV Small Object Detection 
+Jiarui Liang 1,†, Jiachen Yu 1,†, Mingyang Li 1, Yikui Zhai 2 and Xiaolin Tian 1,* 
+1 Faculty of Innovation Engineering, Macau University of Science and Technology, Avenida Wai Long N°S 
+100–460, Taipa, Macau, China; lianggary@163.com (J.L.); 17633280118@163.com (J.Y.);  
+my73115@163.com (M.L.) 
+2 Department of Intelligent Manufacturing, Wuyi University, Jiangmen 529020, China;  
+yikuizhai@163.com 
+* Correspondence: xltian@must.edu.mo 
+† These authors contributed equally to this work. 
+Abstract 
+Unmanned aerial vehicle (UAV) object detection plays an essential role in modern visual 
+perception, but it remains challenging because UAV imagery typically contains extremely 
+small, densely distributed objects embedded in complex backgrounds. Conventional de-
+tectors, including the recent YOLOv12, are prone to losing critical spatial details during 
+downsampling and often exhibit task misalignment between classification and localiza-
+tion, particularly under severe scale variations. To address these problems, this study pro-
+poses SPTD-YOLO, a small -object-aware pyramidal and task -aligned dynamic detector. 
+Specifically, a Small Object Enhanced Pyramid (SOEP) is developed by incorporating 
+SPDConv and CSPOmniKernel to preserve and refine shallow , fine-grained features. In 
+addition, a high-resolution P2 detection layer is introduced to increase spatial grid density 
+and strengthen the structural representation of tiny objects. Furthermore, a Task -Aligned 
+Dynamic Detection Head (TADDH) is designed to decouple and coordinate classification 
+and regression through dynamic convolution and a synergistic dual -gating mechanism. 
+Experiments on VisDrone2019 show that SPTD -YOLO improves mAP@0.5 by 8.37% and 
+mAP@0.5:0.95 by 5.11% over YOLOv12 while maintaining practical efficiency for UAV 
+edge deployment. 
+Keywords: UAV object detection; YOLOv12; small object detection; feature enhancement; 
+dynamic head; task alignment 
+ 
+1. Introduction 
+Object detection is a fundamental task in computer vision and underpins a wide 
+range of real -world applications, including intelligent transportation, public safety, dis-
+aster response, and environmental monitoring [1,2]. These applications require visual per-
+ception systems that can reliably localize and recognize targets in dynamic and unpre-
+dictable environments [3]. Although ground-based monitoring systems have been exten-
+sively developed, modern surveillance scenarios increasingly demand greater spatial flex-
+ibility and broader coverage than fixed cameras can provide [4]. In this context, un-
+manned aerial vehicles (UAVs) have become indispensable sensing platforms, as they 
+overcome the physical limitations of stationary sensors by offering high spatial mobility 
+Received: 14 May 2026 
+Revised: 7 June 2026 
+Accepted: 11 June 2026 
+Published: 15 June 2026 
+Copyright: © 2026 by the authors. 
+Licensee MDPI, Basel, Switzerland. 
+This article is an open access article 
+distributed under the terms and 
+conditions of the Creative Commons 
+Attribution (CC BY) license. 
+
+---PAGE---
+
+Appl. Sci. 2026, 16, 6062 2 of 33 
+ 
+https://doi.org/10.3390/app16126062 
+and wide -area top -down views [5]. Accordingly, UAV -based object detection has 
+emerged as an important research direction. 
+However, the shift from ground-level imaging to aerial perspectives introduces sub-
+stantially more complex visual challenges [6]. In critical scenarios such as large-scale event 
+security and urban emergency response, rapid -response UAVs are frequently deployed 
+to monitor crowd dynamics, track scattered vehicles, and assist ground rescue operations. 
+During mass public gatherings or emergency evacuations, these missions require UAVs 
+to continuously detect highly dense and overlapping targets from high -altitude view-
+points. As a result, small target instances, such as pedestrians and vehicles, often appear 
+at long distances and occupy only a few pixels, sometimes less than 32 × 32 pixels, making 
+them highly susceptible to being obscured by heterogeneous background clutter [7,8]. 
+The VisDrone2019 dataset is a representative benchmark that captures these chal-
+lenging aerial imaging conditions [6]. Collected from diverse urban scenes, it contains 
+high-resolution images in which targets are densely distributed, affected by frequent 
+viewpoint changes, and characterized by substantial scale variations. Representative ex-
+amples illustrating these aerial  detection challenges are shown in Figure 1. In addition, 
+the dataset covers ten categories from daily scenarios and exhibits a pronounced class 
+imbalance, with a distribution strongly biased toward densely arranged small instances 
+[9]. Taken together, these coupled challenges, including extreme scale compression, spa-
+tial crowding, and category imbalance, severely test the feature representation capacity of 
+conventional detection architectures. This difficulty is further amplified by the stringent 
+real-time inference and edge -deployment requirements of onboard UAV platforms 
+[10,11]. 
+ 
+(a) 
+ 
+(b) 
+ 
+(c) 
+ 
+(d) 
+Figure 1. Representative images from the VisDrone2019 dataset illustrating typical challenges in 
+UAV object detection: (a) cluttered urban streets with complex backgrounds; (b) nighttime environ-
+ments with low illumination; (c) high-altitude perspectives containing extremely small targets; and 
+(d) densely distributed targets with severe occlusion. 
+Existing UAV-based object detection approaches can generally be categorized into 
+two-stage and one -stage paradigms [12]. Two-stage detectors, including representative 
+models such as Faster R-CNN [1] and more sophisticated extensions like Cascade R-CNN 
+[13], typically obtain strong detection accuracy by first generating candidate regions and 
+then performing further feature refinement and classification. To better accommodate the 

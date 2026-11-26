@@ -1,0 +1,109 @@
+Academic Editor: Jiahua Zhang
+Received: 12 August 2026
+Revised: 10 September 2026
+Accepted: 10 September 2026
+Published: 14 September 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+Edge-Aware Attention with Shallow-Guided Fusion for Ship
+Detection in Remote Sensing
+Haiyang He
+ and Liang Dong *
+School of Electrical Engineering, Liaoning University of Technology, Jinzhou 121001, China;
+240384034@stu.lnut.edu.cn
+* Correspondence: dongl@lnut.edu.cn
+Abstract
+Remote sensing ship detection is of great significance in marine traffic monitoring, port
+management, national defense security and other fields. Due to the small target scale,
+complex backgrounds and sparse distribution of ships in remote sensing images, existing
+real-time detectors still face challenges in localization accuracy and feature utilization
+efficiency. Taking RT-DETR-s as the baseline, this paper proposes two encoder-level im-
+provements to boost the performance of ship detection in remote sensing imagery. On the
+attention mechanism side, an Edge-Aware Self-Attention (EASA) module is proposed as the
+principal methodological contribution. The Scharr edge map is injected into the attention
+matrix before softmax with a learnable intensity, providing a structural prior that enhances
+attention interactions between positions with strong edge responses, including ship con-
+tours, coastlines, and wake boundaries. The semantic distinction between ship-relevant and
+irrelevant edges is learned through the query-key projections in the attention mechanism
+itself, rather than through the edge bias. In terms of feature fusion, a Shallow-Guided
+Deep Fusion (SGDF) module is designed as an efficient integration strategy of existing
+techniques (CBAM attention and cross-scale fusion), with its novelty in the attention-first,
+downsampling-later pipeline that preserves fine-grained spatial details for small-object
+detection. It injects high-resolution small-object context from the backbone’s shallow layers
+into deep features, effectively mitigating the loss of spatial information of small ships in
+deep feature maps via spatial-channel attention. Finally, the existing WIoUv3 loss function
+is adopted and systematically compared with six other IoU variants to identify the most
+suitable regression loss for remote sensing ship detection. Experiments demonstrate that
+compared with RT-DETR-s, the proposed method achieves 2.8% higher mAP50–95 and
+3.2% higher APsmall (APs) while maintaining real-time inference speed (37.6 FPS).
+Keywords: remote sensing ship detection; RT-DETR-s; edge-aware self-attention; shallow-
+guided deep fusion
+1. Introduction
+As a core task of intelligent interpretation for remote sensing images, remote sens-
+ing ship detection has wide applications in marine traffic monitoring, port scheduling
+management, fishery resource investigation, national defense early warning and other
+scenarios [1,2]. With the rapid development of high-resolution remote sensing satellites
+and aerial remote sensing platforms, the volume of acquired remote sensing image data has
+exploded, raising urgent demands for automated, high-precision ship detection algorithms.
+Nevertheless, ship detection from remote sensing imagery encounters multiple difficulties:
+Sensors 2026, 26, 5821 https://doi.org/10.3390/s26185821
+
+---PAGE---
+
+Sensors 2026, 26, 5821 2 of 25
+first, ships generally appear as small-scale targets whose spatial information is easily lost
+after multiple downsampling operations in deep feature maps; second, remote sensing
+scenes contain cluttered backgrounds including ocean clutter, port buildings and coastlines
+that interfere with target localization; third, practical deployment imposes strict constraints
+on inference speed, requiring a balance between precision and efficiency [3,4].
+In recent years, deep learning-based detection methods have achieved remarkable
+progress in remote sensing applications. Two-stage detectors such as Faster R-CNN [ 5]
+generate candidate boxes via region proposal networks with high precision but suffer from
+slow inference speed, failing real-time requirements. Single-stage detectors, including
+the YOLO series [6] and SSD [7], directly regress bounding boxes to accelerate inference.
+However, CNN-based detectors are limited by local receptive fields and lack the capacity
+to model global context. DETR [8] first introduces the Transformer into object detection,
+establishing an end-to-end paradigm via self-attention for global feature interaction. On
+this basis, Co-DETR [9] improves encoder feature learning through collaborative mixed
+assignment training, while DDQ [ 10] boosts efficiency via dense query selection while
+retaining end-to-end properties. The RT-DETR [11] series is optimized for real-time detec-
+tion scenarios, and RF-DETR [12] further pushes real-time detection accuracy via neural
+architecture search. Even so, RT-DETR still leaves room for optimization of encoder feature
+utilization, especially for small ship detection in remote sensing imagery.
+This paper addresses two critical issues in remote sensing ship detection: insufficient
+localization accuracy for small ships and severe spatial information loss in deep features.
+In remote sensing images, small ships occupy only a handful of pixels after downsam-
+pling, leading to heavy attenuation of edge and fine details. Conventional self-attention
+computes weights solely based on semantic similarity and cannot distinguish ship edges
+from flat ocean backgrounds, restricting small-object localization accuracy. Additionally,
+high-resolution spatial details preserved in shallow backbone layers are not effectively
+fused into deep semantic features, exacerbating context loss for small ships. Aiming at the
+above drawbacks, we propose two improvement strategies at the attention and feature
+fusion levels with RT-DETR-s as the baseline, and validate the effectiveness of the proposed
+framework on remote sensing ship datasets.
+The main contributions of this work are summarized as follows:
+1. An EASA module is proposed as the principal methodological contribution, which
+embeds Scharr edge maps into the self-attention computation prior to softmax. Unlike
+post-hoc gating modulation, this method internalizes a structural edge prior into core
+attention calculation. The edge bias enhances attention to boundary regions in general,
+while the learned query-key projections provide the semantic selectivity to prioritize
+ship-relevant edges over other scene boundaries, collectively delivering improved
+localization precision.
+2. A SGDF module is developed as an efficient integration strategy of existing techniques
+(CBAM attention and cross-scale fusion). It extracts small-object context from high-
+resolution shallow layers through an “attention-first, downsampling-later” pipeline
+before cross-scale fusion, elevating detection rates for small-scale ships.
+3. The existing WIoUv3 loss function is adopted and systematically compared with six
+other IoU variants to identify the most suitable regression loss for remote sensing
+ship detection.
+4. Sufficient ablation and comparison experiments are conducted on remote sens-
+ing ship datasets. Ablation studies verify the independent performance gain
+brought by EASA and SGDF. When combined, the two modules significantly boost
+small-object detection accuracy while retaining real-time inference speed to the
+baseline RT-DETR-s.
+https://doi.org/10.3390/s26185821

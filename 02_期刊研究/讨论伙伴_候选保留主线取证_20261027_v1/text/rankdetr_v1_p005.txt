@@ -1,0 +1,46 @@
+(a) The original Matching Cost and Loss
+ (b) Rank-oriented Matching Cost and Loss
+Figure 2: Illustrating the rank-oriented matching cost and loss design. (a) The original DETR and its
+variants use a classification head and a bounding box regression head to perform predictions. The matching
+cost function is a linear combination of the classification scores and bounding box overlap scores. (b) The
+rank-oriented matching cost and loss scheme uses a GIoU-aware classification head and high-order matching
+cost function to prioritize predictions of more accurate localization accuracy.
+Analysis. The key motivations behind these two rank-oriented architecture designs are adjusting the
+classification scores of the object queries according to their ranking order information. Within each
+Transformer decoder layer, we incorporate two sets of learnable representations: the logit bias vectors
+S l and the content query vectors Cl. By leveraging these two rank-aware representations, we have
+empirically demonstrated the capability of our approach to effectively address false positives (oLRPFP:
+24.5%→24.1%) and mitigate false negatives (oLRPFN: 39.5%→38.6%). For a more comprehensive
+understanding of our findings, please refer to the experiment section.
+3.3 Rank-oriented Matching Cost and Loss: boost the AP under high IoU thresholds
+The conventional DETR and its derivatives specify the Hungarian matching cost functionLHungarian
+and the training loss function L using the identical manner, as shown below:
+−λ1GIoU(ˆb, b) + λ2ℓ1(ˆb, b) + λ3FL(ˆp[c]), (5)
+where we use ˆb, ˆp (or b, c) to represent the predicted (or ground-truth) bounding box and classification
+score respectively. c corresponds to the ground-truth semantic category of b. In addition, we use the
+notation FL(·) to represent the semantic classification focal loss [31]. We propose to enhance the
+rank-oriented design by introducing the GIoU-aware classification head (supervised by the proposed
+GIoU-aware classification loss) and the high-order matching cost function scheme as follows.
+GIoU-aware Classification Loss. Instead of applying the binary target to supervise the classification
+head, we propose to use the normalized GIoU scores to supervise the classification prediction:
+FLGIoU(ˆp[c]) = −|t − ˆp[c]|γ · [t · log(ˆp[c]) + (1 − t) · log(1 − ˆp[c])], (6)
+where we let t = (GIoU( ˆb, b)+1) /2, and we denote the GIoU-aware classification loss asFLGIoU(·).
+To incorporate both semantic classification and localization accuracy, we modify the original clas-
+sification head to a GIoU-aware classification head supervised by the above loss function. When
+t = 1, FLGIoU(·) simplifies to the original focal loss, denoted as FL(·). Furthermore, we compare
+our results with the varifocal loss [62], and we provide its mathematical formulation below:
+VFL(ˆp[c]) = −t · [t · log(ˆp[c]) + (1 − t) · log(1 − ˆp[c])]. (7)
+High-order Matching Cost. In contrast to utilizing the Hungarian algorithm with a matching cost
+defined as the weighted sum of classification cost, ℓ1 loss, and GIoU loss, we propose employing a
+high-order matching cost function that captures a more intricate combination of the classification
+score and the IoU scores:
+Lhigh-order
+Hungarian = ˆp[c] · IoUα, (8)
+where IoU represents the intersection over union scores between the predicted bounding box and the
+ground truth one. We adopt a larger value of α (e.g., >2) to prioritize the importance of localization
+accuracy, thereby promoting more accurate bounding box predictions and downgrading the inaccurate
+ones. It is worth noting that we use a high-order matching cost from the middle training stage, as
+most predictions exhibit poor localization quality during the early training stage.
+Analysis. The rank-oriented matching cost and loss function are designed to enhance object detection
+performance at high IoU thresholds. The high-order matching cost function effectively suppresses
+5

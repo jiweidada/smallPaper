@@ -1,0 +1,42 @@
+4 Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS
+Besides, some works also pay attention to improve the inference efficiency of DETR [18,
+39, 42, 51, 52]. Efficient DETR [42] advocates for a 1-layer-only decoder structure to largely
+reduce the computation burden by initializing the query precisely. Notably, RT-DETR [51]
+represents a significant advancement by enabling real-time inference for DETR, surpassing
+the performance of other rapid detectors such as the YOLO series series [10].
+The optimization of DETR also attracts the attention of many researchers [17, 26, 45].
+Specifically, DN-DETR [17] relies on a denoising mechanism to stabilize the training, which
+is further refined by DINO [45] through introducing a contrastive denoising mechanism. Ad-
+ditionally, Stable-DINO [26] introduces a position-guided loss that mitigates the instability
+incurred by a standard loss, i.e. focal loss[24]. Meanwhile, a few recent studies have noticed
+limitations of one-to-one matching and have proposed many-to-one assigning strategies to
+ameliorate DETR regarding training efficiency. Group-DETR [2] andH-DETR [14] acceler-
+ate the training process with multiple groups of samples and ground truths. DAC-DETR[13]
+proposes a decoupled training strategy that focuses on the learning of cross-attention layers
+with many-to-one matching.
+Despite the strides made, it is evident that many contemporary approaches [2, 13, 14,
+17, 45] either overlook the misalignment issue highlighted earlier or offer only partial reme-
+dies [26]. In contrast to these approaches, our work offers a comprehensive and unified
+solution to address this challenge consistently.
+3 Method
+3.1 Preliminaries
+DETR. The original DETR [1] framework consists of three main components: a CNN-
+backbone, an encoder-decoder transformer [38], and a prediction head. The backbone pro-
+cesses the input image first, and the resulting feature is flattened into a series of tokens
+X = {x1, x2, ...,xm}. Then the transformer extracts information from X with a group of learn-
+able queries Q = {q1, q2, ...,qn} as containers. At last, the updated queries are transformed
+into predictions P = {p1, p2, ...,pn} through the prediction head. In most cases, m is much
+less than n, making DETR a sparse object detection pipeline.
+The focal loss [24] is adopted by DETR in classification optimization to help focus on
+important samples. Given a binary label y ∈ {0,1} and a logit p ∈ [0,1], it is defined as:
+L f ocal = −y · (1 − p)γ · logp − (1 − y) · pγ · log(1 − p), (1)
+where γ is the hyper-parameter to control the degree of weight decay.
+DETR adopts the one-to-one label assignment on all layers to help eliminate redundant
+predictions. However, this strategy is inefficient compared to many-to-one label assignment
+used in CNN-based detectors[33, 48, 53]. To overcome this issue, H-DETR[14] proposes
+a hybrid layer matching strategy that applies many-to-one matching on some shallow layers
+and one-to-one matching on deep layers. Hybrid matching ensures DETR’s final outputs are
+unique while it allows more efficient training on intermediate layers.
+3.2 Motivation and Framework
+The motivation for the proposed Align-DETR comes from the hypothesis that a consistent
+and aligned optimization target can benefit the training of object detectors like DETR [17,

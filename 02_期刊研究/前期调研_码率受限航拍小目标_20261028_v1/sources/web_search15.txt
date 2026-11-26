@@ -1,0 +1,234 @@
+Reconstruction-Free Image Compression for Machine Vision via Knowledge Transfer | ACM Transactions on Multimedia Computing, Communications, and Applications (https://doi.org/10.1145/3678471)
+ [wordlim: 200] Published: 2.0 years ago; Crawled: last week; 
+
+research-article
+
+Free access
+
+# Reconstruction-Free Image Compression for Machine Vision via Knowledge Transfer
+
+Authors: Hanyue Tu
+
+Image
+
+Hanyue Tu
+
+MoE Key Laboratory of Brain-inspired Intelligent Perception and Cognition, University of Science and Technology of China, Hefei, China
+
+https://orcid.org/0000-0003-3705-1197
+
+View Profile
+
+, Li Li
+
+Image
+
+Li Li
+
+MoE Key Laboratory of Brain-inspired Intelligent Perception and Cognition, University of Science and Technology of China, Hefei, China
+
+https://orcid.org/0000-0002-7163-6263
+
+View Profile
+
+, Wengang Zhou
+
+Image
+
+Wengang Zhou
+
+MoE Key Laboratory of Brain-inspired Intelligent Perception and Cognition, University of Science and Technology of China, Hefei, China
+
+https://orcid.org/0000-0003-1690-9836
+
+View Profile
+
+, Houqiang Li
+
+Image
+
+Houqiang Li
+
+MoE Key Laboratory of Brain-inspired Intelligent Perception and Cognition, University of Science and Technology of China, Hefei, China
+
+https://orcid.org/0000-0003-2188-3028
+
+View Profile
+
+Authors Info & Claims
+
+ACM Transactions on Multimedia Computing, Communications and Applications, Volume 20, Issue 10
+
+Article No.: 313, Pages 1 - 19
+
+https://doi.org/10.1145/3678471
+
+Published: 15 October 2024 Publication History
+
+## Abstract
+
+### Abstract
+
+Reconstruction-free image compression for machine vision aims to perform machine vision tasks directly on compressed-domain representations instead of reconstructed images. Existing reports have validated the feasibility of compressed-domain machine vision. However, we observe that when using recently learned compression models, the performance gap between compressed-domain and pixel-domain vision tasks is still large due to the lack of some natural inductive biases in pixel-domain convolutional neural networks. In this article, we attempt to address this problem by transferring knowledge from the pixel domain to the compressed domain. A knowledge transfer loss defined at both output level and feature level is proposed to narrow the gap between the compressed domain and the pixel domain. In addition, we modify neural networks for pixel-domain vision tasks to better suit compressed-domain inputs. Experimental results on several machine vision tasks show that the proposed method improves the accuracy of compressed-domain vision tasks significantly, which even outperforms learning on reconstructed images while avoiding the computational cost of image reconstruction.
+
+## 1 Introduction
+
+Deep neural networks (e.g., convolutional neural networks (CNNs)) have shown prominent performance on various machine vision tasks, such as image classification [21, 27], object detection [29, 42], and instance segmentation [20]. In the meantime, deep learning-based image compression methods [2, 3, 37] also achieve better compression efficiency than conventional image coding solutions, such as JPEG [50], JPEG 2000 [46], and BPG [5]. However, image compression and machine vision are usually treated as two independent tasks in the research community. Generally, the original images are compressed into compact latent representations for storage and transmission and then decompressed into RGB images before being fed into neural networks for analysis. Such a two-step process can be simplified if it is feasible to perform visual analysis on compressed latent representations directly, which saves the computing resources for image reconstruction so that analysis efficiency can be improved. Related standard activity JPEG AI [26] has been initiated recently, which aims to generate a single-stream, compact compressed-domain representation to support both standard image reconstruction and various machine vision tasks.
+
+Currently, the state-of-the-art deep image compression models [2, 3, 9, 12, 37, 41, 59] are built on the auto-encoder architecture [24], which is mainly composed of an encoder, a decoder, and an entropy model. Therefore, the inductive bias of the locality of CNN cannot be utilized properly in the case of a compressed domain, leading to worse performance.
+
+In this article, we propose a simple yet effective pipeline to improve the performance of compressed-domain machine vision. Figure 1(b) shows an overview of the proposed learning scheme. Firstly, we propose to add a knowledge transfer loss to the original task-specific loss, which helps transfer the knowledge learned by pixel-domain CNNs to compressed-domain CNNs. To provide sufficient constraints, we consider both output-level transfer and feature-level transfer and find that they are complementary to each other. Secondly, in order to extract features from compressed representation directly, we design a compressed-domain backbone architecture, which consists of a lightweight mapping block and a variant of a pixel-domain neural network. We evaluate the proposed method on several diverse machine vision tasks, including image classification and instance segmentation. For each task, we also consider the compressed latent representations from two types of image compression models [3, 37] to validate the generalization ability of our method. The experimental results show that the performance of the compressed-domain models is improved by a large margin with the proposed transfer loss, even surpassing the conventional models learned from reconstructed images while enjoying lower computational complexity as image reconstruction is not needed.
+
+Fig. 1.
+
+Image
+
+(a) Pixel-domain model. (b) The proposed learning scheme for the compressed-domain model. \({\boldsymbol{F}}\) denotes the intermediate features. \({\boldsymbol{T}}\) denotes the final task-specific outputs. and \({\mathcal{M}}\) represents the feature transform module. The superscripts “\(p\) ” and “\(c\) ” represent pixel-domain and compressed-domain models, respectively.
+
+The main contributions of this work are summarized as follows:
+
+(1)
+
+We propose a method of learning from the compressed-domain representation of end-to-end compression models, where the knowledge of pixel-domain network is transferred to the compressed-domain network.
+
+(2)
+
+We design a general compressed-domain backbone architecture to better suit different compressed-domain inputs and introduce a Feature Pyramid Network (FPN)-based feature transform module to transfer multi-scale information between pixel-domain and compressed-domain networks.
+
+(3)
+
+We achieve state-of-the-art performance on several compressed-domain machine vision tasks, including classification and instance segmentation. The proposed method improves the performance of compressed-domain models by a large margin, which even outperforms that of pixel-domain models.
+
+In the remaining of this article, we first describe the related work in Section 2. Then, we introduce our proposed approach in Section 3. After that, we evaluate our method with extensive experiments in Section 4. Finally, we conclude this work in Section 5.
+
+## 3 Our Approach
+
+In this section, we first introduce the general framework of our proposed method in Section 3.1. Then, we describe the specific applications of our method in image classification and instance segmentation in Sections 3.2 and 3.3, respectively.
+
+### 3.1 Overall Framework
+
+#### 3.1.1 Compressed-Domain Architecture.
+
+Given an RGB image \({\boldsymbol{x}}\) of shape \(H\times W\times 3\) and a compression model, we can get the compressed representation \(\hat{{\boldsymbol{y}}}=Q(E({\boldsymbol{x}}))\) and the reconstructed image \(\hat{{\boldsymbol{x}}}=D(\hat{{\boldsymbol{y}}})\), where \(E\), \(D\), and \(Q\) represent encoder, decoder, and quantization, respectively. The compressed latent \(\hat{{\boldsymbol{y}}}\) produced by end-to-end compression models [2, 3, 37] is generally of shape \(H/16\times W/16\times M\), where \(M\) is the number of channels and usually set as 192 or 320 according to the target bit rate. In the context of compressed-domain machine vision, the quantized latent \(\hat{{\boldsymbol{y}}}\) is directly fed into the inference models and the decoder is not needed. 
+#### 3.1.2 Training with Knowledge Transfer.
+
+For compressed-domain machine vision tasks, we find out that only the task-specific loss is insufficient. Therefore, an additional transfer loss is proposed to transfer the knowledge learned from RGB images to a compressed-domain network. Figure 1(b) illustrates the training strategy of our proposed method. Considering the inevitable information loss in the compression process, we use the pixel-domain CNN trained on original images \({\boldsymbol{x}}\) as the teacher model, while the compressed-domain CNN is set as the student model. Inspired by the recent success of knowledge distillation techniques [22, 23, 43], we consider both output-level transfer and feature-level transfer.
+
+The output-level transfer focuses on the final task-specific outputs of networks, e.g., the class prediction after the softmax function of a classification network and the bounding box coordinates regressed by the final fully connected layer of a detection network. The pixel-domain output is used as soft labels for the compressed-domain model. For feature-level transfer, because the architectures of the compressed-domain model and pixel-domain model are different, a feature transform module is required to match the spatial and channel dimensions of pixel-domain and compressed-domain models. Specifically, in order to better utilize the multi-scale information contained in the pixel-domain CNNs for fine-grained vision tasks (e.g., object detection), we design a feature extraction and transform module based on the FPN [29] structure to generate multi-scale features from compressed-domain CNNs, which will be introduced in Section 3.3.
+
+For notation purposes, we use superscripts to indicate the source model when referring to features or model outputs, where “\(p\)” is for pixel domain and “\(c\)” is for the compressed domain. The overall loss function for compressed-domain CNN is formulated as follows:
+
+\begin{align}{\mathcal{L}}_{comp} &= {\mathcal{L}}_{task}+\lambda{\mathcal{L}}_{transfer} \\& = {\mathcal{L}}_{task}({\boldsymbol{T}}^{c},{\boldsymbol{l}})+\lambda({\mathcal{L}} _{output}({\boldsymbol{T}}^{c},{\boldsymbol{T}}^{p}) \\&\quad{} +{\mathcal{L}}_{feature}({\mathcal{M}}^{c}({\boldsymbol{F}}^{c}),{ \mathcal{M}}^{p}({\boldsymbol{F}}^{p}))),\end{align}
+
+(1)
+
+where \({\mathcal{L}}_{task}\), \({\mathcal{L}}_{transfer}\), \({\mathcal{L}}_{output}\), and \({\mathcal{L}}_{feature}\) are the original task-specific loss, total transfer loss, output-level transfer loss, and feature-level transfer loss, respectively. \({\boldsymbol{T}}\) represents the final output of models, \({\boldsymbol{l}}\) represents the corresponding ground-truth labels for \({\boldsymbol{T}}\), \({\boldsymbol{F}}\) represents the transformed intermediate features, \({\mathcal{M}}\) is the feature transform module, and \(\lambda\) is a balancing weight. In the following sections, when applying the proposed method to various machine vision tasks, we omit some of the notations for the sake of brevity.
+
+
+### 4.2 Image Classfication
+
+#### 4.2.1 Dataset.
+
+For classification, we evaluate our method on the ImageNet dataset [44], which is a large-scale classification dataset covering 1000 classes with 1.2M training images and 50K validation images.
+
+#### 4.2.2 Experimental Setup.
+
+Because hyperprior-based compression models require the size of input images to be an integer multiple of 64, images are resized and cropped to the size of \(256\times 256\) for training and evaluation to avoid extra padding operations. For compressed-domain classification, the size of the compressed representations is \(16\times 16\times 192\), accordingly. For the calculation of the transfer loss for compressed-domain classification, we use the pretrained ResNet-50 model in the PyTorch [40] library as the teacher model. The original top-1 accuracy of the pretrained model is 76.7. The teacher features and output logits are extracted from original images by the teacher model. The weight \(\lambda\) in the loss function (2) is set to 1.0 by default. We use a \(1\times 1\) convolutional layer as the mapping block and the hyperprior with a quality of 4 as the compression model. The top-1 accuracy of the used teacher model is 80.8. The pixel-domain model trained on reconstructed images achieves 80.3 top-1 accuracy. The compressed-domain model achieves top-1 accuracy of 79.2 without knowledge transfer and 80.3 with knowledge transfer. The results validate that the proposed method is effective for different network architectures.
+
+Table 5.
+
+   | Input  | \(\mathcal{L}_{transfer}\)  | Top-1 (%)  | Top-5 (%)  | Bbox AP (%)  | Mask AP (%)
+0.155 bpp  | image  |    | 70.4  | 89.7  | 36.2  | 32.5
+✓  | 71.8  | 90.4  | 37.8  | 34.0
+latent  |    | 70.6  | 89.6  | 35.0  | 31.4
+✓  | 72.4  | 90.6  | 38.2  | 34.3
+0.512 bpp  | image  |    | 74.8  | 92.1  | 39.8  | 36.0
+✓  | 76.0  | 92.9  | 41.0  | 37.0
+latent  |    | 73.5  | 91.5  | 37.7  | 33.8
+✓  | 75.2  | 92.4  | 40.8  | 36.7
+
+Comparison of the Effects of the Transfer Loss on Pixel-Domain and Compressed-Domain Tasks
+
+The compression model is hyperprior.
+
+### 4.7 Learning in Pixel Domain via Knowledge Transfer
+
+As shown in Figures 3 and 4, when the model is trained on reconstructed images, the performance of vision tasks drops significantly as the quality of images degrades. In this section, we extend the proposed method to improve the performance of pixel-domain models. The model trained on original images is used as the teacher model, whose knowledge is transferred to the models trained on compressed images in the same way as in Sections 3.2.2 and 3.3.3. We conduct experiments on both classification and instance segmentation and use the hyperprior models at two compression operation points.
+
+Table 5 shows the effect of the knowledge transfer loss on pixel-domain models, where the results in compressed domain are also provided for comparison. With the proposed transfer loss, the performance on compressed images is also improved, which illustrates that the original task loss is not sufficient for training a model on the lossy compressed images. In other words, the information contained in the compressed images cannot be fully utilized with the conventional training loss even though the models have the capacity to perform better.
+
+Another observation is that when both are trained with the transfer loss, the performance of compressed-domain models is still better than that of pixel-domain models at a high compression ratio (0.155 bpp) on both tasks, which shows another advantage of learning in the compressed domain.
+
+## Index Terms
+
+Index Terms (Premium feature)
+
+  1. Reconstruction-Free Image Compression for Machine Vision via Knowledge Transfer
+
+    1. Computing methodologies
+
+      1. Artificial intelligence
+
+        1. Computer vision
+
+      2. Computer graphics
+
+        1. Image compression
+
+#### Published In
+
+ACM Transactions on Multimedia Computing, Communications, and Applications  Volume 20, Issue 10
+
+October 2024
+
+729 pages
+
+EISSN:1551-6865
+
+DOI:10.1145/3613707
+
+  * Editor:
+  * Abdulmotaleb El Saddik
+
+Issue’s Table of Contents
+
+Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components of this work owned by others than the author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+
+#### Publisher
+
+Association for Computing Machinery
+
+New York, NY, United States
+
+#### Publication History
+
+Published: 15 October 2024
+
+Online AM: 17 July 2024
+
+Accepted: 13 July 2024
+
+Revised: 22 April 2024
+
+Received: 05 October 2023
+
+Published in TOMM Volume 20, Issue 10
+
+#### Check for updates
+
+#### Author Tags
+
+  1. Compressed-domain vision
+  2. image compression
+  3. knowledge transfer
+  4. reconstruction-free
+
+#### Qualifiers
+
+  * Research-article
+
+#### Funding Sources
+
+  * Natural Science Foundation of China
+  * Fundamental Research Funds for the Central Universities
+  * GPU cluster built by MCC Lab of Information Science and Technology Institution, USTC

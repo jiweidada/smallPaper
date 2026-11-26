@@ -1,0 +1,70 @@
+Material Passport
+Origin Skill: academic-research-suite
+Origin Mode: targeted non-systematic nearest-method research plus bounded cached diagnostics
+Origin Date: 2026-10-30T10:37:12.309626+00:00
+Verification Status: sources/read-scope and listed local numerical checks verified; scientific mainline NOT VALIDATED
+Version Label: center_alignment_clearance_A3_A4_v1
+
+当前结论
+“无人机微小目标的中心读取与空间对齐”保留为问题候选，但普通位置对齐方案的新颖性已不成立。当前更准确的问题是：精细中心定位误差来自特征信息、空间聚合还是回归读出？原因和新算法均未确定，不足以启动数天训练。
+A1曾支持局部中心响应可读；A4补充核验后，不能再把它写成“精确中心坐标已经可读，只是decoder没用好”。同时，A4线性读出未胜过常数，也不能反向证明encoder丢失了信息。
+数据继续为VisDrone原图；TinyFormer-S-PBM作者EMA为诊断基线，最终算法开放。压缩恢复分支维持历史状态。
+
+1. 检索策略与记录
+以“具体算子相同吗”为主线，检索内容—位置初始化、key-aware空间读取、坐标期望/位置更新及精细坐标表示，随后追溯出版方和作者仓库。新增三组、六个明确查询见13_架构检索增补记录.json；12份原始检索/页面响应已保存并列SHA。这是定向非系统调研，没有覆盖率或“查无即空白”声明。
+DAPE取得出版方完整关键方法与一个核心源码文件；TAPTRv2固定作者v2分支，取得实际导入链及配置共5文件。均逐项核对Git blob，不导入、编译或执行作者项目。
+限制：QCAR全文出版方仍403，仅摘要/贡献片段；Slim-DETR仍仅第三方发现，不能用于确定性去重。DAPE的整仓库克隆失败不影响已取得核心文件的逐项核验，但也不能写成整仓库已复现。
+
+2. 核心文献矩阵
+14_架构核心文献矩阵.json已更新为27条，逐条给出原文方法、阅读范围、我们的判断和未解决项；不推定用户已阅读。
+最直接的近邻是DAPE、TAPTRv2、Lite DETR；坐标表示近邻为DSNT、Invariant Slot Attention、B-FOR。DARK、SD-DETR目前阅读范围有限，属于后续必须核查的控制方法，不能当成完整方法审查已经完成。
+
+3. 与最接近工作的逐项对比
+（原文及源码）DAPE的SQS在预测proposal中心采样多尺度内容，随后融合为query；LRPE处理box间位置关系。它已覆盖“让内容读取位置跟着预测中心走”。来源：https://doi.org/10.1609/aaai.v40i6.42480
+（源码核查）DAPE b472392f4df4892d264870917c0d1e4d8dfc8568的get_spatial_prior使用bilinear grid_sample、point_map和learnable-query融合；输入memory和初始reference均detach。我们尚未在TinyFormer中训练这种改动。
+（原文及源码）TAPTRv2通过key-aware相关性更新位置，并分开内容与位置权重；v2配置还启用位置更新感知的后续回归。因此“注意力中心更新＋残差回归”也不是新的组合。来源：https://proceedings.neurips.cc/paper_files/paper/2024/hash/b7216f4a324864e1f592c18de4d83d10-Abstract-Conference.html
+（差别及限制）它处理给定点的视频跟踪，我们处理未知目标集合；这一任务差别本身不足以构成创新。源码固定119d1d011305e2b1397cecfd01225247c1d0a1fb，5个方法/配置文件已核验，未编译或执行。
+（原文）Lite DETR已经采用采样key计算权重。把原生query-only权重改为QK相关性本身不新：https://openaccess.thecvf.com/content/CVPR2023/papers/Li_Lite_DETR_An_Interleaved_Multi-Scale_Encoder_for_Efficient_DETR_CVPR_2023_paper.pdf
+（范围有限）DARK已讨论亚像素坐标编码与解码；SD-DETR已分开定位/分类空间读取；两者本轮未完成全文/源码审查。不能把“粗中心＋精细偏移”或分支拆分单独包装成创新。
+（已排除误解）DS-Det的PoCoo是分类/IoU/尺度相关损失，不是坐标质心读出。CLSC已读完整2.1-2.2，检查到的直接作用是质量/置信分数校准；不能因此排除其间接训练效应。
+
+4. 有依据的未解决问题，以及证据不能支持什么
+（实测A3）A2的逐GT真值修正可能重复借用同一query。A3固定原生flatTop300类别/分数、每个实体query最多匹配一GT，并保护原有一对一正确覆盖。原条件队列470GT中，有277个具有相应真值中心修正潜力；保留原匹配后可用空闲query恢复218个，占78.70%，95%文件前缀组bootstrap区间[69.16%,86.83%]。允许重分配而保护覆盖时为220/277。
+（推断）预设低冲突判据要求比例>=80%且区间下界>=65%；主结果未通过，也不符合高冲突判据。结论是未决，不能据此增加复杂路由/transport模块。这是真值上界审计，不是AP增益。
+（实测A4）只用已保存的16图特征；复用4个分组折，472个合格且不共享4px中心格的<16GT，203个<8、269个8-16。给定GT所在格，只让192维特征预测格内dx/dy；每图等权、ridge0.01、训练折标准化，真实与图内联合打乱偏移作对照。32个二维线性读出模型，共64个坐标头，无超参搜索。
+（实测A4主结果）平均径向误差：P2=1.6985px，融合后P3=1.6769px；训练折常数偏移=1.5980px，零偏移=1.5775px。预定P3减P2差值-0.0216px，95%区间[-0.2666,0.1729]。二者虽优于打乱标签模型，但均未优于常数；预设encoder精度差和融合特征精细可读性两道判据均失败。
+（推断）本轮没有得到支持新增encoder或decoder模块的精细位置证据。A1的粗中心排名与A2的真值修正空间之间，仍缺“可从实际输入可靠预测所需位移”的环节。
+（待验证）局部邻域结构/非线性读出是否可恢复精细坐标；原生训练分配与监督是否让已有回归头未充分学到位置；这些解释仍竞争。不能由一次负线性探测证明信息消失，也不能把本模型的诊断缺口宣称为无人做过的学科空白。
+局限：作者checkpoint已见过这些原训练图；分组只隔离读出拟合。GT给出正确4px格且排除了同格实例，故本试验不证明未知目标召回、密集实例分离、独立泛化或实际AP。
+
+5. 候选增量、可行性与风险
+淘汰为独立创新：普通中心热图、按预测中心采样、key-aware坐标加权更新、内容/位置权重分开再接残差MLP、泛称低秩位置关系或亚像素修正。
+保留的只是有条件的设计空间：如果能证明现有空间聚合不能表达或不能读取某种可恢复的精细位置结构，再设计对应的编码或解码机制；目前没有批准具体算子，也没有新算法有效性结论。
+主要风险：近邻重合；用GT条件读出冒充全图能力；小样本线性头不适配；新增参数/采样点/训练预算解释全部收益；作者checkpoint和开发集选择带来的乐观偏差。
+单卡24GB：既有严格EMA前向已能运行；完整训练峰值显存、原生loss与吞吐仍未实测。不能把推理显存或作者其他GPU配方当作训练可行性通过。
+
+6. 最小验证路线与停止规则
+当前不启动新架构长训练。先查完整DARK/SD-DETR等精细/局部读出控制，提出一个明确的竞争机制和一次固定预算干预；不因A4阴性继续搜索更多头直到出现阳性。
+如果保留精细定位分支，最低要求是区分“同一特征中信息可恢复但原读出没用好”与“需要新增位置证据”；必须有无GT位置提示的读出验证、精度与参数/采样/算力匹配控制，并保留失败对照。若只是已知读出能解决，应作为强基线，不能改名为新方法。
+只有形成非平凡方法差别后，才冻结VisDrone原图上的原生基线、最接近既有方法和候选的同配方比较；先做真实训练前反向容量/吞吐检查，再在数天资源上限内安排预算。正式结论需要统一AP/APs、<8与8-16召回/定位、漏检与误检、耗时显存；使用固定开发集与独立最终评估，不以当前训练图probe代替。
+如果近邻已覆盖具体算子、必要控制消除收益，或收益完全由预算解释，就淘汰该候选并回到开放编解码器搜索。保留原200次前向诊断上限；本轮未消耗剩余15次。
+
+7. 可核验参考与本地证据
+DAPE：Hou et al.,AAAI2026,40(6):4780-4788,DOI10.1609/aaai.v40i6.42480；https://github.com/xiuqhou/DAPE
+TAPTRv2：Li et al.,NeurIPS2024；https://proceedings.neurips.cc/paper_files/paper/2024/file/b7216f4a324864e1f592c18de4d83d10-Paper-Conference.pdf；作者v2：https://github.com/IDEA-Research/TAPTR/tree/v2
+Lite DETR：Li et al.,CVPR2023；上文CVF原始PDF。
+DSNT：Nibali et al.,2018；https://arxiv.org/abs/1801.07372；作者代码https://github.com/anibali/dsntnn
+Invariant Slot Attention：Biza et al.,ICML2023；https://proceedings.mlr.press/v202/biza23a.html
+B-FOR：2026预印本；https://arxiv.org/abs/2608.29232
+CLSC DETR：2026预印本；https://arxiv.org/abs/2608.21457
+QCAR：出版方摘要，DOI10.1016/j.neucom.2026.134465；https://doi.org/10.1016/j.neucom.2026.134465
+DARK：Zhang et al.,CVPR2020:7093-7102；https://openaccess.thecvf.com/content_CVPR_2020/html/Zhang_Distribution-Aware_Coordinate_Representation_for_Human_Pose_Estimation_CVPR_2020_paper.html
+SD-DETR：Zhang et al.,ICCV2023:6601-6610；https://openaccess.thecvf.com/content/ICCV2023/html/Zhang_Decoupled_DETR_Spatially_Disentangling_Localization_and_Classification_for_Improved_End-to-End_ICCV_2023_paper.html
+本地A3：A3_中心修正一对一约束核验_v1/protocol.json、summary.json及backup；归档SHA db2785a4b70ab2a70c27f11b7c31ddf8ccdecbd6b7dd3e74d6f97e25008ebb41，9个文件重读核验。
+本地A4：A4_冻结特征精细中心偏移读出_v1/protocol.json、summary.json、verification.json及backup；归档SHA ecb1464cbd5da4819b27460649c8e74e50d4b3458730b08f821139940e50e9a4，25个文件重读核验；472GT、5664个误差值、16模型文件及15图主结果重聚合通过。
+完整阅读范围/检索记录/源码核查分别见14、13、16号JSON。研究状态以15_当前状态与结果校验.json为准；20号报告保留为A1/A2当时的历史判断，由本文件更新其主线解释。
+
+资源及目标状态
+本轮新增GPU前向0、检测模型更新0。架构诊断累计185/200次完整前向；A1拟合32个一维线性模型，A4拟合32个二维线性模型，合计64个诊断模型/96个标量响应头；它们不是检测器训练。A2/A3不增加拟合。
+上一目标回合仅回答状态，归为no progress；本回合完成A4并取得DAPE/TAPTRv2关键源码与排重结论，归为progress。总目标维持ACTIVE：尚缺具体机制、非平凡算法差异、有效性与24GB训练可行性，未标记完成，也不将查证困难标记为blocked。
+AI披露：单助手执行检索、编码、诊断与整理；没有子代理，没有独立人工同行复核，未推定用户阅读过任一文献。

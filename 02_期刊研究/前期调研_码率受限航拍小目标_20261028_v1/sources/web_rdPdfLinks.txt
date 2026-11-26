@@ -1,0 +1,175 @@
+ (https://cdn.techscience.cn/files/cmc/2024/TSP_CMC-80-3/TSP_CMC_52725/TSP_CMC_52725.pdf)
+ [wordlim: 200] Crawled: last month; Content type: application/pdf; Number of pages: 23; Source: click({"ref_id":"turn59view0","id":1}); Total lines: 799
+L0@P0: Copyright © 2024 The Authors. Published by Tech Science Press.
+L1@P0: This work is licensed under a Creative Commons Attribution 4.0 International License, which permits
+L2@P0: unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+L3@P0: Tech Science Press
+L4@P0: DOI: 10.32604/cmc.2024.052725
+L5@P0: ARTICLE
+L6@P0: Robust and Discriminative Feature Learning via Mutual Information
+L7@P0: Maximization for Object Detection in Aerial Images
+L8@P0: Xu Sun, Yinhui Yu* and Qing Cheng
+L9@P0: School of Communication Engineering, Jilin University, Changchun, 130012, China
+L10@P0: *Corresponding Author: Yinhui Yu. Email: yuyh@jlu.edu.cn
+L11@P0: Received: 12 April 2024 Accepted: 06 August 2024 Published: 12 September 2024
+L12@P0: ABSTRACT
+L13@P0: Object detection in unmanned aerial vehicle (UAV) aerial images has become increasingly important in military
+L14@P0: and civil applications. General object detection models are not robust enough against interclass similarity and
+L15@P0: intraclass variability of small objects, and UAV-specific nuisances such as uncontrolled weather conditions. Unlike
+L16@P0: previous approaches focusing on high-level semantic information, we report the importance of underlying features
+L17@P0: to improve detection accuracy and robustness from the information-theoretic perspective. Specifically, we propose
+L18@P0: a robust and discriminative feature learning approach through mutual information maximization (RD-MIM),
+L19@P0: which can be integrated into numerous object detection methods for aerial images. Firstly, we present the rank
+L20@P0: sample mining method to reduce underlying feature differences between the natural image domain and the aerial
+L21@P0: image domain. Then, we design a momentum contrast learning strategy to make object features similar to the
+L22@P0: same category and dissimilar to different categories. Finally, we construct a transformer-based global attention
+L23@P0: mechanism to boost object location semantics by leveraging the high interrelation of different receptive fields. We
+L24@P0: conduct extensive experiments on the VisDrone and Unmanned Aerial Vehicle Benchmark Object Detection and
+L25@P0: Tracking (UAVDT) datasets to prove the effectiveness of the proposed method. The experimental results show that
+L26@P0: our approach brings considerable robustness gains to basic detectors and advanced detection methods, achieving
+L27@P0: relative growth rates of 51.0% and 39.4% in corruption robustness, respectively. Our code is available at https://
+L28@P0: github.com/cq100/RD-MIM (accessed on 2 August 2024).
+L29@P0: KEYWORDS
+L30@P0: Aerial images; object detection; mutual information; contrast learning; attention mechanism
+L31@P0: 1 Introduction
+L32@P0: Unmanned aerial vehicles (UAVs) collecting high-resolution images have a wide range of applications in many fields, such as traffic management, disaster response, and infrastructure inspection [1,2].
+L33@P0: Using object detection approaches to understand and analyze aerial images has attracted significant
+L34@P0: attention [3]. In recent years, deep neural networks (DNNs) have developed rapidly in object detection,
+L35@P0-1: which achieved superior performance on natural images [4].4150 CMC, 2024, vol.80, no.3
+L36@P1: Directly applying these detection models to aerial images still has two problems. On the one hand,
+L37@P1: interclass similarity and intraclass variability are more severe on aerial image datasets, impairing the
+L38@P1: accuracy of object detection [5,6]. Fig. 1a intuitively illustrates that some objects indeed have confusing
+L39@P1: appearances and low distinctiveness. On the other hand, UAVs have complex operating environments,
+L40@P1: such as varying light, motion blur, and uncontrolled weather conditions, which make object detection
+L41@P1: even harder [7]. As depicted in Fig. 1b, changing illumination drastically affects object visibility. To
+L42@P1: deal with these problems, a great amount of effort has been carried out [8,9]. Nevertheless, these efforts
+L43@P1: often ignore the importance of underlying features. For example, the dual sampler and head detection
+L44@P1: network (DSHNet) [8] designed class-biased samplers and bilateral box heads from the perspective of
+L45@P1: high-level semantic information to process semantically similar objects. Although it allowed detectors
+L46@P1: to perform better for each category on clean aerial images, the robustness was poor in highly variable
+L47@P1: capturing conditions.
+L48@P1: Figure 1: Intuitive explanation of the two problems in object detection for aerial images. (a) Interclass
+L49@P1: similarity and intraclass variability. (b) UAV complex operating environments (daytime vs. nighttime)
+L50@P1: Transfer learning available everywhere is an effective scheme to learn underlying features. It
+L51@P1: not only accelerates model convergence but also tremendously improves model robustness [10].
+L52@P1: Common transfer learning methods use the mature backbone trained on the ImageNet dataset [11]
+L53@P1: as initialization and freeze part of the layers to retain more robust underlying features [12]. When we
+L54@P1: consider transfer learning from the ImageNet backbone to object detection models in aerial images,
+L55@P1: the obtained results are not as desirable as described in the leading papers [10,13]. As shown in Fig. 2,
+L56@P1: in the case of excluding model overfitting, the accuracy of the loading ImageNet method is similar
+L57@P1: to training from scratch, and robustness performance is even worse with the increase of iterations.
+L58@P1: We assume the reason for this phenomenon is that the underlying features are poorly learned due to
+L59@P1: the significant differences between natural images and aerial images. The differences may stem from
+L60@P1: the different heights and angles captured by UAV cameras, leading to smaller and denser objects in
+L61@P1: aerial images.
+L62@P1: To this end, we propose a robust and discriminative underlying feature learning approach
+L63@P1: according to the mutual information maximization principle, which is able to assist object detectors for
+L64@P1: aerial images to further improve robustness rather than achieve state-of-the-art performance. Similar
+L65@P1: to the robustness measure method in natural images [13], we also add various corruption types to
+L66@P1: aerial image datasets according to the UAV operation environments. The experiments are conducted
+L67@P1: on clean and corrupted VisDrone [14] and Unmanned Aerial Vehicle Benchmark Object Detection
+L68@P1: and Tracking (UAVDT) [15] datasets. Fig. 2 intuitively shows the great performance gains of our
+L69@P1: approach, especially on corrupted aerial images. Our code is available at https://github.com/cq100/
+L70@P1-2: RD-MIM (accessed on 2 August 2024). The main contributions of this paper are as follows:CMC, 2024, vol.80, no.3 4151
+L71@P2: • We report from the information-theoretic perspective that effective underlying feature learning
+L72@P2: for aerial image object detection resists pervasive nuisances and reduces interclass similarity
+L73@P2: and intraclass variability.
+L74@P2: • We propose a robust and discriminative feature learning approach based on mutual information
+L75@P2: maximization (RD-MIM). Our method consists of the rank sample mining, the momentum
+L76@P2: contrast learning strategy, and a flexible global attention mechanism based on transformer
+L77@P2: encoder.
+L78@P2: • Our RD-MIM is a generic method that can be easily coupled with various backbones and
+L79@P2: detectors. The RD-MIM brings considerable performance gains in terms of clean accuracy and
+L80@P2: corruption robustness to advanced aerial object detection methods.
+L81@P2: The remaining sections of this paper are organized as follows. In Section 2, the related work is
+L82@P2: reviewed. In Section 3, the proposed method is illustrated in detail. In Section 4, experimental datasets
+L83@P2: and implementation details are presented, and related results are analyzed. Finally, in Section 5, the
+L84@P2: work of this paper is summarized.
+L85@P2-3: Figure 2: (Continued)4152 CMC, 2024, vol.80, no.3
+L86@P3: Figure 2: Performance comparison of training from scratch, loading ImageNet, and our method. (a)
+L87@P3: Accuracy measure on the clean VisDrone validation dataset. (b) Robustness measure on the corrupted
+L88@P3: VisDrone validation dataset. (c) Accuracy measure on the clean VisDrone testing dataset
+L89@P3: 2 Related Work
+L90@P3: 2.1 General Object Detection
+L91@P3: With the introduction of region-based convolutional neural network (R-CNN) model, DNNbased networks have played a central role in general object detection tasks [16]. There are primarily
+L92@P3: two streams of object detection approaches: anchor-free and anchor-based detectors [17]. Anchorfree detectors use the key points to estimate the predicted bounding box, such as fully convolutional
+L93@P3: one-stage object detection (FCOS) [18]. Anchor-based detectors locate object positions by generating
+L94@P3: anchor candidates, which can be further divided into two-stage and one-stage detectors [19]. For
+L95@P3: example, compared with the representative one-stage method RetinaNet [20], Faster R-CNN [21]
+L96@P3: involves a region proposal network (RPN) to search for possible object locations. We measured the
+L97@P3: proposed method on three different types of detectors.
+L98@P3: From the component perspective, DNN-based object detectors generally consist of three parts:
+L99@P3: the backbone, the neck, and the head [22]. The backbone plays a key role, which has strong feature
+L100@P3: extraction capability, such as the traditional ResNet50 [23], the popular RegNet [24], and the latest
+L101@P3: PVTv2 (pyramid vision transformer version 2) [25]. RegNet can balance accuracy and computation
+L102@P3: amount well, which is conducive to designing lightweight networks. PVTv2 improves the current
+L103@P3: promising pyramid vision transformer to establish a more robust and flexible baseline. We use the
+L104@P3: three networks with different structures as the backbone of detectors.
+L105@P3: 2.2 Object Detection in Aerial Images
+L106@P3: Compared with natural images, object detection for aerial images brings greater challenges.
+L107@P3: Interclass similarity and intraclass variability degrade the performance of general detectors.
+L108@P3: Huang et al. [26] constructed a multi-proxy detection network by analyzing object distribution for
+L109@P3: aerial images to deal with serious category confusion. Wang et al. [27] used a class-aware strategy to
+L110@P3: maintain a balance in the number of objects from different categories, which facilitated the distinction
+L111@P3-4: of confused objects. Tang et al. [5] designed the points estimated network based on a coarse-to-fineCMC, 2024, vol.80, no.3 4153
+L112@P4: framework to predict the positions of similar objects. These customized approaches are limited due to
+L113@P4: non-universality, which cannot be effectively applied to common object detection methods.
+L114@P4: Object detection methods for aerial images require detectors with strong robustness due to
+L115@P4: UAV complex working conditions [28]. Existing potential solutions generally can be divided into
+L116@P4: three aspects [29,30]. First, adversarial training frameworks are utilized to obtain robustness gains.
+L117@P4: Wu et al. [31] used UAV meta-data in conjunction with the detector based on adversarial learning
+L118@P4: to extract domain-robust features. Second, the expert head is designed on the top of the model for
+L119@P4: each specific domain, such as capturing time and weather [29]. As more domains are involved, model
+L120@P4: ensemble becomes difficult, and it cannot be generalized to unseen domains. Last, data augmentation
+L121@P4: is a typical strategy to enhance the robustness of detectors. Dense and small object detection (DSDet)
+L122@P4: [9] used data augmentation based on crop functionality to increase training data, achieving robust
+L123@P4: detection in aerial images.
+L124@P4: Besides the aforementioned methods, there exist other advanced techniques for aerial object
+L125@P4: detection. Blas et al. [32] designed a swimming pool detection platform by utilizing geographic
+L126@P4: information tools and common machine learning methods. Xie et al. [33] presented a plug-and-play
+L127@P4: object activation network (OAN) to help detectors focus on patches containing objects in aerial images.
+L128@P4: Task-wise sampling convolutions (TS-Conv) [34] guided dynamic label assignment by adaptively
+L129@P4: sampling features from sensitive areas for localization and classification, boosting detector adaptation
+L130@P4: and resistance.
+L131@P4: 2.3 Transfer Learning in Object Detection for Aerial Images
+L132@P4: Using transfer learning to improve the performance of DNN-based models is a common practice,
+L133@P4: because underlying features are close to each other when the input domains of the tasks are similar
+L134@P4: [35,36]. Specifically, models transfer the structure or parameters from the pre-trained network trained
+L135@P4: on the ImageNet dataset available publicly [37]. Generally speaking, there exist three transfer learning
+L136@P4: methods. The first is full-network transfer only using the pre-trained network as initialization, which
+L137@P4: easily erases the robustness property during fine-tuning. The second is fixed-feature transfer, which
+L138@P4: freezes the whole backbone and only trains the detection head. It performs slightly worse, but
+L139@P4: facilitates robustness transfer [13]. The third is a common approach that fixes part of the pre-trained
+L140@P4: backbone and loads parameters as initialization, which is usually applied for object detection models
+L141@P4: in aerial images [22,38].
+L142@P4: We find that directly transferring ImageNet backbone to detectors for aerial images yields
+L143@P4: poor performance gains. The possible reason is that the complex capturing conditions of UAVs
+L144@P4: make the differences between natural images and aerial images larger, which leads to fewer similar
+L145@P4: underlying features.
+L146@P4: 3 Methodology
+L147@P4: 3.1 Theoretical Analysis
+L148@P4: Many approaches have successfully learned the representations through the mutual information
+L149@P4: maximization principle [39]. Inspired by this, we attempt to solve the poor robustness of detectors
+L150@P4: to object categorical similarity and UAV nuisances from the information-theoretic perspective. To be
+L151@P4: specific, we compute the mutual information between the underlying features extracted from different
+L152@P4: backbones and corresponding categories. In practice, it is intractable to maximize mutual information,
+L153@P4-5: so this problem is usually translated into estimating a lower bound.4154 CMC, 2024, vol.80, no.3
+L154@P5: Assuming that B0 is the backbone trained on the ImageNet dataset, B1 is the enhanced backbone
+L155@P5: using the momentum contrast learning strategy and rank sample mining method. Let (x1, y1) denote an
+L156@P5: example pair, where x1 is an object or background area on the aerial image, and y1 is the corresponding
+L157@P5: category. According to the InfoNCE [39] lower bound, we can estimate the mutual information I as
+L158@P5: follows:
+L159@P5: I (B0 (x1), y1) ≥ E
+L160@P5: ζ
+L161@P5: ⎡
+L162@P5: ⎢
+L163@P5: ⎣log fθ (B0 (x1), y1)
+L164@P5: 
+L165@P5: y∈ζ
+L166@P5: fθ (B0 (x1), y
+L167@P5: )
+L168@P5: ⎤
+--------------------------------------------------------------------------------
+Internal Error ()
+ [wordlim: 200] Source: click({"ref_id":"turn59view0","id":2}); 
+Failed to fetch https://cdn.techscience.press/files/cmc/2024/TSP_CMC-80-3/TSP_CMC_52725/TSP_CMC_52725.pdf: Cache miss

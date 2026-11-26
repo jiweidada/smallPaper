@@ -1,0 +1,67 @@
+A27 同预算查询扩容任务诊断与候选淘汰
+记录时间：2026-10-30T23:43:39.557296+00:00
+
+当前结论：尚无可定题的已确认主线。最近候选是“密集航拍小目标的查询扩容是否产生未被新增覆盖补偿的损失，以及能否在同500候选预算下稳定旧查询并改善检测”。本次不推进“直接单向隔离”这个具体增量。它的输出稳定性质成立，但未达到事先冻结的任务收益/损失门槛。此结论不等于证明所有查询交互架构都无效，也不把未验证的N自动升为主线。
+
+1. 本轮检索策略与记录
+本轮没有新增论文检索或论文矩阵条目；矩阵仍82篇，候选15个。新增核对官方 VisDrone DET 工具箱，固定commit 005445782213e20cb91bc50a597db3dd949e749a，11个文件逐一核验Git blob与SHA256。完整读取与本轮评价相关的evalDET/saveAnnoRes/dropObjectsInIgr/createIntImg/evalRes/compOas/VOCap/calcAccuracy；没有执行MATLAB。检索与源码记录见A27/official_toolkit_source_manifest.json及official_evaluation_source_audit.json。原文方法矩阵仍以14_架构核心文献矩阵.json为准。
+
+2. 最接近工作的逐项差异与阅读范围
+Group DETR：训练时分组自注意力及逐组一对一监督，推理保留一组。已读官方版本选定3.1、算法、图与损失段落；未通读全部实验/源码。其分组/隔离先例排除“首次分组掩码”说法。
+GroupEnsemble：使用Group DETR已训练的多组查询进行推理，组间对称隔离并BSAS聚类融合，目标为不确定性估计。已读III-B—D及部分III-A，图式视觉核对；未完整读实验或作者代码。本次双向隔离仅是一个标准分组控制，不是该方法复现。本次固定普通checkpoint的TopK池，不含其组训练或融合，差异本身不等于创新成立。
+原生DN掩码：单向阻断已存在于代码。掩码邻接模式、查询排序和普通KV缓存不是本研究创新。
+VRWKV-DETR：目前仅出版商摘要/引言及片段阅读，未取得完整方法或代码；片段已提及同一训练解码器的查询扩容。不能据片段宣称对方未做某一机制。BUTR已提供预算匹配的必要性，本轮据此保持500候选作主比较。
+
+3. 预先冻结的最小验证
+平台：VisDrone val中的12张历史复用缓存图像，12个文件前缀；1241个有效GT，56个class0忽略区域，class11为0。原图面积<=1024的smallGT共933个；它与历史800输入下size<8的263个tinyGT不是同一口径。
+模型：Dome-DETR作者权重，源码commit 2dde3bc1946a3e9fad9abd0612b59fc39bd6b861；固定完整权重和图像编码后的memory，使用原生TopK500及原生查询初始化头，250为严格前缀。本受控初始化绕过PAQI密度选择，不作为作者完整检测器AP复现。
+四组：BASE250未掩码；NATIVE500未掩码；TWOWAY500新旧组双向隔离；ONEWAY500旧查询不读新增查询、新增查询可读全部。主比较O对N，O对T检查是否超过普通分组，B仅作扩容参考。
+本轮新增45次完整三层CPU decoder调用/135层进入，复用A26的3个case00输出，共48个图像-组输出。新增整图/编码器forward=0、优化器更新=0、GPU调用=0。既有整检测器累计2365次、实际更新528次保持；历史72次末层suffix调用不与48次完整decoder调用混合。
+任务协议SHA256：dd4b868473e865d20bb35ea78680d125a5f34cdab96c1c8c597577f527246450，生成时真实任务AP尚未计算。CPU运行约21.76秒仅是本环境组件耗时，不能作为GPU端到端速度或24GB训练可行性的证据。
+
+4. 已测结果与预设判定
+评价：固定所有组Top500扁平sigmoid类别分数后再过滤类别1..10，不补足；原图坐标与源码一致的union忽略区域过滤；COCO101 AP@500。下列不是官方VisDrone榜单成绩。另存的连续、类别出现次数加权AP仅供描述，未宣称与MATLAB官方分数逐值等价。
+BASE250: AP=30.5511%, APsmall=29.1449%, AP50=50.0706%
+NATIVE500: AP=31.3483%, APsmall=30.0416%, AP50=51.5047%
+TWOWAY500: AP=28.5821%, APsmall=28.4734%, AP50=46.4023%
+ONEWAY500: AP=30.8971%, APsmall=29.3607%, AP50=50.6560%
+
+主要差值/覆盖损失与10000次配对前缀bootstrap百分位95%区间：
+harm_rate: 0.4823%,95%区间[0.0000,1.0526]
+APsmall_O_minus_N: -0.6809pp,95%区间[-1.0647,-0.0092]
+AP_O_minus_N: -0.4513pp,95%区间[-0.9318,-0.1408]
+APsmall_O_minus_T: 0.8873pp,95%区间[0.3408,1.1964]
+APsmall_O_minus_B: 0.2157pp,95%区间[-0.2775,0.5526]
+损失统计分母：BASE250在无分数阈值、逐query argmax类别、IoU>=0.5规则下匹配的622个smallGT；NATIVE500任意同类真实query均无法覆盖其中3个，ONEWAY500为0个。此为保守的几何/类别覆盖诊断，不是常用分数阈值下的漏检率。
+baseline_small_exposure: 通过；预设 base_correct_small>=24 AND prefixes_with_base_small_TP>=6
+native_uncompensated_harm: 未通过；预设 harm_rate>=0.02 AND paired_lower95>0
+APsmall_vs_native: 未通过；预设 O-N>=0.005 AND paired_lower95>0
+AP_no_material_loss: 未通过；预设 APall O-N>=0 AND paired_lower95>=-0.002
+specificity_vs_group_mask: 通过；预设 APsmall O-T>=0.002 AND paired_lower95>0
+coverage_vs_base: 未通过；预设 APsmall O-B>=0.003 AND paired_lower95>0
+最终：所有门槛同时通过=False。当前增量不晋级；创新性仍未排除，与统计门槛是否通过是两回事。
+
+5. 原文结论、推断及待验证假设
+[原文/源码] 新增查询在未屏蔽的self-attention中会进入旧查询的上下文；已知分组及DN掩码可阻断相应边。本次官方评价源码的忽略规则已核对。
+[本次观测] 12例单向/双向隔离旧前缀数值差均在冻结容差内；单向保护虽然保住旧输出，其APsmall点估计仍低于普通500查询。原始数据、匹配标记、重采样及六门槛已独立核验。
+[我的推断] 不能将输出变化直接视为有害，小样本现有结果不足以支撑“单向隔离能提高航拍小目标AP”作为论文主线；先停止该具体增量是合理的筛选决定。没有声称负差异具备总体统计显著性。
+[待验证] 独立场景、其他checkpoint/训练后的体系是否存在足够大的真实查询扩容损失，及是否有区别于既有分组/掩码的算法；本轮没有分配这些试验。N的共享状态路径机制同样没有取得训练后效应证据；A22保持终止，数值问题诊断不作为创新。
+
+6. 可行性、风险与下一步
+现有单机/远端条件能承担这类冻结缓存的CPU解码诊断；本次未训练改进算法，不能由此断言正式训练的显存、天数和论文效果。12例已被多轮分析复用，前缀未证明等于独立飞行场景，bootstrap仅为探索性稳定区间，类别支持与分数并列排序有明确条件。GT是原始坐标而非旧缓存裁剪框，所有arm采用同样规则。不得将组件CPU耗时混称端到端速度。
+当前没有已确认主线；不推进O当前的单向查询隔离增量。回到编码器/解码器候选的原文、具体失效及可区分算子，形成新的可证伪问题后再分配验证；N仍未验证，A22不重启。
+下一步不是继续给掩码加模块或调门槛；先重新核查一个具体架构失效及最接近算子差异。目标保持active，没有自动训练或下一组试验。
+
+7. 可核验资料与完整性
+官方评价工具箱：https://github.com/VisDrone/VisDrone2018-DET-toolkit/tree/005445782213e20cb91bc50a597db3dd949e749a
+原生模型源码：https://github.com/RicePasteM/Dome-DETR/tree/2dde3bc1946a3e9fad9abd0612b59fc39bd6b861
+Group DETR：10.1109/ICCV51070.2023.00610；https://openaccess.thecvf.com/content/ICCV2023/papers/Chen_Group_DETR_Fast_DETR_Training_with_Group-Wise_One-to-Many_Assignment_ICCV_2023_paper.pdf
+GroupEnsemble：https://arxiv.org/abs/2603.01847v1（预印本与上述阅读范围）
+VRWKV-DETR：10.1016/j.eswa.2026.134086；https://www.sciencedirect.com/science/article/abs/pii/S0957417426029921（仅预览）
+BUTR：https://arxiv.org/html/2610.33430v1（预印本；选定方法/分析阅读，非完整代码复现）
+核心矩阵：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\14_架构核心文献矩阵.json
+冻结方案：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A27_查询扩容同预算任务诊断_v1\task_protocol_FROZEN.json
+原始回执与独立校验：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A27_查询扩容同预算任务诊断_v1\independent_verification.json
+证据ZIP SHA256：6f3026b25ba71a4e8c232e320915712acdb252c450c3ef00f7c0bd43dd4f886b。
+合成评价预检查v1曾因整数gtIgnore位取反得到错误计数而失败，原版本及失败回执保留；修正为显式==0计数的v2通过标准COCO与显式重复样本核验后，才冻结协议并读取真实任务结果。没有调整真实结果以适配门槛。
+A26可读报告62中一个长小数的手工转录有误；原始JSON与回执63正确。其NATIVE500前缀框分量最大绝对差的正确值为0.004677534103393555，本次作纠正说明，旧冻结文件不改、模型不重跑。

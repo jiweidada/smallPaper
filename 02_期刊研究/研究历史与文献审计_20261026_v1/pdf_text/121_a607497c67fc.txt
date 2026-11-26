@@ -1,0 +1,93 @@
+UA V-DETR: DETR FOR ANTI-DRONE TARGET DETECTION
+Jun Yang1∗,Dong Wang1, Hongxu Yin1, Hongpeng Li1, Jianxiong Yu1
+1School of Automation, NPU, Xian, ShaanXi
+Abstract:Drone detection is pivotal in numerous security and counter-UAV applications. However, ex-
+isting deep learning-based methods typically struggle to balance robust feature representation with compu-
+tational efficiency. This challenge is particularly acute when detecting miniature drones against complex
+backgrounds under severe environmental interference. To address these issues, we introduce UAV-DETR,
+a novel framework that integrates a small-target-friendly architecture with real-time detection capabili-
+ties. Specifically, UAV-DETR features a WTConv-enhanced backbone and a Sliding Window Self-Attention
+(SWSA-IFI) encoder, capturing the high-frequency structural details of tiny targets while drastically re-
+ducing parameter overhead. Furthermore, we propose an Efficient Cross-Scale Feature Recalibration and
+Fusion Network (ECFRFN) to suppress background noise and aggregate multi-scale semantics. To fur-
+ther enhance accuracy, UAV-DETR incorporates a hybrid Inner-CIoU and NWD loss strategy, mitigating
+the extreme sensitivity of standard IoU metrics to minor positional deviations in small objects. Extensive
+experiments demonstrate that UAV-DETR significantly outperforms the baseline RT-DETR on our custom
+UAV dataset (+6.61% inmAP 50:95, with a 39.8% reduction in parameters) and the public DUT-ANTI-
+UAV benchmark (+1.4% in Precision, +1.0% in F1-Score). These results establish UAV-DETR as a supe-
+rior trade-off between efficiency and precision in counter-UAV object detection. The code is available at
+https://github.com/wd-sir/UAVDETR.
+Keywords:Drone Detection, Counter-UAV , Transformer, Lightweight Network, Feature Fusion
+1. INTRODUCTION
+The rapid advancement and widespread deployment of unmanned aerial vehicles have brought
+significant convenience to civilian and commercial domains. However, the misuse of drones poses
+severe threats to public security, privacy, and critical infrastructure [1–4]. Consequently, the de-
+velopment of robust counter-UA V systems has become a critical security priority. Compared to
+traditional radar [5, 6] or radio frequency sensors [7, 8], vision-based drone detection offers com-
+petitive accuracy and reliability at substantially lower deployment costs [9, 10], serving as the
+foundational step for subsequent tracking, interception, and combat intent recognition.
+Despite the success of deep learning in general object detection, applying these algorithms di-
+rectly to counter-UA V scenarios remains highly challenging due to the inherent visual charac-
+teristics of aerial targets. Drones often appear as extremely small targets in the visual field and
+exhibit drastic scale variations depending on their distance from the camera [11]. Furthermore,
+real-world drone detection frequently suffers from severe background interference such as heavy
+cloud cover, mountainous terrain, and dense tree occlusion, making miniature targets easily con-
+fusable with environmental noise [12, 13]. Existing detection models often struggle to effectively
+balance high-resolution feature extraction with computational efficiency, a trade-off that is particu-
+larly critical for resource-constrained edge deployment [14]. Standard convolution operations may
+lose critical high-frequency structural details of tiny targets during downsampling, while heavy
+transformer-based architectures incur prohibitive computational overhead for real-time applica-
+tions. Additionally, standard evaluation metrics like intersection over union are highly sensitive to
+minor positional deviations of miniature bounding boxes, which severely degrades training stabil-
+ity [15].
+To address the aforementioned challenges, we proposeUA V-DETR, a highly efficient and ac-
+curate real-time object detection framework tailored for counter-UA V operations. Built upon the
+real-time detection transformer architecture, our method systematically optimizes the structural
+∗ Corresponding author. E-mail: junyang@nwpu.edu.cn
+arXiv:2603.22841v1  [cs.CV]  24 Mar 2026
+
+---PAGE---
+
+design across the backbone, neck, and detection head. Specifically, as the backbone, we integrate
+Wavelet Transform Convolution (WTConv) into the basic blocks to formulate the WTConv Block.
+This precise integration preserves essential high-frequency spatial details and prevents information
+loss during downsampling. The neck architecture is constructed by cascading a Sliding Window
+Self-Attention Intra-scale Feature Interaction (SWSA-IFI) encoder and an Efficient Cross-Scale
+Feature Recalibration and Fusion Network (ECFRFN). These two components work synergisti-
+cally within the neck to suppress background noise and aggregate multi-scale semantic features
+with minimal computational cost. Finally, the detection head employs a specialized hybrid loss
+function combining InnerCIoU and Normalized Wasserstein Distance (NWD) to significantly im-
+prove bounding box regression for tiny objects.
+The main contributions of this paper are summarized as follows:
+• We propose UA V-DETR, a novel lightweight detection framework that significantly im-
+proves the detection accuracy of miniature drones in complex backgrounds while drastically
+reducing model parameters.
+• We design a highly efficient neck architecture comprising the SWSA-IFI encoder and the
+ECFRFN. This cascaded neck design efficiently captures global context and recalibrates
+cross-scale features without incurring an excessive computational burden.
+• We construct the WTConv Block by seamlessly incorporating WTConv into the backbone’s
+basic blocks to enhance the retention of high-frequency structural details, and optimize the
+detection head by utilizing an InnerCIoU-NWD hybrid loss to alleviate the positional sensi-
+tivity of tiny targets.
+• Extensive experiments on a custom UA V dataset and the public DUT-ANTI-UA V benchmark
+demonstrate that UA V-DETR achieves state-of-the-art performance, effectively breaking the
+bottleneck between high precision and lightweight deployment.
+The remainder of this paper is organized as follows. Section 2 reviews related work on main-
+stream object detection methods and specific advancements in drone detection. Section 3 describes
+the methodology of the proposed UA V-DETR framework, including the overall architecture, cus-
+tomized feature extraction modules, and the improved loss function. Section 4 presents the ex-
+perimental setup, evaluation metrics, and a comprehensive result analysis, covering generalization
+verification and ablation studies. In addition to quantitative metrics, this section features feature
+map and result visualizations for qualitative assessment, along with a critical discussion of algo-
+rithm failure cases. Finally, Section 5 concludes the paper.
+2. RELATED WORK
+The landscape of object detection has been fundamentally reshaped by deep learning, shifting
+from hand-crafted feature extraction to data-driven feature learning through Convolutional Neu-
+ral Networks. Early milestones were established by Ren et al., who introduced Faster R-CNN
+featuring a Region Proposal Network to generate high-quality object bounds [16]. Subsequently,
+Liu et al. proposed the Single Shot MultiBox Detector, which pioneered the use of multi-scale
+feature maps to achieve faster inference speeds [17]. Building upon these one-stage foundations,
+the YOLO series has consistently dominated real-time object detection. Recent studies have ex-
+plored YOLOv8 with an anchor-free design and decoupled heads [18], while Wang et al. pro-
+posed YOLOv10 which successfully eliminated the non-maximum suppression step to reduce
+latency [19]. Successive iterations such as YOLO11 and YOLO12 have continued to optimize

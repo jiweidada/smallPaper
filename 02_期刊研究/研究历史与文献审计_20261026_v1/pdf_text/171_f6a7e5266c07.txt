@@ -1,0 +1,196 @@
+Structure Tensor Representation for Robust Oriented Object Detection
+Xavier Bou1 Gabriele Facciolo1 Rafael Grompone von Gioi1 Jean-Michel Morel2
+Thibaud Ehret1
+1Universit´e Paris-Saclay, CNRS, ENS Paris-Saclay, Centre Borelli, France
+2City University of Hong Kong, Department of Mathematics, Kowloon, Hong Kong
+xavier.bou hernandez@ens-paris-saclay.fr
+Abstract
+Oriented object detection predicts orientation in addition
+to object location and bounding box. Precisely predicting
+orientation remains challenging due to angular periodicity,
+which introduces boundary discontinuity issues and sym-
+metry ambiguities. Inspired by classical works on edge and
+corner detection, this paper proposes to represent orienta-
+tion in oriented bounding boxes as a structure tensor. This
+representation combines the strengths of Gaussian-based
+methods and angle-coder solutions, providing a simple yet
+efficient approach that is robust to angular periodicity is-
+sues without additional hyperparameters. Extensive eval-
+uations across five datasets demonstrate that the proposed
+structure tensor representation outperforms previous meth-
+ods in both fully-supervised and weakly supervised tasks,
+achieving high precision in angular prediction with mini-
+mal computational overhead. Thus, this work establishes
+structure tensors as a robust and modular alternative for
+encoding orientation in oriented object detection. We make
+our code publicly available, allowing for seamless integra-
+tion into existing object detectors.
+1. Introduction
+Object detection is one of the classical problems in com-
+puter vision and traditionally localizes objects with horizon-
+tal bounding boxes (HBB) [57]. Nevertheless, certain areas
+such as aerial imagery [31, 34, 41, 48, 55] and scene text
+detection [19, 22, 25, 33] require information regarding the
+orientation of objects for more accurate identification [58].
+Hence, oriented object detection extends object detection by
+predicting oriented bounding boxes (OBB) that better align
+with object boundaries.
+Despite progress in recent years, angular periodicity still
+poses challenges when predicting object orientation. In the
+first place, small variations between prediction and ground
+truth at the angular boundary will cause a sharp loss in-
+a  c
+c  bOBB = (x, y, w, h, θ) T = 𝝀1v1v1
+T + 𝝀2v2v2
+T   = 
+(x,y)
+h
+w
+𝝀1v1
+𝝀2v2
+θ
+(x,y)
+θ
+𝝀2v2
+w
+h
+𝝀1v1
+Figure 1. The proposed angle representation . Comparison be-
+tween the traditional oriented bounding box format (x, y, w, h, θ)
+(in blue) and our structure tensor representation T (in orange).
+Orientation and anisotropy are represented in T by its eigenval-
+ues λ1 and λ2, and their corresponding eigenvectors v1, v2.
+crease. This phenomenon, known as the boundary prob-
+lem [36, 38, 40], can penalize the network while compar-
+ing mathematically similar values. In addition, objects with
+axial symmetry can cause the network to penalize equiva-
+lent angle predictions. For example, π
+2 and − π
+2 radians are
+equivalent orientations for rectangular objects, but their loss
+would be significantly high [36, 53].
+Previous works have addressed these discontinuity prob-
+lems in different manners. Some approaches propose angle-
+coder solutions [40, 43, 53], which transform orientation
+into representations that circumvent angular periodicity
+challenges. These are robust and modular, yet they may re-
+quire extensive hyperparameter tuning. Other methods miti-
+gate these issues by representing OBBs as 2D Gaussian dis-
+tributions [45, 46, 49], and compare the distance between
+these representations through distribution-based computa-
+tions. They elegantly provide a continuous orientation rep-
+resentation though introduce complexity and may lack sta-
+bility. Furthermore, reported improvements focus on mean
+average precision (mAP), without specifically evaluating
+the precision of orientation predictions.
+arXiv:2411.10497v1  [cs.CV]  15 Nov 2024
+
+---PAGE---
+
+Traditional image analysis methods, particularly for
+edge and corner detection [2, 7, 11, 21, 30], have inves-
+tigated the representation of orientation, shape, and sym-
+metry via the concept of structure tensor [1]. A structure
+tensor is a 2x2 symmetric matrix that encodes information
+of the orientation and anisotropy of a local structure. They
+offer two key advantages: 1) the representation of orien-
+tation without boundary discontinuities and 2) the flexibil-
+ity to model different symmetries through their eigenval-
+ues. Moreover, calculating structure tensors is straightfor-
+ward and computationally efficient, which can be done in
+an angle-coder fashion. Thus, as illustrated in Figure 1,
+we propose to represent object orientations as structure ten-
+sors, combining the strengths of angle-coder methods and
+Gaussian-based approaches.
+We perform extensive experiments and compare the per-
+formance of our approach to previous works. We show
+that the structure tensor representation outperforms state-
+of-the-art (SOTA) methods in many cases across five dif-
+ferent datasets on mAP. Furthermore, complementary ab-
+lations justify choices made and show that our approach
+yields strong precision in angular prediction at a low com-
+putational cost. Our contributions can be summarized as:
+• To the best of out knowledge, this is the first work to pro-
+pose to represent orientation in OBBs as structure tensors.
+A simple and modular implementation is made publicly
+available, enabling its integration into any detector.
+• Through extensive experimentation, we show that our
+approach consistently achieves SOTA performance and
+even outperforms existing methods in many cases.
+• We combine the strengths of angle-coder and Gaussian-
+based methods, resulting in a robust, computationally ef-
+ficient solution that elegantly addresses boundary prob-
+lems without requiring additional parameters.
+2. Related works
+Object Detection is one of classical problems in com-
+puter vision that aims to identify instances of visual ob-
+jects in images and precisely estimate their location, pro-
+viding an important piece of information: What objects are
+where? [57, 59]. Similarly to other fields, the advances
+in deep neural networks (DNN) represented large improve-
+ments in object detection, and DNN-based approaches be-
+came the state of the art over classical approaches [35].
+Modern object detectors can be grouped into one-stage de-
+tectors and two-stage detectors. One-stage detectors local-
+ize potential objects over a grid of locations, and deter-
+mine their category in one single step [13, 20, 28]. In-
+stead, two-stage detectors first extract a number of class-
+agnostic bounding box proposals using a region proposal
+network. Then, a sub-network classifies these region pro-
+posals amongst all possible object categories [9, 12, 29].
+While one-stage detectors provide a more time-efficient so-
+lution by merging the regression and classification problems
+into one single step, two-stage detectors generally achieve
+higher performances. Regardless of their type, early DNN-
+based detectors considered a dense sampling of locations,
+known as anchors, to predict bounding boxes in the im-
+age. However, later works proposed anchor-free approaches
+in order to achieve the performance of two-stage detec-
+tors without the computational cost of anchor-based regres-
+sion [6, 16, 32, 50]. More recently, Carion et al. introduced
+DETR [3], a transformer-based method that detects objects
+using a fixed set of learnable queries. The concept of query-
+based detection has had considerable impact in the field, in-
+spiring a progression of recent works [4, 8, 14, 17, 26, 56].
+Oriented Object Detection (OOD). Traditional object
+detection localizes objects via horizontal bounding boxes,
+i.e. boxes aligned with the (x, y) axes. However, in some
+particular domains such as aerial imagery [31, 34, 41, 48,
+55] or scene text detection [19, 22, 25, 33], extracting the
+orientation of objects is preferred [58]. Thus, OOD predicts
+an oriented bounding box (x, y, w, h, θ) instead of the hori-
+zontal bounding box (x, y, w, h), where (x, y) corresponds
+to the center position, (w, h) is the width and height, and
+θ indicates the rotation angle [38]. To achieve this, several
+works adapted popular object detection architectures to han-
+dle the additional angle prediction [5, 10, 18, 37, 39, 44, 52].
+More recently, Yang et al. [48] developed an approach
+that learns to detect oriented objects via horizontal bound-
+ing box supervision, thus considerably decreasing the an-
+notation cost. Their method, coined H2RBox, leverages
+rotational covariance to find the minimum circumscribed
+rectangle inside the HBB. An improved version H2RBox-
+v2 [55] was later introduced, addressing angular periodicity
+and achieving OBB-supervised SOTA performance. More-
+over, some works have proposed to learn oriented detec-
+tion via single point supervision, where only a point is pro-
+vided for each object. However, the performance of these
+methods is still far behind HBB and OBB-supervised ap-
+proaches [24, 54].
+Boundary and Symmetry Problems. The angle regres-
+sion task OOD introduces two well-known challenges:
+1) The boundary problem [36, 38, 40] refers to the ro-
+tation discontinuities that occur due to angular periodicity.
+Small differences between prediction and ground truth at
+the angular boundary will cause a sharp loss increase during
+training, despite both values being mathematically similar.
+2) Symmetry issues [36, 53], caused by rectangular and
+squared-like objects, can also negatively impact the learn-
+ing process. In the case of rectangular objects, a rotation of
+π
+2 or − π
+2 radians yields equivalent bounding boxes. Nev-
+ertheless, the training will penalize a network that correctly
+predicts − π
+2 if the ground truth is π
+2 . Squared objects be-

@@ -1,0 +1,42 @@
+QR-DETR: Query Routing for Detection Transformer 5
+object queries are processed through the decoder layers, undergoing intercom-
+munication and extracting information from the encoded feature mapF.
+Notation. We denote the object queries at stackl of the transformer decoder as
+Ql
+X, where the subscript X corresponds to either the SA (self-attention) or CA
+(cross-attention) operation. We denoteQue, Key, andVal as the query, key, and
+value linear projections, respectively. For clarity, we omit the layer normalization
+and dropout layers from the equations.
+3.1 Preliminary: Architecture of DETR
+DETR processes the input imageI ∈ RH0×W0×C as follows: A backbone network
+encodes I into a feature map, which is flattened into a sequence and processed
+by transformer encoder layers to obtain enhanced pixel embedding sequence
+F ∈ RHW ×d, where C represent the channel numbers,d the embedding dimen-
+sion, while H, W, H0, and W0 denote the spatial shapes, of the input image
+and encoded features. In the transformer decoder, a set ofNq object queries
+Q = {q0, q1, . . . , qNq } ∈ RNq×d, where Nq is typically 300, sequentially undergo
+self-attention and cross-attention. The self-attention allows the object queries
+to interact and share information. The cross-attention enables each queries to
+aggregate relevant information from the encoded feature mapF. This process
+is repeated though multiple decoder stack. Subsequently, multi-layer perceptron
+(MLP) heads process each query from the last stack, providing a set of bounding
+box coordinates and class predictions for the detected objects. Finally, these pre-
+dictions are matched to ground-truth objects via Hungarian matching, and the
+queries with minimal cost are supervised using bounding box (L1 and LGIoU)
+and focal loss for class prediction.
+3.2 Query Importance Across Various Decoder Operators
+a. Self-Attention (SA) layers.The query representationQl are processed across
+the network layers. The updated query representationQl
+SA is computed as:
+Ql
+SA = Ql + SA(Que(Ql), Key(Ql), Val(Ql)) (1)
+Remark. SA layers facilitate inter-query communication, enabling the sharing of
+informative features. Within this layer, due to query communication, each query
+dispersestospecificlocations.Thisspatialdispersionminimizesinterferencefrom
+other queries, crucially aiding in duplicate detection removal [15]. However, it
+is noteworthy that irrelevant queries, those lacking accurate object detection or
+classification predictions, may propagate their uninformative representations to
+relevant queries during this communication process [39].
+b. Cross-Attention (CA) layerscommunicate object queries with the encoded
+feature map F, and integrates features from the input data to enhance object
+358

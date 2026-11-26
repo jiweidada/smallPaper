@@ -1,0 +1,2 @@
+"""346 CPU acceptance trust anchor."""
+BUNDLE_SHA256='36b9811fee5f962b03257ecf7f922d01408014c803378cc870e3531c6f347633'

@@ -1,0 +1,207 @@
+Uncertainty-Aware Gradient Stabilization for Small Object Detection
+Huixin Sun1, Yanjing Li1, Linlin Yang4, Xianbin Cao1†
+, Baochang Zhang2,3†
+1School of Electronic Information Engineering, Beihang University
+2School of Artificial Intelligence, Beihang University
+3Zhongguancun Laboratory, Beijing, China
+4State Key Laboratory of Media Convergence and Communication, CUC
+†Corresponding authors
+Abstract
+Despite advances in generic object detection, there remains
+a performance gap in detecting small objects compared
+to normal-scale objects. We reveal that conventional ob-
+ject localization methods suffer from gradient instability in
+small objects due to sharper loss curvature, leading to a
+convergence challenge. To address the issue, we propose
+Uncertainty-Aware Gradient Stabilization (UGS), a frame-
+work that reformulates object localization as a classifica-
+tion task to stabilize gradients. UGS quantizes continu-
+ous labels into interval non-uniform discrete representa-
+tions. Under a classification-based objective, the localiza-
+tion branch generates bounded and confidence-driven gra-
+dients, mitigating instability. Furthermore, UGS integrates
+an uncertainty minimization (UM) loss that reduces predic-
+tion variance and an uncertainty-guided refinement (UR)
+module that identifies and refines high-uncertainty regions
+via perturbations. Evaluated on four benchmarks, UGS
+consistently improves anchor-based, anchor-free, and lead-
+ing small object detectors. Notably, UGS enhances DINO-
+5scale by 2.6 AP on VisDrone, surpassing prior state-of-
+the-art performance.
+1. Introduction
+Recent advances in deep neural networks (DNNs) [16, 59]
+have substantially improved the object detection field [11,
+33]. Nevertheless, detecting small objects remains a per-
+sistent challenge [55]. For instance, Cascade R-CNN [4],
+one of the most representative two-stage object detectors,
+achieves 45.5% and 55.2% AP on medium and large-sized
+objects but only 23.7% AP on small objects in the COCO
+test-dev set [33]. The significant performance gap between
+small and normal-sized objects limits the effectiveness of
+object detectors in real-world applications, such as driving
+assistance, traffic management, and anomaly detection.
+Epoch 1
+Epoch 12
+Epoch 1
+Epoch 12
+Salient Examples
+Gradient Magnitude
+ConvergedExamples
+Normal Scale Objects RegionSmall Objects Region
+Epoch 1
+Epoch 12
+Epoch 1
+Epoch 12
+Convergence
+Salient
+Convergence
+Salient
+(a)
+(b)
+Normal Scale Objects RegionSmall Objects Region
+Epoch 1
+Epoch 12
+Epoch 1
+Epoch 12
+Convergence
+Salient
+Convergence
+Salient
+(a)
+(b)
+Epoch 1
+Epoch 12
+Figure 1. Gradient magnitude maps based on the ℓ2-Norm of the
+gradient in the regression features [15]. The maps are generated
+using a 1× Faster R-CNN [44] detector with ResNet-18 backbone.
+By epoch 12, most objects exhibit converged gradients (red areas)
+while multiple small object examples (yellow areas) exhibit salient
+gradients, indicating a convergence challenge.
+Due to the limited pixel inputs (under 32×32 [33]), one
+of the primary challenges in small object detection is the
+extraction of discriminative foreground features [32]. The
+challenge is compounded in cluttered environments [5],
+where occlusions, background noise, and low signal-to-
+noise ratio conditions induce feature ambiguity. Conse-
+quently, generic detectors can develop a feature bias to-
+wards distinguishing the foreground from background re-
+gions that resemble it [54]. Recent efforts address these
+problems by increasing the resolution of feature maps [1,
+34], integrating contextual information [10, 56], and em-
+ploying auxiliary self-reconstruction branches [5, 54] to en-
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+8407
+
+
+---PAGE---
+
+Average Object Gradient
+0
+0.15
+0.3
+0.45
+0.6
+Object Scale
+16 64 128 160 256 336 448 512 640 800 1152 2112 5984
+Epoch 0 Epoch 12
+mean
+mean
+Small ObjectsOthers
+Salient
+Salient
+Convergence
+Object Scale
+Epoch 1Epoch 12mean
+Figure 2. Statistics of the average object gradient. Object gradi-
+ent is derived by summing the gradient magnitudes within each
+bounding box based on the gradient maps. The average gradi-
+ent of each object scale is calculated as the mean across objects
+in the corresponding size category. The figure is generated using
+100 randomly selected samples in the VisDrone test [62]. The
+bottom curve (epoch 12) reveals that gradients for medium and
+large objects have significantly reduced after training. In contrast,
+gradients for small objects remain pronounced, indicating the con-
+vergence challenge.
+hance object features. In this work, we analyze the SOD
+challenge from a novel perspective of gradient stability.
+Motivated by prior research on gradient anomalies [38,
+49], we examine the Hessian matrix of the object lo-
+calization losses and demonstrate that conventional meth-
+ods [44, 57] suffer from gradient instability in small ob-
+jects due to the sharper loss curvature, which leads to a
+convergence challenge. We illustrate this phenomenon us-
+ing the gradient magnitudes generated from the localization
+features in Fig. 1. As shown, the detector converges well
+for most objects (red areas) but exhibits salient gradients in
+multiple small object examples at epoch 12 (yellow areas).
+We further quantified the average object gradient based on
+the gradient magnitudes. As shown in Fig. 2, the gradi-
+ents of small objects remain pronounced at epoch 12, while
+those of normal-scale objects converge effectively.
+In light of the analysis, we propose Uncertainty-Aware
+Gradient Stabilization (UGS), a framework that stabilizes
+gradients by reformulating regression as a classification task
+with uncertainty-aware mechanisms. The framework of
+UGS is illustrated in Fig. 4. Building on prior classification-
+based localization methods [29, 42], UGS quantizes contin-
+uous labels into interval non-uniform discrete representa-
+tions to address the label imbalance in small objects. Under
+a classification-based objective, the localization branch gen-
+erates bounded and confidence-driven gradients, mitigating
+instability. To further stabilize training, UGS introduces a
+dual uncertainty-aware mechanism consisting of an uncer-
+tainty minimization (UM) loss and an uncertainty-guided
+refinement (UR) module. The UM loss explicitly models
+and minimizes prediction uncertainty via entropy, reducing
+the prediction variance. Additionally, the UR module lever-
+ages adversarial perturbations to identify and refine high-
+uncertainty regions, thereby improving feature robustness.
+To summarize, our main contributions are three-fold:
+1. A gradient analysis is conducted to investigate the Small
+Object Detection (SOD) challenge, which shows that
+conventional object localization suffers from unstable
+gradients on small objects and leads to a convergence
+challenge. We propose a novel Uncertainty-Aware Gra-
+dient Stabilization (UGS) method to improve gradient
+stability and foster better convergence.
+2. UGS integrates three key components: a classification-
+based localization objective for generating bounded and
+confidence-driven gradients, an uncertainty minimiza-
+tion loss that explicitly models and minimizes prediction
+uncertainty in small objects, and an uncertainty-guided
+refinement module that leverages adversarial perturba-
+tions to identify and refine high-uncertainty regions.
+3. UGS exhibits consistent increases on baseline detectors
+and state-of-the-art small-object detectors, demonstrat-
+ing effectiveness in general object detection and high-
+resolution detection.
+2. Related Work
+2.1. Small Object Detection
+Small object detection remains a major challenge in com-
+puter vision due to the inherent limitations of pixel-level in-
+puts [54]. Key difficulties include weak feature representa-
+tion [32, 34], information loss during down-sampling [24],
+and fewer assigned positives due to higher sensitivity in
+IoU calculations [52, 53, 58]. To address these issues, var-
+ious approaches have been proposed, which can be cat-
+egorized into four main strategies: feature enhancement,
+where methods like [6, 8, 34] improve feature representa-
+tion through advanced architectures and fusion techniques;
+data augmentation and oversampling, where techniques
+like [36, 65] increase the diversity and quantity of train-
+ing data for small objects; scale-aware training, where ap-
+proaches like [31, 47] adapt models to handle objects at
+multiple scales; super-solution-based method, where frame-
+works like [2, 27] enhance small object features by recon-
+structing high-resolution representations. Recent state-of-
+the-art methods focus on label assignment and proposal re-
+finement to ensure both the quantity and quality of propos-
+als for small objects [53, 58]. Additionally, auxiliary self-
+reconstruction [5, 54] and spectral enhancement [48] meth-
+ods have been proposed to enhance the weak representa-
+tions of objects. Our method is orthogonal to existing small
+object detection methods from a new perspective of solving
+the convergence challenge in localization.
+8408

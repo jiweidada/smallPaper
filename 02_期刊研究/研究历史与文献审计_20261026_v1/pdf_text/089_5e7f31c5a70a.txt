@@ -1,0 +1,193 @@
+BLANKSKIP: Early-exit Object Detection onboard Nano-drones
+Carlo Marra†∗, Beatrice Alessandra Motetti†, Alessio Burrello†, Enrico Macii†,
+Massimo Poncino†, Daniele Jahier Pagliari†
+†Politecnico di Torino, Turin, Italy
+∗Corresponding author, email:carlo.marra@polito.it
+Abstract
+Deploying tiny computer vision Deep Neural Networks
+(DNNs) on-board nano-sized drones is key for achieving
+autonomy, but is complicated by the extremely tight con-
+strained of their computational platforms (≈10 MiBmem-
+ory,≈1 Wpower budget). Early-exit adaptive DNNs that
+dial down the computational effort for “easy-to-process”
+input frames represent a promising way to reduce the aver-
+age inference latency. However, while this approach is ex-
+tensively studied for classification, its application to dense
+tasks like object detection (OD) is not straight-forward. In
+this paper, we proposeBLANKSKIP, an adaptive network
+for on-device OD that leverages a simple auxiliary classifi-
+cation task for early-exit, i.e., identifying frames with no ob-
+jects of interest. With experiments using a real-world nano-
+drone platform, the Bitcraze Crazyflie 2.1, we achieve up to
+24% average throughput improvement with a limited 0.015
+mean Average Precision (mAP) drop compared to a static
+MobileNet-SSD detector, on a state-of-the-art nano-drones
+OD dataset.
+1. Introduction
+Nano-drones are small Unmanned Aerial Vehicles (UA Vs)
+that enable unique applications such as indoor exploration,
+infrastructure inspection, and search-and-rescue operations,
+where their agility and small form factor (diameter smaller
+than 10 cm) open scenarios inaccessible to larger sys-
+tems [22]. Operating autonomously in these settings re-
+quires onboard perception: for instance the drone must be
+able to detect and localize objects in real time, without re-
+lying on remote computation offloading, as the latency and
+communication overhead introduced would be incompati-
+ble with fast, reactive flight. However, the hardware aboard
+nano-drones is severely constrained by strict power and
+weight budgets. Platforms such as the Bitcraze Crazyflie
+2.1 [3], equipped with the GAP8 System-on-Chip (SoC)
+Artificial Intelligence (AI) deck [7], offer only a few hun-
+dred MHz of clock frequency, less than 10 MiB of total on-
+board RAM, and operate under a total power envelope of
+a few hundred milliwatts for the compute part [17]. Un-
+der these constraints, even compact Deep Neural Network
+(DNN) architectures designed for embedded devices deliver
+low frame rates, that leave little margin for the multitasking
+required by autonomous flight (e.g., simultaneous naviga-
+tion, obstacle avoidance, and target detection). Existing ap-
+proaches to onboard Object Detection (OD), in particular,
+have focused on compressing DNNs through quantization,
+pruning, and lightweight architectural design [11, 26, 29],
+yielding models that fit within the memory and compute
+budget of embedded processors. Yet these solutions share
+a fundamental limitation: they apply a fixed computational
+graph to every input frame, regardless of its content. This
+is particularly wasteful in nano-drone exploration scenar-
+ios, where a large fraction of frames may contain little to
+no information. Adaptive inference methods [27, 31] ad-
+dress this inefficiency by adjusting compute at runtime in an
+input-dependent way. Among them, Early Exit (EE) DNNs
+have shown promising results in reducing average latency
+for image classification [24]. However, their application to
+OD, and to severely constrained platforms such as nano-
+drones, remains largely unexplored.
+In this work, we propose BLANKSKIP, an EE mecha-
+nism for OD on nano-drones that exploits the sparsity of
+object presence across frames. Rather than applying the
+full detection pipeline to every input, we decompose the
+problem into two sequential sub-tasks: a lightweight binary
+classifier, attached at an intermediate layer of the backbone,
+first determines whether a frame contains any object of in-
+terest; only if so, inference continues through the full detec-
+tion head. This yields a reduction in average latency propor-
+tional to the fraction of empty frames in the scene, directly
+translating into higher effective frame rates and freed com-
+putational budget for concurrent tasks.
+More in detail, the following are our main contributions:
+• We train BLANKSKIPend-to-end with a composite loss
+that jointly optimizes detection quality and early-exit re-
+liability, with class weights enabling explicit control over
+This CVPR Workshop paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+3734
+
+
+---PAGE---
+
+the missed-detection vs. computational savings trade-off.
+• We formulate the joint optimization of branch placement,
+training hyperparameters, and confidence threshold as a
+Bayesian Hyper-Parameter Optimization (HPO) problem.
+• We evaluate BLANKSKIPon two datasets against a static
+(non-adaptive) baseline: on Himax EE, a nano-drone-
+specific dataset from [17], we achieve a mAP of 0.593,
+matching the result of a static baseline using the same
+backbone from the original paper (0.591) while skipping
+39.8% of frames and reducing the average Multiply-And-
+Accumulate (MAC) operations per frame by 22.5%. On
+the more challenging Cityscapes dataset [6], we maintain
+competitive mAP (0.204 vs. 0.229, -11%) while skip-
+ping 26.7% of frames and reducing the average MACs by
+12.1%.
+• We deploy an 8-bit quantized version of our model on the
+Bitcraze Crazyflie 2.1 GAP8 SoC, achieving a mAP of
+0.588 at 1.86 average Frames Per Second (FPS), a 24%
+throughput improvement over the baseline (1.50 FPS),
+with 0.015 mAP drop.
+2. Background and Related Works
+2.1. Nano-drone computational platforms
+As our target for deployment, we consider the Bitcraze
+Crazyflie 2.1, a Commercial-Off-The-Shelf (COTS)
+quadrotor with a diameter of 10 cm and a weight of
+27 g [3]. The drone is operated by an STM32F405 Micro-
+controller Unit (MCU) dedicated to state estimation and
+actuation control. The platform can be extended with com-
+panion boards, most notably the AI-deck, which embeds a
+GAP8 SoC from GreenWaves Technologies [7]. GAP8 is
+a parallel ultra-low-power processor based on the RISC-V
+architecture, designed for Digital Signal Processing (DSP)
+and AI applications, featuring one fabric controller core
+and a cluster of 8 additional cores clocked up to 175 MHz,
+designed for parallel workloads acceleration. The on-chip
+memory hierarchy consists of 64 kB of L1 scratchpad
+shared among the cluster cores and 512 kB of L2 SRAM
+on the fabric controller side. The AI-deck further provides
+a Himax HM01B0 ultra-low-power grayscale camera and
+off-chip L3 memories (8 MB RAM and 64 MB Flash)
+accessible via HyperBus.
+2.2. Object detection on constrained devices
+Deploying OD on resource-constrained devices has at-
+tracted growing research interest, driven by the demand for
+real-time onboard perception in mobile and embedded sys-
+tems. The Single Shot Detector (SSD) [21] has become a
+widely adopted framework for this setting, consisting of a
+feature extraction backbone and multiple convolutional pre-
+diction heads. MobileNets [11, 26] are commonly used as
+low-cost backbones for SSD in embedded contexts. Com-
+pact end-to-end detectors such as You Only Look Once
+(YOLO) Nano [29] have also been explored, leveraging
+Neural Architecture Search (NAS) driven design to mini-
+mize both model size and inference cost; while SSD-based
+models offer a more compelling speed advantage, YOLO-
+based alternatives usually trade some throughput for im-
+proved detection accuracy and robustness [14].
+These architectures are typically further compressed for
+deployment via post-training quantization [12] and struc-
+tured pruning [8]. Nevertheless, deploying such mod-
+els on severely constrained platforms remains challeng-
+ing: the work of [28] reports only 0.71 FPS running
+SSDLite-MobileNetV2 on a Raspberry Pi B3+ mounted on
+a standard-sized drone, already exceeding the power and
+size budget of nano-drone systems. The authors of [16]
+demonstrate a more power-efficient deployment on a GAP8
+MCU, achieving 1.6 FPS at 117 mW, yet relying on a fixed
+computational graph regardless of input content.
+Adaptive inference.The goal of adaptive inference is to
+dynamically adjust the computational cost at runtime based
+on the complexity of each input [9]. Several directions have
+been explored: Slimmable Networks [31] allow a single
+model to operate at different channel widths, while cascade
+approaches route easy inputs through lightweight models
+and hard inputs through heavier ones [20]. In EE models,
+side-branch classifiers are inserted at intermediate layers,
+and inference is terminated as soon as a confidence crite-
+rion, typically entropy-based, is met.
+BranchyNet [27] introduced the EE paradigm, demon-
+strating that a large fraction of inputs can be correctly classi-
+fied at shallow layers with significant latency savings. A key
+advantage of EE, which makes this solution deployment-
+friendly, is that input-adaptive compute is achieved within a
+single model, without the memory overhead of multiple net-
+works, except for the extra branch, which is usually negligi-
+ble. While this is also true for Slimmable networks [31], the
+latter introduce additional complexity during inference (ex-
+tra routing logic, partial loading of each layer’s parameters,
+which influences optimal computation scheduling, etc).
+However, while EE has been extensively studied for im-
+age classification [24, 27, 31], its application to dense tasks
+like OD remains largely underexplored. This is mainly be-
+cause entropy-based EE criteria designed for classification
+do not naturally extend to tasks such as OD, which produce
+dense outputs (grids of bounding box locations and class
+probabilities), each with its own score distribution.
+AdaDet [30] addresses this gap by integrating detec-
+tion heads at intermediate backbone layers and introducing
+a bounding-box uncertainty criterion to assess exit confi-
+dence, while DynamicDet [20] adopts a cascade of two de-
+tectors with a learned difficulty router. These works, how-
+ever, target high-power GPU platforms and are incompati-
+ble with the tight computational constraints of nano-drone
+3735

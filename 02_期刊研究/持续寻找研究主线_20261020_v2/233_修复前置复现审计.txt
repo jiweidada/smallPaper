@@ -1,0 +1,24 @@
+233｜223 前置 GO 复现失败的只读源码核查
+
+224 state=error，stage=A_development_batch00，saved native union reproduction 失败；0 completed batches，未产生任何修复候选结果，全部来源 hash 不变。原 222/223/224 保留。
+
+源码核对结果：
+1. evaluate_rules.py 的 branches 顺序是 final、aux_0、aux_1、pre、enc_0；analyze 直接以 matches[0], matches[1:] 调原生 _get_go_indices。223 的顺序一致，不存在漏层或把 pre/encoder 对调。
+2. branch_matches 保存原 (query,GT) 两列；asmap 映射 q→GT。quality 只把 q 排序后保存对应 GT，不改 owner。223 方向正确。
+3. diagnostic_extension_v2.py 只添加 tie_sensitivity/DN/overflow 信息，原 mapping 不变；它已保存每 q 所有最高票 GT 及 production_U0_GT，说明保存的 G0 有独立可核对的投票见证。
+4. 原生 criterion 对合并的 (q,g) 做 torch.unique(...,dim=0,return_counts=True)，再 torch.argsort(counts,descending=True)。未指定 stable=True。安装的官方 torch/_torch_docs.py（argsort 文档，约9832行）明确 stable=False 不保证等值相对顺序。原 Linux torch 2.5.1+cu124 CPU 匹配与本机 Windows 2.5.1+cpu 并不承诺相同并列择解。不能仅凭这一点先认定具体差异全部合法，也不声称已定位到某个底层编译器函数。
+
+root 随后运行 235 的窄 JSON 审计，未加载 prediction tensor、checkpoint、模型或 heldout。16 个固定 development JSON 的原 branch votes 均可严格重建；当前原生重放与保存 G0 在 566 个 q、50/64 曝光上不同，A 为261 q/27曝光，B为305 q/23曝光。每个不同 q 的 saved/rebuilt GT 都是该 q 同频最高票 GT，没有非最高票差异。235 给出完整 q 差异清单、输入 hash、运行时和源码 hash。
+
+因此本次已证实的兼容问题是“同票合法择解在保存生产环境与当前 CPU 构建中不同”，不是层顺序/列方向错误，也不是候选修复阴性。保存的 G0 才是冻结预算基线，不能换成 Windows 重放 G0；并列可能改变各 GT multiplicity，替换会改变本实验问题。
+新增236/237将只修订前置验证：逐项重建票数、最高票见证、原 tie_sensitivity，并要求全部差异与已冻结235名单相同；保留原 G0/预算、final own rematch、成本、L1和所有方法门槛。此时尚无修复结果，不是在效果出来后放松门槛。不得修改原222/223或把224改为完成。
+
+关键文件 SHA256：
+223：86ba26409d7a596cd085b7364e6588b25121a016e103803a613befc3a481c533
+224/01_results.json：065159ea235227d0950df26ed48cacb09645f546d99ef7c9e74eed8a37867eb7
+235_GO前置CPU并列复现_只读JSON审计.json：4f2b4f4ef60e3540ab259ac347675395cb293a4788f4711e1974c32b3463b8e9
+evaluate_rules.py：c8e4ca196cb8f33b225ee0133849058eb65c1f1a2707236051f85de8d89c95b8
+diagnostic_extension_v2.py：e7a3becd950ae3525eee936893298cb1916b3a951b8431e6ce712974f1d3a364
+native deim_criterion.py：16cdd80b2197b8def8ee3f5f19f6311f5221c3da08abacb99f50d346610a2c30
+
+本文件仅只读来源说明；本作者没有运行审计或反序列化预测。

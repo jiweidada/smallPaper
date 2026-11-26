@@ -1,0 +1,34 @@
+274：固定窗真实候选回收与Geo0分解（执行前冻结）
+275默认输出新276_BASE24_residual_candidate_replay。仅编写供主控执行；不运行模型/CP/new forward/criterion forward/autograd/训练/远端/heldout。不修改261–263的screen或历史文件。
+
+1 输入、身份与候选后处理
+固定原BASE24双seed development batch00–07，共16缓存。沿237完整source/输入/recipe/真实own及saved GO并列兼容验证。读取原PT中的完整final300、pre300、aux_0/aux_1各300及真实训练管线targets；这是训练图的增强development缓存，不是伪造GT或自然val AP。需要的完整框、10类logits均已存在，不新增采集。直接读原PT，不重复解包244 NPZ。
+263/00、01、02及16 batch JSON先锁SHA。重新产生原P及P100，必须逐项对齐263保存的flatten top300、score>.001的P_flat/P_scores/P_boxes、P100顺序及.5 baseline匹配/greedy。失败为实现/身份问题，不作为方法阴性。
+原P来自sigmoid(query×class) flatten top300，允许同query多类；P100为每类稳定score降序最多100。追加候选时保留原300个query的全部框与logits，再追加候选的完整10类logits和对应框，执行相同native后处理、threshold=.001和每类100；不改分数、温度、阈值、原topK或旧框。
+
+2 新分解，绝不替换263旧screen
+G_geo0^300={g:max_{全部300原final框q} IoU(b_q,g)<.5}，忽略类别/score/budget，使用当前真实输入像素下native FP32 IoU，非法非正面积框IoU边0。GT实际tiny仍为normalized GT提升FP64后短边×当前W/H<4。逐图保留G_geo0、P100真类degree0、有边但最大匹配未覆盖的区别。
+仅用263已选A_density、B_residual窗；不使用C oracle，不换成UI后来提出的class-aware/max-stage选窗。NA保持NA。每窗按原64px/末边裁格、完整可见定义，主描述为min(4,窗内完整可见Geo0数量)，tiny同理，逐图相加。它是新诊断而不是263理想槽screen的改写，不自动许可训练。
+
+3 固定真实候选与三种操作
+源池严格pre、aux_0、aux_1，排除enc_0。每stage每query的原263残差贡献为
+ r_sq=max_c sigmoid(logit_sq,c) × [1−max_{p∈原完整P} IoU(box_sq,box_p)]。
+native FP32 IoU，maxIoU截至[0,1]，乘积FP64；不输入GT。非正面积框无资格。每query先在三stage全局选择最大r，等值依pre、aux_0、aux_1；之后检查该胜出stage中心是否落固定窗，不能在窗内重新选另一个次优stage。零贡献的合法记录允许排名末尾，不另加score门槛。每窗按r降序、stage顺序、原query id升序取最多8。
+过滤keep=候选框与原全部final300框的class-agnostic最大IoU严格<.5，恰等.5不保留。三臂：
+ take4：排名前4；
+ take4thenfilter：先取前4再过滤，不补位；
+ take8filterthenkeep4：最多8先过滤，按原排名保留前4。
+选择、排序和过滤都GT-free。每候选只选一个stage，但追加后仍有完整10类，不能把它强制变成argmax单类。不同臂实际追加数量可0–4；必须如实记录，不用虚拟候选补齐。
+
+4 实际读数与过滤错误
+主真实读数为IoU.5逐类score greedy/cap100的unique GT集合，比较相同基线，报告新增、丢失、交集、TP和FP=保留P100候选数−greedy TP；tiny、Geo0、tiny∩Geo0分组。最大匹配只作容量描述（全GT及tiny组独立），不当AP，也不解释任意最大匹配身份为唯一救回。
+记录真实进入flatten top300/阈值后和P100的新增query/类别候选数量，防止把追加前的高IoU候选当实际命中。记录每个top8来源、原logits/框、原残差、所选stage、maxIoUfinal、过滤去留，以及其几何命中的Geo0 GT及对应真类原分数。
+“filter误删”分两层：几何上可命中Geo0但被剔除的候选/unique GT数；take4实际greedy恢复的Geo0在take4thenfilter中消失的GT。前者不是实际部署TP，后者也保留同臂新增/丢失/FP全表。IoU非传递，过滤并非安全定理。
+
+5 含错条件与自然对象共存，只描述不推因果
+仍取原完整P，与固定窗有正交面积的条件框。若它对全图所有GT不存在同真类IoU≥.5边，记“无解释边条件”；不能仅因它在一次匹配未分配就判错。按其与任意GT最大IoU分为≥.5类别不符、(0,.5)部分几何重合、0无标注重合，非法框另报；不把无标注重合自动断言为真实背景。
+与完整可见Geo0同窗的条件数量、至少正交面积重合的Geo0 unique GT数量及tiny数量分别列出。正交面积是IoU>0，不设置距离/rho阈值。P同q多类作为不同条件实例计数，另列unique query；不声称这些共存关系证明条件造成漏检或补全模型已学会抵抗错误条件。
+
+6 执行与合成
+复用冻结262的纯函数，不调用其main；继续使用237真实身份验证。先合成后读缓存：原flatten多类、threshold/cap100/最大匹配与greedy等检查保留；另测同query stage tie、先选stage后选窗、零贡献尾部、take4/先筛后补差别、完整10类追加进入原生top300，以及非传递反例：GT=[0,0,1,1]，原框=[.6,0,1.6,1]，候选=[.3,0,1.3,1]。原框对GT IoU<.5，但候选对GT与原框均IoU≥.5，故可被过滤误删。
+CPU2、interop1、[13,15]、BelowNormal、freeRAM>8GiB、MKL SEQUENTIAL；固定16 PT读取/身份验证，0模型/CP/新forward/criterion forward/autograd/update/heldout。缓存后处理纯函数和小图匹配另计数，不伪装模型forward。预计数十秒至数分钟，主控审查后调度。新276保存逐batch/逐窗全表、完整汇总及所有输入/输出SHA，不覆盖旧文件。所有结果只作描述诊断；没有新增学习/显著性/AP准入门槛，也不从本次结果反改原263。

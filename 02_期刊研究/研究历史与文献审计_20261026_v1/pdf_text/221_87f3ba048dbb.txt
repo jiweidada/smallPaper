@@ -1,0 +1,100 @@
+ 
+ 
+ 
+ 
+Electronics 2026, 15, 1075 https://doi.org/10.3390/electronics15051075 
+Article 
+Scale-Aware Mosaic Augmentation and GSIoU-Based Varifocal 
+Loss for Robust Object Detection Under Scale Imbalance 
+Gyeongseo Kim 1, Jeonghyeon Kim 1, Sounghwan Hwang 2 and Han Sol Kim 1,* 
+1 Department of Electronics and Electrical Engineering, Dankook University, 152 Jukjeon-ro, Suji-gu,  
+Yongin-si 16890, Gyeonggi-do, Republic of Korea; gingseo@dankook.ac.kr (G.K.);  
+jeongh@dankook.ac.kr (J.K.) 
+2 School of Aeronautics and Astronau tics, Purdue University, West Lafayette, IN 47907, USA; 
+hwang214@purdue.edu 
+* Correspondence: ha nsol@dankook.ac.kr 
+Abstract 
+The performance of deep learning-based object detection methods is heavily dependent 
+on the characteristics of training data. Ho wever, real-world detection datasets often 
+exhibit severe imbalance in object-scale distributions, resulting in insuﬃcient supervision 
+for object sizes with limited instances. To address this issue, we propose a scale-aware 
+mosaic augmentation algorithm and a generalized scale-adaptive intersection over union 
+(GSIoU)-based varifocal loss (VFL) function. The proposed scale-aware mosaic 
+augmentation method alleviates object-scale  imbalance by explicitly regulating scale 
+distributions during training sample co nstruction, overcoming the tendency of 
+conventional mosaic augmentation to preserve inherent dataset imbalance. Furthermore, 
+to handle the limitation of existing IoU-based quality targets that impose relatively large 
+penalties for small objects, we replace the lo calization quality target in VFL with GSIoU, 
+thereby enabling more consistent classi ﬁcation performance across object scales. We 
+evaluate the e ﬀectiveness of the proposed method by  applying the proposed method to 
+RT-DETRv2 and conducting experiments on the HRSC2016-MS dataset. Experimental 
+results demonstrate that the proposed meth od improves the overall average precision 
+(AP) by 1.11AP over the baseline, with a particularly notable improvement of 16.43AP in 
+small-object average precision, conﬁrming that the proposed approach achieves balanced 
+detection performance across object scales. 
+Keywords: object detection; scale imbalance; da ta augmentation; mo saic augmentation; 
+varifocal loss; small object detection 
+ 
+1. Introduction 
+Object detection is a fundamental task in computer vision and has been widely 
+adopted across a variety of real-world applications, including autonomous driving, video 
+surveillance, and satellite imagery interpretati on. According to recent  studies (see, e.g., 
+[1]), the performance of deep learning-based detectors exhibits a logarithmic relationship 
+with respect to the amount of training data, such that increasing the size of training data 
+consistently leads to better generalization and overall accuracy. In addition to the amount 
+of training data, distributional bias in training data can signi ﬁcantly degrade detection 
+performance. Accordingly, data imbalance has been widely studied in object detection, 
+Academic Editor: Yue Wu 
+Received: 27 January 2026 
+Revised: 19 February 2026 
+Accepted: 2 March 2026 
+Published: 4 March 2026 
+Copyright: © 2026 by the authors. 
+Licensee MDPI, Basel, Switzerland. 
+This article is an open access article 
+distributed under the terms and 
+conditions of the Creative Commons 
+Attribution (CC BY) license. 
+
+---PAGE---
+
+Electronics 2026, 15, 1075 2 of 18  
+https://doi.org/10.3390/electronics15051075 
+particularly under the class long-tailed learning paradigm [2–4]. However, real-world 
+detection datasets often exhibit long-tailed di stributions arising not only from instance 
+category frequency but also from factors su ch as object scale and data acquisition 
+conditions. In particular, satellite and aerial imagery contain objects with substantial size 
+variation, ranging from large structures such  as ships to small targets like vehicles, 
+resulting in highly imbalanced object size di stributions. Despite its practical relevance, 
+object size imbalance received limited a ttention compared to other forms of data 
+imbalance in object detection. 
+Objects of diﬀerent sizes present diﬀerent visual attributes and have a direct impact 
+on detection performance. Figure 1a illust rates the object-scale distribution of the 
+HRSC2016-MS dataset [5]. As shown in the ﬁgure, large-scale objects constitute the 
+majority of annotated instances, while small-scale objects appear far less frequently. 
+Consequently, small objects contribute less to  the training process, receiving fewer and 
+weaker supervision signals. A sample image from the HRSC2016-MS dataset is given in 
+Figure 1b, where ground-truth boun ding boxes are visualized using di ﬀerent colors 
+according to the COCO benchmark [6] scale de ﬁnitions. From the ﬁgure, it can be 
+observed that objects with signi ﬁcantly di ﬀerent spatial extents coexist within a single 
+image, which results in diﬃculty learning scale-invariant feature representations. 
+ 
+Figure 1. (a) Object-scale distribution of the HRSC2016-MS dataset, where instances are grouped by 
+bounding box area into scales. (b) Example image from the HRSC2016-MS dataset illustrating objects 
+at different scales. The bounding boxes were classified into three colors according to the object size. 
+To address scale variation, prior work has explored various strategies, including data 
+augmentation techniques such as mosaic [7], crop, and multi-scale training [8], to enhance 
+scale diversity. In parallel, architectural modiﬁcations, such as feature pyramid networks 
+[9] and multi-resolution feature representations [10], have been proposed to better capture 
+objects at di ﬀerent scales. While these approaches have demonstrated e ﬀectiveness in 
+improving overall detection performance, they  do not explicitly address the underlying 
+imbalance in object size distributions present in real-world datasets. As a result, 
+insuﬃciently sampled objects receive weaker supervision during training, and this 
+limitation disproportionately aﬀects small objects. 
+In addition to the scale imbalance in the dataset, detecting small objects is also 
+challenging because it occupies only a limited number of pixels relative to the overall 
+image resolution. Therefore, small objects are inherently sensitive to annotation noise and 
+matching errors during trai ning. Compared to large objects, even minor localization 
+inaccuracies can result in substantial relative misalignment for small objects, leading to 
+unstable positive sample assignment and we akened supervision signals. Motivated by 
+this concern, several IoU variants have be en proposed to provide more informative 

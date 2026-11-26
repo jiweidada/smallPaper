@@ -1,0 +1,83 @@
+252 B：自适应分布回归近邻查新
+2026-10-21；受托独立查新；只读本地设计与公开原文/作者源码；未执行模型、缓存统计、梯度或训练。
+
+结论先行
+
+在本次实际亲读的方法公式与作者代码范围内，没有核到完整的“保留原 pre 四边，以 max(reference 尺寸, 4 个真实输入像素) 作为有符号 FDR residual 单位，正逆编码同步”先例。这个结论仅是限定阅读范围内未发现同式，不是穷尽查新或首次证明。
+
+但广义主张已经明显不足：分布残差采用独立于当前预测框的尺度单位、调整有限分布支持、用非均匀网格改善小目标定位学习、依据先验或不确定性改变下一阶段 bin 区间，都有实际公式。不能把“自适应分布回归”“解耦 base 与 residual 尺度”“改变网格有助于小目标”本身包装成创新。F4 剩余的是一个小而明确的条件参数化：预测 reference 极窄时，用物理下限改变内部节点与监督编码，而不是改变 base box；是否有任务价值，仍要面对同支持 E4。
+
+本轮查新期间，root 已回交 244：按 229 原主群体，A/B 分别 1170/1066 槽，k4 新增可达 2/0，all300 新增 tiny 也是 2/0，主 screen=mixed 未通过。这里如实采用 root 已核结果，未独立重算244。故本文件不再推荐把精确 F4 版本作为已保留的 N/E4/F4 训练主线；k8 的 11/11 或其他敏感性不能替换 k4。此停止来自原协议，既不等于 AP 阴性，也不等于已证明所有内部标度方法无效。
+
+一、核查对象与代数区别
+
+本地只读依据：226_A_FDR固定物理步长_设计与原文边界.txt、239_A_物理标度候选值得训练与否_最低证据.txt。既有 DFINE/GFL/FCOS/YOLO26/SABL/FasterRCNN 对照由239保留，此处不重复大段综述。
+
+令原 pre reference 为 (cx,cy,w,h)，实际输入为 H×W，R=4，33 个原节点为 a_j∈[-R,R]，μ=Σ_j p_j a_j。水平原 base 是 bL=cx−w/2、bR=cx+w/2；s=max(w,4/W)。F4 的两边为 bL−sμL/R、bR+sμR/R；纵向用 max(h,4/H)。逆编码为 dL*=R(bL−gL)/s、dR*=R(gR−bR)/s。零 residual 返回原 pre box；没有把 w/2 换成 s/2。
+
+E4 保留 w/R，仅将节点 a_0、a_32 乘 α=s/w，内部31节点保持原值；各自按真实节点编码 target。两者闭物理支持严格相同，bin 数与输出维度也相同。同一 PMF 下，F4 的有效 raw 均值为 αμ，E4 为 μ+R(α−1)(p_32−p_0)。故二者差的是内部位置、相邻 target 插值、几何 Jacobian 及其学习反馈；不能把 F−E 叫作“扩大可达域的贡献”。这也不是硬量化到4像素：期望与两 bin 插值仍连续。
+
+二、本次新增亲读原文与作者代码
+
+1. Distribution Aware VoteNet（DAVNet），AAAI 2022。
+亲读出版社 PDF 的 Distribution Aware Regression、Eq2/4；未取得可验证的作者实现。
+原文：https://cdn.aaai.org/ojs/20049/20049-13-24062-1-2-20220628.pdf
+出版社：https://ojs.aaai.org/index.php/AAAI/article/view/20049
+它预测归一化 residual 分布，Δφ~=Δφ/δφ，φ含中心、尺寸和角度；期望给出 residual。尺寸单位为类别平均宽高长，中心横向单位 δx=δy=max(w_mean,l_mean)，δz=h_mean，δθ=π。这里的“scale adaptive encoder”另指 proposal 内特征采样，不能与 residual 单位混为一谈。
+判定：已明确实现“residual 分布的单位不必等于当前预测框尺寸”。但所读式是类别统计单位，未给 reference 尺寸与输入像素 floor 的 max，变量也不是原 pre 四条边的 signed FDR。不是完整 F4 特例。
+
+2. Confidence-driven Bounding Box Localization for Small Object Detection（C-BBL），arXiv:2303.01803v1。
+亲读 §3.1–3.3、Eq1/9–12；未取得作者代码，不从第三方列表推断实现。
+原文：https://arxiv.org/html/2303.01803v1#S3
+它仍用 Tx=(x−xa)/wa、Tw=log(w/wa) 等 anchor 编码；对称非均匀节点可写为 y'_j=sgn(y_j)·α[exp(β|y_j|)−1]/[exp(αβ)−1]，预测值为 Σp_j y'_j，两邻点 CE 的 logit 梯度为 p−p*。
+判定：小目标梯度问题、残差非均匀网格及一致软标签已被直接研究；F4 不能独占这些动机。其物理位置仍由 anchor 单位还原，所读公式没有保持四边 base 的像素下限。文中讨论的“小 anchor 使 offset loss 梯度变大”也不能直接替换成当前 decoded-box L1 经小 reference Jacobian 变小的论证。
+
+3. IEBins，NeurIPS 2023；作者库还列 IJCV 2025 扩展，后者本轮未读全文。
+亲读 NeurIPS/arXiv §3.1 Eq4–7，另读作者当前 main 的两个实现文件。
+原文：https://arxiv.org/html/2309.14137v1#S3.SS1
+出版社 PDF：https://papers.neurips.cc/paper_files/paper/2023/file/a61023ce36d21010f1423304f8ec49af-Paper-Conference.pdf
+论文以 Dhat=Σp_j D_j，σ²=Σp_j(D_j−Dhat)²，给包含预测值的目标 bin [e_n,e_{n+1}] 两端增加 κσ，再重新均匀划分。它已直接处理“GT 掉出迭代有限搜索域”的问题。所读式没有参考尺寸趋零时的固定物理下限。
+代码：https://raw.githubusercontent.com/ShuweiShao/IEBins/main/iebins/networks/depth_update.py
+调用处：https://raw.githubusercontent.com/ShuweiShao/IEBins/main/iebins/networks/NewCRFDepth.py
+源码核到 update_sample 的 active mode='direct'：depth_range=uncertainty_range，start=max(depth_r−0.5·range,min_depth)，再均分并 clip 到全局 depth 范围；调用传入的 range 是预测标准差。它与论文扩展目标 bin 的写法不完全相同，须分别记录。min_depth 是合法深度坐标下界，不是 residual 单位的最小宽度；range=0 时不会因此获得正区间宽度。
+
+4. DegBins: Degradation-Driven Binning for Depth Super-Resolution，arXiv:2605.09628v1，2026预印本。
+亲读 §3.2 Eq2–7；未取得作者代码，不采用检索中的第三方综述作为公式证据。
+原文：https://arxiv.org/html/2605.09628v1#S3.SS2
+它按逐像素 [vmin,vmax] 均分，W=(vmax−vmin)/N，以 bin 中心的 PMF 期望预测；选中区间再扩为 [u_n−γσ,u_{n+1}+γσ]，σ来自局部 degradation feature 方差。
+判定：逐位置自适应有限支持及残差分布细化已有，不能仅换成检测场景算新。其控制变量是 degradation 与上一阶段区间，未直接包含 reference 尺寸/输入像素 max-floor；也未提供本项目的同支持端点控制。泛泛增加 uncertainty/head 并不是足够的后续新设计。
+
+5. ScopeMamba-YOLO，arXiv:2609.10156v1，2026-09-09预印本。
+亲读 §III-E Eq12/13 及该段消融解释；本轮未取得该 SA-DFL 的作者代码。
+原文：https://arxiv.org/html/2609.10156v1#S3.SS5
+它在 stride [4,8,16] 上用 K=[24,16,10]，dhat=Σ_{j=0}^{K_i−1} j p_j；物理单位仍是 stride。变化是支持长度、bin 数和回归分支容量，文中也明确没有缩小相邻 bin 间距。
+判定：scale-adaptive DFL/按尺度改支持的名称与大方向已有，但不是同33节点、同 pre base 的逐 query 内部尺度 floor；不能把它当已实现完整 F4，也不能声称 F4 首次让分布回归适应尺度。
+
+6. ContourFormer，arXiv:2501.17688v1。
+亲读 §3.2 Eq2/3；取得作者 decoder.py 和 contour_utils.py。
+原文：https://arxiv.org/html/2501.17688v1#S3.SS2
+论文为 v^l=v^0+{Wc,Hc}Σ_n W(n)Pr^l(n)，base contour 与 residual 分开，实例外框尺寸控制位移。这是 D-FINE 结构的直接扩展，不含所读 max-floor。
+代码：https://raw.githubusercontent.com/talebolano/Contourformer/main/src/zoo/contourformer/decoder.py
+工具函数：https://raw.githubusercontent.com/talebolano/Contourformer/main/src/zoo/contourformer/contour_utils.py
+当前 distance2point 用未指定 dim 的全局 max(points[...,0])−min(...) 取 w，并用 points_x+(0.5R+distance_x)w/R；clip(min=0)仅防负值。它与论文实例尺度/零偏置 residual 表达不完全一致，也未实现正像素 floor。不能以论文“instance-specific”一句代替代码核验，更不能把这处实现差异误作本候选的新方法。
+
+作者代码范围说明：上述是2026-10-21访问的公开 main 页面，未下载权重、未执行、未将版本固定到历史发表 commit。已经读到具体函数不等于复现论文数值；未取得代码者明确不作隐藏实现断言。
+
+三、哪些仅是线索，哪些没有作为结论
+
+AdaBins、LocalBins、BinsFormer 在检索或上述原文引用中出现，说明学习网格是成熟方向；本轮未独立复核其全部方法与代码，不把它们当“已包含 exact F4”的证据。Adaptive Spatial and Scale Label Assignment、若干 adaptive IoU/DFL 加权工作只读到摘要或检索片段，其作用可能是 assignment/损失权重；没有用名称就判同法。第三方解读、ResearchGate 摘录、聚合网站也没有承担方法否定依据。
+
+本轮检索组合包括 reference-dependent distribution support/scale、minimum physical regression scale、adaptive distribution regression、adaptive/dynamic bin range、bounding-box non-uniform bins、D-FINE adaptive regression bins，以及新增论文标题加 author-code。搜索存在漏检、索引与版本局限；“无结果”从未记作新颖性证据。公开原文足以支持本文限定对比，不另扩旧library或保存大批未读条目。
+
+四、可实施残余变量与研究取舍
+
+最值得保留在资产中的并非“4像素”这个名字，而是物理节点的两种构造：
+ F：v_j=b^0+sign·max(w,4/W)·a_j/R；
+ E：相同两端 v_0/v_32，内部 v_j=b^0+sign·w·a_j/R。
+同 reference、同支持、同33 logits 下，它们对概率质量的物理位置分配不同，且 inverse/FGL target 必须各自同步。这是可以直接落实在 integral/decode 与 target interpolation 中的变量，最强简单对照仍是 E4；原生 N 则判净任务价值。既有论文证明广义网格设计早已可研究，并没有证明这一个受控对比必然无价值。
+
+然而，单独加一个 max 所形成的设计量目前偏小；不能仅凭代数不同宣称足够发表。若将来另有正当、重新登记的研究问题，真正能增加实质内容的是解释同支持内部参数化在具体失配群体中的可重复学习后果，而不是再做一遍 oracle 支持数。这里不要求先用虚拟一步或冻结 AP 证明训练结论，也不以文献相似性永久禁止实验。
+
+当前裁决保持更窄：244已经让本次精确 F4 必要前提未过，所以本轮不申请这组三臂训练，不用本报告“未见同式”覆盖原停止条件。IEBins/DegBins 所启发的“根据不确定性换区间”有先例，直接接入也不足以成为新的实质主线；若要另做，必须先定义与已有自适应区间不同的具体作用变量，不能把 k8、改群体、换名称当继续理由。本次查新没有足以诚实提出的新独立机制，故不硬凑第二候选。
+
+本报告新增的是可复核的近邻边界和同支持控制解释，不是新训练结果、AP证据、创新成立或训练许可。未修改226/229/239/244或其他历史证据。

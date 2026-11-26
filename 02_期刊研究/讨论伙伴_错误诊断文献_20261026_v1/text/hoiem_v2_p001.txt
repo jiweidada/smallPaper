@@ -1,0 +1,41 @@
+Object Detection Analysis Code (v2)
+Derek Hoiem
+University of Illinois at Urbana-Champaign
+July 31, 2014
+1 Overview
+Object detection is an important part of computer vision. Typically, the task is deﬁned as providing the
+bounding boxes that correspond to each instance of an object category, such as “person” or “car” in a
+collection of images. Hoiem et al. [3] introduced a set of tools to interpret the performance of such object
+detection systems. We have updated those tools. In this document, we provide a brief description of the tools
+with some added commentary on their use. Consult the text ﬁle included in the code package for details on
+usage. When using the error analysis tool, please cite the original Hoiem et al. ECCV 2012 paper.
+2 Updates
+Version 2 of the detection analysis tool includes the following updates:
+• Code is rewritten to improve readability and make it easier to adapt to new datasets and detectors.
+See the text ﬁle included in the code package for a more detailed description of how to use the code.
+• A new visualization that shows both false positive trends and recall as a function of detection rank is
+included, which provides an easily interpretable summary of detector performance.
+• Weak and strong localization criteria can be easily set, though defaults are the same as previous version.
+3 Analyzing detector performance
+F alse Negatives: Detectors may miss objects for a variety of reasons, such as unusual appearance, low
+resolution, occlusion, perspective eﬀects, and so on. Such misses or low-conﬁdence detections are called
+false negatives. On the PASCAL VOC 2007 dataset, our original tool characterizes performance for objects
+with various characteristics using the normalized AP measure. This measure normalizes the computation of
+average precision to balance for the number of positive examples in the subset of objects under consideration.
+A complete description and justiﬁcation of these tools is in the original paper [3].
+F alse Positives: Detectors may also incorrectly assign bounding boxes that do not accurately cir-
+cumscribe an object from the target category. Such errors are called false positives. We characterize false
+positives as due to localization error (bounding box overlaps with a target object but not well enough to
+meet the VOC criterion), confusion with similar objects (e.g., confusing a motorcycle for a bicycle), confusion
+with dissimilar objects (e.g., confusing a potted plant for a bicycle), and confusion with background (e.g.,
+confusing a pair of glasses or another unlabeled object/surface for a bicycle).
+The PASCAL VOC criterion for localization is 0.5 intersection/union of the detection bounding box with
+the ground truth bounding box. We call this criterion “strong” localization and consider “weak” localization
+to be 0.1 intersection/union. While it is possible for a detection to accidentally achieve 0.1 intersection/union,
+we ﬁnd that conﬁdent detections that are weakly localized are often reasonable mistakes, such as providing a
+box around the cat head but missing the body, or grouping a pair of nearby airplanes into one bounding box.
+In this update, we experimented with changing the weak localization criterion (speciﬁcally requiring that the
+detection box is mostly contained in the ground truth box) but found that doing so incorrectly characterized
+detections that appeared to be localization errors as background.
+See Hoiem et al. [3] for more detail on the false positive analysis tools.
+1

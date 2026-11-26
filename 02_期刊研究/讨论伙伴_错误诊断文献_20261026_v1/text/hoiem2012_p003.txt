@@ -1,0 +1,42 @@
+Diagnosing Error in Object Detectors 3
+improvements in any one aspect of object recognition may yield small overall gains and
+go under-appreciated without further analysis.
+Details of Dataset and Detectors: Our experiments are based on the PASCAL VOC
+2007 dataset [2], which is widely used to evaluate performance in object category de-
+tection. The detection task is to ﬁnd instances of a speciﬁc object category within each
+input image, localizing each object with a tight bounding box. For the 2007 dataset,
+roughly 10,000 images were collected from Flickr.com and split evenly into train-
+ing/validation and testing sets. The dataset is favored for its representative sample of
+consumer photographs and rigorous annotation and collection procedures. The dataset
+contains bounding box annotations for 20 object categories, including some auxiliary
+labels for truncation and ﬁve categories of viewpoint. We extend these annotations with
+more detailed labels for occlusion, part visibility, and viewpoint. Object detections con-
+sist of a bounding box and conﬁdence. The highest conﬁdence bounding box with 50%
+overlap is considered correct; all others are incorrect. Detection performance is mea-
+sured with precision-recall curves and summarized with average precision. We use the
+2007 version of VOC because the test set annotations are available (unlike later ver-
+sions), enabling analysis on test performance of various detectors. Experiments on later
+versions are very likely to yield similar conclusions.
+The FGMR detector [23] consists of a mixture of deformable part models for each
+object category, where each mixture component has a global template and a set of de-
+formable parts. Both the global template and the deformable parts are represented by
+HOG features captured at a coarser and ﬁner scale respectively. A hypothesis score con-
+tains both a data term (ﬁlter responses) and a spatial prior (deformable cost), and the
+overall score for each root location is computed based on the best placement of parts.
+Search is performed by scoring the root template at each position and scale. The training
+of the object model is posed as a latent SVM problem where the latent variables specify
+the object conﬁguration. The main differences between v4 and v2 are that v4 includes
+more components (3 vs. 2) and more latent parts (8 vs. 6) and has a latent left/right ﬂip
+term. We do not use the optional context rescoring.
+The VGVZ detector [3] adopts a cascade approach by training a three-stage classiﬁer,
+using as features Bag of Visual Words, Dense Words, Histogram of Oriented Edges
+and Self-Similarity Features. For each feature channel, a three-level pyramid of spatial
+histograms is computed. In the ﬁrst stage, a linear SVM is used to output a set of can-
+didate regions, which are passed to the more powerful second and third stages, which
+uses quasi-linear and non-linear kernel SVMs respectively. Search is performed using
+“jumping windows” proposed based on a learned set of detected keypoints.
+2 Analysis of False Positives
+One major type of error is false positives, detections that do not correspond to the tar-
+get category. There are different types of false positives which likely require different
+kinds of solutions. Localization error occurs when an object from the target category
+is detected with a misaligned bounding box ( 0.1 <= overlap < 0.5). Other overlap

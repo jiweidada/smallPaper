@@ -1,0 +1,35 @@
+4. Lecture notes on matroid optimization March 20th, 2009 6
+Observe that, as long as c(sk) ≥ 0, we have that c(Sk) ≥ c(Sk−1). Therefore, to ﬁnd a
+maximum cost set over all independent sets, we can simply replace the loop
+⊿ Forj = 1 to |E|
+by
+⊿ Forj = 1 to q
+where q is such that c(eq) ≥ 0>c (eq+1), and output the last Sk.
+For the maximum cost spanning tree problem, the greedy algorithm reduces to Kruskal’s
+algorithm which considers the edges in non-increasing cost and add an edge to the previously
+selected edges if it does not form a cycle.
+One can show that the greedy algorithm actually characterizes matroids. If M is an
+independence system, i.e. it satisﬁes ( I1), then M is a matroid if and only if the greedy
+algorithm ﬁnds a maximum cost set of size k for every k and every cost function.
+Exercise 4-8. We are given n jobs that each take one unit of processing time. All jobs
+are available at time 0, and job j has a proﬁt of cj and a deadline dj. The proﬁt for job
+j will only be earned if the job completes by time dj. The problem is to ﬁnd an ordering
+of the jobs that maximizes the total proﬁt. First, prove that if a subset of the jobs can be
+completed on time, then they can also be completed on time if they are scheduled in the
+order of their deadlines. Now, let E(M) = {1, 2, · · ·,n } and let I(M) = {J ⊆ E(M) : J
+can be completed on time }. Prove that M is a matroid and describe how to ﬁnd an optimal
+ordering for the jobs.
+4.3 Rank Function of a Matroid
+Similarly to the notion of rank for matrices, one can deﬁne a rank function for any matroid.
+The rank function of M, denoted by either r(·) or rM(·), is deﬁned by:
+rM : 2E → N :rM(X) = max{|Y | :Y ⊆X,Y ∈ I}.
+Here are a few speciﬁc rank functions:
+• For a linear matroid, the rank of X is precisely the rank in the linear algebra sense of
+the matrix AX corresponding to the columns of A in X.
+• For a partition matroid M = (E, I) where
+I = {X ⊆E : |X ∩Ei| ≤ ki for i = 1, · · ·,l }
+(the Ei’s forming a partition of E) its rank function is given by:
+r(X) =
+l∑
+i=1
+min(|Ei ∩X|,k i).

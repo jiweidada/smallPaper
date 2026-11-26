@@ -1,0 +1,28 @@
+--- 342_build_val_v2.py
++++ 342_build_val_v3.py
+@@ -7,7 +7,9 @@
+ C=importlib.import_module('342_stage3_context')
+ import torch,numpy as np
+ from PIL import Image
+-import geom342 as G
++import importlib.util,sys
++_geom_spec=importlib.util.spec_from_file_location('geom342',C.HERE/'342_geometry_stage3_v2'/'geom342.py')
++G=importlib.util.module_from_spec(_geom_spec);sys.modules['geom342']=G;_geom_spec.loader.exec_module(G)
+ M=importlib.import_module('342_m0_exact')
+ torch.set_num_threads(2)
+ 
+@@ -32,12 +34,12 @@
+ def build_entry(raw,im,items,annotation_sha,raw_path):
+     iid=im['id'];ow,oh=im['width'],im['height']
+     pb=raw['final300_boxes'];logits=raw['final300_logits']
+-    p300=G.norm_cxcywh_to_640_xyxy(pb)
++    p300=G.raw_query_cxcywh_to_640_xyxy(pb)
+     scores,flat=logits.sigmoid().flatten().topk(300)
+     labels=flat%10;queries=flat//10;keep=scores>.001
+     scores=scores[keep];labels=labels[keep];queries=queries[keep];flat=flat[keep]
+     full_boxes=p300[queries];full_logits=logits[queries]
+-    rc,cnt=G.select_window(p300);w=G.window_xyxy(rc)
++    rc,cnt=G.select_raw_query_window(p300);w=G.window_xyxy(rc)
+     xywh=torch.tensor([a['bbox'] for a in items],dtype=torch.float32).reshape(-1,4)
+     gt=G.orig_xywh_to_640_xyxy(xywh,ow,oh)
+     gl=torch.tensor([a['category_id'] for a in items],dtype=torch.long)

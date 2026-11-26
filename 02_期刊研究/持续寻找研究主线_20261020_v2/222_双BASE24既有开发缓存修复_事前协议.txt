@@ -1,0 +1,35 @@
+222｜双 BASE24 既有 development 缓存上的单调可达修复：执行前协议
+状态：仅编写，交 root 审核后执行。此时未反序列化预测缓存、未计算本候选结果。
+
+1. 范围与证据身份
+固定 data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3 下 A(seed1)、B(seed2) 的 development batch00–07；各 8 batch×4 图，共 64 次模型输入曝光。输入图可能两 seed 共用，不称 64 张独立图片。223 固定白名单及全部 16 个 prediction.pt、16 个 analysis.json 的 SHA256，不提供任意 cache 参数；不枚举、打开或反序列化 heldout 文件。共享来源元数据里已有其他 partition 的 hash 不作为本次输入或结果。
+原 producer 使用 baseline24_seed{1,2}.pth 的 raw['model']，last_epoch=23，整个 model.train()、no_grad、FP32、无 AMP/TF32，每 batch 恢复 BN buffers/RNG。GO 来自 evaluate_rules/diagnostic_extension 对已冻结 GPU 输出的 CPU 原生 matcher 及 _get_go_indices 重建，并非 GPU 训练 criterion 的现场观测。此模式、增广输入与晚期 C0 混合 eval/train 模式不同；不是独立验证，也不是 checkpoint 单变量因果。不得继承 210 的阳性。
+本程序不打开 checkpoint、不构造 detector、不前向/反向/VJP/优化/训练；只运行缓存张量运算、原 matcher 成本及整数运输。所有旧文件只读。CPU2、interop1、affinity[13,15]、BelowNormal、空闲 RAM>8GiB；逐 batch 保存及释放内存。
+
+2. 读取次序与原 GO
+先对白名单路径与 hash 全部验证、写出输入清单；再运行合成单测；合成通过才读取真实 JSON 内容与逐 batch torch.load。代码依赖 209→192→183→159→136 的冻结 hash，不调用任何旧 main，不读取其 C0 实验数据。
+G0 必须等于原 analysis.inputs[i].branches.final.native_union 的 pair_query/pair_GT。核原 branch_matches 经当前同 hash 原生 _get_go_indices 重建所得映射逐项相等；另外用原 BASE24 recipe 的原生 matcher 整 batch 捕获 final FP32 成本，核 final own Hungarian 映射。若运行时并列实现使重建不同，按实现/复现问题停止，不替换 G0 或当方法阴性。
+核每图 query 唯一、q/GT 范围、K、每 GT repetitions、covered 与标签。每 batch GO 分母为 max(sum_i K_i,1)，ordinary MAL 分母为 max(sum_i N_i,1)；所有臂保存相同 q、原 q 的 GT 类别、各 GT multiplicity m_g。另核缓存原 final L1/GO 分母×原 loss_bbox 权重与保存 native_union loss_bbox（固定 atol=rtol=1e-5，仅 FP32 归约复现容差，不是方法门槛）。GT 未进 G0 不加入。
+
+3. 支持域与精度
+使用本 batch 实际 outputs.ref_points，核等于 pre_outputs.pred_boxes 及所有普通 FDR aux ref_points；不借用 eval 或其他 checkpoint 的 ref。reg_max/up/reg_scale 从 recipe/实际缓存交叉核对，实际 native weighting_function 节点端点给闭域 [a,b]。
+主域：把实际 FP32 ref/GT 数值转 FP64，按真实物理解码逆式计算未 clip 四边 d*；四边都在 [a,b] 才 F(q,g)=1。支持外违约 v=sum(max(a-d*,0)+max(d*-b,0))/abs(reg_scale)，只描述，不作为新修复目标。
+并列报告原生 FP32 bbox2distance 编码前 raw 四边域、FP64 tight/expanded 域，端点近边 eps=1e-10×max(1,abs(reg_scale))，不据结果改容差。插值审计针对 native 实际 FP32 four_lens。各域图相同时复用证书；不同则以完全相同目标和预算分别求解，报告敏感性。主判定始终 physical64，精度敏感性另列。
+
+4. 固定候选与强控制
+逐图逐原正类别作完整整数运输：每个原 q 容量 1，每个原 GT 需求 m_g。E(q,g)=原 owner(q)=g 或 F(q,g)=1。
+G_repair：只允许 E，lex(支持外数,改 owner 数,native final matcher cost)。用 E 外边数作最高整数 hardcost，其后上述目标；G0 是零禁止边可行见证，解后核禁止边数为 0。它保证 query 原 inside 不转 outside、changed-still-outside 为 0、每 GT 支持槽不减；这些是算法性质，不是效果证据。
+U_cost：无限边 lex(支持外数,nativecost,改 owner 数)。
+U_change：无限边 lex(支持外数,改 owner 数,nativecost)。
+另报 final_IoU_face=lex(-当前 FP32 IoU 总和,支持外数,改 owner 数)、ref_IoU_face=lex(-初始 ref FP32 IoU 总和,支持外数,改 owner 数)、native_cost_face=lex(nativecost,支持外数,改 owner 数)，以及 G0。无需重跑 193 的 v 优先 G。
+完全沿 192：有限 machine float 精确转换 dyadic 有理数，逐层 row-min shift 与可证明总范围构成 Python int 优先级；NetworkX 整数流，独立 exact 运输 dual 逐边不等式及 primal=dual。最后仍并列时按固定插入顺序求解，不冒称 ID 字典序。U_change 的同最优 face 按 exact(支持外数,改 owner 数,nativecost)三元组，不按浮点总和或 owner 是否恰好不同。
+
+5. 输出与唯一必要 screen
+完整输出每 seed/batch/image/class 的原预算、支持数、修复/丢失/仍在外改 owner、禁止边、owner 差、当前 IoU/ref IoU/nativecost/v 总和、逐 GT 支持率、逐 query 新旧 GT 与 cohort、exact objective/dual 证书。保存每 batch 矩阵及分配，逐 batch 释放缓存。
+原始 original_sub4 仅当 target 明确带同名 bool 标记才使用，否则 NA，禁止由当前尺寸倒推。实际输入 shape 使用 root 只读提取的 228_BASE24开发输入shape_只读元数据.json（SHA256=d775a4bdf496ad93221eb76e7dd9455d29a8ad387edc534417d6f056046f4f7c），逐 batch 的 input SHA 必须与 A/B prediction seals 相等。batch03 为 512×512，batch05 为 544×544，其余为 640×640；按 stored FP32 GT 值提升 FP64 后乘真实 W/H，以 min(wW,hH)<4 定义 actual_input_sub4。保留 normalized_640_equivalent_sub4 为另列描述，不能和 actual/original 混名，更不是 COCO APs。223 只读 228 元数据，不打开原始图像或 input 张量。
+每 seed 独立沿 208 的约束增量必要 screen：G_repair 修复至少一个原 outside；两个 U 控制各有至少一个 E 外边；且 G_repair 不位于 U_change 的相同 exact 三元组最优 face。零 oldinside 损失是必须验证的算法性质。其他强控制结果完整披露，不加事后幅度门槛。两 seed 都满足记 both；仅一个记 mixed；都不满足记 neither。按 physical64 判定，另外逐域报告。
+这只回答原约束是否存在未被两个 U 控制完整复制的修复作用面。目标最优、支持增加、owner 改变不等于有效监督、loss 更好、AP 增益、创新成立或训练许可。若没有该作用面则收回这批开发缓存对本约束增量的支持；不追改参数/预算，不把较小 proxy 推广到所有 GO。
+
+6. 失败关闭与交付
+合成覆盖优先级、hardcost、GT 多重预算、非同时接管、同类/q/m_g 守恒、原生物理端点/非法尺寸、FP32 插值、精确 dual 与 U_change 同 face。来源、schema、证书或预算异常一律 state=error，不能伪装 negative。
+输出仅本目录新的 224_*；默认 224_BASE24_cached_GO_repair_probe。末尾重算所有输入/依赖 hash，报告时间、位数、RAM 和执行计数。审查后由 root 执行；本作者此阶段不执行。

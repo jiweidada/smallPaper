@@ -1,0 +1,728 @@
+                      This CVPR Workshop paper is the Open Access version, provided by the Computer Vision
+                            Foundation. Except for this watermark, it is identical to the accepted version;
+                             the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+          FlowDet: Unifying Object Detection and Generative Transport Flows
+
+             Enis Baty                                  C. P. Bridges                             Simon Hadfield
+     CVSSP, University of Surrey                   SSC, University of Surrey                  CVSSP, University of Surrey
+          e.baty@surrey.ac.uk                      c.p.bridges@surrey.ac.uk                     s.hadfield@surrey.ac.uk
+
+
+
+
+             (a) Non-Generative Detectors                    (b) DiffusionDet                              (c) FlowDet
+
+Figure 1. Object detection paradigms: (a) Traditional detectors are limited at inference time, predicting a single set of boxes without the
+ability to dynamically iterate or transport distant boxes to better predictions. (b) DiffusionDet [10] re-framed detection as a denoising
+process, enabling generative transport at inference time, at the cost of complex stochastic paths. (c) FlowDet generalises this generative
+formulation to Conditional Flow Matching, providing shorter, straighter transport paths with greater performance using fewer steps.
+
+                           Abstract                                      refined through multi stage heads to an output set of pre-
+                                                                         dictions. This enables end-to-end training of the detection
+We present FlowDet, the first formulation of object detection
+                                                                         model [6, 55], in contrast to classical two-stage approaches
+using modern Conditional Flow Matching techniques. This
+                                                                         [19, 47], significantly improving detection quality. However,
+work follows from DiffusionDet, which originally framed
+                                                                         at inference time, the performance of these detectors are
+detection as a generative denoising problem in the bound-
+                                                                         fixed to the representational budget embedded at train time.
+ing box space via diffusion. We revisit and generalise this
+formulation to a broader class of generative transport prob-                 Recently, DiffusionDet [10] proposed an entirely new
+lems, while maintaining the ability to vary the number of                framing of the detection problem. By casting detection as
+boxes and inference steps without re-training. In contrast to            generative transport from a simple prior, to the data distribu-
+the curved stochastic transport paths induced by diffusion,              tion of target boxes, compute can be adjusted dynamically
+FlowDet learns simpler and straighter paths resulting in                 at test time, which has recently gained significant traction
+faster scaling of detection performance as the number of in-             in other deep learning domains [51, 60]. Taking more re-
+ference steps grows. We find that this reformulation enables             finement steps or drawing more samples can improve task
+us to outperform diffusion based detection systems (as well              performance without retraining, at the cost of compute. This
+as non-generative baselines) across a wide range of exper-               also provides flexibility for a given model to be used in
+iments, including various precision/recall operating points              either limited compute scenarios (edge inference, mobile
+using multiple feature backbones and datasets. In particu-               devices) or unrestricted for upmost accuracy [24]. Addition-
+lar, when evaluating under recall-constrained settings, we               ally, the generative transport framing removes the need for
+can highlight the effects of the generative transport without            hand-crafted proposals or separately trained proposal region
+over-compensating with large numbers of proposals. This                  generation. As such, a simple prior distribution to sample
+provides gains of up to +3.6% AP and +4.2% APrare over                   proposals from can be defined and the model learns the trans-
+DiffusionDet on the COCO and LVIS datasets, respectively.                formation to a target set of ground truth instances.
+                                                                            While diffusion has proven to be a strong generative
+1. Introduction                                                          framework, many works seek to reduce the computational
+Modern works cast detection as a set prediction problem                  burden at inference time [40, 41, 50, 54]. For example, the
+where a given set of proposals or learnt embeddings are                  use of DDIM samplers over the canonical DDPM reduces
+
+
+
+                                                                  4905
+the number of steps by about 10-50× to produce comparable                   denoising formulation proposed by DiffusionDet.
+output quality at inference time [53]. Although significant               • We ablate a broad range of possible data driven priors
+efforts have been made to improve upon diffusion, contem-                   and matching mechanisms for coupling sources to targets,
+porary literature has shifted to focus on the very formula-                 providing a solid basis for future generative detection ap-
+tion of diffusion to root out transport inefficiency. As such,              proaches to build on.
+Conditional Flow Matching (CFM) [35] introduces a gener-                  • We evaluate on standardised benchmarks and backbones,
+alisation of the diffusion process that further improves the                demonstrating FlowDet’s inference time flexibility by
+compute-accuracy trade off at integration time.                             operating at various precision/recall trade-offs without
+    Conditional Flow Matching is a simulation-free gener-                   model retraining. Specifically we demonstrate trading
+ative modelling framework that trains a time-varying ve-                    compute for recall and accuracy by varying proposal
+locity field to move samples from a simple prior to the                     counts and integration steps respectively with a single
+data distribution. While diffusion samplers trace curved,                   checkpoint, and achieve notably higher transport effi-
+schedule-induced trajectories, CFM allows for near-linear                   ciency in recall-constrained, few-proposal regimes.
+paths by construction through linear interpolations between
+prior and target samples as input interpolants during training.
+                                                                          2. Related Work
+Furthermore, instead of random source–target pairings that
+yield misaligned transport and meandering flows, simple                   2.1. Object Detection
+data-aligned priors and transport cost-aware path construc-
+tion can improve sample efficiency and accuracy at a fixed                Classically, deep object detection approaches formed a
+level of compute. Contrasting diffusion, off-the-shelf Ordi-              two-stage process that relied on classifying hand-crafted
+nary Differential Equation (ODE) solvers provide another                  region proposals through Selective Search [19, 20, 58] be-
+angle for precise accuracy-latency control at inference time              fore rapidly progressing to Region Proposal Networks [47].
+without schedule tuning.                                                  These two-stage detectors perform well with Region Of In-
+    This work introduces FlowDet, a CFM-based detector                    terest (RoI) heads providing strong localisation and robust-
+generalising the definition of object detection as generative             ness at the cost of greater compute through the two distinct
+transport in bounding box space. During training, we sample               proposal and refine stages.
+proposal boxes from a simple normal Gaussian distribution                    Single-stage “dense” methods adopted direct prediction
+and form linear interpolants to ground-truth boxes at ran-                of boxes from multi-scale feature maps through heuristic an-
+domly sampled timesteps. These interpolants are then used                 chor grids. These evolved into anchor-free methods treating
+to train the detection head or decoder of our model then to               each location as an object centre, achieving simpler, faster
+predict the constant velocity flow associated with each in-               pipelines with competitive accuracy [14, 34, 38, 46, 56].
+terpolant that transports a given bounding box sample from                   The rise of the transformer architecture [59] has spawned
+the prior distribution to the target (i.e. ground truth) distri-          many works that treat detection as a set prediction problem
+bution. At inference time, an arbitrarily sized set of samples            leading to the development of DETR [6]. Through introduc-
+are drawn from the prior distribution as proposals. These                 ing box-to-box interactions, DETR-family models signifi-
+prior samples are then integrated through the latent flow                 cantly reduce redundancy within the prediction set and ex-
+field embedded within the detection decoder to produce a                  ploit correlations between related objects. Though initially
+set of clean bounding box and class label predictions for a               suffering from poor convergence speed and high computa-
+given image as shown in Figure 1.                                         tional requirements, significant efforts improved both the
+    By adopting a generative approach, FlowDet becomes                    architectural limitations, [11, 37, 42, 49, 55, 61, 64, 65] and
+extremely flexible at inference time. Without re-training or              set prediction supervision methods [4, 8, 27, 31, 66].
+fine-tuning, the model can trade-off runtime against preci-                  However, all prior works that rely on dense prediction de-
+sion or recall, by adapting the number of inference steps                 pend on hand-crafted post-processing such as Non-Maximal
+and source-boxes respectively. With the same ResNet50 [25]                Suppression (NMS). Fixed end-to-end methods are also con-
+backbone we surpass the performance of many strong base-                  strained by rigid training time hyper-parameter choices and
+lines in detection on the COCO [32] dataset. Specifically                 their behaviour cannot be modulated during deployment.
+compared to DiffusionDet, we achieve +0.1%AP with identi-                 Drawing parallels to image generation, DiffusionDet [10],
+cal configurations of evaluation boxes and steps and scaling              formulates detection as a denoising diffusion process [26]
+further to a +0.4%AP gain with a higher number of steps.                  that iteratively refines noisy boxes to object proposals. In
+    We summarise our contributions as follows:                            this paper we exploit the same generative formulation for
+• To the best of our knowledge, this work is the first to                 dynamic inference. However, we generalise from basic dif-
+   formally frame detection as a generative transport task                fusion denoising to CFM, allowing us to achieve competitive
+   using Conditional Flow Matching, generalising the box                  results with very few inference steps.
+
+
+
+                                                                   4906
+2.2. Diffusion                                                                To the best of our knowledge, this work is the first to gen-
+                                                                          eralise the generative detection problem to the broader cate-
+Diffusion Denoising Probabilistic Models (DDPM) [26]
+                                                                          gory of flow-based methods. This enables us to adopt Con-
+frame generation as learning to reverse a fixed Gaussian nois-
+                                                                          ditional Flow Matching techniques, preserving the test-time
+ing process, inspired by non-equilibrium thermodynamics
+                                                                          flexibility established by diffusion-based detectors while
+[52]. Models are trained with a noise-prediction objective for
+                                                                          learning more compact flow fields that require less recur-
+noise that gradually corrupts ground truth samples through
+                                                                          sive calls to traverse at inference time.
+a Markovian chain in the forward process. The reverse pro-
+cess then starts with pure noise and iteratively “denoises” to
+                                                                          3. Methodology
+produce an output sample that can be influenced with condi-
+tioning to guide generation towards specific instance types               3.1. Preliminaries
+present in the original training set.
+                                                                          Conditional Flow Matching (CFM) builds upon the formu-
+    Denoising Diffusion Implicit Models (DDIM) introduce                  lation of Continuous Normalizing Flow (CNF), which trans-
+a non-Markovian, deterministic sampler that preserves the                 form a probability density p(x) via an ordinary differential
+original diffusion marginals while enabling few-step gen-                 equation (ODE) dx  dt = vθ (x, t) from a simple prior p0 (x) at
+eration and exact image-latent inversion providing a valu-                t = 0 to the data distribution p1 (x) at t = 1 [9]. In both
+able speed-quality trade-off [53]. Subsequent work refines                CNFs and CFM, the time-dependent vector field vθ (x, t) is
+schedules, parameterizations, and solvers (e.g., improved                 parametrised by a neural network, however the key differ-
+diffusion, EDM), but most contemporary systems still build                ences lie in the training of vθ enabling the scaling of CFM
+on the DDPM objective with DDIM-style fast samplers for                   for use in non-trivial settings.
+efficient inference and controllable guidance [30, 43].                       CNFs enable flexible transformations but require com-
+    Although DDIM enables relatively fast sampling, the effi-             puting the log-determinant (trace) of the Jacobian ∂v   ∂x to
+                                                                                                                                    θ
+
+ciency of the diffusion process is still the leading challenge            track probability densities via the instantaneous change-of-
+in the field. Given the stochastic formulation of the task,               variables formula. This is computationally expensive and
+the denoising process is computationally expensive and pro-               typically approximated by stochastic trace estimation, intro-
+vides poor results with few inference time sampling steps.                ducing training instability and scalability issues [21, 44].
+2.3. Conditional Flow Matching                                                CFM circumvents this intractability by training a model
+                                                                          to regress the underlying vector field vθ (x, t), rather than
+Continuous Normalising Flows (CNFs) model generation as                   modelling transport directly. The conditional probability
+the integration of a learned, time-varying flow that transports           paths pt (x | x1 ) are trained between samples x0 ∼ p0 and
+a simple prior to the data distribution [9, 21, 44]. Conditional          data points x1 ∼ p1 , with the regression objective
+Flow Matching (CFM), provides a simulation-free objec-
+tive to train CNFs by regressing the velocity field along a                               \label {eqn:cfm-obj} \mathcal {L}_{CFM} = \displaystyle {E}_{t, x_1, x_0} \|v_\theta (x_t, t) - u_t(x_t \mid x_1)\|^2.    (1)
+user-specified probability path. This unifies flow-based and              This in turn requires no simulation, no explicit density eval-
+diffusion-style training within a single framework, where                 uation, and no Jacobian computation [35]. A critical finding
+diffusion arises as a specific path choice, making diffusion              of prior CFM works is that we do not need to explicitly
+a special case of flow matching [1, 2, 15, 35]. This perspec-             compute the optimal transport flow field u∗ to serve as the
+tive exposes explicit design levers such as prior distribu-               “ground truth” target for our regression. Instead, we recover
+tions, paths, coupling strategies and supports deterministic              an equivalent flow field by marginalising over random draws
+sampling via standard ODE solvers that allow for an accu-                 from p0 and p1 with a simple and tractable pairwise path,
+racy/compute trade-off chosen at inference time.                          ut .
+    Recent work refines the framework in three key ar-                         Diffusion can be viewed as a special case of CFM under
+eas: path design, coupling, and straight-trajectory training.             a Gaussian linear path [15]:
+Optimal-Transport (OT) couplings and mini-batch OT im-
+prove alignment between source and target, shortening trans-                v(x_t \mid x_0)=\mathcal {N}(x_t \mid a_t x_0,\; s_t^2 I),\quad a_t=\sqrt {\bar {\alpha }_t},\; s_t^2=1-\bar {\alpha }_t, 
+port and stabilising training [5, 57]. Straight-path objectives                                                                                                                                (2)
+such as Optimal Flow Matching and Rectified Flow reduce                   where st and at represent the single step, and cumulative
+curvature and path length, improving sample efficiency and                noising weight respectively, at t. DDPMs are then trained
+enabling few-step or even one-step generation without sac-                with the denoising objective
+rificing fidelity [28, 39]. Conditional variants broaden appli-                                            \mathcal {L}_{DDPM} = \tfrac {1}{2}\,\|v_\theta (x_t,t)-x_0\|_2^2,                                       (3)
+cability, with Conditional Variable Flow Matching (CVFM)
+                                                                          and reverse-time updates (e.g., DDIM) at inference. In CFM,
+generalising to continuous conditioning with unpaired data
+                                                                          we choose the linear-Gaussian conditional path
+and reflected/variational rectified flows further tighten the
+train–test gap to improve solver robustness [18, 22, 63].                                       \label {eqn:cfm-interp} \vspace {-0mm} x_t=(1-t)\,x_0 + t\,x_1 ,\quad x_0\sim \mathcal {N}(0,I), \vspace {-0mm}     (4)
+
+
+
+                                                                   4907
+whose conditional target flow field is the constant interpolant                                                                                             Prior Boxes                                                                             GT Boxes
+
+
+
+
+                                                                                                                                                                                                               Linear Interpolation
+                                                                                                                                 Prior Distribution
+                            \vspace {-0mm} u_t(x_t \mid x_1)= x_1 - x_0. \vspace {-0mm} \label {eq:interpolant}    (5)
+The neural network vθ (x, t) is then trained through the ob-
+jective in Eqn. 1. Because the underlying pairwise paths
+are linear, they by definition represent the shortest possible
+paths between samples. The intuition behind CFM is that                                                                                                                                                                                         Iterative evaluation
+                                                                                                                                                             predictor
+
+marginalising over a collection of shortest possible paths,
+gives a resulting flow field that is close to the ideal optimal
+transport mapping. These simple and compact ODE flow
+
+
+
+
+                                                                                                                                                                                                                                      Stage 1
+
+
+                                                                                                                                                                                                                                                      Stage 2
+                                                                                                                                                                                           Image                                                                                              Classes
+
+
+
+
+                                                                                                                                                                                                                                                                                      Stage
+fields can then be traversed efficiently in a few Euler steps                                                                                                                             Encoder                                                                                              Flow
+at inference times with
+                                                                                                                                                                                                                                                        Detection Decoder
+                         x_{t+\Delta }=x_t+\hat {u}_\theta (x_t, t)\,\Delta .                                      (6)
+                                                                                                                                                      Figure 2. Architecture block diagram of FlowDet.
+This contrasts the complex SDE fields induced by diffusion,
+which must be traversed via many DDPM steps.                                                                                    multi-scale feature maps
+3.1.1. Detection with CFM
+                                                                                                                                                                   \{\,\mathbf {p}_{\ell }\,\}_{\ell \in \mathcal {L}} = \mathrm {FPN}\big (\textrm {Backbone}(\mathbf {I})\big ),               (8)
+Object detection can be parameterized as conditional set
+prediction. Given an image I ∈ RH×W ×3 and its feature                                                                          where ℓ indicates the featuremap at a particular pyramid
+map p, we define a probability distribution p(Y | F ) over                                                                      level, and pℓ ∈ RD×Hℓ ×Wℓ are time-invariant and reused
+finite, order-agnostic sets Y = {(bi , ci )}Mi=1 with M ∈ N0                                                                    across all timesteps.
+varying per image. Each element comprises a bounding box
+bi = (cx , cy , w, h) ∈ R4 and a class label ci ∈ {1, . . . , K},                                                               3.2.2. Prior Distribution
+with (cx , cy ) defining the center coordinates and (w, h) the                                                                  Unlike diffusion models, CFM allows for the explo-
+width/height of the i-th bounding box within a particular set.                                                                  ration of alternate choices of prior distributions, including
+    In this work, to apply the theoretical framework of CFM                                                                     data-derived or data-dependent distributions. Theoretically,
+to the task of object detection, we treat x1 as a ground truth                                                                  through closer alignment of the prior distribution to the
+set of bounding boxes Y and x0 as a set of proposals sam-                                                                       ground truth distribution, the conditional paths between a
+pled from a simple prior distribution. Training a neural net-                                                                   sample point x0 and data point x1 are both shorter and
+work through the regression objective in Eqn. 1 yields a                                                                        straighter. These simplified paths improve the efficiency of
+flow field that transports samples from the prior to predicted                                                                  the integration process, at the cost of reducing exploration
+endpoints x̂1 . To further align this formalization of CFM                                                                      and increasing redundancy between boxes.
+to the detection task, rather than predicting a velocity, we                                                                        In this section we will formulate a range of possible prior
+predict the endpoint x̂1 and class label ĉ while recovering                                                                    distributions, which will then be ablated in Section 4.3.1.
+the velocity algebraically for sampling during inference as                                                                     Our base prior distribution is defined as DGaussN = N (0, 1)
+                                                                                                                                inline with diffusion. We define “data-derived” as a set of
+              \hat {u}_t = \hat {x}_1 - x_0,\ \text {where }\hat {x}_1 = v_\theta (x_t, t),                        (7)          prior distributions that are pre-computed from the dataset
+which enables standard detection-oriented set losses on x̂1 ,ĉ,                                                                statistics and applied uniformly over all incoming samples.
+tightly coupling the training objective to the task [6, 10, 29].                                                                Meanwhile we define “data-dependant” as distribution statis-
+                                                                                                                                tics that are learnt during training.
+                                                                                                                                    More specifically we implement the data-derived prior
+3.2. Architecture                                                                                                               Dder as a Gaussian whose mean and standard deviation
+To allow fair comparison to previous generative detectors                                                                       match those aggregated across all the ground-truth bounding
+like DiffusionDet, we adopt the Sparse R-CNN base archi-                                                                        boxes in the dataset. We extend this idea with Dder−sb as a
+tecture. As shown in Figure 2, the model can be viewed as                                                                       Mixture of Gaussians, each of which is fit to a size-bucketed
+two primary components, an image encoder and detection                                                                          subset of the ground-truth bounding boxes. In contrast, a
+decoder along with a prior statistics predictor in the case of                                                                  data-dependant prior Ddep predicts the statistics per image
+data-dependant priors.
+                                                                                                                                                          \label {eqn:data-dep-prior} (\hat {\mu }, \hat {\sigma }) = \mathrm {Sigmoid}(\mathrm {MLP}(\mathrm {GAP}(\mathbf {p}_{-1}))),         (9)
+3.2.1. Image Encoder
+A standard vision backbone (ResNet [25] with a Feature                                                                          where GAP takes a Global Average Pool of the coarsest
+Pyramid Network [33]) maps images I ∈ RC×H×W to rich                                                                            feature map p−1 to generate a feature vector and MLP is
+
+
+
+                                                                                                                         4908
+a simple two layer Multi Layer Perceptron. We outline the                                                                                                                          3.3.1. Ground Truth Padding
+supervision of Dder−sb during training in Section 3.3.3.                                                                                                                           In practice, each image contains a varying number of ground
+   To ensure that RoIs derived from bounding boxes crop                                                                                                                            truth boxes, Ngt . Since we must assign each source sample
+valid regions of images, the prior distributions are sampled                                                                                                                       to a target box, we must pad the ground truth set to match
+via inverse Cumulative Distribution Function (CDF) sam-                                                                                                                            the chosen number of training proposals, Ntrain . We follow
+pling from a factorized truncated normal.                                                                                                                                          DiffusionDet’s empirical findings and pad Ngt with random
+3.2.3. Detection Decoder                                                                                                                                                           samples of the source distribution which proves more effec-
+                                                                                                                                                                                   tive than crude duplications of the ground truth boxes.
+We use a DynamicHead architecture similar to Sparse R-
+CNN [55] which consists of six stages. Stage n of the head                                                                                                                         3.3.2. Interpolant construction
+crops the feature maps from the image encoder, pℓ , to ob-                                                                                                                         In the same way that CFM supports a range of prior distribu-
+tain RoI features rnt = RoIAlign(pℓ , xnt ). The RoI features                                                                                                                      tions, it is possible to employ a range of matching strategies
+are then processed into object features hnt through an RC-                                                                                                                         between source and target samples. In its vanilla form, CFM
+NNHead [55] with multi-head shared attention, dynamic                                                                                                                              employs random pairing of x1 samples against x0 samples.
+instance interaction and a feedforward network,                                                                                                                                    We call this matching strategy Mrand . However, this can
+                                                                                                                                                                                   be slow to converge as many training pairs lie far from the
+     h^n_t = \mathrm {FFN}(\mathrm {DynamicHead}(\mathrm {MHSA}(\mathbf {r}^n_t, \tilde {h}^{n-1}_{t})).                                                             (10)          optimal transport path. To accelerate convergence we can
+                                                                                                                                                                                   implement mini-batch OT [57] by employing Hungarian
+   To produce h̃nt , we condition hnt with the current timestep                                                                                                                    matching between source and target sets. We refer to this
+t by first applying sinusoidal embedding [59] τ = ϕ(t) then,                                                                                                                       matching strategy as Mhung . This can focus training bud-
+following FiLM [45], we project the embedding to a scale γ                                                                                                                         get on the pairs that are closer to the optimal transport paths,
+and shift β such that                                                                                                                                                              but it can leave less common areas of the flow field under-
+                                                                                                                                                                                   constrained. When employing hungarian matching, we ex-
+                                    \tilde {h}^n_t = \gamma (\tau ) \odot h^n_t + \beta (\tau ).                                                                     (11)          plore a range of different similarity measures between boxes
+                                                                                                                                                                                   including: centrepoint distance (Mhung−c ) which is scale
+   The time-conditioned object features h̃nt are then jointly                                                                                                                      agnostic, generalised IoU (gIoU) [48] + bounding box dif-
+used to predict a bounding box offset (∆x̂) and classification                                                                                                                     ference (Mhung−g ) and InterpIOU (Mhung−i ) [36]. Both
+label (ĉ) from the CFM model                                                                                                                                                      gIoU and InterpIoU are intended to measure overlap, but in
+                                                                                                                                                                                   a manner that decays smoothly for non-overlapping boxes.
+                               \begin {aligned} (\Delta \hat {x}_t^{\,n}, \hat {c}_{\,t}^{\,n}) &= v^n_{\theta }\!\big (\tilde {h}^{n-1}_t). \end {aligned}          (12)              Regardless of the matching strategy, the paired samples
+                                                                                                                                                                                   are then constructed into CFM interpolants as defined in
+The output offsets are then applied to the bounding box pro-
+                                                                                                                                                                                   Eqn. 4 with t ∼ U [0, 1] in contrast to the cosine schedule
+posals before being iteratively fed to the next head stage
+                                                                                                                                                                                   commonly adopted with diffusion.
+                                         \label {eqn:det-stage} \begin {aligned} \hat {x}_t^{\,n} &= \hat {x}_t^{\,n-1} + \Delta \hat {x}_t^{\,n}. \end {aligned}    (13)          3.3.3. Training supervision
+                                                                                                                                                                                   While the Gaussian and data-derived prior distributions out-
+We train the model using a single randomly selected
+                                                                                                                                                                                   lined in Sec. 3.2.2 are static and have no trainable parame-
+timestep per sample, to ensure broad coverage of the flow
+                                                                                                                                                                                   ters, the data-dependent prior is supervised in isolation to the
+field. At inference time, we draw Neval timesteps from a
+                                                                                                                                                                                   detection decoder as sampling the truncated Gaussian distri-
+linear schedule ([t1 , ..., tNeval ]). The full head (including all
+                                                                                                                                                                                   butions prevents gradient flow. Therefore, the predicted µ̂, σ̂
+stages) is then called in turn, with the output of the final head
+                                                                                                                                                                                   are regressed against the mean and std. dev. of ground truth
+stage feeding in as input to the first head stage at the next
+                                                                                                                                                                                   boxes within the batch.
+time step. More formally, the initial conditions for Eqn. 13
+                                                                                                                                                                                       The outputs from each stage in the detection decoder
+at each timestep are x̂t0i = x̂tNi−1 + ∆x̂tNi−1 .
+                                                                                                                                                                                   (x̂1 , ĉ) are independently supervised against the ground truth
+3.3. Training                                                                                                                                                                      set (x1 , c) through the standard set prediction loss popu-
+                                                                                                                                                                                   larised by [6]. Following [10, 16, 17], we use one-to-many
+During training, the model is fed with the interpolants ut                                                                                                                         assignment, selecting the top-k lowest-cost predictions per
+constructed according to the conditional paths defined in                                                                                                                          ground-truth as positives. The detection loss comprises
+Equation 5. As such, we replace the traditional Region Pro-
+posal Network [47] or learnt bounding box proposals [55]                                                                                                                               \label {eqn:set-cost} \mathcal {L}_{match} = \lambda _{cls} \cdot \mathcal {L}_{cls} + \lambda _{\ell _1} \cdot \mathcal {L}_{\ell _1} + \lambda _{gIoU} \cdot \mathcal {L}_{gIoU}.  (14)
+with a random set of source boxes sampled from the chosen
+prior distribution. Each source sample, x0 , from the prior                                                                                                                        Here, we define Lcls as focal loss between ĉ and c, Lℓ1 and
+distribution must be paired with a valid ground truth sample,                                                                                                                      LgIoU as the ℓ1 and gIoU loss, respectively, between x̂ and
+x1 as outlined below.                                                                                                                                                              x. λcls , λℓ1 and λgIoU define their respective weights.
+
+
+
+                                                                                                                                                                            4909
+3.4. Inference                                                                                   46
+
+At inference, we sample an arbitrary sized set of Neval boxes
+
+
+
+
+                                                                         Average Precision (%)
+                                                                                                 44
+from the prior distribution and integrate them through the
+latent flow field within the detection decoder with an ODE
+solver. Given the strong single step performance of the de-                                      42
+tection decoder, we implement a simple Euler integrator and
+                                                                                                                              FlowDet (solid)
+ablate higher order solvers in Sec. 4.3.2.                                                       40                           DiffusionDet (lighter)
+   During integration with multiple sampling steps, weak                                                                      50 proposals
+                                                                                                                              75 proposals
+predictions are discarded per step based on intermediate                                                                      100 proposals
+                                                                                                 38
+classification scores and the set of proposals is replenished
+with new samples from the prior distribution following [10].                                          1               2                   3
+                                                                                                          Sampling/Integration Steps
+Outputs across each sampling step are aggregated as an en-
+semble set of predictions with Non-Maximal Suppression                      Figure 3. Plot of AP against integration steps between FlowDet
+(NMS) to reduce trivial duplicates between steps. The final                 and DiffusionDet. We plot AP for Neval ∈ {50, 75, 100}.
+set of bounding boxes post-filtering are resized and clipped
+                                                                           2.5 × 10−5 with weight decay of 1 × 10−4 . The learning rate
+such that the predictions are bounded to the image size.
+                                                                           is linearly warmed up for 1000 iterations then scheduled to
+                                                                           decay by a factor of 0.1× after 2/3 and 8/9 of the total train-
+4. Experiments
+                                                                           ing iterations. Following [6], we set the matching cost and
+We benchmark FlowDet on both standard (COCO) and fine-                     loss weightings defined in Eqns. 14 to λcls = 2.0, λℓ1 = 5.0
+grained (LVIS) detection tasks. We compare with common                     and λgIoU = 2.0. Data augmentations during training con-
+baseline detectors covering a range of performance intervals.              sist of random horizontal flips, crops and scale jitter, that
+We also provide detailed comparisons against DiffusionDet                  resizes images such that the shortest and longest edges are
+to highlight the stronger accuracy/compute trade-off within                between 480-800 pixels and 1333 pixels respectively.
+the scope of generative object detection. Following this, we                   In terms of CFM specific setup, we chose to set our prior
+explore and ablate design choices in Section 4.3.                          distribution to a standard Gaussian, with random pairing,
+    Common Objects in COntext (COCO) [32] has been es-                     and a simple Euler ODE integrator for inference. These set-
+tablished as the de facto benchmark for object detection                   tings are derived from our ablations conducted in each area,
+and other tasks (panoptic segmentation, keypoint detection,                as described in Section 4.3.
+etc.). We follow the commonplace practice of using the 2017                    At inference, we evaluate the model with various num-
+train/val split that contains 118K/5k images respectively. Ob-             bers of boxes and integration steps to highlight the flexi-
+jects within images are classified into 80 categories with im-             bility of FlowDet without re-training, following [10]. To
+ages including both sparse and crowded context-rich scenes.                clearly demonstrate the capabilities of generative detectors,
+Evaluation is quantified with the Mean Average Precision                   we constrain recall and isolate the effects of the genera-
+(mAP, often denoted as AP) metric that reports AP averaged                 tive transport mechanism from the effect of having many
+over IoU thresholds ranging from 0.5:0.95 and additional                   highly redundant proposals. We therefore evaluate with
+small/medium/large scale stratified AP measures.                           Neval ∈ {50, 75, 100} proposal boxes, while still training
+    The Large Vocabulary Instance Segmentation (LVIS)                      with Ntrain = 300 to accelerate convergence and ensure
+[23] dataset extends COCO’s annotations to a large-                        flow field coverage. The post processing pipeline includes
+vocabulary, long-tail setting that further exemplifies the fre-            default rescaling and clipping of predictions with class-wise
+quency imbalance of objects in real-world imagery. In this                 NMS, with an IoU threshold of 0.6, to suppress duplicates
+case we follow the standard protocol and report frequency                  introduced by the top-k matching in the set prediction losses.
+stratified AP measures (APrare , APcommon , APf requent )                   4.2. Results
+that differentiate between performance on classes with a
+high number of instances.                                                  We first present our results on the validation split of COCO
+                                                                           using 2 different feature backbones, in Table 1 alongside
+4.1. Experimental Setup                                                    strong non-generative baselines and DiffusionDet as a gener-
+We evaluate our technique using two backbone models:                       ative comparison. FlowDet surpasses all the non-generative
+ResNet50 and ResNet101 with FPN, all initialised with pre-                 baselines across almost all metrics and backbones. For ex-
+trained weights from ImageNet [12] pre-training as outlined                ample, a margin of +0.5% AP over Sparse R-CNN with
+in Detectron2’s model zoo [62]. All models are initialised                 three integration steps. Similarly, FlowDet outperforms Dif-
+with 6 head stages and are trained to a standard COCO                      fusionDet across almost all metrics, at all operating points,
+3x schedule, adjusted for a batch size of 8, resulting in ap-              with both feature backbones. In the single-step base case
+prox. 532k iterations for a single GPU at a learning rate of               (where the flow field is weakly utilised) we achieve a slight
+
+
+
+                                                                  4910
+advantage of +0.1% AP.                                                     Method                   AP    AP50 AP75 APs APm               APl
+   When introducing a few iterative evaluation steps,                                               ResNet-50 [25]
+
+FlowDet scales more rapidly than DiffusionDet, resulting                   RetinaNet [62]          38.7   58.0       41.5   23.3   42.3   50.3
+                                                                           Faster R-CNN [62]       40.2   61.0       43.8   24.2   43.5   52.0
+in a +0.4% AP gain in the 3 step setting. These strengths
+                                                                           Cascade R-CNN [62]      44.3   62.2       48.0   26.6   47.7   57.7
+in iterative evaluation are repeated with stronger back-                   DETR [6]                42.0   62.4       44.2   20.5   45.8   61.1
+bones, validating the potential for FlowDet to scale with                  Deformable DETR [65]    43.8   62.6       47.7   26.4   47.1   58.0
+more expressive image encoders. Figure 3 shows that in a                   Sparse R-CNN [55]       45.0   63.4       48.2   26.9   47.2   59.5
+recall-constrained regime with only 50 proposals, FlowDet                  DiffusionDet† (100@1)   43.1   60.6       46.4   23.9   46.3   60.1
+delivers a +3.6% AP gain over DiffusionDet at compara-                     DiffusionDet† (100@2)   43.0   60.4       46.6   23.9   46.1   60.1
+ble compute, indicating more efficient usage of proposals                  DiffusionDet† (100@3)   45.1   63.8       48.3   27.1   48.2   60.7
+                                                                           FlowDet (100@1)         43.2   60.9       46.7   24.9   46.4   60.0
+with lower redundancy. When the proposal budget is low,
+                                                                           FlowDet (100@2)         44.7   63.2       48.2   26.6   47.5   60.8
+the transport paths from initial boxes to targets are naturally            FlowDet (100@3)         45.5   64.1       49.2   27.9   48.4   61.5
+longer, and the detection head has fewer opportunities to                                          ResNet-101 [25]
+“shortcut” the transport via lucky source samples. This high-              RetinaNet [62]          40.4   60.2       43.2   24.0   44.3   52.2
+lights how CFM’s more direct flows yield more reliable lo-                 Faster R-CNN [62]       42.0   62.5       45.9   25.2   45.6   54.6
+calisation. As the number of proposals increases, both meth-               Cascade R-CNN [7]       45.5   63.7       49.9   27.6   49.2   59.1
+ods benefit from denser shortcuts, but FlowDet maintains a                 DETR [6]                43.5   63.8       46.4   21.9   48.0   61.8
+                                                                           Sparse R-CNN [55]       46.4   64.6       49.5   28.3   48.3   61.6
+consistent advantage across steps and proposal counts.
+                                                                           DiffusionDet† (100@1)   44.6   62.3       48.4   25.6   48.5   61.7
+   Evaluating on LVIS with like-for-like settings as [10],                 DiffusionDet† (100@2)   44.4   62.1       48.3   24.8   48.1   61.9
+FlowDet again shows strong scaling performance, outper-                    DiffusionDet† (100@3)   46.1   64.8       49.8   27.7   49.9   62.4
+forming other generative detection models across almost all                FlowDet (100@1)         44.0   62.1       47.5   25.7   47.4   61.1
+metrics and operating points. Of particular note is FlowDet’s              FlowDet (100@2)         45.7   64.3       49.4   28.5   48.9   62.2
+excellent performance on rare item categories, with improve-               FlowDet (100@3)         46.1   65.1       50.0   28.7   49.5   62.6
+ments as high as 4.2% APrare in some cases.
+                                                                         Table 1. Comparison of object detector performance on the
+4.2.1. Discussion                                                        COCO 2017 validation set. Highlighting indicates the best ,
+Overall we present strong evidence validating the improve-                second best and third best result per metric. [Neval @S] de-
+ments provided by CFM’s shorter, straighter transport paths,             notes the number of prior samples (Neval ) and number of iteration
+during generative detection. It is worth noting that we have             steps (S). † We re-train DiffusionDet with the standard 3x schedule
+focussed on providing a fair comparison against Diffusion-               inline with other non-DETR models.
+Det, the only previous foray into generative detection. To                Method                   AP     AP50       AP75   APr    APc    APf
+enable this, we have adopted matching backbones and archi-                                          ResNet-50 [25]
+tectures which are no longer state-of-the-art. However, the               DiffusionDet† (100@1)    24.3   33.0       25.6   17.7   23.1   28.5
+concepts implemented in FlowDet are modular and can be                    DiffusionDet† (100@2)    23.7   32.6       24.8   16.1   22.5   28.3
+adapted to work with any query set-based detector architec-               DiffusionDet† (100@3)    28.4   38.9       29.7   20.8   27.0   33.2
+ture. For example, we have seen very promising preliminary                FlowDet (100@1)          23.4   32.3       24.5   16.6   22.1   27.9
+results using advanced DINO based feature backbones and                   FlowDet (100@2)          27.0   37.3       28.2   20.3   25.1   32.2
+                                                                          FlowDet (100@3)          28.7   39.7       30.2   22.0   26.7   33.9
+DETR style architectures. However, in this evaluation we fo-
+cussed specifically on the differences between the stochastic            Table 2. Comparison of object detector performance on the
+SDE formulation of diffusion and the linear ODE formu-                   LVIS v1.0 validation set.
+lation of CFM. At equivalent compute budgets, FlowDet
+consistently surpasses DiffusionDet, with the gap widening               distribution, random pairing of prior to ground truth samples
+as the number of integration steps increases, consistent with            and Euler ODE integration when not actively ablated.
+the theory that more linear paths incur less integration error
+under compute-constrained settings.                                      4.3.1. Prior Distribution
+                                                                         Table 3 quantifies the effect of various prior distributions
+4.3. Ablation Study                                                      from which the x0 set of proposal boxes are sampled.
+This section details a number of ablations on the prior distri-          We test a normal Gaussian distribution (DGaussN ), data-
+bution selection, OT pairing strategy and ODE solver with                derived Gaussian parameters (global Dder and size-bucketed
+runtime analysis. These are areas where CFM provides addi-               Dder−sb ) and data-dependant Gaussian parameters (Ddep )
+tional flexibility to FlowDet. To ease comparison, we fix the            with the implementations defined in Section 3.2.2.
+backbone to ResNet50, train to a 3x schedule and evaluate                   In this detection setting, a normal Gaussian performs
+with 100 boxes at 1 to 3 integration steps. Additionally, the            the best as a prior distribution. We hypothesise that this is
+CFM settings are set to a default of a normal Gaussian prior             because more compact source distributions increase redun-
+
+
+
+                                                                  4911
+   Prior Distribution                          AP     AP50   AP75               ODE Solver                      AP         AP50   AP75   FPS
+                          100 boxes, 1 step                                                           100 boxes, 1 step
+   Gaussian (DGaussN )                         43.2   60.9   46.7               DiffusionDet (DDIM)             43.1       60.6   46.4   73.5
+   Data-Driven (Dder )                         42.4   59.8   45.8               Euler                           43.2       60.9   46.7   73.5
+   Data-Driven size-bucketed (Dder−sb )        42.4   59.9   45.4               Heun                            28.6       40.9   30.2   50.0
+   Data-Dependant (Ddep )                      42.6   60.2   45.9               RK4                              1.2        4.3    0.4   31.1
+                          100 boxes, 2 steps                                                          100 boxes, 2 steps
+   Gaussian (DGaussN )                         44.7   63.2   48.2               DiffusionDet (DDIM)             43.0       60.4   46.6   49.0
+   Data-Driven (Dder )                         44.6   63.4   48.2               Euler                           44.7       63.2   48.2   49.5
+   Data-Driven size-bucketed (Dder−sb )        44.7   64.4   49.0               Heun                            41.8       59.0   44.9   30.3
+   Data-Dependant (Ddep )                      44.7   63.3   48.2               RK4                              1.4        5.4    0.2   17.5
+                          100 boxes, 3 steps                                                          100 boxes, 3 steps
+   Gaussian (DGaussN )                         45.5   64.1   49.2               DiffusionDet (DDIM)             45.1       63.8   48.3   37.0
+   Data-Driven (Dder )                         45.0   63.4   48.2               Euler                           45.5       64.1   49.2   37.3
+   Data-Driven size-bucketed (Dder−sb )        45.4   64.4   49.0               Heun                            44.2       62.3   47.7   21.9
+   Data-Dependant (Ddep )                      45.2   64.0   48.8               RK4                              1.7        6.1    0.4   12.3
+                                                                                                 100 boxes, adaptive steps
+              Table 3. Prior Distribution selection.                            DOPRI5 1-8 steps, atol=5         1.7        6.6    0.4    2.8
+                                                                                DOPRI5 1-16 steps, atol=3        1.5        5.7    0.3    1.4
+   Cost function                               AP     AP50   AP75
+                          100 boxes, 1 step                                Table 5. ODE Solver Methods. Note: FPS was computed using a
+   Random pairing (Mrand )                     43.2   60.9   46.7          single NVIDIA RTX 5090 for inference.
+   L2 cdist (Mhung−c )                         42.9   60.7   46.2
+   ℓ1 + gIoU (Mhung−g )                        42.6   60.1   46.0
+   InterpIoU (Mhung−i )                        42.9   60.6   46.4          do not overlap a targets are significantly penalised.
+                          100 boxes, 2 step                                   Of the remaining matchers, InterpIoU performs the best,
+   Random pairing (Mrand )                     44.7   63.2   48.2          with the arrangement of the matchers remaining roughly
+   L2 cdist (Mhung−c )                         44.3   62.7   47.6          stable regardless of the number of inference steps.
+   ℓ1 + gIoU (Mhung−g )                        44.0   62.4   47.6
+   InterpIoU (Mhung−i )                        44.4   63.0   47.9
+                                                                           4.3.3. ODE Solver and Runtime Analysis
+                          100 boxes, 3 step
+   Random pairing (Mrand )                     45.5   64.1   49.2          Finally, we compare ODE solvers across accuracy and run-
+   L2 cdist (Mhung−c )                         44.8   63.5   48.5          time in Table 5. Euler consistently matches or exceeds
+   ℓ1 + gIoU (Mhung−g )                        44.5   63.1   48.3
+                                                                           the speed of DDIM while achieving greater performance
+   InterpIoU (Mhung−i )                        45.0   63.9   48.6
+                                                                           (e.g., 45.5 vs. 45.1 AP at ≈37 FPS, 3 steps). In contrast,
+              Table 4. OT Pairing Cost Functions.                          higher-order solvers suffer with fewer steps: Heun recovers
+                                                                           only by 3 steps and is slower, RK4 [3] is numerically brittle
+dancy between the predicted boxes. In the single-step set-                 with near-zero AP, and the adaptive DOPRI5 [13] variant
+ting, the resulting loosely packed detection clusters interact             fails to reach a good solution within the step/tolerance caps
+poorly with NMS post-processing. However, it is notewor-                   and inference speed is drastically reduced.
+thy that as the number of inference steps increases, these
+duplicate sets tighten, making it easier for NMS to remove
+duplicates. This closes the gap between the Gaussian prior                 5. Conclusion
+and data-derived/dependent priors at higher step counts.                   This paper presents FlowDet, a generalisation of previous
+4.3.2. Optimal Transport Pairing                                           diffusion based object detectors to a broader category of
+In this ablation, we compare the source-to-target match-                   modern generative models. Framing detection as a genera-
+ing strategies described in Section 3.3.2. These include                   tive transport task brings numerous benefits including arbi-
+random pairing (Mrand ) against hungarian matching with                    trarily varying the precision, recall and computational cost
+three cost functions in Table 4: bounding box centre dis-                  of the predictions at run-time without model retraining.
+tance (Mhung−c ), bounding box distance + generalised IoU                      By adopting a general Conditional Flow Matching
+(Mhung−g ) and InterpIoU (Mhung−i ). Interestingly, the re-                formulation, we explore a broad range of source dis-
+                                                                           tributions, matching regimes and ODE solvers. Our re-
+sults show that any form of coupling, whether primitive or                 sults indicate that FlowDet outperforms DiffusionDet
+task-aligned, results in worse overall detector performance.               (and other non-generative detection baselines) across a
+This is likely due to the classification head being starved                broad range of operating points, feature backbones and
+of easy negative examples as most interpolants fed into the                datasets. These broad analyses will provide a solid
+head are strongly aligned to a ground truth target. In turn, at            foundation for future works in the generative detection
+inference time, boxes with a high classification scores that               field.
+
+
+
+                                                                    4912
+References                                                                   [14] Kaiwen Duan, Song Bai, Lingxi Xie, Honggang Qi, Qing-
+                                                                                  ming Huang, and Qi Tian. Centernet: Keypoint triplets for
+ [1] Michael Samuel Albergo and Eric Vanden-Eijnden. Build-                       object detection. In Proceedings of the IEEE/CVF Interna-
+     ing normalizing flows with stochastic interpolants. In The                   tional Conference on Computer Vision (ICCV), 2019. 2
+     Eleventh International Conference on Learning Representa-               [15] Ruiqi Gao, Emiel Hoogeboom, Jonathan Heek, Valentin De
+     tions, 2023. 3                                                               Bortoli, Kevin P. Murphy, and Tim Salimans. Diffusion meets
+ [2] Michael S. Albergo, Nicholas M. Boffi, and Eric Vanden-                      flow matching: Two sides of the same coin. 2024. 3
+     Eijnden. Stochastic interpolants: A unifying framework for              [16] Zheng Ge, Songtao Liu, Zeming Li, Osamu Yoshie, and Jian
+     flows and diffusions, 2023. 3                                                Sun. Ota: Optimal transport assignment for object detection.
+ [3] J. C. Butcher. A history of runge-kutta methods. Appl. Numer.                In 2021 IEEE/CVF Conference on Computer Vision and Pat-
+     Math., 20(3):247–260, 1996. 8                                                tern Recognition (CVPR), pages 303–312, 2021. 5
+ [4] Zhi Cai, Songtao Liu, Guodong Wang, Zeming Li, Zheng                    [17] Zheng Ge, Songtao Liu, Feng Wang, Zeming Li, and Jian
+     Ge, Xiangyu Zhang, and Di Huang. Align-detr: Enhancing                       Sun. Yolox: Exceeding yolo series in 2021, 2021. 5
+     end-to-end object detection with aligned loss. In 35th British          [18] Adam P. Generale, Andreas E. Robertson, and Surya R.
+     Machine Vision Conference 2024, BMVC 2024, Glasgow, UK,                      Kalidindi. Conditional variable flow matching: Transform-
+     November 25-28, 2024. BMVA, 2024. 2                                          ing conditional densities with amortized conditional optimal
+ [5] Sergio Calvo-Ordonez, Matthieu Meunier, Alvaro Cartea,                       transport, 2025. 3
+     Christoph Reisinger, Yarin Gal, and Jose Miguel Hernandez-              [19] Ross Girshick. Fast r-cnn. In 2015 IEEE International Con-
+     Lobato. Weighted conditional flow matching, 2025. 3                          ference on Computer Vision (ICCV), pages 1440–1448, 2015.
+ [6] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas                   1, 2
+     Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-              [20] Ross Girshick, Jeff Donahue, Trevor Darrell, and Jitendra
+     end object detection with transformers. In European Confer-                  Malik. Rich feature hierarchies for accurate object detection
+     ence on Computer Vision (ECCV), 2020. 1, 2, 4, 5, 6, 7                       and semantic segmentation. In Proceedings of the IEEE Con-
+ [7] Kai Chen, Jiaqi Wang, Jiangmiao Pang, Yuhang Cao, Yu                         ference on Computer Vision and Pattern Recognition (CVPR),
+     Xiong, Xiaoxiao Li, Shuyang Sun, Wansen Feng, Ziwei Liu,                     2014. 2
+     Jiarui Xu, Zheng Zhang, Dazhi Cheng, Chenchen Zhu, Tian-                [21] Will Grathwohl, Ricky T. Q. Chen, Jesse Bettencourt, and
+     heng Cheng, Qijie Zhao, Buyu Li, Xin Lu, Rui Zhu, Yue                        David Duvenaud. Scalable reversible generative models with
+     Wu, Jifeng Dai, Jingdong Wang, Jianping Shi, Wanli Ouyang,                   free-form continuous dynamics. In International Conference
+     Chen Change Loy, and Dahua Lin. MMDetection: Open                            on Learning Representations, 2019. 3
+     mmlab detection toolbox and benchmark. arXiv preprint                   [22] Pengsheng Guo and Alex Schwing. Variational rectified flow
+     arXiv:1906.07155, 2019. 7                                                    matching, 2025. 3
+                                                                             [23] Agrim Gupta, Piotr Dollar, and Ross Girshick. LVIS: A
+ [8] Qiang Chen, Xiaokang Chen, Jian Wang, Shan Zhang, Kun
+                                                                                  dataset for large vocabulary instance segmentation. In Pro-
+     Yao, Haocheng Feng, Junyu Han, Errui Ding, Gang Zeng, and
+                                                                                  ceedings of the IEEE Conference on Computer Vision and
+     Jingdong Wang. Group detr: Fast detr training with group-
+                                                                                  Pattern Recognition, 2019. 6
+     wise one-to-many assignment. In Proceedings of the IEEE
+     International Conference on Computer Vision (ICCV), 2023.               [24] Yizeng Han, Gao Huang, Shiji Song, Le Yang, Honghui
+     2                                                                            Wang, and Yulin Wang. Dynamic neural networks: A sur-
+                                                                                  vey. IEEE Transactions on Pattern Analysis and Machine
+ [9] Ricky T. Q. Chen, Yulia Rubanova, Jesse Bettencourt, and
+                                                                                  Intelligence, 44:7436–7456, 2021. 1
+     David K Duvenaud. Neural ordinary differential equations. In
+                                                                             [25] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+     Advances in Neural Information Processing Systems. Curran
+                                                                                  Deep residual learning for image recognition. In Proceed-
+     Associates, Inc., 2018. 3
+                                                                                  ings of the IEEE Conference on Computer Vision and Pattern
+[10] Shoufa Chen, Peize Sun, Yibing Song, and Ping Luo. Diffu-                    Recognition (CVPR), 2016. 2, 4, 7
+     siondet: Diffusion model for object detection. In Proceedings           [26] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffu-
+     of the IEEE/CVF International Conference on Computer Vi-                     sion probabilistic models. In Advances in Neural Information
+     sion (ICCV), pages 19830–19843, 2023. 1, 2, 4, 5, 6, 7                       Processing Systems, pages 6840–6851. Curran Associates,
+[11] Xiyang Dai, Yinpeng Chen, Jianwei Yang, Pengchuan Zhang,                     Inc., 2020. 2, 3
+     Lu Yuan, and Lei Zhang. Dynamic detr: End-to-end ob-                    [27] Qinghang Hong, Fengming Liu, Dong Li, Ji Liu, Lu Tian,
+     ject detection with dynamic attention. In Proceedings of                     and Yi Shan. Dynamic sparse r-cnn. In 2022 IEEE/CVF Con-
+     the IEEE/CVF International Conference on Computer Vision                     ference on Computer Vision and Pattern Recognition (CVPR),
+     (ICCV), pages 2988–2997, 2021. 2                                             pages 4713–4722, 2022. 2
+[12] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li           [28] Zemin Huang, Zhengyang Geng, Weijian Luo, and Guo-Jun
+     Fei-Fei. Imagenet: A large-scale hierarchical image database.                Qi. One-step flow matching generators, 2025. 3
+     In 2009 IEEE Conference on Computer Vision and Pattern                  [29] Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu,
+     Recognition, pages 248–255, 2009. 6                                          Weihong Lin, Lei Sun, Chao Zhang, and Han Hu. Detrs with
+[13] J.R. Dormand and P.J. Prince. A family of embedded runge-                    hybrid matching. In 2023 IEEE/CVF Conference on Com-
+     kutta formulae. Journal of Computational and Applied Math-                   puter Vision and Pattern Recognition (CVPR), pages 19702–
+     ematics, 6(1):19–26, 1980. 8                                                 19712, 2023. 4
+
+
+
+
+                                                                      4913
+[30] Tero Karras, Miika Aittala, Timo Aila, and Samuli Laine.                 [43] Alexander Quinn Nichol and Prafulla Dhariwal. Improved de-
+     Elucidating the design space of diffusion-based generative                    noising diffusion probabilistic models. In Proceedings of the
+     models. In Advances in Neural Information Processing Sys-                     38th International Conference on Machine Learning, pages
+     tems, pages 26565–26577. Curran Associates, Inc., 2022. 3                     8162–8171. PMLR, 2021. 3
+[31] Feng Li, Hao Zhang, Shilong Liu, Jian Guo, Lionel M Ni,                  [44] George Papamakarios, Eric Nalisnick, Danilo Jimenez
+     and Lei Zhang. Dn-detr: Accelerate detr training by introduc-                 Rezende, Shakir Mohamed, and Balaji Lakshminarayanan.
+     ing query denoising. In Proceedings of the IEEE/CVF Con-                      Normalizing flows for probabilistic modeling and inference.
+     ference on Computer Vision and Pattern Recognition, pages                     Journal of Machine Learning Research, 22(57):1–64, 2021.
+     13619–13627, 2022. 2                                                          3
+[32] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,                 [45] Ethan Perez, Florian Strub, Harm de Vries, Vincent Du-
+     Pietro Perona, Deva Ramanan, Piotr Dollár, and C. Lawrence                   moulin, and Aaron Courville. Film: visual reasoning with
+     Zitnick. Microsoft coco: Common objects in context. In                        a general conditioning layer. In Proceedings of the Thirty-
+     Computer Vision – ECCV 2014, pages 740–755, Cham, 2014.                       Second AAAI Conference on Artificial Intelligence and Thir-
+     Springer International Publishing. 2, 6                                       tieth Innovative Applications of Artificial Intelligence Confer-
+[33] Tsung-Yi Lin, Piotr Dollár, Ross Girshick, Kaiming He,                       ence and Eighth AAAI Symposium on Educational Advances
+     Bharath Hariharan, and Serge Belongie. Feature pyramid                        in Artificial Intelligence. AAAI Press, 2018. 5
+     networks for object detection. In 2017 IEEE Conference                   [46] Joseph Redmon, Santosh Divvala, Ross Girshick, and Ali
+     on Computer Vision and Pattern Recognition (CVPR), pages                      Farhadi. You only look once: Unified, real-time object detec-
+     936–944, 2017. 4                                                              tion. In Proceedings of the IEEE Conference on Computer
+[34] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and                     Vision and Pattern Recognition (CVPR), 2016. 2
+     Piotr Dollar. Focal loss for dense object detection. In Pro-             [47] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.
+     ceedings of the IEEE International Conference on Computer                     Faster r-cnn: Towards real-time object detection with region
+     Vision (ICCV), 2017. 2                                                        proposal networks. IEEE Transactions on Pattern Analysis
+                                                                                   and Machine Intelligence, 39(6):1137–1149, 2017. 1, 2, 5
+[35] Yaron Lipman, Ricky T. Q. Chen, Heli Ben-Hamu, Maxim-
+                                                                              [48] Hamid Rezatofighi, Nathan Tsoi, JunYoung Gwak, Amir
+     ilian Nickel, and Matthew Le. Flow matching for genera-
+                                                                                   Sadeghian, Ian Reid, and Silvio Savarese. Generalized in-
+     tive modeling. In The Eleventh International Conference on
+                                                                                   tersection over union: A metric and a loss for bounding box
+     Learning Representations, 2023. 2, 3
+                                                                                   regression. In 2019 IEEE/CVF Conference on Computer Vi-
+[36] Haoyuan Liu and Hiroshi Watanabe. Interpiou: Rethinking
+                                                                                   sion and Pattern Recognition (CVPR), pages 658–666, 2019.
+     bounding box regression with interpolation-based iou opti-
+                                                                                   5
+     mization, 2025. 5
+                                                                              [49] Byungseok Roh, JaeWoong Shin, Wuhyun Shin, and Sae-
+[37] Shilong Liu, Feng Li, Hao Zhang, Xiao Yang, Xianbiao Qi,                      hoon Kim. Sparse DETR: Efficient end-to-end object detec-
+     Hang Su, Jun Zhu, and Lei Zhang. DAB-DETR: Dynamic                            tion with learnable sparsity. In International Conference on
+     anchor boxes are better queries for DETR. In International                    Learning Representations, 2022. 2
+     Conference on Learning Representations, 2022. 2
+                                                                              [50] Tim Salimans and Jonathan Ho. Progressive distillation for
+[38] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian                          fast sampling of diffusion models. In International Confer-
+     Szegedy, Scott Reed, Cheng-Yang Fu, and Alexander C. Berg.                    ence on Learning Representations, 2022. 1
+     Ssd: Single shot multibox detector. In Computer Vision –                 [51] Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar.
+     ECCV 2016, pages 21–37, Cham, 2016. Springer Interna-                         Scaling llm test-time compute optimally can be more effec-
+     tional Publishing. 2                                                          tive than scaling model parameters, 2024. 1
+[39] Xingchao Liu, Chengyue Gong, and qiang liu. Flow straight                [52] Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan,
+     and fast: Learning to generate and transfer data with rectified               and Surya Ganguli. Deep unsupervised learning using
+     flow. In The Eleventh International Conference on Learning                    nonequilibrium thermodynamics. In Proceedings of the 32nd
+     Representations, 2023. 3                                                      International Conference on Machine Learning, pages 2256–
+[40] Cheng Lu, Yuhao Zhou, Fan Bao, Jianfei Chen, Chongxuan                        2265, Lille, France, 2015. PMLR. 3
+     LI, and Jun Zhu. Dpm-solver: A fast ode solver for diffusion             [53] Jiaming Song, Chenlin Meng, and Stefano Ermon. Denoising
+     probabilistic model sampling in around 10 steps. In Advances                  diffusion implicit models. In International Conference on
+     in Neural Information Processing Systems, pages 5775–5787.                    Learning Representations, 2021. 2, 3
+     Curran Associates, Inc., 2022. 1                                         [54] Yang Song, Prafulla Dhariwal, Mark Chen, and Ilya
+[41] Cheng Lu, Yuhao Zhou, Fan Bao, Jianfei Chen, Chongxuan                        Sutskever. Consistency models. In Proceedings of the 40th
+     Li, and Jun Zhu. Dpm-solver++: Fast solver for guided sam-                    International Conference on Machine Learning, pages 32211–
+     pling of diffusion probabilistic models. Machine Intelligence                 32252. PMLR, 2023. 1
+     Research, 22(4):730–751, 2025. 1                                         [55] Peize Sun, Rufeng Zhang, Yi Jiang, Tao Kong, Chenfeng
+[42] Depu Meng, Xiaokang Chen, Zejia Fan, Gang Zeng,                               Xu, Wei Zhan, Masayoshi Tomizuka, Lei Li, Zehuan Yuan,
+     Houqiang Li, Yuhui Yuan, Lei Sun, and Jingdong Wang. Con-                     Changhu Wang, and Ping Luo. Sparse r-cnn: End-to-end
+     ditional detr for fast training convergence. In Proceedings of                object detection with learnable proposals. In Proceedings of
+     the IEEE/CVF International Conference on Computer Vision                      the IEEE/CVF Conference on Computer Vision and Pattern
+     (ICCV), pages 3651–3660, 2021. 2                                              Recognition (CVPR), pages 14454–14463, 2021. 1, 2, 5, 7
+
+
+
+
+                                                                       4914
+[56] Zhi Tian, Chunhua Shen, Hao Chen, and Tong He. Fcos:
+     Fully convolutional one-stage object detection. In Proceed-
+     ings of the IEEE/CVF International Conference on Computer
+     Vision (ICCV), 2019. 2
+[57] Alexander Tong, Kilian FATRAS, Nikolay Malkin, Guil-
+     laume Huguet, Yanlei Zhang, Jarrid Rector-Brooks, Guy
+     Wolf, and Yoshua Bengio. Improving and generalizing flow-
+     based generative models with minibatch optimal transport.
+     Transactions on Machine Learning Research, 2024. Expert
+     Certification. 3, 5
+[58] J. R. R. Uijlings, K. E. A. van de Sande, T. Gevers, and
+     A. W. M. Smeulders. Selective search for object recognition.
+     International Journal of Computer Vision, 104(2):154–171,
+     2013. 2
+[59] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-
+     reit, Llion Jones, Aidan N Gomez, Ł ukasz Kaiser, and Illia
+     Polosukhin. Attention is all you need. In Advances in Neu-
+     ral Information Processing Systems. Curran Associates, Inc.,
+     2017. 2, 5
+[60] Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed H.
+     Chi, Sharan Narang, Aakanksha Chowdhery, and Denny
+     Zhou. Self-consistency improves chain of thought reasoning
+     in language models. In International Conference on Learning
+     Representations (ICLR), 2023. 1
+[61] Yingming Wang, Xiangyu Zhang, Tong Yang, and Jian Sun.
+     Anchor detr: Query design for transformer-based detector. In
+     Proceedings of the AAAI Conference on Artificial Intelligence,
+     pages 2567–2575, 2022. 2
+[62] Yuxin Wu, Alexander Kirillov, Francisco Massa, Wan-Yen
+     Lo, and Ross Girshick. Detectron2. https://github.
+     com/facebookresearch/detectron2, 2019. 6, 7
+[63] Tianyu Xie, Yu Zhu, Longlin Yu, Tong Yang, Ziheng Cheng,
+     Shiyue Zhang, Xiangyu Zhang, and Cheng Zhang. Reflected
+     flow matching. In Proceedings of the 41st International Con-
+     ference on Machine Learning, pages 54614–54634. PMLR,
+     2024. 3
+[64] Zhuyu Yao, Jiangbo Ai, Boxun Li, and Chi Zhang. Efficient
+     detr: Improving end-to-end object detector with dense prior,
+     2021. 2
+[65] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang,
+     and Jifeng Dai. Deformable {detr}: Deformable transformers
+     for end-to-end object detection. In International Conference
+     on Learning Representations, 2021. 2, 7
+[66] Zhuofan Zong, Guanglu Song, and Yu Liu. Detrs with col-
+     laborative hybrid assignments training. In Proceedings of
+     the IEEE/CVF international conference on computer vision,
+     pages 6748–6758, 2023. 2
+
+
+
+
+                                                                  4915
+

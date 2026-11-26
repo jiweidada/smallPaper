@@ -1,0 +1,135 @@
+(a)
+0.0 0.2 0.4 0.6 0.8 1.0
+Classification Score
+0.000
+0.005
+0.010
+0.015Frequency
+H-DETR
+H-DETR + QRL (b)
+0.00 0.05 0.10 0.15 0.20
+Classification Score
+0.00
+0.01
+0.02
+0.03
+0.04Frequency
+H-DETR
+H-DETR + QRL (c)
+Figure 3: (a) Comparing the PR-curves between baseline and our method under different IoU thresholds.
+(b) Density distribution of the classification scores on the matched queries with or without QRL. (c) Density
+distribution of the classification scores on the unmatched queries with or without QRL.
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC
+(a) Layer #1
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC (b) Layer #2
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC (c) Layer #3
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC (d) Layer #4
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC (e) Layer #5
+0.0 0.2 0.4 0.6 0.8 1.0
+IoU
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0Cumulative Frequency
+H-DETR
+H-DETR + HMC (f) Layer #6
+Figure 4: Cumulative distribution of the IoU scores on the unmatched queries with or without HMC.
+also ablate the formulation of the learning target t in Eq. (6) in Table 5a. The results show that
+the performance of adopting IoU (and its exponent) as the optimization target is inferior to use
+(GIoU + 1)/2 because GIoU can better model the relationship of two non-overlapped boxes. We use
+(GIoU + 1)/2 rather than GIoU because −1 < GIoU ≤ 1 and 0 < (GIoU + 1)/2 ≤ 1.
+High-order Matching Cost (HMC). We also show how the high-order matching cost affects the
+overall performance in Table 4. The HMC can also significantly improve the overall performance of
+the object detector (+0.6% when comparing row1 and row5 in Table 4b, +0.4% when comparing
+row1 and row5 in Table 4c). We further ablate the formulation of the matching cost. As illustrated in
+Table 5b, a high-order exponent IoU can consistently improve the performance and achieve a peak
+when the power is 4. Using a high-order exponent can suppress the importance of the predicted
+boxes with low IoU. We can also observe the same trend from Table 5b when replacing IoU with
+(GIoU+1)/2, but the latter practice has a slightly inferior performance.
+HMC Suppresses the Overlap between Negative Query and Ground Truth. Figure 4 illustrates
+the cumulative probability distribution of the IoU of unmatched queries. The IoU of each unmatched
+query is defined as the largest IoU between it and all ground truth boxes. As shown in Figure 4, the
+adoption of HMC can decrease the IoU between unmatched queries and all the ground truth bounding
+boxes, effectively pushing the negative queries away from the ground truth boxes. Furthermore, this
+phenomenon is increasingly remarkable in the latter Transformer decoder layers.
+Comparison with Varifocal loss. In order to assess the effectiveness of the proposed GIoU-aware
+classification loss (GCL, Eq. (6)), we compare it with varifocal loss (VFL) [62] due to their similar
+mathematical formulations. Following VFL [62], we utilize the training target t = IoU in Eq. (7).
+To simplify the comparison and focus on the impact of GCL, we conduct the evaluation without
+HMC (row3 in Table 4a). Our method, leveraging the GCL, achieves a mAP of 49.8% (row4 in
+Table 4a), whereas VFL achieves only 49.5% mAP. The primary distinctions between GCL and VFL
+lie in the optimization target. By employing the normalized GIoU as the training target, our approach
+better models the distance between two non-overlapping boxes, leading to improved performance. In
+addition, VFL removes scaling factors on positive samples, as they are rare compared to negatives in
+CNN-based detectors. However, for DETR-based detectors, where positive examples are relatively
+more abundant, we empirically show that retaining a scaling factor can enhance performance.
+Method Backbone Params(M) FLOPs(G) Training Cost (min) Testing FPS (img/s) AP
+H-DETR R50 47.56 280 .30 69.8 19 .2 48.7
+Ours R50 49.10 280 .60 71.8 19 .0 50.2
+Table 6: Computational efficiency analysis for our method.
+9

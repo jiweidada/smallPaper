@@ -1,0 +1,17 @@
+Material Passport: academic-research-suite / experiment-agent; cached exploratory CPU evaluation; no detector training.
+两个种子的缓存后处理筛查已完成；当前每query仅保留最高类别的方案不继续。
+时间UTC 2026-10-21T05:22:03.122892+00:00
+对象：original_stem12 EMA第12轮，548张val。不是预训练BASE24、C96或UAVDT。
+N原展平top300；D原N内每query留最高类、不补位；R所有query最高类补至预算300。评分>.001，COCO maxDets1/10/100每图每类；原GT0 sentinel保留。
+旧原生重放门槛未通过的文件完整保留。CPU新协议在D/R结果前登记，N重复计算的12指标、逐类和匹配结果完全相等；不称原生GPU复现，不将两套协议混用。
+seed | N AP | D AP | R AP | R-N(pp) | R-D(pp) | R-N APs(pp)
+1 | 6.128496 | 5.150665 | 5.190986 | -0.937510 | +0.040320 | -0.838841
+seed1 IoU.5 R对N新增/丢失GT=419/3087；新增query检出432个TP；原N被删除次高类条目里有3333个TP。新条目背景标签(anyclass maxIoU<.1)=35263。
+原N重复query名额总计79648，补入新query同数79648。逐类、尺寸得失和GT分母见原始JSON。实际fresh匹配受每类100截断，一些补位框不进入评估，因此条目TP数不能当GT净增益或AP分解。
+2 | 7.908137 | 6.682200 | 6.738981 | -1.169156 | +0.056781 | -0.919108
+seed2 IoU.5 R对N新增/丢失GT=502/3021；新增query检出545个TP；原N被删除次高类条目里有3361个TP。新条目背景标签(anyclass maxIoU<.1)=32302。
+原N重复query名额总计76004，补入新query同数76004。逐类、尺寸得失和GT分母见原始JSON。实际fresh匹配受每类100截断，一些补位框不进入评估，因此条目TP数不能当GT净增益或AP分解。
+预先判据：R须在两个seed均优于N和D且有新GT；目前两个seed均不胜N，当前方案触发停止。
+解释：删除次高类别的损失远大于补位收益，不能将所有重复query条目当作无用占位。补位比仅删除稍好，只约束此具体后处理版本，不证明所有预算设计无效，也不证明低AP旧模型等于成熟96轮模型。
+实际CPU计算、无新模型前向、无训练步；未访问远端/GPU/监测/队列。下一轮需如实回交阴性结果，不改阈值或选类挽救本版本。
+结果SHA256 556a7bea232075c5bd58358b993e8a7c08582c4e702a4c6b439bef2619403941

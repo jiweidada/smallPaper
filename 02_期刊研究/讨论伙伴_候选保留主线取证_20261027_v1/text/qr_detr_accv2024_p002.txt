@@ -1,0 +1,44 @@
+2 Senthivel and Vu
+Exit Entry Query Routing ModuleDecoder Layer
+Heads
+Object Queries
+xL
+Backbone
+Transformer Encoder...
+...
+Input Image
+Encoder OutputsPredictions
+Fig. 1:QR-DETR is a plug-and-play module for the DETR decoder. It uses a backbone
+to extract features and a transformer encoder for augmented image representation.
+The decoder’s object queries interact with these encoded features. The novelty lies in
+the entry-exit query routing (EEQR) module at each decoder block, which selectively
+permits (black) or blocks (red) object queries from passing through specific blocks.
+than progressively refining the captured content as it passes through the decoder
+layers, the interaction between object queries can have two outcomes: a query
+may refine its bounding boxes, improving the Intersection over Union (IoU) with
+correct class predictions, or its confidence may decrease in subsequent layers,
+negatively affecting IoU or class predictions [3]. This is mainly caused by the
+attention layers, which facilitate information flow between object queries. While
+self-attention (SA) layers contribute to the removal of duplicate queries, cross-
+attention (CA) layers are responsible for generating duplicate predictions [15].
+This raises the question of the utility of a query if its confidence can fluctuate
+significantly in this manner.
+Manually pruning low average precision (AP) queries and selecting the high-
+est AP queries from each decoder layer can maintain or even improve overall
+AP performance [46]. Previous methods, such as query recollection [3], aim to
+utilize information across multiple transformer decoder stages. However, they in-
+troduce queries from various layers, potentially leading to noise or misalignment
+issues. These approaches deviate from the natural flow of object queries being
+updated at each decoder layer, primarily due to a lack of understanding of the
+query representation. Motivated by this ambiguity, a pertinent research ques-
+tion arises:Can selective query skipping of certain transformer decoder layers
+be performed without compromising prediction performance?
+To address this question, we propose QR-DETR, a plug-and-play query rout-
+ing strategy for most DETR-based detectors. As illustrated in Fig. 1, we intro-
+duce a lightweight wrapper around decoder blocks that employs a learned gating
+mechanism to determine, for each individual object query, whether it should by-
+pass the current transformer layer or proceed through it. This selective layer
+skipping reduces the number of supervision signals a query encounters, allowing
+the model to dynamically adapt the computation for different queries. Specif-
+ically, QR-DETR introduces three types of decoder block wrappers that route
+355

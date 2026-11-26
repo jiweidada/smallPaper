@@ -1,0 +1,243 @@
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://www.mdpi.com/2313-433X/12/7/325)
+ [wordlim: 200] Published: 3 months ago; Crawled: last week; 
+
+Open Access Article
+
+# Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain
+
+by
+
+Serhat Dikyar
+
+ImageSerhat Dikyar
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1,2,3,*}^{} (dikyar19@itu.edu.tr) and
+
+Behcet Ugur Toreyin
+
+ImageBehcet Ugur Toreyin
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 2,4}^{} (toreyin@itu.edu.tr)
+
+^{1}
+
+ASELSAN Inc., Ankara 06370, Türkiye
+
+^{2}
+
+Signal Processing for Computational Intelligence Research Group (SP4CING), İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{3}
+
+Department of Electronics and Communication Engineering, İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{4}
+
+Department of Artificial Intelligence and Data Engineering, İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+J. Imaging 2026, 12(7), 325; https://doi.org/10.3390/jimaging12070325
+
+Submission received: 25 May 2026 / Revised: 13 July 2026 / Accepted: 16 July 2026 / Published: 18 July 2026
+
+(This article belongs to the Section Computer Vision and Pattern Recognition)
+
+Download keyboard_arrow_down
+
+Download PDF
+Download PDF with Cover
+Download XML
+Download Epub
+
+Browse Figures
+
+Versions Notes
+
+## Abstract
+
+The proliferation of high-definition video data necessitates highly efficient processing pipelines for real-time edge analytics. However, traditional object detection architectures rely exclusively on pixel-domain inputs, which renders the computationally prohibitive decoding phase a latency bottleneck. In this paper, we propose a novel dual-phase framework designed to achieve fast and efficient object detection directly within the partially decoded compressed-domain data. First, we introduce a partial decoding paradigm featuring the Low-Frequency Spectral Prioritization method on the encoder side. By systematically discarding high-frequency residual coefficients and retaining only a sparse subset of fundamental spatial frequencies, this method dramatically reduces transmission payloads and accelerates the standard decoding process. Second, to recover the structural fidelity lost due to the intentional omission of residual data, we employ a multi-granularity cross-domain knowledge distillation architecture. This strategy aligns global contextual features, foreground boundary attention maps, and final response logits, transferring rich representational capacities from a high-performing pixel-domain teacher network to a lightweight compressed-domain student network. Comprehensive experiments utilizing RetinaNet, FCOS, and GFL object detection networks on the COCO-mini dataset demonstrate the superiority of the proposed framework. By retaining fundamental residual coefficients within the HEVC pipeline, the proposed method reduces average decoding latency while improving the mAP score by +0.96%$+0.96\%$$+0.96\%$ over the conventional fully decoded pixel-domain baseline on the COCO-mini dataset.
+
+Keywords:
+
+compressed domain; knowledge distillation; efficient object detection
+
+## 1. Introduction
+
+The proliferation of high-definition video data, driven by the ubiquity of surveillance systems, autonomous vehicles, and smart edge devices, has precipitated a fundamental challenge in computer vision: facilitating the storage and transmission of massive volumes of high-resolution media. To mitigate these bottlenecks, video is almost exclusively stored and transmitted in highly compressed formats, such as Advanced Video Coding (H.264/AVC) [1], High-Efficiency Video Coding (H.265/HEVC) [2], and the emerging Versatile Video Coding (VVC) [3]. These standard video codecs rely on complex mathematical transformations to eliminate spatial and temporal redundancies [4]. Consequently, extracting actionable semantic information directly from these compressed streams before full decoding has emerged as an efficient and viable paradigm for intelligent systems.
+
+Specifically, standard deep learning pipelines are engineered to operate exclusively within the uncompressed pixel domain. This architectural assumption forces a sequential workflow where incoming bitstreams must undergo a complete decoding process before any semantic inference can occur. The standard decoding pipeline involves entropy decoding, inverse quantization, inverse spatial transformations, and complex in-loop filtering. These operations are profoundly resource-intensive. For instance, bypassing this decoding overhead by operating directly on compressed bitstreams can yield dramatic computational reductions. Recent evaluations on public action recognition datasets in [5] demonstrate that eliminating this full pixel reconstruction can result in up to 98% energy savings and a 55% gain in inference speed compared to established raw-domain models. Moreover, the reconstruction of high-frequency textural details, governed by residual data, constitutes a massive computational load, considering that residuals encompass up to 85–90% of the total data within intra-coded frames [6]. For resource-constrained edge devices, this intensive pixel-level reconstruction can create an extra latency bottleneck. Additionally, strictly minimizing the data utilized for video understanding aligns with modern privacy regulations that mandate data minimization [7].
+
+  * We introduce an efficient partial decoding method driven by a simple yet effective Low-Frequency Spectral Prioritization (LFSP) strategy at the encoder. By short-circuiting bitstream generation post-quantization to retain only fundamental spatial frequencies, LFSP decreases bitstream size and decoding latency while preserving semantic fidelity without modifying the standard decoder.
+
+  * We formulate and propose a cross-domain knowledge distillation architecture to transfer representational capacity from a pixel-domain teacher to a compressed-domain student.
+
+The rest of the paper is organized as follows: Section 2 provides a comprehensive review of related works concerning object detection and knowledge distillation methodologies within the compressed domain. Section 3 outlines the fundamental architecture of the High-Efficiency Video Coding standard, focusing specifically on spatial prediction and the standard residual calculation pipeline. Section 4 details the proposed methodology, including the modified partial decoding pipeline, the selective residual removal strategies, and the complete cross-domain knowledge distillation architecture. Section 5 presents the experimental setup, with quantitative results detailing the computational efficiency of the partial decode mechanisms. It also provides end-to-end detection performance evaluations across multiple object detection networks, and a comprehensive ablation study of the distillation methods. Finally, Section 6 concludes the paper with a summary of our primary findings.
+
+### 4.4. Cross-Domain Knowledge Distillation
+
+We propose a cross-domain knowledge distillation method by using framework in [43] to transfer the robust representational capacity of a large-scale teacher network operating in the pixel domain to a compact student network operating in the compressed domain. The fundamental challenge addressed by this framework is the significant semantic gap between the two domains: while the teacher extracts features from spatially coherent pixel-domain data, the student must infer similar semantics from partially decoded compressed-domain data. To bridge this gap without incurring excessive computational overhead, we employ a multi-granularity distillation strategy that aligns representations at both the intermediate feature level and the final response level, namely Global Feature Distillation (GFD), Foreground–Background Feature Distillation (FBFD) and Logit-based Response Distillation (LRD). While our approach integrates with the general knowledge distillation framework proposed for the pixel domain, it introduces specialized cross-domain adaptations to resolve the unique artifacts of partial decoding.
+
+Standard modern object detectors generally follow a three-stage architecture: a backbone for initial feature extraction, a neck for multi-scale feature fusion, and a head for final classification and bounding box regression. The distillation framework integrates at the neck and head stages since the backbone features in the compressed domain are too domain-specific to directly align with pixel-domain backbone features. Cross-domain knowledge distillation architecture is depicted in Figure 5.
+
+Image: Jimaging 12 00325 g005
+
+Figure 5. Knowledge Distillation Method. We employ a multi-granularity distillation strategy that aligns representations at both the intermediate feature level and the final response level, namely Global Feature Distillation (GFD), Foreground–Background Feature Distillation (FBFD) and Logit-based Response Distillation (LRD).
+
+Prior to detailing the specific distillation objectives, we formalize the attention mapping functions utilized to extract statistical descriptors from the high-dimensional convolutional feature maps. Table 2. Summary of methods for knowledge distillation from compressed domain. Abbreviations AR: Action Recognition, SS: Semantic Segmentation, OD: Object Detection, C: Classification, LPD: License Plate Detection, PD: Partial Decoding.
+
+Work  | Focus/Methods  | Task  | PD
+--- | --- | --- | ---
+Zhang et al. (2016) [36]  | Knowledge transfer from optical flow to motion vector CNNs via initialization and supervision transfer  | AR  | Yes
+Huang et al. (2019) [37]  | Generalized distillation from optical flow to enhance joint motion vector and residual streams  | AR  | Yes
+Lu et al. (2021) [18]  | Boundary-aware stream guiding features combined with pixel-wise and inner-relation knowledge distillation  | SS  | No
+Huo et al. (2020) [38]  | Feature alignment distillation between optical flow and MV networks coupled with temporal trilinear pooling  | AR  | Yes
+Li et al. (2021) [39]  | Joint feature optimization with self-adaptive knowledge distillation to mimic optical flow-based predictions  | AR  | Yes
+--------------------------------------------------------------------------------
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://pmc.ncbi.nlm.nih.gov/articles/PMC13413004/)
+ [wordlim: 200] Published: 3 months ago; Crawled: last week; 
+
+Despite the immense computational advantages of operating within the compressed domain, the intentional omission of residual data or the reliance on coarse structural syntax elements deprives neural networks of the fine-grained textural details necessary for robust semantic feature extraction. Consequently this leads to substantial degradation in detection accuracy. To mitigate this semantic loss without sacrificing the speed and bandwidth benefits of the compressed domain, knowledge distillation has emerged as a highly effective architectural strategy. At its core, knowledge distillation is a fundamental technique that transfers the representational capacity of a cumbersome, high-performing teacher model to a more compact or constrained student network, and it is widely employed in object detection [[ref-type: bibr] 14,[ref-type: bibr] 15].
+
+In the context of compressed-domain analysis, this concept has been successfully adapted to bridge representational gaps across different data modalities. By transferring knowledge directly from the pixel domain, networks can effectively compensate for the lack of natural inductive biases inherent to compressed-domain representations [[ref-type: bibr] 16 [Source reference: [Source link 14]]]. Specifically, in this type of application, cross-modality distillation can be utilized to align the rich, robust feature space of a fully decoded pixel-domain teacher with the sparse, noisy inputs of a compressed-domain student. To handle structural artifacts, distillation architectures are often employed to allow the student to explicitly learn structural cues and hallucinate missing high-frequency textures caused by the omission of residual data. By matching intermediate feature maps and final detection responses across these two domains during the training phase, the student network implicitly learns to correct deformation artifacts. This allows the network to recover much of the detection precision lost to compression while maintaining the minimal data footprint required for real-time edge analytics [[ref-type: bibr] 17 [Source reference: [Source link 15]],[ref-type: bibr] 18 [Source reference: [Source link 16]]].
+
+### 2.2. Object Detection in Compressed Domain
+
+The computational bottleneck inherent in fully decoding high-resolution video streams for pixel-domain analysis has catalyzed significant interest in compressed-domain object detection. Research in this field can be broadly categorized into two paradigms: syntax-driven detection in traditional codecs and temporal feature propagation.
+
+Early and contemporary methodologies circumvent pixel-domain reconstruction by directly harvesting embedded syntax elements such as motion vectors (MVs), block partition types and Discrete Cosine Transform (DCT) coefficients from standardized bitstreams. For instance, detection algorithms for H.264/AVC have been proposed to evaluate macroblock types and partition modes to assign motion probability weights, effectively segmenting foreground from background [[ref-type: bibr] 28 [Source reference: [Source link 29]]]. Extending this to the HEVC standard, a combination of MVs, Coding Unit (CU) sizes, and prediction modes can be utilized to segment objects and classify them into semantic categories using a bag-of-words model based on HEVC syntax [[ref-type: bibr] 6 [Source reference: [Source link 30]]]. Following the transformation, the coefficients are scaled, quantized, and entropy coded into the final bitstream. To reconstruct the image at the decoder side, the system must reverse this pipeline. The decoder extracts the quantized transform coefficients via entropy decoding, applies inverse scaling (dequantization), and performs computationally heavy inverse spatial transformations to duplicate the residual signal. Finally, this reconstructed residual is added back to the prediction signal to form the decoded picture. The aforementioned HEVC residual pipeline is illustrated in [ref-type: fig] Figure 1.
+
+While reconstructing the full residual is indispensable for achieving high perceptual quality, the inverse transformation process introduces significant computational latency and overhead. Because the fundamental low-frequency structural information is predominantly preserved within the prediction signal and the lowest frequency residual coefficients, the exhaustive calculation and inverse transformation of all high-frequency residual components presents a notable computational bottleneck. Recognizing this mechanism is vital for developing compressed-domain acceleration strategies, where selectively bypassing the full inverse transform of these residuals can drastically reduce decoding time while maintaining sufficient semantic integrity for automated perception architectures.
+
+
+### 4.3. Selective Residual Removal Methodologies
+
+A critical component of our framework is determining which quantized residual coefficients to retain. In order to achieve maximum semantic fidelity and minimum decoding time, we have evaluated and compared specific removal methodologies for selective residual removal:
+
+  * Simple Raster Sequence Prioritization (SRSP): Serving as the standard baseline method for comparison, this approach employs a fixed spatial traversal strategy for coefficient selection, entirely ignoring the underlying intra-prediction characteristics and the spectral significance of the residuals. The complete formal algorithm for SRSP is outlined in Algorithm 3.
+
+  * Low-Frequency Spectral Prioritization (LFSP): This methodology prioritizes the spectral distribution of the quantized residual signal by targeting specific frequency bands within the transformed block. Specifically, it explicitly selects only the upper-left quantized residual coefficients, which correspond to low-frequency components. Therefore, we retain the fundamental structural silhouettes essential for robust object recognition while effectively zeroing out high-frequency textural noise. Unlike previous compressed-domain methodologies that harvest quantized residual coefficients from fully or partially generated bitstreams for post-processing, clustering or complex coefficient retention selection methodologies, LFSP acts as a simple structural intervention directly at the encoder. By simply discarding high-frequency coefficients immediately post-quantization and before entropy coding, LFSP short-circuits bitstream generation. This produces a natively sparse, HEVC-compliant bitstream that intrinsically accelerates unmodified standard decoders. The complete formal algorithm for LFSP is outlined in Algorithm 4.
+
+Source row  | Column 1
+--- | ---
+1 (body group 1)  | Algorithm 3 Simple Raster Sequence Prioritization (SRSP)
+2 (body group 1)  | [Simple list] [Item] Require:  [Paragraph] Quantized transform coefficients C, Block dimensions $W\times H$, Threshold of retained coefficients ${N}_{kept}$ [End paragraph] [End item] [Item] Ensure:  [Paragraph] Retained coefficient array C [End paragraph] [End item] [End list] [Simple list] [Item] 1: [Paragraph] if block is Intra-coded then [End paragraph] [End item] [Item] 2: [Paragraph]     Equation: $\mathrm{TotalCoeffs}\leftarrow W\times H$ [End paragraph] [End item] [Item] 3: [Paragraph]     for $i={N}_{kept}$ to $\mathrm{TotalCoeffs}-1$ do [End paragraph] [End item] [Item] 4: [Paragraph]         Equation: $C[i]\leftarrow 0$ [End paragraph] [End item] [Item] 5: [Paragraph]     end for [End paragraph] [End item] [Item] 6: [Paragraph] end if [End paragraph] [End item] [Item] 7: [Paragraph] return C [End paragraph] [End item] [End list]
+
+Source row  | Column 1
+--- | ---
+1 (body group 1)  | Algorithm 4 Low-Frequency Spectral Prioritization (LFSP)
+2 (body group 1)  | [Simple list] [Item] Require:  [Paragraph] Quantized transform coefficients C, Block dimensions $W\times H$, Threshold of retained coefficients ${N}_{kept}$, [End paragraph] [End item] [Item] Ensure:  [Paragraph] Retained coefficient array C [End paragraph] [End item] [End list] [Simple list] [Item] 1: [Paragraph] Equation: ${N}_{dim}\leftarrow \sqrt{{N}_{kept}}$ [End paragraph] [End item] [Item] 2: [Paragraph] if block is Intra-coded then [End paragraph] [End item] [Item] 3: [Paragraph]     for $y=0$ to $H-1$ do [End paragraph] [End item] [Item] 4: [Paragraph]         for $x=0$ to $W-1$ do [End paragraph] [End item] [Item] 5: [Paragraph]            if $x\ge {N}_{dim}$ or $y\ge {N}_{dim}$ then [End paragraph] [End item] [Item] 6: [Paragraph]                Equation: $C[y\times W+x]\leftarrow 0$ [End paragraph] [End item] [Item] 7: [Paragraph]            end if [End paragraph] [End item] [Item] 8: [Paragraph]         end for [End paragraph] [End item] [Item] 9: [Paragraph]     end for [End paragraph] [End item] [Item] 10: [Paragraph] end if [End paragraph] [End item] [Item] 11: [Paragraph] return C [End paragraph] [End item] [End list]
+
+We propose the LFSP method as the optimal strategy for downstream machine vision tasks. Unlike the baseline approach, the LFSP configuration consistently yields a partially decoded representation that maintains vastly superior structural integrity. [ref-type: fig] Figure 4 illustrates how quantized residual coefficients are retained and zeroed under each configuration for an exemplary 25 retained coefficients. Due to the fact that our chosen method is LFSP, which selectively retains the upper-left region of the CU, the candidate set for the number of retained coefficients specifically consists of perfect squares to evenly encapsulate both horizontal and vertical scans.
+
+### 5.3. Efficient Object Detection in Compressed Domain
+
+To comprehensively evaluate the efficacy of the proposed method within a complete inference pipeline, we employed RetinaNet [[ref-type: bibr] 47 [Source reference: [Source link 53]]] object detector utilizing a lightweight ResNet-18 student backbone, guided by a high-capacity ResNet-50 teacher backbone. The experimental evaluation was implemented utilizing MMDetection [[ref-type: bibr] 48 [Source reference: [Source link 54]]] integrated with a knowledge distillation framework [[ref-type: bibr] 43 [Source reference: [Source link 55]]]. The input to the student network consists of highly quantized, partially decoded representations generated via the LFSP residual removal method.
+
+To facilitate a clear interpretation of the experimental results, we first define the configuration nomenclature and metric headers utilized in our analysis and tables. Img Type denotes the specific input dataset configuration: PDx represents a Partially Decoded image dataset constructed by retaining exactly x quantized residual coefficients via the LFSP method, while Px-Vanilla represents the standard, fully decoded pixel-domain baseline. Conversely, the corresponding gains in detection accuracy become virtually stagnant; overall mAP increases by merely 0.4% and 0.6% relative to PD64, while ${\mathrm{mAP}}_{\mathrm{L}}$ also increases only marginally. In this case the minimal objective quality improvements beyond 64 coefficients do not justify the disproportionate escalation in decoding time and transmission bandwidth.
+
+To rigorously validate the proposed compressed-domain distillation framework and address the comprehensive performance metrics raised, we present an expanded evaluation in [ref-type: table] Table 7 [Source reference: [Source link 59]] and [ref-type: table] Table 8 [Source reference: [Source link 60]]. To ensure a strictly fair comparison between the partially decoded (PD64) compressed-domain student and the fully decoded pixel-domain (Px) baseline, all models were evaluated under identical conditions. Specifically, we enforce identical training settings, such as learning rate (0.01), batch size (8), and maximum epochs (20), alongside identical test-time augmentation and matching input preprocessing and augmentation pipelines. While our multi-granularity cross-domain knowledge distillation framework yields significant accuracy improvements, it introduces additional computational overhead during the training phase. Specifically, maintaining both the teacher and student networks alongside the distillation branches (GFD, FBFD, LRD) increases the total training time from 7 h to 20 h, and raises the peak GPU memory utilization from 2.67 GB to 5.95 GB. It is important to note, however, that this represents a one-time offline cost. During actual deployment, the teacher network and distillation mechanisms are completely discarded, ensuring that the inference phase retains its stringent efficiency and low latency footprint.
+
+Directly comparing our method against previous compressed-domain object detection architectures is challenging, primarily because our framework introduces a unique paradigm combining partial decoding with cross-domain knowledge distillation. However, to explicitly demonstrate the progressiveness of our methodology, we integrated the recent compressed-domain strategy proposed in [[ref-type: bibr] 30], denoted as RP, into our evaluation framework. As shown in [ref-type: table] Table 7, our PD64 configuration substantially outperforms the RP method. Using the same R50-to-R18 teacher–student distillation architecture, PD64 achieves a mAP of 25.08% compared to 10.12%. Furthermore, PD64 processes at 68.72 ms, maintaining highly competitive end-to-end latency while delivering a substantial accuracy gain.
+
+An essential aspect of compressed-domain detection is understanding how partial decoding affects features at different spatial resolutions. PD64 exhibits significant strength in detecting large objects and achieves a ${\mathrm{mAP}}_{\mathrm{L}}$ of 38.44% compared to 32.64% against the fully decoded Px-Vanilla baseline in [ref-type: table] Table 7. Large objects are inherently less affected by the truncation artifacts introduced during partial decoding, which allows the network to effectively leverage the rich, uncorrupted semantic cues retained in the compressed domain. Performance on medium objects remains highly robust, with PD64 gracefully outperforming the baseline with a ${\mathrm{mAP}}_{\mathrm{M}}$ of 26.20% compared to 25.48%. Conversely, small object detection presents a known challenge in compressed-domain networks. Our PD64 method yields a ${\mathrm{mAP}}_{\mathrm{S}}$ of 8.28%, which is slightly lower than baseline’s 10.96%. Small objects rely heavily on high-frequency spatial details which are naturally attenuated or lost during partial decoding.
+
+To substantiate the claim that our cross-domain knowledge distillation does not depend on a single architecture pairing, we tested an additional backbone pairing to observe the effects of a reduced teacher–student capacity gap. [ref-type: table] Table 7 presents the results utilizing a ResNet-34 (R34) teacher alongside the ResNet-50 (R50) teacher. The R34-to-R18 configuration yields mAP of 24.82%, proving that our method is generalizable and not strictly reliant on massive capacity disparities to successfully transfer compressed-domain representations. Finally, we extended our rigorous evaluation to the complete COCO dataset in [ref-type: table] Table 8. The PD64 student reliably surpasses the vanilla Px baseline on this large-scale dataset and achieves an overall mAP of 33.69% compared to 32.44%. The improvement remains most pronounced in large object detection, where PD64 reaches a ${\mathrm{mAP}}_{\mathrm{L}}$ of 51.13% against the baseline’s 44.44%. Crucially, this superior accuracy is coupled with a distinct efficiency advantage, as the PD64 pipeline registers a faster total processing time of 63.53 ms compared to the fully decoded baseline’s 68.74 ms.
+
+Identifier: [pub-id-type: pii] jimaging-12-00325-t003_Table 3 Table 3
+
+Caption:
+
+Quantitative comparison of partial decoding configurations.
+
+Source row  | Column 1  | Column 2  | Column 3  | Column 4  | Column 5
+--- | --- | --- | --- | --- | ---
+1 (header group 1)  | [Source header] Methodology  | [Source header] Dec. Time (ms)  | [Source header] Bit Size (KB)  | [Source header] PSNR (dB)  | [Source header] SSIM
+2 (body group 2)  | Fully Decoded  | 19.10  | 18.46  | 35.90  | 0.9968
+3 (body group 2)  | SRSP  | 12.80  | 9.48  | 18.54  | 0.7479
+4 (body group 2)  | LFSP  | 13.90  | 11.25  | 26.57  | 0.8491
+
+Identifier: [pub-id-type: pii] jimaging-12-00325-t004_Table 4 Table 4
+
+Caption:
+
+Scalability and performance metrics of LFSP over varying retained quantized residual coefficients.
+
+Source row  | Column 1  | Column 2  | Column 3  | Column 4  | Column 5
+--- | --- | --- | --- | --- | ---
+1 (header group 1)  | [Source header] Residual Coeff.  | [Source header] Dec. Time (ms)  | [Source header] Size (KB)  | [Source header] PSNR (dB)  | [Source header] SSIM
+2 (body group 2)  | 1  | 10.8  | 2.89  | 15.10  | 0.5901
+3 (body group 2)  | 9  | 10.5  | 4.57  | 14.12  | 0.6214
+4 (body group 2)  | 25  | 11.9  | 7.62  | 21.90  | 0.7634
+5 (body group 2)  | 36  | 12.5  | 8.71  | 22.46  | 0.7813
+6 (body group 2)  | 49  | 13.3  | 10.27  | 23.18  | 0.8022
+7 (body group 2)  | 64  | 13.9  | 11.25  | 26.57  | 0.8491
+8 (body group 2)  | 81  | 14.9  | 12.64  | 27.31  | 0.8604
+9 (body group 2)  | 100  | 15.4  | 13.40  | 27.86  | 0.8685
+--------------------------------------------------------------------------------
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://doi.org/10.3390/jimaging12070325)
+ [wordlim: 200] Published: 3 months ago; Crawled: last month; 
+### 4.1. The Method Overview
+
+The proposed framework can be explained in two folds. The first phase is Offline Development in which dataset synthesis and model training have been utilized. The second is Online Deployment Phase where the modified HEVC pipeline enables a fast inference on edge processing units. The overview of the proposed method is illustrated in Figure 2.
+
+Image
+
+Figure 2. Diagram illustrates a dual-phase framework designed to achieve efficient object detection by processing data in the compressed domain. During the offline stage, a large teacher model transfers its sophisticated understanding of pixel-level images to a smaller, more efficient student model through knowledge distillation. Thanks to this distillation process, during the online stage the student model operates on partially decoded data at the edge and reduces the computational burden typically required for full image reconstruction. By eliminating unnecessary residual data and focusing solely on the essential information needed for accurate detection, the inference gets faster in resource-constrained environments.
+
+#### 4.1.1. Offline Development and Dataset Synthesis
+
+The primary objective of the offline phase is to generate a specialized dataset and train a robust detection model. To achieve this, a standard pixel-domain intra-frame set or dataset is processed through a modified compression pipeline and the object detection network is trained with partially decoded data to handle visually degraded inputs.
+
+In the modified compression, the intra-frames undergo standard prediction ({\mathrm{CU}}_{\mathrm{original}}), transformation, and quantization on the encoder side. However, after quantization our critical intervention occurs and selective residual removal is implemented here. Because the encoder simply does not encode the explicitly zeroed coefficients, the resulting bitstream maintains bitstream-level compliance and remains HEVC-compliant. Therefore, we generate a compliant bitstream containing only the fundamental residuals required to maintain structural integrity by systematically discarding non-essential residual coefficients. This bitstream is then processed by a standard conforming decoder to create a compressed-domain dataset.
+
+Moreover, a knowledge distillation strategy is applied to recover the accuracy lost due to compression artifacts. A high-capacity teacher is trained using the rich feature representations of the original pixel-domain frames. On the other hand, a lightweight student is trained on the compressed-domain frames, while the teacher network guides the student through a knowledge distillation process. Thanks to knowledge distillation, the student network infers missing semantic details from the partial decoded inputs. The complete procedure for this offline development and dataset synthesis is outlined in Algorithm 1.
+
+Algorithm 1 Offline Development and Dataset Synthesis
+
+Require: 
+    Dataset \mathcal{D} of raw images {\mathbf{I}}_{\mathrm{raw}} and ground-truth labels \mathcal{Y}, Teacher Model \mathcal{T}, Student Model \mathcal{S}
+Ensure: 
+    Trained Student Model \mathcal{S} optimized for the compressed domain
+Online Deployment and Fast Inference
+
+The practical deployment of this framework is addressed in the online phase. During operation, the camera captures raw data and the data is processed by the modified encoder where the selective removal of residuals occurs after quantization in the pipeline. Consequently, the encoding process is accelerated and significantly fewer bits are transmitted to the decoder.
+
+At the perception unit, the original decoder reconstructs the image. Since the incoming bitstream has been effectively short-circuited to omit heavy residual data, the decoder produces a partially decoded image significantly faster than it would do for a fully conforming bitstream. The pre-trained student network then performs inference directly on this partially decoded data.
+
+This trade-off could be particularly effective for robotics application such as autonomous driving scenarios. While the resulting images may lack the fine-grained texture required for human aesthetic viewing, they maintain high semantic fidelity for critical, large-scale targets. The result is a high-speed detection pipeline that operates within the strict capacity limits of automotive data networks while remaining reliable for safety-critical navigation. The complete procedure for this online deployment and fast inference is outlined in Algorithm 2.
+
+Algorithm 2 Online Deployment and Fast Inference
+
+Require: 
+    Trained Student Model {\mathcal{S}}_{\mathrm{compressed}}, Incoming raw data {\mathbf{I}}_{\mathrm{raw}} from camera
+Ensure: 
+    Detected Objects
+
+  * — 1. Partial Decoding —
+
+1:
+    partiallyGeneratedBitstreams\leftarrow \mathrm{modifiedEncoderWithResidualRemoval}\left({\mathbf{I}}_{\mathrm{raw}}\right)
+2:
+    framesInCompressedDomain\leftarrow \mathrm{unmodifiedDecoder}\left(partiallyGeneratedBitstreams\right)— 2. Object Detection Forward Pass —
+3:
+    Objects\leftarrow {\mathcal{S}}_{\mathrm{compressed}}\left(framesInCompressedDomain\right)
+4:
+    return Objects
+
+--------------------------------------------------------------------------------
+Comprehensive Analysis of the Object Detection Pipeline on UAVs (https://www.mdpi.com/2072-4292/14/21/5508/xml)
+ [wordlim: 200] Published: 4.0 years ago; Crawled: last month; 
+#### 2.2.2. Compression
+
+Compression is used to reduce the required space of a recording. There are two types of compressions: lossless and lossy compressions. The image format PNG belongs to lossless compression techniques. The compression time for PNG is very high. Therefore, it is not usable for online compression. JPEG is faster, but also a lossy compression. The compression removes information. Nevertheless, JPEG is a common choice. It provides a sufficient trade-off between loss of information, file size, and speed.
+
+The compression quality of JPEG is defined as a value between 1 and 100 (default: 90). Higher values cause less compression.
+
+We check the relation between compression and detector performance. A lower compression quality would result in smaller file sizes. This directly leads to a higher throughput of the system. For the inferences of models, the decompressed data is used. A lower compression quality would, therefore, mainly affect the throughput from the camera to the processing unit memory. 

@@ -1,0 +1,39 @@
+6 Diagnosing Error in Object Detectors
+None 
+Low 
+Medium 
+High 
+Fig. 3. Example of 4 levels of occlusion for the aeroplane class.
+3.1 Deﬁnitions of Object Characteristics
+To perform our study, we added annotations to the PASCAL VOC dataset, including
+level of occlusion and which sides and parts of an object are visible. We also use stan-
+dard annotations, such as the bounding box. We created the extra annotations for seven
+categories (‘aeroplane’, ‘bicycle’, ‘bird’, ‘boat’, ‘cat’, ‘chair’, ‘diningtable’) that span
+the major groups of vehicles, animals, and furniture. Annotations were created by one
+author to ensure consistency and are publicly available.
+Object size is measured as the pixel area of the bounding box. We also considered
+bounding box height as a size measure, which led to similar conclusions. We assign
+each object to a size category, depending on the object’s percentile size within its object
+category: extra-small (XS: bottom 10%); small (S: next 20%); medium (M: next 40%);
+large (L: next 20%); extra-large (XL: next 10%).Aspect ratio is deﬁned as object width
+divided by object height, computed from the VOC bounding box annotation. Similarly
+to object size, objects are categorized into extra-tall (XT), tall (T), medium (M), wide
+(W), and extra-wide (XW), using the same percentiles. Occlusion (part of the object
+is obscured by another surface) and truncation (part of the object is outside the im-
+age) have binary annotations in the standard VOC annotation. We replace the occlusion
+labels with degree of occlusion (see Fig. 3): ‘None’, ‘Low’ (slight occlusion), ‘Moder-
+ate’ (signiﬁcant part is occluded), and ‘High’ (many parts missing or 75% occluded).
+Visibility of parts inﬂuences detector performance, so we add annotations for whether
+each part of an object is visible. We annotateviewpoint as whether each side (‘bottom’,
+‘front’, ‘top’, ‘side’, ‘rear’) is visible. For example, an object seen from the front-right
+may be labeled as ‘bottom’=0, ‘front’=1, ‘top’=0, ‘side’=1, ‘rear’=0.
+3.2 Normalized Precision Measure
+To analyze sensitivity to object characteristics, we would like to summarize the per-
+formance of different subsets (e.g. small vs. large) of objects. Current performance
+measures do not sufﬁce: ROC curves are difﬁcult to summarize, and average precision
+is sensitive to the number of positive examples. We propose a simple way to normal-
+ize precision so that we can easily measure and compare performance for objects with
+particular characteristics.
+The standard PASCAL VOC measure is average precision (AP), which summarizes
+precision-recall curves with the average interpolated precision value of the positive ex-
+amples. Recall R(c) is the fraction of objects detected with conﬁdence of at least c.

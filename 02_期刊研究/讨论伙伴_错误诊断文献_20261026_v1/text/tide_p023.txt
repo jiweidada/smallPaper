@@ -1,0 +1,24 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 23
+Fig. 12: Changes in Error Calculation. In v1.0.1 we ﬁxed an oversight that caused
+detections ignored in mAP calculation to also be ignored for error calculation. Since
+these ignored detections can still contribute to ﬁxed mAP, we’ve solved this issue in
+v1.0.1 of the toolkit. This greatly affects results on LVIS, replacing almost all the missed
+error with classiﬁcation error, but doesn’t affect results on other datasets very much at
+all (since LVIS makes heavy use of ignoring detections).
+E Using Ignored Detections for Error Computation
+In the ECCV2020 version of this paper, we had an oversight in error computation that
+caused conclusions on LVIS [12] to be wrong. During mAP calculation on LVIS, most
+detections are simply ignored because they correspond to classes that aren’t guaranteed
+to be in the image. Since these detections are ignored, they don’t affect the mAP of
+the model on LVIS. However, it is still possible that ﬁxing mistakes in those ignored
+detections would improve mAP. Namely, since most misclassiﬁcations are either not in
+the image or marked as not exhaustively annotated.
+In v1.0.0 of the toolkit this would cause these misclassiﬁcation errors to be marked
+as missed detections (since there was no non-ignored detection avaiable to match to the
+ground truth). In v1.0.1, we’ve ﬁxed this issue which changed most of the missed ground
+truth error on LVIS to classiﬁcation error. The resulting change is shown in Fig. 12.
+The v1.0.1 result gives us a much more optimistic view of detectors on LVIS, since the
+primary goal of the dataset is to provide a classiﬁcation challenge, not a recall challenge.
+As for other datasets, including ignored detections in error calculation doesn’t change
+the results that much (since those datasets don’t make that heavy use of ignored regions).
+On COCO, for instance, the change in∆AP is less than 0.4 for all error types.

@@ -1,0 +1,46 @@
+2026-10-21 America/Los_Angeles。实测完成，不是预计结果。按53原判据停止复杂instance_objective；不申请训练该复杂版本，不修改判据。总研究目标仍未完成，继续探索。
+
+一、实现与证据
+事前协议53、54；RGB准备61_prepare_layout_rgb.py，完整产物62_layout_rgb；模型与统计63_frozen_layout_detection.py，完整结果64_frozen_layout_detection/02_results.json、逐图01_rows.json、两个seed全部原始预测PT及SHA。
+16张共享新开发输入：两增强seed各取前8个四源非空且无MixUp的Mosaic，原GT共2878行、原640短边<4固定曝光1503；未挑检测表现或instance/risk差异选图，原N>Q图保留。
+在这16图里，instance/risk图像真正不同：增强seed1有3/8、seed2有2/8；不是0差异面板。原instance/source/risk布局相同时，去重的预测确实共用，不制造浮点假差异。
+
+62通过全部控制：原source RGB SHA、原生Resize320→Affine nearest fill0→Photo→Flip重建，最终Resize640与float32/255的输入SHA与49记录完全相同；真正按source mask拆开再原位置拼回RGB逐像素一致、最终tensor一致。所有GT行、source occurrence、类别和顺序保留。新布局沿51已有s和54居中t连续映射，没有裁块取整后沿旧GT尺度计数；float32目标误差逐臂记录。固定已观测像素，不声称恢复源细节。16图渲染约10.8秒，无模型。
+
+模型：BASE24 online，严格加载model键。seed1检查点SHA741d57a2d6ecb7439de17fedbc8462315ab05309da2ba35b9d38d2c3e2dd9d87；seed2 bcf1d9a7a20115835d9e9df3e09a71419f41d1612c2e7b687c47ff3c41952cf0。eval-mode、640、固定权重及BN，无DN训练分支。权重/缓冲与检查点前后SHA均不变。
+总62个去重输入/模型，共32次batch4原生CPU forward，约25.3秒；没有backward、optimizer、训练、权重保存、远端/GPU/监测或heldout读取。最多48次的资源上限未超出。
+
+二、完整主结果表（均为覆盖计数，不是AP）
+“正确类”按原生sigmoid(class×query)展开top300；保留一个query多个类别的规则。固定原sub4组内最大一对一真类匹配，不与其他组覆盖数相加。全图geo对原普通300个query框、不限类别算最大一对一匹配。
+
+模型seed1，16图、2878GT、固定sub4=1503：
+臂                    sub4正确类.5/.75    sub4几何.5/.75    全图几何.5/.75
+原样                  72 / 7              95 / 8             921 / 412
+instance_objective    131 / 22            161 / 27           1009 / 481
+simple_risk           147 / 22            177 / 29           1027 / 482
+fixed_random          114 / 22            147 / 26           1002 / 479
+global_tight          117 / 17            148 / 21           1009 / 475
+
+模型seed2，同16图、2878GT、固定sub4=1503：
+原样                  81 / 14             100 / 15           918 / 424
+instance_objective    157 / 39            180 / 42           1039 / 531
+simple_risk           166 / 39            191 / 41           1056 / 532
+fixed_random          131 / 29            158 / 32           1028 / 520
+global_tight          142 / 33            166 / 39           1042 / 515
+
+中性.5布局只有11/16图可行（2128GT、sub4曝光1195），另5图为NA。完整指标在原始JSON，不能直接用11图总数与主表16图总数作差，不将NA按0补齐。
+完整.001/.3阈值真类覆盖、逐GT存在性新增/丢失、全部类别/几何覆盖、N>Q及按增强seed分层在逐图原始JSON。新增/丢失是逐GT存在性，不依赖最大匹配任意身份。
+例如simple_risk全GT真类.5新增/丢失分别193/80、207/69，不可用覆盖总数不下降冒充原来一个目标都没丢。
+
+三、按原判据的取舍
+instance原sub4正确类.5相对原样+59/+76，相对random+17/+26，全图几何均不降；但相对simple_risk为−16/−9。两个模型都不满足严格大于simple_risk，均判失败。复杂目标停止，不能改目标函数、换cohort/阈值或从6/10差异事件另挑较好子集挽救。
+simple_risk相对原样+75/+85，较random+33/+35，较整体裁紧+30/+24；全图几何+106/+138。两个增强seed分层也同方向：
+模型1：增强seed1 原30→risk74，增强seed2 原42→risk73。
+模型2：增强seed1 原37→risk88，增强seed2 原44→risk78。
+这是新的可重复开发现象：固定同source/GT曝光和640预算时，简单逐源分配可优于整体回收外围空白与同可行集随机布局。它没有证明复杂优化必要，也没有证明训练迁移或方法新颖。
+
+四、论证边界与下一步
+此结果是冻结模型对训练图新开发面板的反应，不是独立val/test-dev、不是真实AP或误检率、更不是两独立训练种子的最终收益。原1503是曝光数，可含同原GT重复，不作为独立样本显著性检验。原样与改布局还涉及位置/邻接/插值，不能仅凭正确类覆盖认定唯一尺度根因。所有新增臂共用渲染器，risk/instance/random的相互比较不靠更换Photo参数。
+LZU已明确有限画布的upsampling本身可有用，所以该一般原理非新贡献。当前更具体的问题是训练Mosaic中保持同一供体/GT曝光时，如何分配有限画布；复杂实例目标已被简单风险反证，不能为了创新包装它。
+新近邻尚需实核：Applied Sciences2025 15/24/12953的adaptive scale Mosaic；RA-MOSAIC ACM DOI10.1145/3715133。网页429/403、两次PDF读取SSL失败并不等于没有先例。不得在原文未核时宣布本项目首创。
+完整结果交回三Astra与Claude：应先明确简单固定曝光分配与实际近邻是否存在实质区别，若仅工程差异则提出真正不同且有数据触发的设计。无需先证明训练AP，不以冻结覆盖、专家票数或把复杂换成简单的名字宣布总目标完成。当前不新增训练。

@@ -1,0 +1,115 @@
+Revisiting RCNN: On Awakening the
+Classiﬁcation Power of Faster RCNN
+Bowen Cheng1, Yunchao Wei1⋆, Honghui Shi 2,
+Rogerio Feris2, Jinjun Xiong 2, and Thomas Huang 1
+1University of Illinois at Urbana-Champaign, IL, USA
+{bcheng9, yunchao, t-huang1 }@illinois.edu
+2IBM T.J. Watson Research Center, NY, USA
+Honghui.Shi@ibm.com {rsferis, jinjun }@us.ibm.com
+Abstract. Recent region-based object detectors are usually built with
+separate classiﬁcation and localization branches on top of shared feature
+extraction networks. In this paper, we analyze failure cases of state-of-
+the-art detectors and observe that most hard false positives result from
+classiﬁcation instead of localization. We conjecture that: (1) Shared fea-
+ture representation is not optimal due to the mismatched goals of fea-
+ture learning for classiﬁcation and localization; (2) multi-task learning
+helps, yet optimization of the multi-task loss may result in sub-optimal
+for individual tasks; (3) large receptive ﬁeld for diﬀerent scales leads
+to redundant context information for small objects. We demonstrate
+the potential of detector classiﬁcation power by a simple, eﬀective, and
+widely-applicable Decoupled Classiﬁcation Reﬁnement (DCR) network.
+DCR samples hard false positives from the base classiﬁer in Faster RCNN
+and trains a RCNN-styled strong classiﬁer. Experiments show new state-
+of-the-art results on PASCAL VOC and COCO without any bells and
+whistles.
+Keywords: Object Detection
+1 Introduction
+Region-based approaches with convolutional neural networks (CNNs) [1–10] have
+achieved great success in object detection. Such detectors are usually built with
+separate classiﬁcation and localization branches on top of shared feature extrac-
+tion networks, and trained with multi-task loss. In particular, Faster RCNN [3]
+learns one of the ﬁrst end-to-end two-stage detector with remarkable eﬃciency
+and accuracy. Many follow-up works, such as R-FCN [11], Feature Pyramid Net-
+works (FPN) [12], Deformable ConvNets (DCN) [13], have been leading popular
+detection benchmark in PASCAL VOC [14] and COCO [15] datasets in terms
+of accuracy. Yet, few work has been proposed to study what is the full potential
+of the classiﬁcation power in Faster RCNN styled detectors.
+⋆ corresponding author
+arXiv:1803.06799v3  [cs.CV]  14 Jul 2018
+
+---PAGE---
+
+2 B. Cheng, Y. Wei, H. Shi, R. Feris, J. Xiong and T. Huang
+86.8
+85.5 85.2 85.0 84.7 84.5 84.3 84.1
+83.7
+83.3
+82.5
+86.8
+85.5
+85.0
+84.6 84.3 84.1
+83.8 83.4
+82.8
+81.8
+79.8
+79
+80
+81
+82
+83
+84
+85
+86
+87
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+0
+500
+1000
+1500
+2000
+2500
+3000
+0.0-0.1 0.1-0.2 0.2-0.3 0.3-0.4 0.4-0.5 0.5-0.6 0.6-0.7 0.7-0.8 0.8-0.9 0.9-1.0
+Confidence Scores Confidences of False Positive Samples
+30000
+8000
+Faster RCNN Ours
+Number of False Positives
+mAP
+… …
+(a) (b)
+Fig. 1: (a) Comparison of the number of false positives in diﬀerent ranges. (b)
+Comparison of the mAP gains by progressively removing false positives; from
+right to left, the detector is performing better as false positives are removed
+according to their conﬁdence scores.
+To answer this question, in this paper, we begin with investigating the key
+factors aﬀecting the performance of Faster RCNN. As shown in Figure 1 (a), we
+conduct object detection on PASCAL VOC 2007 using Faster RCNN and count
+the number of false positive detections in diﬀerent conﬁdence score intervals
+(blue). Although only a small percentage of all false positives are predicted
+with high conﬁdence scores, these samples lead to a signiﬁcant performance
+drop in mean average precision (mAP). In particular, we perform an analysis
+of potential gains in mAP using Faster RCNN: As illustrated in Figure 1 (b),
+given the detection results from Faster RCNN and a conﬁdence score threshold,
+we assume that all false positives with predicted conﬁdence score above that
+threshold were classiﬁed correctly and we report the correspondent hypothesized
+mAP. It is evident that by correcting all false positives, Faster RCNN could,
+hypothetically, have achieved 86.8% in mAP instead of 79 .8%. Moreover, even
+if we only eliminate false positives with high conﬁdences, as indicated in the red
+box, we can still improve the detection performance signiﬁcantly by 3.0% mAP,
+which is a desired yet hard-to-obtain boost for modern object detection systems.
+The above observation motivates our work to alleviate the burden of false
+positives and improve the classiﬁcation power of Faster RCNN based detectors.
+By scrutinizing the false positives produced by Faster RCNN, we conjecture that
+such errors are mainly due to three reasons: (1) Shared feature representation
+for both classiﬁcation and localization may not be optimal for region proposal
+classiﬁcation, the mismatched goals in feature learning lead to the reduced clas-
+siﬁcation power of Faster RCNN; (2) Multi-task learning in general helps to
+improve the performance of object detectors as shown in Fast RCNN [2] and
+Faster RCNN, but the joint optimization also leads to possible sub-optimal to
+balance the goals of multiple tasks and could not directly utilize the full potential
+on individual tasks; (3) Receptive ﬁelds in deep CNNs such as ResNet-101 [16]
+are large, the whole image are usually fully covered for any given region propos-
+als. Such large receptive ﬁelds could lead to inferior classiﬁcation capacity by
+introducing redundant context information for small objects.

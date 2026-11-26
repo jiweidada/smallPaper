@@ -1,0 +1,81 @@
+Authoret al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+TABLE 1: Comparison with state-of-the-art methods on COCOval2017with a ResNet-50 backbone. We verified whether
+each method employs any auxiliary decoder that imposes additional training cost. DINO’s auxiliary denoising queries are not
+considered, as their computational overhead is negligible. Thebestresult is shown in bold.
+Method Queries Epochs Auxiliary
+Decoder mAP AP 50 AP 75 AP S AP M AP L
+Deformable-DETR++ 300 12 ✗ 47.0 65.3 51.0 30.1 50.5 60.7
+Hybrid-DETR 300 12 ✓ 48.7 66.4 52.9 31.2 51.5 63.5
+MS-DETR 300 12 ✗ 48.8 66.2 53.2 31.5 52.3 63.7
+MR.DETR 300 12 ✓ 49.5 67.0 53.7 32.1 52.5 64.7
+MDS-DETR 300 12 ✗ 49.8 67.1 54.2 32.2 53.6 65.2
+Deformable-DETR++ 900 12 ✗ 47.6 65.8 51.8 31.2 50.6 62.6
+Salience-DETR 900 12 ✗ 49.2 67.1 53.8 32.7 53.0 63.1
+DINO 900 12 ✗ 49.9 67.4 54.5 33.9 53.5 63.8
+MS-DETR 900 12 ✗ 50.0 67.3 54.4 31.6 53.2 64.0
+DAC-DETR 900 12 ✓ 50.0 67.6 54.7 32.9 53.1 64.2
+Rank-DETR 900 12 ✓ 50.4 67.9 55.2 33.6 53.8 64.2
+MR.DETR 900 12 ✓ 50.7 68.2 55.4 33.6 54.3 64.6
+MDS-DETR 900 12 ✗ 51.1 68.8 55.5 34.0 55.0 66.0
+Hybrid-MDS-DETR 900 12 ✓ 51.2 68.9 55.8 34.0 54.8 66.2
+Deformable-DETR++ 900 24 ✗ 49.8 67.0 54.2 31.4 52.8 64.1
+DINO 900 24 ✗ 50.4 68.3 54.8 33.3 53.7 64.8
+Salience-DETR 900 24 ✗ 51.2 68.9 55.7 33.9 55.5 65.6
+DAC-DETR 900 24 ✓ 51.2 68.9 56.0 34.0 54.6 65.4
+Align-DETR 900 24 ✗ 51.3 68.2 56.1 35.5 55.1 65.6
+MR.DETR 900 24 ✓ 51.4 69.0 56.2 34.9 54.8 66.0
+MS-DINO 900 24 ✗ 51.7 68.7 56.5 34.0 55.4 65.5
+MR.DINO 900 24 ✓ 51.7 69.2 56.4 34.1 55.1 65.8
+Relation-DINO 900 24 ✓ 52.169.756.636.1 56.066.5
+MDS-DETR 900 24 ✗ 52.3 69.7 56.9 35.5 56.0 67.0
+TABLE 2: Comparison with state-of-the-art methods on
+COCOval2017with Swin-L [33] backbone.
+Method mAP AP 50 AP75 APS APM APL
+DINO [9] 56.8 75.4 62.3 41.1 60.6 73.5
+Salience-DETR [22] 56.5 75.0 61.5 40.2 61.2 72.8
+DAC-DETR [23] 57.3 75.7 62.7 40.1 61.5 74.4
+Stable-DINO [34] 57.7 75.7 63.4 39.8 62.0 74.7
+Relation-DINO [6] 57.8 76.1 62.9 41.2 62.1 74.4
+MDS-DETR (Ours) 58.1 76.2 63.6 42.6 62.7 74.7
+whereSinEnc(·)denotes the standard sinusoidal positional
+encoding function for Transformers [35], MLP refers to
+multi-layer perceptron. Unlike prior works [6], [32], we do
+not apply a ReLU activation to clampR ij. AllowingR ij to
+take negative values enables the model to penalize attention
+between distant queries, thereby promoting more effective
+duplicate suppression among spatially closer queries.
+Given the sorted query setˆq(l−1)
+i , we additionally append
+nt true positive tokens to the set. The masked self-attention
+score is computed via a scaled dot-product with learnable
+projectionsW Q andW K, along with a symmetric relative
+position bias ˆRij. Our masked attention weighta ij is given
+by:
+Aij =
+(WQˆq(l−1)
+i )⊤(WK ˆq(l−1)
+j )√
+d
++ ˆRij,
+aij =
+ˆMij ·exp(A ij)Pn+nt
+j′=1 ˆMij′ ·exp(A ij′)
+(6)
+For all token positionsj > n, the mask value is set to
+ˆMij = 1, ensuring they are always visible. In addition,
+ˆRij for token positions is implemented as an extra learnable
+scalar parameter since the true positive token is not spatially
+grounded. After the MDS, we reverse the sorting operation
+to restore the original query order.
+V . EXPERIMENTS
+A. EXPERIMENT SETTINGS AND IMPLEMENTATION
+DETAILS
+Building upon prior work, we evaluate our method on the
+COCO 2017 dataset [11] using standard AP metrics: mAP,
+AP50, AP 75, AP S, AP M , and AP L. All experiments were
+conducted using an ImageNet [36]-pretrained ResNet-50
+backbone [37] with a batch size of 16 on 8 NVIDIA RTX
+4090 GPUs. We use the AdamW optimizer [38] with a
+learning rate of2×10 −4 and weight decay of1×10 −4.
+For the 12-epoch and 24-epoch settings, the learning rate
+VOLUME 4, 2016 5

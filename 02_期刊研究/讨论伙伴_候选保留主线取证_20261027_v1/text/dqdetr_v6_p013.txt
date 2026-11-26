@@ -1,0 +1,43 @@
+DQ-DETR: DETR with Dynamic Query for Tiny Object Detection 13
+T able 6: Evaluation results for varying instance counts. N indicates the number
+of instances in the image. We separate the AI-TOD-V2 dataset into 4 classes based on
+N. All models are trained on the AI-TOD-V2trainval split and evaluated ontest split.
+Model #Objects in image #Query AP AP 50 AP75 APvt APt APs APm
+N≤10 900 22.5 53.1 14.8 10.6 24.5 25.7 34.9
+10<N≤100 900 24.4 58.8 15.9 13.0 22.9 31.5 37.3
+DINO-DETR [28]100<N≤500 900 31.6 67.3 26.9 10.1 25.4 39.6 38.2
+500<N 900 13.5 27.9 7.3 5.7 6.4 34.7 32.4
+Overall 900 25.9 61.3 17.5 12.7 25.3 32.0 39.7
+N≤10 300 26.1 60.4 19.7 12.7 29.6 28.5 40.8
+10<N≤100 500 28.4 65.9 20.1 15.2 27.8 34.7 41.8
+DQ-DETR (Ours)100<N≤500 900 33.7 69.9 30.4 11.1 30.4 42.0 41.6
+500<N 1500 14.7 35.6 7.5 8.1 7.8 37.5 40.4
+Overall Dynamic 30.2 68.6 22.3 15.3 30.5 36.5 44.6
+Ablation of Categorical Counting Module. Table 7 demonstrates the
+accuracy of the classification task in our categorical counting module. The per-
+formance is analyzed under four situations, whereN is the number of instances
+per image. The total classification accuracy is about 94.6%, which means our
+categorical counting module can accurately estimate the number of objectsN in
+the images. Furthermore, we can find that our categorical counting module has
+a poor classification performance with only 56.6% accuracy in theN > 500 sit-
+uation since the number of training images is much fewer in this situation. Also,
+we observe that there are at most 2267 instances per image in the AI-TOD-V2
+dataset. However, the long-tailed distribution of the training samples restricts
+us from classifying the number of instancesN in more detail. We have no choice
+but to categorize the images with500 < N ≤ 2267 into the same class.
+As for the detection accuracy, our DQ-DETR outperforms the baseline under
+all situations. The performances surpass the baseline by 16% and 16.4% in terms
+of AP forN ≤ 10, 10 < N ≤ 100. Nevertheless, our DQ-DETR performs slightly
+better than the baseline in the scenario withN > 500. This phenomenon is due
+to the poor classification accuracy forN > 500. The incorrect prediction from
+the categorical counting module directly affects the number of object queries
+used for detection, where the inappropriate number of queries might harm the
+detection performance.
+Table 8 compares our DQ-DETR’s performance of using classification or
+regression in the categorical counting module. The traditional crowd-counting
+methods usually regress the predicted counting number to a specific value. How-
+ever, in our study, we use a classification head instead. This experiment demon-
+strates our DQ-DETR performance with these two methods. For the classifi-
+cation task, we classify the images into 4 classes and apply different numbers
+of queries in the transformer decoder, as we mentioned in the previous section.
+For the regression task, we regress an integer directly to predict the number of

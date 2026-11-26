@@ -1,0 +1,51 @@
+225 C独立复核：206与215两次冻结损失回放
+
+结论：未发现阻断接受这两次回放结果的实现或报告错误。接受它们作为“同一188真实训练输出、固定配对干预、原生criterion及独立输出叶子”的损失/梯度审计。它们没有验证真实模型共享参数梯度、更新效果、检测恢复、AP或训练迁移。此次仅只读JSON/文本及文件SHA，写本复核；没有运行Python、合成检查、criterion、模型或缓存autograd，也没有反序列化输出pt。
+
+一、实际核验范围与执行
+已读206/05_summary、06_execution、4个01_baseline、全部20个02_image报告及07输出清单；已读215/06_summary、07_execution、4个01_baseline、全部16个02_image报告、05修复详表及08输出清单。两份清单列出的所有实际文件SHA重新核验均相同，包括梯度pt的文件字节SHA；未重新计算其内部梯度。205与214源码仍分别为已冻结de0223e9…d3fb33、633b15cf…863436。
+206：complete，20 criterion、80 cached-output autograd、6 synthetic autograd，耗时6.531秒。
+215：complete，16 criterion、64 cached-output autograd、6 synthetic autograd，耗时5.203秒。
+两次model_forwards/model_vjps/checkpoint_reads/optimizer_steps均0，optimizer_constructed=false、heldout_reads=false。两次资源记录均torch 2.5.1+cpu、线程2/interop1、affinity[13,15]、BelowNormal，启动可用RAM约23.41/23.67GiB；执行记录中的源文件前后不变标记全部true。不能把有80/64次缓存输出autograd的任务写成“零梯度计算”。
+206输出清单SHA：cccae2518c6705781a2f993e571814b2c45a409680f9f19a97fb23a5d879b9bb。
+215输出清单SHA：266bef685cc36bcd7cf414486a257b375e0e579da359b7bec3c61826042859d2。
+
+二、基线、路由及数值一致性
+两次每图G0的37个weighted loss与37个raw loss条目均精确对齐188，own_exact和GO_exact全部true。每臂27个原生get_loss调用，GO分母172/290/300/70，四图同902 GT、453 original_sub4和832 GO槽。205/214的路由检查仍是逐stage/逐loss核验索引与分母，native own matcher及原G0 union还要重现188后才允许替换冻结配对；不是只检查最终loss数值相近。206与215的G0汇总值完全相同。
+全部36臂MAL/DN值与输出梯度不变性字段均true。本复核另比较JSON中各臂所有MAL/DN weighted loss及逐独立叶子的梯度SHA，与各图G0不符数均0。此为对保存审计结果的复核，没有重新计算梯度。
+final FGL手工公式与自动输出梯度的最大绝对差：两次均3.4924596548080444e-10；梯度差分解最大绝对差206为8.731149137020111e-11、215为5.820766091346741e-11，均通过原协议容差，而非比特完全相等。原系数是.15/N_go、四边求和，没有额外/4；两项分别为coef(w1−w0)(p−t0)与coef w1(t0−t1)，t为原生插值/clip后的目标。
+
+三、完整结果的正确读法
+以下loss为四图的逐图均值，已含原recipe权重；不同GT数图等权，不是832槽全局归一后重算的均值。
+
+206：臂 / mean total / final FGL / 支持槽 / 改owner / 非零target-transfer query
+G0  25.7720198631 / .7593899965 / 558 / 0   / 0
+G   25.9837350845 / .7346547991 / 566 / 250 / 98
+I   25.9465003014 / .7602377385 / 557 / 41  / 22
+R   25.8384995461 / .7601533085 / 557 / 35  / 21
+C   25.7729339600 / .7592449486 / 558 / 40  / 9
+这里I/R/C沿205分别是final-IoU/ref-IoU/native-cost强对照，不能与215的G_repair混名。
+
+215：臂 / mean total / final FGL / 支持槽 / 改owner / 非零target-transfer query
+G0        25.7720198631 / .7593899965 / 558 / 0  / 0
+U_cost    25.7980499268 / .7538903803 / 566 / 66 / 31
+U_change  25.7981209755 / .7537740320 / 566 / 22 / 19
+G_repair  25.7881116867 / .7561838925 / 563 / 12 / 12
+G_repair相对G0总loss增加约.0160918、final FGL降低约.0032061。该变化来自不同GT目标、IoU权重及原生其他loss的共同变化；不能用FGL降低单独推断监督更好，也不能用总loss略升直接判定训练无效。206的G总loss增加约.2117152且广泛改250个owner，这一成本是真实记录，不因支持数增加而消失。
+
+重要计数消歧：206 G的gained_support_zero_IoU=0，但changed_supported_zero_IoU=1。具体为图2、q15、GT339→338，inside→inside，IoU .1345383525→0，目标改变但新目标转移项因w1=0而为0。因此“新增支持边无零IoU”成立，“所有换owner且新边受支持的槽都有非零权重”不成立。这不是程序错误，是两个不同集合；不能省略后者。
+
+四、215单调修复逐对事实
+G_repair五条outside→inside边均有w1>0、非零target变化和非零有权转移项。按保存的原始曝光标记，新GT只有一条original_sub4；不是五条tiny恢复。
+图/q，旧GT→新GT，w0→w1，target-transfer L2：
+1/225，98→94，0→.05767290294，6.1459073345e-5，非original_sub4。
+1/100，37→34，0→.02607833594，1.7244210565e-5，非original_sub4。
+2/269，226→227，0→.37492653728，4.4211835272e-4，非original_sub4。
+2/291，237→238，.05619417131→.09134940058，1.0284194640e-4，original_sub4。
+2/289，398→401，0→.13558270037，1.4934004744e-4，非original_sub4。
+五条新IoU均低于.5。四条由原零IoU权重变成正权重，另一条原本已有正权重；不能将它们统称为“原本无任何学习信号的目标”。更不能称5个检测救回：回放没有改变任何预测框/分类，只改变监督配对。
+215详表实际含558个原inside query，逐项new_supported均true；GO涉及749个不同GT，逐GT支持槽数均不下降。全部12个owner变化均被记录。这里保留的是支持状态/支持槽数，不是原owner、不保证原IoU或loss。U_change虽没有丢原inside，仍有3条changed-still-outside禁边；U_cost有7条old-inside丢失、28条changed-still-outside。G_repair三类均为0，符合已冻结210的硬约束语义。
+
+五、必须保留的梯度边界
+此处“ordinary MAL、DN值及输出grad exact”只针对独立clone的pred_boxes/pred_logits/pred_corners叶子。原模型中这些量并非相互独立：真实decoder、distance2bbox、共享头以及LQE等形成计算联系，反传还要乘实际模型Jacobian；这两次回放没有保存或恢复该Jacobian。尤其不能从输出叶子不变性宣称“真实分类参数梯度不变”“共享骨干无副作用”或“总参数更新保持分类”。改变几何loss可能经真实计算图影响与分类有关的共享参数。
+此次能够确认的剩余事实是：固定真实GO预算下，G_repair的结构约束可兑现，且其冻结目标变化进入原生有权FGL监督，不只是无权的支持计数；同时该监督和其他loss确有代价。两份summary的method_gate=null、AP_prediction=false、shared_parameter_gradient=false正确。接受完成结果，不追加门槛、不重跑、不据此宣布创新或训练成立。

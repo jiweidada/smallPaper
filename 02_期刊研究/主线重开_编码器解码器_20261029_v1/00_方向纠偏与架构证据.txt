@@ -1,0 +1,125 @@
+Material Passport
+Origin Skill: academic-research-suite / deep-research
+Mode: 定向架构扫描与研究问题重开；非系统综述
+Date: 2026-10-29；America/Los_Angeles
+Verification Status: 已核验下列一手论文、官方仓库或源码的指定范围；本轮未开展模型实验
+Version: architecture_reopen_v1
+
+一、当前裁决
+
+用户研究主题一直是无人机航拍图像小目标检测。压缩失真只是获准检验的候选问题，不应成为后续所有选题的前置条件。此前搜索持续围绕压缩、恢复和区域控制，存在锚定；现停止追加该分支实验，重新开放编码器、特征交互和解码器架构。
+
+旧分支有范围的阴性结果保留，不能外推为所有压缩研究没有价值。新架构也不能只因更新或来自DeepSeek就算创新。本轮已找到可核验的新结构及若干最近工作，但尚未证明一个新的算法主线成立。
+
+二、用户提到的DS：核对结果与阅读范围
+
+【原文】DeepInfer是DeepSeek的推理框架；其官方文档涉及Vision Encoder / Prefill / Decode分离部署、调度和缓存管理。最符合用户“最新开源推理框架”描述的是该项目；这是本助手对所指项目的推断，用户未提供确切链接。
+官方来源：https://github.com/deepseek-ai/DeepInfer
+阅读范围：README；doc/inference_deployment_qa.md开头与系统总览。未逐文件审计整个推理引擎。
+
+【原文】DeepSeek-V4.1-Flash确实采用Causal Encoder-Decoder（CED）：语言骨干分为20层因果编码器和20层解码器；解码器全局KV从编码器末层状态投影得到，CSA2进一步复用跨层KV及稀疏选择。局部SWA仍保留逐层计算。
+论文：DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression
+https://arxiv.org/html/2609.19969v1
+阅读范围：摘要、§2.1、§2.1.1、§2.2及§2.3开头；没有通读训练、评测及所有附录。
+
+【推断】可供检测研究借鉴的是“分开处理可复用信息与需要更新的信息”的设计方法。LLM的自回归缓存、prefill节省不能直接等同于单幅图像检测收益。CED的因果语言骨干与视觉编码器是不同组件。
+
+【原文】另一个视觉侧实例DeepSeek-OCR 2使用DeepEncoder V2：视觉token双向注意力、附加query因果注意力，query输出送入语言解码器。
+https://arxiv.org/html/2601.20552v1
+阅读范围：§3.1—3.3、§4.2.1及引言相关说明。它是视觉架构参考，不据此认定它就是用户所指的最新项目。
+【推断】文档阅读顺序与检测的目标集合不同，不能把三角注意力掩码直接作为小目标检测创新。
+
+三、核心文献矩阵与最近工作
+
+1. EdgeCrafter / ECDet（2026）
+原文：紧凑ECViT用卷积stem；末两个Transformer块特征形成stride16表示，再构造8/16/32多尺度特征；ECDet解码器4层、300个query。采用检测任务特化蒸馏。
+https://arxiv.org/html/2603.18739v2
+https://github.com/Intellindust-AI-Lab/EdgeCrafter
+阅读范围：论文§3.1—3.3、Table 1；仓库模型表。未复现COCO结果。
+启示：可作为新编码器—解码器路线的候选基础。现有权重可减少重新预训练负担；实际显存与耗时尚未测量。
+
+2. DEIMv2（2025；仓库持续更新）
+原文：STA结合ViT多层特征插值、细节CNN及Bi-Fusion；解码器使用RMSNorm、SwishFFN并共享query位置编码。
+https://arxiv.org/html/2509.20787v1
+阅读范围：§2、Table 2。单纯提出“DINOv3加细节分支/多尺度适配”已存在直接先例。
+
+源码核查：TransformerDecoder.forward在循环前调用value_op；标准宽度的多层解码重复读取该value；query_pos_embed也在循环前计算。宽度变化路径另有处理。因此“把编码特征准备一次供解码层共享”不是空白。
+https://github.com/Intellindust-AI-Lab/DEIMv2/blob/main/engine/deim/deim_decoder.py
+定位：value_op约121—131行；forward约151—173行。为本次访问main的网页快照，正式实现前须固定commit。
+
+3. RT-DETRv4（2025预印本；官方仓库标注ECCV 2026）
+原文：训练时把冻结视觉基础模型语义注入AIFI深层特征，并以梯度统计调节监督强度；推理结构不增加相应教师分支。
+https://arxiv.org/html/2510.25257v2
+https://github.com/AIMIA-EAI/RT-DETRv4
+阅读范围：§3.1—3.4。泛化的“引入DINO教师/深层语义监督”不是当前可主张的新意。
+
+4. Dome-DETR（2025）
+原文：密度前景提取、masked window attention及渐进自适应query初始化，面向tiny目标。
+https://arxiv.org/html/2505.05741v2
+阅读范围：摘要和引言，尚未逐式审计完整方法。不能声称已彻底排除与所有候选的重合。
+
+5. BUTR: Dynamic Query as Budgeting for Tiny Object Detection（2026-10-24预印本）
+原文：区分query数量与选择方式；在其比较条件下，预算匹配的Top-K可复现复杂选择的主要收益；提出非学习预算器。包含AI-TOD-v2和VisDrone评测。
+https://arxiv.org/html/2610.33430v1
+https://github.com/zhangyi-magic/BUTR
+阅读范围：摘要、引言、§3及Table 1相关解释；未通读所有实验及附录。其发现不能外推为所有query机制均无价值。
+
+6. ShareDAB-DETR（VISAPP 2026）
+原文可见片段：以CentralBank在DAB-DETR内共享Transformer投影参数，研究内存与精度权衡。
+https://doi.org/10.5220/0014452400004084
+https://www.scitepress.org/Papers/2026/144524/144524.pdf
+阅读范围：检索可见的摘要、引言及方法片段；直接全文页访问403，本轮未完整读取。不得把“DETR跨层参数共享”宣称为无人做过。
+
+7. MI-DETR（CVPR 2025）
+方法片段：并行多次inquiry及U形encoder—decoder特征交互，改变decoder读取特征的方式。
+https://openaccess.thecvf.com/content/CVPR2025/papers/Nan_MI-DETR_An_Object_Detection_Model_with_Multi-time_Inquiries_Mechanism_CVPR_2025_paper.pdf
+阅读范围：检索返回的方法段落；HTML访问403，尚未完成全文核查。是后续解码读取候选需要精读的工作。
+
+8. Deformable DETR官方MSDeformAttn源码
+源码观测：value来自输入特征投影；采样offset和attention权重由query产生，并非LLM常规全局QK点积注意力。
+https://github.com/fundamentalvision/Deformable-DETR/blob/main/models/ops/modules/ms_deform_attn.py
+阅读范围：MSDeformAttn构造与forward。迁移KV/索引复用前要先识别实际可省的计算。
+
+四、候选问题、增量位置与反证条件
+
+A：编码侧——轻量ViT多尺度表示中的密集小目标可分性
+研究问题：当多个相邻小目标落入同一或相邻低分辨率单元时，错误主要来自编码表示、尺度转换，还是后续query筛选与解码？
+【待验证假设】轻量ViT的总体语义能力可能足够，但某些密集小目标的独立定位线索在表示或读取环节不足。不能仅因stride16或使用插值就断言信息已丢失；通道也可能保留局部信息。
+潜在增量位置：若定位到具体环节，再研究保留局部实例分离信息的特征生成或读取约束。此时必须逐项区别于STA、普通细节CNN、P2/高分辨率分支和更大输入。
+主要风险：现象可能只是输入目标太小、query预算或监督不足；改法可能与STA及现有多尺度方法重合。
+淘汰条件：在控制目标尺寸、局部密度、query预算后没有稳定的阶段性缺陷；或普通既有方案以同等开销解决。
+
+B：解码侧——哪些空间读取应复用，哪些精细定位应更新
+研究问题：在已共享编码memory的实时DETR中，是否仍存在有实际开销的重复采样/读取？如果存在，复用对小目标边界和密集邻居的伤害是否集中、可预测？
+【待验证假设】不同目标对逐层重采样的需求可能不同。可考察共享读取与局部更新的边界，但现阶段没有证据说明它比原解码器更好。
+潜在增量位置：只有确认额外冗余及局部更新必要性后，才考虑由预测框尺度/变化量控制读取更新。不能把共享已有value、减少层数或共享参数改名为新算法。
+最近工作门槛：DEIMv2源码、ShareDAB-DETR、MI-DETR，并继续核对RT-DETR系列多尺度采样设计；最近方法排除尚未完成。
+主要风险：已有deformable attention本就稀疏；decoder开销小，动态控制反而增加实际延迟；LLM缓存收益不能迁移。
+淘汰条件：没有可测量的冗余成本，或简单减少层数/常规共享已达到同等效果，或精细更新选择只能依赖GT。
+
+两者是研究候选，不是两项必须拼在一起的模块。最终只保留一个经证据支持的主要机制。
+
+五、数据、算法和最小验证路线（方案，未运行）
+
+数据：先复用已有VisDrone源图和标注；不新增JPEG压缩或恢复任务条件。既有开发集已反复使用，只作探索，不能称独立确认。最终确认集另行冻结；航次/场景互斥需要证据，不能假定。
+算法：优先核查ECDet-S与DEIMv2-S的已发布预训练权重及实际代码差异。现有YOLO26s源图D0保留为参照，不把YOLO或DETR写成选题限制。不同预训练来源与Objects365额外监督须单独记录。
+资源：单卡约24GB支持选择紧凑模型的可行性判断；目前尚无这两模型在本机/服务器的容量实测，不承诺具体batch或数天内必然收敛。优先利用已有权重，不复现基础模型的大规模预训练。
+
+最小顺序：
+1. 固定官方代码commit、权重、类别映射、尺度生成与decoder调用链，列清已有共享和细节分支。
+2. 在任何新训练前固定同一VisDrone划分、图像变换、ignore规则、面积定义、预测上限和比较预算；同分辨率不等于同开销。
+3. 后续若启动诊断，记录encoder候选到Top-K再到每层decoder的GT身份覆盖、漏检转移与定位变化；按输入目标尺寸和局部邻居数量分层。
+4. 只做能区分机制的最少控制：简单query预算控制、普通已有细节保留方案，以及实际延迟/显存。GT辅助定位仅作诊断，不能冒充部署算法。
+5. 仅当某一机制同时有稳定缺陷、可改善空间和与最近方法的实质差异，才实现一个增量并安排必要对照。AP变化、资源变化和跨场景泛化分别报告。
+
+本轮新增检测前向0、训练0、服务器实验0。没有替换已完成权重，没有启动任何新架构训练。
+
+六、检索策略与记录说明
+
+范围：新视觉编码结构；紧凑ViT检测；航拍tiny目标的encoder/query/decoder；跨层注意力、参数、空间读取复用。优先官方仓库、作者arXiv、CVF/正式出版方；第三方解读只作线索，不作技术结论证据。
+实际关键词与入口见02_检索记录.json。检索有英文全名、缩写、精确短语及官方域名限定；不是穷尽检索，没有PRISMA筛选计数。2026-10-29之后的发表不能用于本轮先验判断。
+
+七、当前结论
+
+应当从压缩单一分支转回开放的检测架构问题。DS的CED等结构是合理的启发来源；能否转化为无人机小目标论文增量仍要经过检测源码和最接近文献的检查。
+目前已排除：简单共享编码memory、通用细节CNN/多尺度适配、泛化DINO蒸馏、仅以动态query数量作为新意。保留A/B两个可证伪候选，继续查明机制；尚不宣称找到经验证成立的最终主线。

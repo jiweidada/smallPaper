@@ -1,0 +1,164 @@
+MS-DETR: Efficient DETR Training with Mixed Supervision
+Chuyang Zhao12, Yifan Sun1, Wenhao Wang3, Qiang Chen1, Errui Ding1, Yi Yang4, Jingdong Wang1*
+1 Baidu VIS 2 Beihang University 3 University of Technology Sydney 4 Zhejiang University
+{zhaochuyang,sunyifan01,chenqiang13}@baidu.com
+wangwenhao0716@gmail.com, yangyics@zju.edu.cn
+{dingerrui,wangjingdong}@baidu.com
+Abstract
+DETR accomplishes end-to-end object detection through
+iteratively generating multiple object candidates based on
+image features and promoting one candidate for each
+ground-truth object. The traditional training procedure us-
+ing one-to-one supervision in the original DETR lacks di-
+rect supervision for the object detection candidates.
+We aim at improving the DETR training efficiency by
+explicitly supervising the candidate generation procedure
+through mixing one-to-one supervision and one-to-many su-
+pervision. Our approach, namely MS-DETR, is simple, and
+places one-to-many supervision to the object queries of the
+primary decoder that is used for inference. In comparison
+to existing DETR variants with one-to-many supervision,
+such as Group DETR and Hybrid DETR, our approach does
+not need additional decoder branches or object queries; the
+object queries of the primary decoder in our approach di-
+rectly benefit from one-to-many supervision and thus are
+superior in object candidate prediction. Experimental re-
+sults show that our approach outperforms related DETR
+variants, such as DN-DETR, Hybrid DETR, and Group
+DETR, and the combination with related DETR variants
+further improves the performance. Code is available at:
+https://github.com/Atten4Vis/MS-DETR.
+1. Introduction
+Detection Transformer (DETR) [3], an end-to-end object
+detection approach, has been attracting a lot of research at-
+tention [17, 22, 23, 25, 40]. It is composed of a CNN back-
+bone, a transformer encoder, and a transformer decoder.
+The decoder is a stack of decoder layers, and each layer con-
+sists of self-attention, cross-attention and FFNs, followed
+by class and box predictor.
+The DETR decoder generates multiple object candidates
+that are represented in the form of object queries, and pro-
+*Corresponding author.
+Figure 1. Mixed supervision leads to better detection candi-
+dates. Top: ground-truth box. Middle: candidate boxes from
+top-20 queries with the baseline. Bottom: candidate boxes from
+top-20 queries with our MS-DETR. One can see that MS-DETR
+generates better detection candidates than the baseline.
+motes one candidate and demotes other duplicate candi-
+dates for each ground-truth object in an end-to-end learning
+manner [3]. The duplicate candidates, which are close to
+the ground-truth object, are illustrated in Figure 1. The role
+of candidate generation is mainly taken by decoder cross-
+attention. The role of candidate de-duplication is mainly
+taken by decoder self-attention together with one-to-one
+supervision, ensuring the selection of a single candidate
+for each ground-truth object. Unlike NMS-based methods
+(e.g., Faster R-CNN [32]) which usually introduce a super-
+vision for candidate generation, the DETR training proce-
+dure lacks explicit supervision for generating multiple ob-
+ject detection candidates.
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+17027
+
+
+---PAGE---
+
+1 2 3 4 5 6 7 8 9 10 11
+3
+4
+5
+6One-to-one Loss
+Classification loss w/ MS Regression loss w/ MS
+Classification loss w/o MS Regression loss w/o MS
+Figure 2. Mixed supervision leads to lower one-to-one losses
+than the baseline . The x-axis corresponds to #epochs, and the
+y-axis corresponds to the training loss from one-to-one supervi-
+sion. Dashed and solid lines correspond to the loss curve of the
+Deformable DETR baseline and the MS-DETR, respectively. Best
+viewed in color.
+We propose to supervise the queries of the primary de-
+coder with the mixture of one-to-one supervision and addi-
+tional one-to-many supervision to improve the training effi-
+ciency. The architecture is very simple. We add a module
+similar to the prediction head for one-to-one supervision,
+that consists of one box predictor, one class predictor for
+one-to-many supervision. The resulting approach, named
+MS-DETR, is illustrated in Figure 3. We want to point out
+that the additional modules only influence the training pro-
+cess and the inference process remains unchanged.
+Figure 1 illustrates how the extra supervision influences
+the candidate detection. We observe that the DETR without
+one-to-many supervision also generates multiple candidates
+for each ground-truth object. After using the additional one-
+to-many supervision, one can see that the predicted boxes
+are better, implying that the candidates are better. We ob-
+serve that the one-to-one classification and box regression
+losses are decreased when the additional one-to-many su-
+pervision is added (as illustrated in Figure 2). This provides
+evidence that one-to-many supervision is able to improve
+the candidates and thus is helpful for optimizing the one-to-
+one supervision loss.
+Our approach improves the quality of object queries by
+introducing additional supervision for collecting informa-
+tion from image features. It is distinct from and com-
+plements related training-efficient schemes [6, 20, 24, 34,
+41, 48], such as conditional DETR [24] and Deformable
+DETR [48], which modify cross-attention architectures or
+change the query forms. Our approach is related to, yet
+clearly different from DETR variants employing one-to-
+many supervision [4, 13, 14]. Specifically, our approach
+directly imposes one-to-many supervision on queries of
+the primary decoder. In contrast, Group DETR and Hy-
+brid DETR apply supervision to queries in additional de-
+coders other than the primary decoder. The differences from
+closely-related methods are illustrated in Figure 3.
+Experimental results show that our approach achieves
+consistent improvements over DETR-based methods, in-
+cluding DETR variants with modified cross-attention
+or query formulation (Deformable DETR [48], DAB-
+DETR [20]), as well as other training-efficient variants
+(DN-DETR [14], Group DETR [4], Hybrid-DETR [13]).
+Combining our approach with other DETR variants with
+one-to-many supervision, such as Group DETR and Hybrid
+DETR, is able to further improve the performance, indicat-
+ing that our approach is complementary to these variants. In
+addition, it is observed that our approach is more computa-
+tion and memory-efficient as our approach does not include
+additional decoder branches and object queries.
+2. Related Work
+Decoder cross-attention and query formulation modifi-
+cation. Cross-attention performs interactions between im-
+age features and current object queries to refine detection
+candidates that are represented in the form of object queries.
+Deformable DETR [48] uses deformable attention, an
+extension of deformable convolution [7], that selects the
+highly informative regions, to replace the original cross-
+attention architecture. Conditional DETR [24] separates the
+spatial and content queries and computes the spatial atten-
+tion to softly select the informative regions. SMCA [8] uses
+the Gaussian-like weight for spatial attention computation.
+DAB-DETR [20] and Conditional DETR v2 [6] use boxes
+to represent the position of queries. Anchor DETR [38] uses
+anchor boxes to serve as the predefined reference region to
+aid in detecting objects of varying scales.
+One-to-many supervision with parallel decoders. One-
+to-many supervision assigns one ground-truth object to
+multiple object queries to speed up DETR training. Existing
+methods depend on the additional parallel weight-sharing
+decoder.
+DN-DETR [14] introduces parallel weight-shared de-
+coders with each decoder handling a group of of noisy
+queries that are formed by by adding noises to ground-
+truth objects1. Group DETR [4, 5] instead learns the object
+queries of the additional decoders. DN-DETR and Group
+DETR perform one-to-one supervision for each group of
+object queries, resulting in one-to-many supervision for all
+the groups of object queries. DINO [43] has a similar idea
+to DN-DETR, where contrastive denoising queries are in-
+troduced for group-wise one-to-one supervision. DQS [45]
+1Initially DN-DETR is motivated by one-to-one assignment stabiliza-
+tion. We discuss it from another perspective: parallel decoders and one-to-
+many supervision.
+17028

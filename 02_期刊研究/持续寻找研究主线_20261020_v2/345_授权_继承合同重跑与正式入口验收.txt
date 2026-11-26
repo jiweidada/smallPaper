@@ -1,0 +1,53 @@
+345｜授权：继承合同在当前适配器上逐项重跑 + 正式训练入口实现与CPU验收（自包含，2026-10-22）
+
+〇、授权范围
+- 用户已授权本文件两部分：A（第一至四节）继承合同重跑与FLOPs覆盖；B（第五节）正式训练入口实现与CPU短验收。只用本机CPU。
+- 不授权：真实训练（任何run跑满或超过第五节规定的验收步数）、GPU、SSH、队列、读取heldout3236、修改配方。A和B都做完后停下，等主控核对。
+- 先做A。A里任一合同失败就停下，不进入B。
+- 新建独占目录：code\unit_instance_completion_20261021_v1\345_codex_contracts_20261022_v1。旧目录、旧缓存、冻结的311_v2/320_v2只读，不覆盖。
+
+一、为什么要做
+342_head.py用SharedAssociation替换了311_v2的Association，并改写了G的generation_plan，改为调用geom342.geometry_cost。审查包第1节第26行写明：当前适配器上的完整继承合同还没有逐项重跑。这个项目已经出过5次几何错误，都是测试和实现共用同一个假设。所以本次每项合同都要有独立写法的对照或反向测试，不能只复用旧测试函数。
+
+二、被测对象
+- 活动实现：344_codex_closeout_20261022_v1\train344.py通过make_common_init构造的四臂模型（342_head.CompletionHead342、GeometryCalibratedHead342），几何用344_geometry\geom342.py。
+- 每项合同同时在四臂上跑（不适用的臂写明原因）。输入用两类：(a) 构造的合成输入；(b) 两seed各前32窗的真实development缓存，经train344.load_entry和collate读取。
+
+三、合同清单（逐项给出状态、独立对照方法、数值差和反向测试）
+1. 适配器等价性：同一state_dict下，CompletionHead342与311_v2原CompletionHead在“候选框已是窗内归一化xyxy”的输入上，pred_boxes、pred_logits、query_states、plan各字段逐位相同（或给出最大差和原因）；G同理对照320_v2原GeometryCalibratedHead。只有几何调用路径不同，数值应当相同。
+2. 独立计划算子：列和守恒（每个有效候选T列和加z为1）、行容量（每类每格解释量不超过m）、退回null守恒、无供应时residual=m、零质量行无连接、同cost质量拆分后聚合计划不变。用独立NumPy写法实现independent_cap后逐项对比。
+3. 极小u：构造u≈1e-26的情形，前向和反向都无NaN、无inf（311_v2修复点）。
+4. empty与overflow：J=0、全padding、P_W为空的窗，四臂前向和loss有限；|U_W|>4时匹配min(4,N)，其余GT仍计入分母。
+5. N不读P：固定参数和RGB，扰动P（框、类别、分数、数量、顺序），N的pred_boxes/pred_logits严格不变；aux plan可以变。
+6. sg(m)：四臂的生成路径和aux计划都对mass做stop-gradient（independent_cap默认detach_mass=True，N/S的field为mass.detach()）。分别只反传L_det、只反传L_assoc、只反传L_mass，检查mass_head参数梯度：前两者为0或None，只有L_mass非零。
+7. S排列与count：P按排列打乱后，S的输出不变（在padding mask下）；count投影只读类别计数。空P的行不进入全mask softmax。
+8. G/R初态等价：同公共初态下，G与R的pred_boxes、pred_logits、query_states、decoder每层hidden、generation residual逐位相同（κ=0，固定几何与初始零化的W_q使content项为0）。不能只看零初始化输出头。
+9. G的aux隔离：改变aux association参数，G的生成计划和预测不变；κ_c只从L_det得到梯度，L_mass和L_assoc对class_null梯度为None。
+10. R的接口：R的生成field等于其plan的residual；把residual替换为mass后，R输出应变为与N同一路径（用来证明R确实读的是残余）。
+11. 坐标反向测试：故意把候选框以窗内像素坐标或cxcywh传入，geometry_cost必须报错或数值明显不同；在PNG上叠加一个真实窗的候选框、格点和generation residual（R与G各一张，两seed共4张）。
+12. global冻结：构造一次global模型并跑一个有界batch，794项state前后不变、grad为None（不训练）。
+
+四、FLOPs覆盖（审查包第3节未完成项）
+- 对四臂单窗前向，列出FlopCounterMode没有注册的算子（softmax、LayerNorm、GELU/SiLU、logsumexp、elementwise等），按张量形状手算这些算子的FLOPs并加回，给出“已注册+手算”的合计。手算口径写清楚（如softmax按每元素若干FLOPs）。
+- 只报CPU数字，GPU仍NA。
+
+五、B｜正式训练入口train345.py（实现并在CPU上短验收，不做真实训练）
+1. 另存train345.py，基于train344，不删除或改写train344的守卫。配方、损失、优化器、学习率路由、数据绑定（344清单SHA）全部原样继承，diff单列。
+2. 入口参数只接受：arm∈{N,S,G,R}、seed∈{1,2}、run目录、device、max_steps（验收用）。其余超参数全部从342_预定配置_{arm}_seed{seed}.json读取，并核对该配置文件SHA与342_八run配置清单.json一致；不接受命令行覆盖学习率、轮数、batch等。
+3. 每轮shuffle：按head seed和epoch号确定性生成3235个development_ids的排列。先把6轮的排列物化成文件（每seed一份，四臂共用同一份，记SHA），训练时只读这个文件。同seed四臂的batch序列必须逐位相同。
+4. 初态：四臂用make_common_init构造，保存初态state SHA，并与配置清单里记录的初态SHA核对。
+5. 断点：每轮结束保存完整状态（model、optimizer、各param_group的lr、全局step、epoch、epoch内位置、shuffle文件SHA、torch/numpy/python RNG），用独占写（xb），不覆盖。恢复时核对这些SHA与配置一致；从epoch内任意位置恢复都必须可行。
+6. 守卫：入口绑定检查raw global checkpoint SHA、development清单SHA、配置SHA；任一不符就报错退出。run目录已存在就拒绝。总步数固定1218，不能通过参数加大。
+7. 日志：每步记录loss_det/loss_mass/loss_assoc、lr（各组）、G的10个κ_c值与梯度；每轮记录耗时。
+8. CPU短验收（只为验证入口，不作学习结论）：
+   - 为了在CPU上跨越epoch边界，另建一个验收专用的小顺序文件（取物化shuffle的前若干项，构造“每轮2个batch”的迷你轮次），只在验收模式下可用，正式模式禁止加载它。
+   - 每臂×每seed：连续跑6步（跨2个迷你epoch边界） vs 跑3步→保存→新进程恢复→再跑3步，最终model/optimizer/RNG/日志逐位相同。共8组。
+   - 正式模式下用真实物化shuffle跑前2步（每臂每seed），确认batch内容与物化文件一致、四臂同seed的batch逐位相同。
+   - 反向测试：篡改配置SHA、清单SHA、shuffle文件、run目录已存在、max_steps>1218，都必须被拒绝。
+9. 不写任何GPU或真实训练启动命令；说明文档里只写“需另行授权”。
+
+六、交付与闸门
+- A：每项合同一行：已验证/未验证/实现失败，附独立对照方法、最大差、调用次数、源文件SHA256。B：每项验收一行，同样格式。
+- 写一页中文汇总、交接索引345_交接索引.md。另存342_开训前审查包_v2.md（不改旧文件），更新第1节第26、34行和第6节对应条目的状态。
+- 任何合同或验收失败：报告实现失败，先停下等主控，不要自行改模型、配方或冻结模块。
+- A和B都做完后停下。真实训练须审查包v2通过后由用户另行授权。

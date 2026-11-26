@@ -1,0 +1,381 @@
+=== PDF page 2 ===
+Figure 2. We explore the baseline with ﬁve categories of remedies across both train and test time. 1) Deblurring: Deblur the input
+using Nah et al . [ 31] before passing it to the detector at test time. 2) Squint: Inﬂuenced by [ 19, 37], we undersample the incoming
+image on each axis, according to known blur kernel shape during training and testing (assuming oracle knows test kernel). We forward
+pass through the backbone and carry out the reverse sampling operation on outgoing activations, before passing them to the detection
+head. 3) Out-of-distribution: Treat motion blur as an out-of-distribution robustness problem and use two leading methods as remedies:
+3a) AugMix: Augment training images as in AugMix [
+16] with two main ﬂavors: all augmentations from the AugMix paper, or only
+non-spatial augmentations. We then use the model normally at test time. 3b) Using minibatch statistics: As in [ 43], modify the batch
+normalization statistics at every layer in the network to be a weighted average of the incoming minibatch (size one) statistics and the
+original training-averaged batch normalization statistics. 4) Label Modiﬁcation Under blur, the spatial extent and center of the bounding
+box are ambiguous. We experiment with training with labels expanded to include the superset of object locations given by the extent of the
+blur kernel’s reach, under blur augmentation and when using spatial augmentation in AugMix. We also report results for both expanded
+COCO minival labels and without. 5) Blur Augmentation Augment COCO images using either 5a) a random selection of kernels across
+all possible motion-blurs we can generate, or 5b) training networks specialized on speciﬁc blur-kernel varieties. At test time, we use either
+a network trained under general blur augmentation, or a system that incorporates a bag of models and a blur estimation module that selects
+the appropriate specialized network for the task.
+for image deconvolution comes from Richardson [
+39] and
+Lucy [28] where a known point spread function (PSF) - the
+blur kernel - is used to iteratively minimize an energy func-
+tion to ﬁnd a maximum likelihood estimate of the original
+image. Deblurring can be non-blind where the blur kernel is
+known [
+42], or it can be blind, where the kernel is either ﬁrst
+estimated [11, 44, 23] - usually optimized with the ﬁnal re-
+sult [8] - or the entire deblurring method is non-interpretable
+and runs end to end [ 31, 49]. Deblurring can also assume
+either a uniform blur kernel throughout an image [ 11, 44]
+or variable nonuniform blur either due to camera egomo-
+tion (rotation, zoom) [
+52], depth-of-ﬁeld effects [48], or dy-
+namic object motion blur [ 18, 31, 23].
+Previous work has made use of an L0 sparse represen-
+tation [ 53], dark image regions [ 32], and multiple frames
+in a video [ 45]. More invasive methods exploit hard-
+1707
+
+=== PDF page 3 ===
+ware, including using a coded shutter [36], inertial measure-
+ments [22], ﬂash frame information integration [ 57], bursts
+of blurry images [ 1], high and low frame rate cameras [ 47],
+or an event driven camera tied to an RGB sensor [ 33].
+Some deep learning deblurring methods are interpretable
+[44, 5, 54, 46], but most are end-to-end [49, 24, 55, 31] with
+the recent state-of-the-art by Nah et al. trained on the high
+frame rate GOPRO dataset [ 31]. We explore using a state-
+of-the-art deblurring method as a preprocessing step, and
+measure the overall effectiveness of such a baseline.
+Boracchi et al. [
+3] generate a statistical model for motion
+blur kernel generation for benchmarking image restoration
+model performance. The blur kernels they generate are pa-
+rameterized to simulate camera shake and exposure, making
+their kernel generation method a good candidate for synthe-
+sized blur augmented training.
+Although deblurring’s aesthetics driven approach means
+that there are competitive methods for extracting high fre-
+quency information in blur, use in an online vision appli-
+cation might be impractical, especially given that networks
+are very sensitive to changes in training distribution.
+Blur and Scene Understanding Tasks: Directly related
+to this work, V asiljevic et al. [
+51] explore the effect of blur
+on ImageNet [ 10] classiﬁcation performance and blur aug-
+mentation strategies using a set of synthetically generated
+blur kernels; however they use a limited set of 100 17 × 17
+pre-generated ﬁxed length motion blur kernels and a restric-
+tive image resolution of 384 × 384 during training and eval-
+uation. They experiment with different blur types and ﬁne
+grained blur augmentation for classiﬁcation, but only a seg-
+mentation dividing blur types - and not across blur exposure
+with different kernel types - is considered; only defocus blur
+is explored for image segmentation. For image segmenta-
+tion, they evaluate their networks using a soft boundary for
+accuracy, but do not explore the effect of spatial ambiguity
+on ﬁne-tuning networks for blur during training, especially
+since only defocus blur (no shift in barycenter naturally) is
+used for ﬁne-tuning the segmentation task. V asiljevic et al.
+note that knowing blur information apriori could be helpful,
+but don’t explore such a blur estimator.
+Overall, we ﬁnd that building explicit robustness into vi-
+sion models for dealing with realistic camera motion blur
+needs more exploration, especially for spatial tasks.
+Out-of-Distribution Robustness: Recent work [
+15,
+14] treats image corruptions (brightness, contrast, snow,
+noise, blur) as out-of-distribution samples compared to
+the in-distribution clean images a network was trained on.
+ImageNet-C [
+15] is a variant of the ImageNet classiﬁca-
+tion dataset that contains images corrupted by 15 differ-
+ent types of canonical image corruptions, and is used as a
+benchmark for out-of-distribution model performance. Cru-
+cially, ImageNet-C - and others such as ImageNet-R [
+14]
+and ImageNet-A [ 17] - are not meant to be trained on. In-
+stead, the argument is that a model’s ability to generalize
+to images outside of the training set’s distribution can be
+measured by evaluating its performance on these datasets.
+Although ImageNet-C contains motion blur corruptions,
+the method only considers straight line motion blur ker-
+nels. Michaelis et al . [
+29] use the same corruptions from
+ImageNet-C to produce a robustness benchmark for detec-
+tion, by augmenting MS COCO [
+26]. COCO-C also in-
+cludes straight line blurred images, but changes in labels
+under the spatial ambiguity brought upon by blur are not
+addressed. We call this type of naive blur ’Non-Centered,’
+and we show why it’s important for spatial reasoning.
+In the data augmentation space, AutoAugment [
+9] ﬁnds
+an optimal augmentation policy for a model and dataset
+pair achieving state-of-the-art accuracy for classiﬁcation
+datasets, but requires 15,000 compute hours on an NVIDIA
+Tesla P100 for training ImageNet. Rusak et al. [
+41] propose
+an adverserial noise training scheme for increasing clas-
+siﬁcation model accuracy and robustness on ImageNet-C,
+mainly combating pixel noise and not blur. AugMix [
+16]
+is an augmentation strategy for improving classiﬁcation
+model robustness to out-of-distribution images. It involves
+alpha blending copies of a training image that have been
+corrupted by a random chain of image augmentations. They
+use the same corruptions in [
+9], including both pixel level
+value changes and spatial augmentations. Although the
+AugMix paper also doesn’t discuss how spatial augmenta-
+tion should affect spatial labels, we explore the effective-
+ness of AugMix for blur robustness after making decisions
+on how spatial labels should be changed.
+Schneider et al . [
+43] analyze the effect of normalizing
+activations in batch normalization layers using a weighted
+average of the statistics of both the source training set
+and the minibatch. Their method achieves state-of-the-art
+on ImageNet-C and improves ImageNet-C robustness on
+vanilla Resnet-50 classiﬁcation models, even with a mini-
+batch of size one.
+While these methods are a promising way of increasing
+model robustness to unseen corruptions, the aim of the pro-
+posed work is to explore the speciﬁc impact of motion blur
+on detection, and so we focus our effort on manufacturing
+the most realistic blur kernels available in the literature.
+3. Designing Detection Models for Motion Blur
+To improve online object detection, we propose a uni-
+ﬁed framework that allows us to measure the impact of
+different remedies and their combinations. The frame-
+work is based on a state-of-the-art object detector, Faster-
+RCNN [
+38], with training and testing on data derived from
+the MS COCO [26] detection dataset. The baseline and data
+are explained in this section. The proposed remedies are ex-
+plained in detail in Sec.
+4, and are evaluated in Sec. 5. Fig-
+ure 2 illustrates both the baseline model, and the different
+1708
+
+=== PDF page 4 ===
+enhanced alternatives.
+3.1. Detection Baseline
+For reproducibility, we use the pretrained Faster R-
+CNN variant trained on COCO, available through Pytorch’s
+torchvision [
+34] library, as a baseline for all our experi-
+ments. We use a ResNet-50 [ 13] backbone with a Feature
+Pyramid Network (FPN) [ 25]. This baseline achieves 58.5
+mAP@0.5 and 37.0 mAP@0.5:0.95 on the COCO test set.
+While other models achieve better accuracy on the COCO
+minival set, we choose this framework for its accessibility
+and as a good baseline representation of a canonical detec-
+tion framework with top-10 performance for the backbone’s
+size [
+21, 27].
+3.2. Selecting Data for Training and Testing
+Ideally, we’d select data with detection labels for im-
+ages exhibiting motion blur. Due to the way MS COCO
+is gathered [
+26], there are very few blurry images in the
+dataset. This leaves us with the task of generating synthet-
+ically blurred COCO images for both training and evalu-
+ation. Related but not directly applicable here, there are
+multiple real-world image datasets for deblurring. These
+were generated using high frame rate video [
+31] or shutter
+tied cameras [40]. They either don’t contain enough images
+for training and evaluating detection models ([40] only con-
+tains 5500 images) and/or lack object annotations. Zhang et
+al. [ 56] generate blurry images as part of a GAN architec-
+ture for deblurring. Although they train the blur generation
+module using a discriminator trained on real world blurry
+images, it is not trivial to modify labels, given spatial am-
+biguity, since camera motion is not made explicit. Brooks
+& Barron [
+4] use multiple adjacent images (as few as two)
+to generate realistic motion blur. But to use that would re-
+quire a video or stereo dataset with ground truth labels for
+the detection task.
+This leaves methods that synthesize blurry images via
+convolution with synthetic motion blur kernels [
+42, 3, 51,
+29, 15]. ImageNet-C [ 15] and COCO-C [ 29] contain im-
+ages blurred using straight line motion blur exclusively,
+with no control over simulated camera shake. V asiljevic et
+al. [
+51] use a limited set of motion-blur kernels since they
+are constrained by a ﬁxed length spline formation model.
+Boracchi & Foi [
+3] describe a method that allows con-
+trol over different characteristics of a camera’s trajectory
+through space, including the amount of shake and jerk with
+variable exposure.
+3.3. Blur Generation and Space Discretization
+We adapt the blur kernel generation method from Borac-
+chi & Foi [
+3]. We ﬁx their high level controllable parameter
+P to one of three values, P1−3, representing three distinct
+Figure 3. Example blur kernels based on Boracchi & Foi’s [ 3]
+motion-blur model. All kernels occupy a space of 128 × 128. In
+our modiﬁcation, used everywhere unless stated otherwise, kernels
+are centered by shifting the barycenter of all nonzero points to the
+origin of the ﬁlter. P1 type kernels tend to be very erratic, while
+P3 kernels contain mostly rectilinear trajectories representative of
+when camera ego motion is linear.
+types of camera motion. We also modulate exposure via
+early camera trajectory clipping.
+First, we generate a trajectory by ﬁnding a random path
+in 2D space. We assign an initial velocity vector v0, drawn
+at random from a unit circle, and a position in space x0 for
+the camera. At every step, the camera’s velocity vector is
+updated by the acceleration vector,
+∆v = P (∆vg − Ixt), (1)
+where ∆vg is random acceleration with elements drawn
+from N (0, σ 2). Ixt is an inertial tendency for the camera
+to stay where it is, and P ∈ P1−3 is the high level anxi-
+ety parameter we ﬁxed above. P3 has the highest random
+velocity change on every step. Further, to model a camera
+jerk, with a randomly sampled indicator function, the accel-
+eration update also includes a component equal to twice the
+current velocity vector in a random direction, so
+∆v = ∆v + 2P |v|∆vj, (2)
+where ∆vj is sampled from the unit circle. Again, with a
+high P , there is a higher chance of a jerk happening and a
+shakier camera. When starting a trajectory, I, σ2, and j are
+drawn once from uniform random distributions to increase
+variability under the same class of blur P ∈ P1−3. Note
+that this leads to some overlap between kernels generated
+across different P s.
+In summary, the type of camera behavior falls into one
+of three classes: 1) P1 simulates a very nervous camera, 2)
+P2 for back and forth behavior, and 3) P3 simulates mostly
+straight rectilinear motion-blur. To simulate exposure, we
+stop the motion path early using the exposure factor (trajec-
+tory length) E. We discretize exposure to one of 5 values,
+E1−5. Examples of these kernels can be seen in Fig.
+3. Sub-
+pixel interpolation produces kernels for convolving sharp
+images.
+1709
+
+=== PDF page 5 ===
+3.4. Implementation Details
+Kernel Generation: To speed up training, a corpus
+of 12,000 blur kernels is generated for every pair of
+{P1−3} × {E1−5}, for a total of 180,000 possible motion
+blur kernels. However, random kernels are generated on the
+ﬂy during evaluation for each combination of blur type and
+exposure, with ﬁxed seeds for reproducibility. Trajectory
+length is 96 and blur kernels ﬁt in 128 × 128 ﬁlters.
+Blurring: Unlike in [
+15, 51, 29], we don’t resize im-
+ages to a ﬁxed size before blurring. Instead each image
+is convolved separately with reﬂection padding, to account
+for what would otherwise be real world data. We opt not
+to resize our blur kernels to match image size as a way of
+simulating changes in focal length. We implement sparse
+convolution on the GPU for applying blur kernels. As per
+Sec.
+4.4, we make sure to center our motion-blur kernels by
+translating their barycenters to the center of the ﬁlters.
+Training: All networks start from a base Resnet-50FPN
+pretrained on COCO. We use an FPN framework that out-
+puts activations at four scales from the backbone. There
+was no apparent difference in blur augmented performance
+when training all ﬁve blocks vs. ﬁxing the weights of the
+ﬁrst two.
+4. Proposed Remedies for Improved Detection
+Suspecting speciﬁc underlying causes for the adverse ef-
+fects of blur on detection, we now propose bespoke reme-
+dies. Where appropriate, some of the remedies are also
+crossbred, and experimental results appear in Sec.
+5.
+4.1. Deblurring as a Pre­process
+Image deblurring is useful for aesthetic purposes, but
+could also aid other vision tasks. To test this remedy, we
+use the recent deblurring model from the GoPro dataset pa-
+per, [
+31], before passing the result to the detector. Deblur-
+ring is a slow process, by 12× in this case, so heavy opti-
+mizations would be needed for an online robot.
+4.2. Reconciling Texture Information With Scale
+When motion-blur is biased to one major direction over
+another, it removes more high frequency information (and
+texture) in that direction. It is reasonable to expect a net-
+work is not natively designed for this imbalance. CNNs
+usually understand texture and shape information across
+multiple scales under the same aspect ratio, but we’re also
+asking the network to deal with a texture imbalance along
+the blur kernel’s major axis. Inﬂuenced by the work on
+Spatial Transformers [
+19] (which proved a slightly inferior
+baseline) and neural sampling layers [ 37], we instead un-
+dersample the incoming image along the principal compo-
+nents of the blur kernel. The reverse operation is carried out,
+using reciprocal scaling factors, on every activation output
+from the backbone. This “Squint” process is done at both
+train and test time. For best-case testing, an oracle is as-
+sumed to know the blur kernel.
+4.3. Training vs. Test Distribution
+We consider treating complex motion-blur as an out-of-
+distribution corruption as in [
+15, 29, 16, 43], and use two
+promising methods from the OOD literature. We use Aug-
+Mix [
+16] as a training time remedy. We propose three ﬂa-
+vors, the ﬁrst is a purely pixel level version where we aug-
+ment pixel intensities only. The second applies all spatial
+augmentations as well as suggested in [
+16], but does not rec-
+oncile the shifts in bounding box changes. The third is an
+“Expanded” version following Sec.
+4.4, where we change
+COCO labels at train time to match the superset of where
+an object is shifted to across branches. AugMix roughly ap-
+proximates blur when augmentations are selected that trans-
+late an image before concatenating with other branches.
+Further, at test time, we use covariate shift adaptation
+from the upcoming [
+43]. The ﬁrst step is to get a weighted
+average of the incoming activation statistics of the mini-
+batch (n = 1 for online inference) and the source statistics
+of the model where N = 16,
+µ = n
+N + n µt + N
+N + n µs, and (3)
+σ2 = n
+N + n σ2
+t + N
+N + n σ2
+s . (4)
+We then use these new normalization statistics for batch
+normalization in all network layers.
+4.4. Customizing Labels
+When an image is motion blurred, objects are no longer
+conﬁned to the bounding boxes they had occupied in the
+sharp image. The objective may no longer be to estimate
+that original bounding box. See Fig.
+4. We discuss two
+remedies for this problem, that apply when training under
+augmentation and for evaluation.
+Kernel Centering The start point of a motion blur path
+corresponds to the exposure at t = 0 . Any path that leads
+away from the center, as in Fig.
+4(b), will offset the blurred
+version of the object in some direction, so the “ground
+truth” bounding box is no longer centered on the blurred
+object. This introduces a mismatch between the blurred in-
+put and its label. This mismatch is created in [
+15, 29],
+introducing label ambiguity and noise in training.
+We center a kernel using a weighted average of the ker-
+nel’s nonzero points. The aim is to have the detection frame-
+work learn to localize objects based on where they are, on
+average, during the exposure. This remedy is similar to how
+[
+40] aligned images from paired long/short exposure cam-
+eras to train for deblurring. In our case, the training loss is
+noisier when training on non-centered kernels, and the drop
+1710

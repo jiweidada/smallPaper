@@ -1,0 +1,112 @@
+Authoret al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+TABLE 3: Comparison of GPU memory usage and elapsed
+training time per epoch. All results are measured with a
+ResNet-50 backbone and 300 queries.
+Model Memory (MB) Duration (min/ep) mAP
+Def-DETR++ 7534 40 47.0
+H-DETR 11200 57 (+17) 48.7
+MS-DETR 8326 49 (+9) 48.8
+MR.DETR 8920 53 (+13) 49.5
+MDS-DETR 8252 42 (+2) 49.8
+TABLE 4: Comparison of Masked Duplicate Suppressor with
+alternative methods. Ours with ’diag unmasked’ refers to
+MDS with commonly used masked self-attention without
+diagonal masking.
+Method mAP AP 50 AP 75
+Self-attention (baseline) 47.7 65.2 51.4
+Query-Rank (Rank-DETR) 48.5 (+0.8) 65.9 52.8
+MSelf-Attention (Ease-DETR) 49.0 (+1.3) 66.3 52.9
+Ours (diag unmasked) 48.0 (+0.3) 64.8 52.3
+Ours 49.8 (+2.1) 67.1 54.2
+of query overlap. Our model learns to suppress duplicates
+solely through one-to-many and one-to-one supervision sig-
+nals and attention masking.
+We emphasize that the masked self-attention in MDS is
+both intuitive and explainable. In previous DETR studies,
+even it was evident that self-attention played a key role
+in duplicate suppression by modeling interactions between
+queries, its attention maps were often intractable and treated
+as a black box. In contrast, our masked self-attention focuses
+purely on the similarity between object queries, providing a
+clear and interpretable mechanism for duplicate suppression.
+D. COMPUTATIONAL COMPLEXITY
+Table 3 compares the memory usage and training time of
+MDS-DETR against the Deformable-DETR++ baseline and
+other DETR variants. Hybrid-DETR incurs 48% more mem-
+ory consumption and over 40% additional training time per
+epoch compared to the baseline. Since Rank-DETR and
+Relation-DETR are both built on Hybrid-DETR, they re-
+quire even higher training costs. MS-DETR avoids auxiliary
+decoders or queries, but suffers a 22% slowdown due to
+enriched supervision on intermediate outputs. MR.DETR
+adopts a multi-route training scheme with two auxiliary
+decoders, resulting in a 33% increase in training time. Al-
+though these methods deliver significant performance im-
+provements, they come at the cost of substantial computa-
+tional overhead.
+In contrast, our MDS-DETR requires only 5% more train-
+ing time and 9% more memory usage, while still outper-
+forming previous state-of-the-art DETRs. Notably, MDS-
+DETR is even faster than MS-DETR, which does not rely on
+auxiliary decoders, so clearly demonstrating the efficiency of
+our design.
+TABLE 5: Comparison of
+different positional priors
+Abs P.E Rel bias mAP
+49.3
+✓49.4
+✓ ✓49.7
+✓49.8
+TABLE 6: Effect of experi-
+mental techniques
+DP0 LFT MQS mAP
+49.0
+✓49.8
+✓ ✓49.8
+✓ ✓ ✓49.3
+E. ABLATION STUDIES
+a: Various designs for masked duplicate suppressor.
+To validate the effectiveness of our proposed MDS, we
+conduct a series of ablation studies on alternative designs.
+As shown in Table 4, we use a model with conventional
+self-attention as our baseline, which achieves a relatively
+low performance of 47.7 mAP. The Query Rank Layer from
+Rank-DETR [5] and the MSelf-attention module from Ease-
+DETR [10] yield improvements of +0.8 and +1.3 mAP over
+the baseline, respectively. In comparison, our MDS achieves
+a larger gain of +2.0 mAP, demonstrating its effectiveness.
+We further analyze the impact of our strict masking strat-
+egy by evaluating a variant called diagonal-unmasked MDS,
+where queries are allowed to attend to themselves. This
+design leads to a notable drop of 1.7 mAP compared to
+the original MDS, confirming that preventing self-attention
+is critical for effective duplicate suppression. These results
+suggest that our MDS, equipped with strict masking, is a
+specialized and effective module for this purpose.
+We analyze the performance variation with respect to
+the number of true positive tokens in Fig. 3b. The best
+performance is achieved with 10 tokens, while using 5 or
+15 tokens still outperforms previous DETRs, demonstrating
+the robustness of MDS. With only a single true positive
+token, the expressiveness becomes insufficient to instruct true
+positives, leading to performance degradation.
+In Table 5, we compare the performance of MDS under
+different positional priors, including the conventional ab-
+solute positional embedding (Abs P.E) and our symmetric
+relative position bias (Rel bias). Interestingly, even without
+any explicit positional information, the performance drop
+is marginal, suggesting that our confidence-based attention
+masking is effective independently of positional biases. Fur-
+thermore, we observe that the relative position bias is more
+effective than the absolute positional embedding for duplicate
+suppression. However, when both types of positional infor-
+mation are combined, the performance slightly degrades.
+b: Experimental techniques for DETRs.
+We further evaluate the impact of three common techniques,
+removing dropout (DP0), Look Forward Twice (LFT), and
+Mixed Query Selection (MQS) on the performance of MDS-
+DETR, as shown in Table 6. Consistent with prior works,
+removing dropout (DP0) yields performance improvements.
+On the other hand, LFT does not lead to noticeable perfor-
+mance gains. This may be attributed to the nature of one-to-
+VOLUME 4, 2016 7

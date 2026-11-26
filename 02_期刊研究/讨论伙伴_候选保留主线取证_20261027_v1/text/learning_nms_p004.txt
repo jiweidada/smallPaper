@@ -1,0 +1,134 @@
+4.1. Loss
+A detector is supposed to output exactly one high scoring
+detection per object. The loss for such a detector must in-
+hibit multiple detections of the same object, irrespective of
+how close these detections are. Stewart and Andriluka [
+26]
+use a Hungarian matching loss to accomplish that: success-
+fully matched detections are positives and unmatched detec-
+tions are negatives. The matching ensures that each object
+can only be detected once and any further detection counts
+as a mistake. Henderson and Ferrari [
+12] present an average
+precision (AP) loss that is also based on matching.
+Ultimately a detector is judged by the evaluation crite-
+rion of a benchmark, which in turn deﬁnes a matching strat-
+egy to decide which detections are correct or wrong. This
+is the matching that should be used at training time. Typ-
+ically benchmarks sort detections in descending order by
+their conﬁdence and match detections in this order to ob-
+jects, preferring most overlapping objects. Since already
+matched objects cannot be matched again surplus detections
+are counted as false positives that decrease the precision of
+the detector. We use this matching strategy.
+We use the result of the matching as labels for the clas-
+siﬁer: successfully matched detections are positive training
+examples, while unmatched detections are negative training
+examples for a standard binary loss. Typically all detec-
+tions that are used for training of a classiﬁer have a label
+associated as they are fed into the network. In this case
+the network has access to detections and object annotations
+and the matching layer generates labels, that depend on the
+predictions of the network. Note how this class assignment
+directly encourages the rescoring behaviour that we wish to
+achieve.
+Let di denote a detection, yi ∈ {−1, 1} indicate whether
+or not di was successfully matched to an object, and let
+f denote the scoring function that jointly scores all detec-
+tions on an image f ([di]n
+i=1) = [ si]n
+i=1. We train with the
+weighted logistic loss
+L(si, yi) =
+N∑
+i=1
+wyi · log (1 + exp (−si · yi)) .
+Here loss per detection is coupled to the other detections
+through the matching that produces yi.
+The weighting wyi is used to counteract the extreme
+class imbalance of the detection task. We choose the
+weights so the expected class conditional weight of an ex-
+ample equals a parameter E (w1I (yi = 1)) = γ.
+When generalising to the multiclass setting, detections
+are associated to both a conﬁdence and a class. Since we
+only rescore detections, we allow detections to be “switched
+off” but not to change their class. As a result, we only match
+detections to objects of the same class, but the classiﬁca-
+tion problem remains binary and the above loss still applies.
+...
+Block
+ Block
+ Block
+ FC
+ FC
+ FCzeros
+new
+detection
+score
+detections
+logistic loss
+matching
+detections
+with new score
+annotations
+labels
+loss
+FC
+ FC
+ FC
+(a) Training architecture.
+...
+Block
+ Block
+ Block
+ FC
+ FC
+ FCzeros
+new
+detection
+score
+detections
+FC
+ FC
+ FC
+(b) Test architecture.
+Figure 2: High level diagram of the Gnet. FC denotes
+fully connected layers. All features in this diagram have
+128 dimensions (input vector and features between the lay-
+ers/blocks), the output is a scalar.
+When representing the detection scores, we use a one-hot
+encoding: a zero vector that only contains the score at the
+location in the vector that corresponds to the class. Since
+mAP computation does not weight classes by their size, we
+assign the instance weights in a way that their expected class
+conditional weight is uniformly distributed.
+4.2. “Chatty” windows
+In order to effectively minimize the aforementioned loss,
+we need our network to jointly process detections. To this
+end we design a network with a repeating structure, which
+we call blocks (sketched in ﬁgure
+3). One block gives each
+detection access to the representation of its neighbours and
+subsequently updates its own representation. Stacking mul-
+tiple blocks means the network alternates between allowing
+every detection “talk” to its neighbours and updating its own
+representation. We call this the GossipNet (Gnet), because
+detections talk to their neighbours to update their represen-
+tation.
+There are two non-standard operations here that are key.
+The ﬁrst is a layer, that builds representations for pairs of
+detections. This leads to the key problem: an irregular
+number of neighbours for each detection. Since we want to
+avoid the discretisation scheme used in [
+13], we will solve
+this issue with pooling across detections (the second key).
+Detection features. The blocks of our network take the de-
+tection feature vector of each detection as input and outputs
+an updated vector (see high-level illustration in ﬁgure
+2).
+Outputs from one block are input to the next one. The
+values inside this c = 128 dimensional feature vector are
+learned implicitly during the training. The output of the last
+block is used to generate the new detection score for each
+detection.
+4510

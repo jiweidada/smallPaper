@@ -1,0 +1,50 @@
+fine_residual 唯一候选｜v3阶段观测交付
+状态：PREPARED_NOT_TRAINED。未训练；无新AP；未证明最有效或创新成立。
+
+本次修复的问题
+v2已经能比较最终AP和逐目标TP，但不保存新实验的早期框。即使未来AP提高，也无法核对预期的早期定位路径。
+v3增加被动阶段记录。唯一主候选仍为 fine_residual；baseline 和 fused_residual 仍只用于必要对照。geometry.py、residual.py与六份配置均保持v2原样，没有新增主干、损失或方法。
+
+记录发生在哪里
+ExperimentSolver在原生最后一轮训练函数返回后，给本轮EMA验证安装观察钩子，并临时包装验证loader以关联原始image_id和尺寸。只记录原 fit 紧接着执行的第132轮评估。
+初始框读取decoder第一层收到的、已经sigmoid的参考框；不重新计算encoder头或sigmoid。
+pre框及类别读取TransformerDecoder原返回值。pre是在第一层decoder更新之后，不能误称decoder之前。
+最终框和类别读取整模型原返回值，并核对它与decoder最后输出逐位一致。
+所有钩子返回None，不替换输入或输出，不重复运行网络或输出头。复制到CPU float32供归档。未记录融合特征、未重算匹配或IoU。
+每张图300行查询在同一运行内部保持顺序；不同训练运行的相同行号不是同一个实例或候选，禁止按同query编号跨运行比较。
+最后评估后、原save_best_model之前移除钩子并恢复loader；归档异常记录为失败，原save_best_model仍先执行。原fit返回后缺少完整观测时包装器报错，不伪造完成回执。
+异常中断也会移除钩子、恢复loader。部分目录不覆盖。已经完成第132轮的checkpoint不能靠空跑resume补出新观测。
+
+输出内容
+runs/<arm>_seed<seed>/stages_epoch132/
+  image_000000.npz 至 image_000547.npz：encoder_initial_boxes、pre_after_first_layer_boxes、pre_after_first_layer_logits、final_boxes、final_logits、original_hw。
+  summary.json：轮次、身份、EMA、图像ID、阶段语义、记录边界。
+  manifest.json：全部数据SHA和观测代码SHA。
+runs/<arm>_seed<seed>/endpoint_epoch132/
+  延续v2的COCO精度数组、已有匹配、逐GT检出和完成回执；完成回执同时绑定阶段记录manifest。
+正式results.py比较要求六份同源运行、同一评价协议、实际last.pth及完整阶段记录。不接受工程合成数据或旧版本结果混入。
+
+验收情况
+45项无参数CPU小模型与训练接口占位测试通过：数据/输出不变、调用次数不增加、缺失与重复记录拒绝、模型/decoder输出不一致拒绝、非最终轮不安装、先完成原训练再安装、保存前恢复loader、导出异常显式报告等。
+另10项真实网络接口工程检查通过：新初始化的baseline和fine_residual各进行两次CPU合成前向，共4次；开启记录前后输出逐位一致，模型参数与持久缓冲区SHA不变，钩子均移除。
+这些真实网络检查使用此前绑定的local_candidates诊断源码，非完整训练环境；没有加载基线/共同初始化checkpoint，没有梯度、优化器或参数更新，没有CUDA初始化。两类测试分别报告，不合并为完整训练通过。
+六份配置和原训练快照468个文件通过静态核验；六个准备包完成。原v1/v2材料保留；runs不存在。
+v1已有44项模型工程检查及v2已有35项结果归档检查未重复运行，不能改称本轮新验证。
+
+时耗与资源的解释
+钩子中的CPU复制会同步并增加最终评估时间和主机内存，故这次带记录的原生评估时耗不能作为纯模型推理速度。后续正式速度/显存比较须统一在不带记录的条件下另行授权测量。
+该记录只在最后一轮训练结束后安装，不改变前132轮的优化步骤；真实设备执行仍需验证。
+
+运行入口（仅整理，尚未执行）
+目录：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/fine_residual_geometry_20261008_v3
+仍需另行训练授权和完整原生依赖。当前本机缺少原custom pycocoeval，实际optimizer/EMA/CUDA/AMP接入和独立复现尚未验证。
+使用明确的Python解释器，从本目录调用：
+python experiment.py train --bundle prepared_local/fine_residual_seed1
+三组两seed分别使用自己的准备包和输出目录。路径变更须新prepare，不手改绑定文件，不覆盖旧目录。
+六次结果齐备后：
+python results.py --endpoints runs/baseline_seed1/endpoint_epoch132 runs/fused_residual_seed1/endpoint_epoch132 runs/fine_residual_seed1/endpoint_epoch132 runs/baseline_seed2/endpoint_epoch132 runs/fused_residual_seed2/endpoint_epoch132 runs/fine_residual_seed2/endpoint_epoch132 --output paired_results.json
+
+不能由本版得出的结论
+阶段记录不证明融合前细节包含更多有效信息，也不证明优化更容易。fine与fused对照同时改变信息来源和梯度路径，不能唯一识别两者。
+本版没有运行新的科学检查，不提供训练效果、预期AP数值、标注错标率或新颖性结论。原CPU与训练日志的复现门槛未通过仍须保留。
+阶段数据未来可用于计算同一GT的早期/最终几何变化；本轮没有利用新工具重新分析旧模型、替换评价器或重开关闭检查。

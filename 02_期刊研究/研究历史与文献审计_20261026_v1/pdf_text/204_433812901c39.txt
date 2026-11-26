@@ -1,0 +1,181 @@
+Localization Distillation for Dense Object Detection
+Zhaohui Zheng1∗, Rongguang Ye 2*, Ping Wang 2, Dongwei Ren 3, Wangmeng Zuo 3,
+Qibin Hou1†, Ming-Ming Cheng 1
+1TMCC, CS, Nankai University 2School of Mathematics, Tianjin University
+3School of Computer Science and Technology, Harbin Institute of Technology
+Abstract
+Knowledge distillation (KD) has witnessed its powerful
+capability in learning compact models in object detection.
+Previous KD methods for object detection mostly focus on
+imitating deep features within the imitation regions instead
+of mimicking classification logit due to its inefficiency in
+distilling localization information and trivial improvement.
+In this paper, by reformulating the knowledge distillation
+process on localization, we present a novel localization dis-
+tillation (LD) method which can efficiently transfer the lo-
+calization knowledge from the teacher to the student. More-
+over, we also heuristically introduce the concept of valu-
+able localization region that can aid to selectively distill the
+semantic and localization knowledge for a certain region.
+Combining these two new components, for the first time,
+we show that logit mimicking can outperform feature imi-
+tation and localization knowledge distillation is more im-
+portant and efficient than semantic knowledge for distilling
+object detectors. Our distillation scheme is simple as well
+as effective and can be easily applied to different dense ob-
+ject detectors. Experiments show that our LD can boost
+the AP score of GFocal-ResNet-50 with a single-scale 1 ×
+training schedule from 40.1 to 42.1 on the COCO bench-
+mark without any sacrifice on the inference speed. Our
+source code and pretrained models are publicly available
+at https://github.com/HikariTJU/LD.
+1. Introduction
+Localization is a fundamental issue in object detection
+[15, 24, 33, 49, 50, 55–57, 61, 68]. Bounding box regression
+is the most popular manner so far for localization in ob-
+ject detection [10,32,39,42], where Dirac delta distribution
+representation is intuitive and popular for years. However,
+localization ambiguity where objects cannot be confidently
+located by their edges is still a common issue. For exam-
+*Equal contribution.
+†Corresponding author.
+A B
+(a) (b)
+A B
+(a) (b)
+Figure 1. Bottom edge for “ elephant” and right edge for “ surf-
+board” are ambiguous.
+ple, as shown in Fig. 1, the bottom edge for “elephant”
+and the right edge for “surfboard” are ambiguous to locate.
+This issue is even worse for lightweight detectors. One way
+to alleviate this problem is the knowledge distillation (KD),
+which, as a model compression technology, has been widely
+validated to be useful for boosting the performance of the
+small-sized student network by transferring the generalized
+knowledge captured by the large-sized teacher network.
+Speaking of KD in object detection, previous works
+[22, 52, 62] have pointed out that the original logit mimick-
+ing technique [19] for classification is inefficient as it only
+transfers the semantic knowledge (i.e., classification), while
+neglects the importance of localization knowledge distilla-
+tion. Therefore, existent KD methods for object detection
+mostly focus on enforcing the consistency of the deep fea-
+tures between the teacher-student pair, and exploit various
+imitation regions for distillation [5, 8, 16, 25, 52]. Fig. 2
+exhibits three popular KD pipelines for object detection.
+However, as the semantic knowledge and the localization
+one are mixed on the feature maps, it is hard to tell whether
+it is beneficial to the performance to transfer the hybrid
+knowledge for each location and which regions are con-
+ducive to the transfer of a certain type of knowledge.
+Motivated by the aforementioned questions, in this pa-
+per, instead of simply distilling the hybrid knowledge on the
+feature maps, we propose a novel divide-and-conquer dis-
+tillation strategy that transfers the semantic and localization
+knowledge separately. For semantic knowledge, we use the
+9407
+
+
+---PAGE---
+
+Teacher Network
+Student Network
+Logit Mimicking
+Feature Map
+Feature Map
+Classification Head
+Classification Head
+Feature Imitation
+Region Weighting
+Region Weighting
+Pseudo BBox 
+Regression
+Localization Head
+Localization Head
+Adaptive Layer
+Figure 2. Existing KD pipelines for object detection. ① Logit
+Mimicking: classification KD in [19]. ② Feature Imitation: recent
+popular methods distill intermediate features based on various dis-
+tillation regions, which usually need adaptive layers to align the
+size of the student’s feature map. ③ Pseudo BBox Regression:
+treating teachers’ predicted bounding boxes as additional regres-
+sion targets.
+original classification KD [19]. For localization knowledge,
+we reformulate the knowledge transfer process on localiza-
+tion and present a simple yet effective localization distilla-
+tion (LD) method by switching the bounding box to proba-
+bility distribution [28, 37]. This is quite different from pre-
+vious works [5, 47] that treat the teacher’s outputs as addi-
+tional regression targets (i.e., the Pseudo BBox Regression
+in Fig. 2). Benefiting from the probability distribution rep-
+resentation, our LD can efficiently transfer rich localization
+knowledge learnt by the teacher to the student. In addi-
+tion, based on the proposed divide-and-conquer distillation
+strategy, we further introduce valuable localization region
+(VLR) to help efficiently judge which regions are conducive
+to classification or localization learning. Through a series
+of experiments, we, for the first time, show that the origi-
+nal logit mimicking can be better than feature imitation and
+localization knowledge distillation is more important and
+more efficient than semantic knowledge. We believe that
+separately distilling the semantic and localization knowl-
+edge based on their respective favorable regions could be
+a promising way to train better object detectors.
+Our method is simple and can be easily equipped with
+in any dense object detectors to improve their performance
+without introducing any inference overhead. Extensive
+experiments on MS COCO show that without bells and
+whistles, we can lift the AP score of the strong baseline
+GFocal [28] with ResNet-50-FPN backbone from 40.1 to
+42.1, and AP 75 from 43.1 to 45.6. Our best model using
+ResNeXt-101-32x4d-DCN backbone can achieve a single-
+scale test of 50.5 AP, which surpasses all existing detectors
+under the same backbone, neck, and test settings.
+2. Related Work
+In this section, we give a brief review on the related
+works, including bounding box regression, localization
+quality estimation, and knowledge distillation.
+2.1. Bounding Box Regression
+Bounding box regression is the most popular method for
+localization in object detection. R-CNN series [3,35,42,60]
+adopt multiple regression stages to refine the detection re-
+sults, while [2, 32, 39–41, 48] adopt one-stage regression.
+In [43, 58, 64, 65], IoU-based loss functions are proposed to
+improve the localization quality of bounding box. Recently,
+bounding box representation has evolved from Dirac delta
+distribution [32,39,42] to Gaussian distribution [7,18], and
+further to probability distribution [28, 37]. The probability
+distribution of bounding box is more comprehensive for de-
+scribing the uncertainty of bounding box, and is validated to
+be the most advanced bounding box representation so far.
+2.2. Localization Quality Estimation
+As the name suggests, Localization Quality Estimation
+(LQE) predicts a score that measures the localization qual-
+ity of the bounding box predicted by the detector. LQE
+is usually used to cooperate with classification task dur-
+ing training [27], i.e., enhancing the consistency between
+classification and localization. It can also be applied in
+joint decision-making during post-processing [21, 39, 48],
+i.e., considering both classification score and LQE when
+performing NMS. Early research can be dated to YOLOv1
+[39], where the predicted object confidence is used to pe-
+nalize the classification score. Then, box/mask IoU [20,21]
+and box/polar center-ness [48, 53] are proposed to model
+the uncertainty of detections for object detection and in-
+stance segmentation, respectively. From the perspective of
+bounding box representation, Softer-NMS [18] and Gaus-
+sian YOLOv3 [7] predict variance for each edge of bound-
+ing box. LQE is a preliminary approach to model localiza-
+tion ambiguity.
+2.3. Knowledge Distillation
+Knowledge distillation [1, 19, 34, 36, 45, 59] aims to
+learn compact and efficient student models guided by ex-
+cellent teacher networks. FitNets [44] proposes to mimic
+the intermediate-level hints from the hidden layers of the
+teacher model. Knowledge distillation was first applied to
+object detection in [5], where the hint learning and KD
+are both used for multi-class object detection. Then, Li
+et al. [25] proposed to mimic the feature within the re-
+gion proposal for Faster R-CNN. Wang et al. [52] mim-
+icked fine-grained features on close anchor box locations.
+9408

@@ -1,0 +1,169 @@
+LoftUp: Learning a Coordinate-Based Feature Upsampler for
+Vision Foundation Models
+Haiwen Huang1,2 Anpei Chen1,2 V olodymyr Havrylov1
+Andreas Geiger1,2 Dan Zhang3
+1University of T¨ubingen 2 T¨ubingen AI Center 3 Bosch Center for Artificial Intelligence
+Abstract
+Vision foundation models (VFMs) such as DINOv2 and
+CLIP have achieved impressive results on various down-
+stream tasks, but their limited feature resolution hampers
+performance in applications requiring pixel-level under-
+standing. Feature upsampling offers a promising direction
+to address this challenge. In this work, we identify two crit-
+ical factors for enhancing feature upsampling: the upsam-
+pler architecture and the training objective. For the upsam-
+pler architecture, we introduce a coordinate-based cross-
+attention transformer that integrates the high-resolution im-
+ages with coordinates and low-resolution VFM features to
+generate sharp, high-quality features. For the training ob-
+jective, we propose constructing high-resolution pseudo-
+groundtruth features by leveraging class-agnostic masks
+and self-distillation. Our approach effectively captures
+fine-grained details and adapts flexibly to various input
+and feature resolutions. Through experiments, we demon-
+strate that our approach significantly outperforms existing
+feature upsampling techniques across various downstream
+tasks. Our code is released at https://github.com/
+andrehuang/loftup.
+1. Introduction
+High-quality pretrained representations from Vision Foun-
+dation Models (VFMs) have become standard for a wide
+range of computer vision tasks [10, 16, 21, 37, 41, 43, 45,
+54, 56, 62, 63]. However, because of the patrification or
+aggressive pooling operations in VFMs, the output features
+are typically 16 or even more times smaller in spatial reso-
+lution than the input images, limiting their utility for tasks
+that require fine-grained, pixel-level understanding.
+To address the challenge of limited feature resolution in
+VFMs, one straightforward approach is to use larger image
+inputs to obtain higher-resolution features. However, pro-
+cessing high-resolution inputs incurs a quadratic increase
+in computational cost and can introduce severe artifacts if
+the VFMs are not trained for such resolutions. Moreover,
+Semantic Seg.
+Depth Estimation
+Normal Estimation
+Video Object Seg. (Object Tracking)
+Open-V oc Seg.
+Interactive Seg.
+61.11
+91.35
+72.61
+60.25
+27.82
+78.49
+53.76
+88.71
+69.83 44.30
+26.61
+65.89
+LoftUp (ours)
+Max(FeatUp, LiFT)
+Backbone only
+Figure 1. LoftUp improves significantly across various tasks
+over the VFM backbone (DINOv2-S [37]) and current SoTA
+feature upsampling performance (FeatUp [12] and LiFT [52]).
+See experiment details in Sec. 5.
+training or fine-tuning VFMs on high-resolution images de-
+mands substantial computational resources and meticulous
+tuning [37, 43, 45, 55]. An alternative strategy is to train
+task-specific decoders that leverage multi-layer intermedi-
+ate features to upsample VFM outputs [3, 16, 24, 27, 62].
+Yet, this approach often comes with significant training
+costs and necessitates retraining the decoder for each new
+application. In addition, many downstream tasks lack suffi-
+cient data needed to fine-tune a high-quality decoder.
+More recently, FeatUp [12] and LiFT [52] have in-
+dependently introduced task-agnostic feature upsamplers
+trained with general reconstruction losses, demonstrating
+that such methods can substantially enhance VFM perfor-
+mance across a variety of tasks. By upsampling VFM fea-
+tures and pairing them with a lightweight task-specific de-
+coder, these approaches provide a promising alternative that
+avoids heavy, task-specific training while achieving a more
+generalizable solution. Nonetheless, as shown in Fig. 1, cur-
+rent feature upsamplers still fall short of reaching optimal
+performance.
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+9913
+
+
+---PAGE---
+
+(a) Original image
+ (b) Low res
+ (c) Bilinear
+ (d) Resize-conv
+ (e) LIIF [2]
+ (f) LiFT [52]
+ (g) FeatUp [12]
+ (h) LoftUp (Ours)
+Figure 2. Comparison of features from upsamplers. Backbone is DINOv2-S/14 [37].
+In this work, we systematically explore the design space
+of feature upsamplers and identify two critical components:
+the upsampler architecture and the training objective. The
+architecture determines the capacity of the upsampler to
+learn effectively, while the training objective defines the up-
+per performance limit. By optimizing both elements, our
+approach achieves substantially stronger results than previ-
+ous state-of-the-art methods.
+Regarding the upsampler architecture, to capture high-
+resolution details while avoiding the cumulative artifacts
+from multiple layers of interpolation or deconvolution, we
+propose a simple coordinate-based transformer that directly
+predicts high-resolution features for each pixel. Specif-
+ically, our model takes image coordinates and RGB val-
+ues as inputs and performs cross-attention with the low-
+resolution VFM feature map. This facilitates a fine-grained,
+content-aware mapping from coordinates to high-resolution
+features, effectively bypassing the constraints imposed by
+fixed local kernels and standard upsampling layers. More-
+over, unlike the implicit approach in FeatUp [12], which re-
+quires test-time optimization, our method learns feature up-
+sampling directly from the training dataset and generalizes
+to diverse scenes without additional test-time adjustments.
+For the training objective, the primary challenge is the
+absence of groundtruth high-resolution feature annotations.
+Although downstream task labels such as depth or masks
+can be used, this approach risks compromising the task-
+agnostic nature of the upsampler and hinders its ability to
+generalize to unseen tasks. Due to this challenge, previous
+task-agnostic feature upsampling works, FeatUp [12] and
+LiFT [52], both compute the training loss at a low reso-
+lution. In this work, we address these limitations by con-
+structing pseudo-groundtruth (pseudo-GT) features directly
+at the input image resolution. Specifically, we leverage
+class-agnostic masks generated by off-the-shelf segmenta-
+tion foundation models [21, 45] to ensure that the pseudo-
+GT accurately reflects the underlying geometry and delin-
+eates object boundaries. We further refine the pseudo-GT
+using a self-distillation strategy that reduces noise and ar-
+tifacts. This high-resolution pseudo-GT enables loss com-
+putation at a high resolution, empowering the upsampler to
+learn fine-grained details.
+In Fig. 2, we qualitatively show that LoftUp yields
+markedly sharper and more detailed features than alterna-
+tive upsampling methods. To further demonstrate the ver-
+satility and effectiveness of our approach, we evaluate it on
+a range of downstream tasks such as semantic segmenta-
+tion, depth estimation, and video object segmentation. As
+shown in Fig. 1, our approach leads to performance gains
+of 10–20% over previous SoTA upsamplers for most tasks,
+and an impressive nearly 50% improvement on video object
+segmentation [39]. Furthermore, thanks to its coordinate-
+based design, our upsampler adapts seamlessly to various
+input and feature resolutions, catering to the diverse re-
+quirements of downstream applications. Overall, with less
+than a 20% increase in parameters compared to the origi-
+nal foundation models, our feature upsampler offers a task-
+agnostic, lightweight, and plug-and-play enhancement that
+significantly boosts VFM backbones across multiple tasks.
+2. Related Work
+Feature upsampling refers to increasing the spatial reso-
+lution of a feature map. In this work, our goal is to in-
+crease the feature resolution to the original image resolu-
+tion, that is, full resolution. Traditional non-learnable meth-
+ods include various ways of interpolation [7, 33] and image-
+9914

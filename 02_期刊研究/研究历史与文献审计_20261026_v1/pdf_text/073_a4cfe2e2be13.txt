@@ -1,0 +1,224 @@
+4504 IEEE TRANSACTIONS ON NEURAL NETWORKS AND LEARNING SYSTEMS, VOL. 36, NO. 3, MARCH 2025
+DPNet: Dual-Path Network for Real-Time Object
+Detection With Lightweight Attention
+Quan Zhou
+ , Senior Member , IEEE, Huimin Shi, Weikang Xiang,
+Bin Kang
+ , Member , IEEE, and Longin Jan Latecki
+Abstract— The recent advances in compressing high-accuracy
+convolutional neural networks (CNNs) have witnessed remark-
+able progress in real-time object detection. To accelerate detection
+speed, lightweight detectors always have few convolution layers
+using a single-path backbone. Single-path architecture, how-
+ever, involves continuous pooling and downsampling operations,
+always resulting in coarse and inaccurate feature maps that are
+disadvantageous to locate objects. On the other hand, due to
+limited network capacity, recent lightweight networks are often
+weak in representing large-scale visual data. To address these
+problems, we present a dual-path network, named DPNet, with
+a lightweight attention scheme for real-time object detection.
+The dual-path architecture enables us to extract in parallel
+high-level semantic features and low-level object details. Although
+DPNet has a nearly duplicated shape with respect to single-
+path detectors, the computational costs and model size are
+not significantly increased. To enhance representation capability,
+a lightweight self-correlation module (LSCM) is designed to cap-
+ture global interactions, with only a few computational overheads
+and network parameters. In the neck, LSCM is extended into a
+lightweight cross correlation module (LCCM), capturing mutual
+dependencies among neighboring scale features. We have con-
+ducted exhaustive experiments on MS COCO, Pascal VOC 2007,
+and ImageNet datasets. The experimental results demonstrate
+that DPNet achieves a state-of-the-art trade off between detection
+accuracy and implementation efficiency. More specifically, DPNet
+achieves 31.3% AP on MS COCO test-dev, 82.7% mAP on Pascal
+VOC 2007 test set, and 41.6% mAP on ImageNet validation set,
+together with nearly 2.5M model size, 1.04 GFLOPs, and 164 and
+196 frames/s (FPS) FPS for 320 × 320 input images of three
+datasets.
+Manuscript received 8 January 2023; revised 20 November 2023;
+accepted 8 March 2024. Date of publication 27 March 2024; date of
+current version 1 March 2025. This work was supported in part by the
+National Natural Science Foundation of China under Grant 61876093 and
+Grant 62171232 and in part by the State Key Laboratory of Robotics.
+(Corresponding author: Quan Zhou.)
+Quan Zhou is with the National Engineering Research Center of
+Communications and Networking, Nanjing University of Posts and
+Telecommunications, Nanjing 210003, China, also with the Institute for
+Advanced Ocean Research (Nantong), Southeast University, Nantong 226334,
+China, and also with the State Key Laboratory of Robotics, Shenyang Institute
+of Automation, Chinese Academy of Sciences, Shenyang 110016, China
+(e-mail: quan.zhou@njupt.edu.cn).
+Huimin Shi is with Wuxi Esiontech Company Ltd., Wuxi 214072, China
+(e-mail: 13812512854@163.com).
+Weikang Xiang is with the National Engineering Research Center of
+Communications and Networking, Nanjing University of Posts and Telecom-
+munications, Nanjing 210003, China.
+Bin Kang is with the Department of Internet of Things, Nanjing Uni-
+versity of Posts and Telecommunications, Nanjing 210003, China (e-mail:
+kangbin@njupt.edu.cn).
+Longin Jan Latecki is with the Department of Computer and Informa-
+tion Sciences, Temple University, Philadelphia, PA 19122 USA (e-mail:
+latecki@temple.edu).
+Digital Object Identifier 10.1109/TNNLS.2024.3376563
+Index Terms— Convolutional neural network (CNN), dual-path
+architecture backbone, lightweight attention, object detection.
+I. I NTRODUCTION
+O
+BJECT
+detection is a fundamental and challenging task
+in the field of computer vision. It aims to detect the
+minimum bounding boxes that cover objects of interest in input
+images and assign associated semantic labels synchronously.
+Typically, the recent approaches based on convolutional neural
+networks (CNNs) can be roughly divided into two-stage [1],
+[2] and one-stage [3], [4], [5], [6] detectors. The first category
+produces candidate boxes using region proposal networks at
+the beginning, which will be subsequently refined in the
+next stage. Hence, these detectors are always not efficient
+due to their multistage nature. In contrast, one-stage detec-
+tors [3], [4], [5], [6] directly predict object categories and
+regress bounding boxes on convolutional feature maps. Since
+the whole pipeline is simplified, one-stage detectors always
+achieve faster inference speed than two-stage detectors [1], [2].
+In spite of achieving remarkable progress, the vast majority
+of CNN-based detectors involve hundreds or even thousands
+of convolutional layers and feature channels [7], [8], where
+the model size and implementation efficiency are unacceptable
+for real-world applications that require online estimations and
+real-time predictions, such as self-driving, robot vision, and
+virtual reality.
+In order to adapt to real-world scenarios, a vast number
+of lightweight networks [11], [12], [13] have been pro-
+posed for real-time object detection. Derived from [11], [12],
+and [10] used for image classification, these lightweight
+networks prefer to directly inherit single-path architecture
+using lightweight convolution in their backbones. For instance,
+MobileNet-SSD [11], [12] combines MobileNet with SSD-
+head. ThunerNet [13] adopts ShuffleNetV2 [10] as backbone
+by replacing 3 × 3 depthwise convolution with 5 × 5 depth-
+wise convolution. Pelee [14] employs a lightweight backbone
+with a dense structure, reducing output scales of SSD-head
+to save computational costs. Tiny-DSOD [15] introduces
+depthwise convolutions both in backbone and feature pyramid
+network (FPN). Tiny-YOLO families [5], [16], [17] reduce the
+number of convolution layers or remove multiscale outputs in
+the neck. Although these advanced and efficient networks have
+achieved impressive detection results, they inherently suffer
+from the following limitations.
+1) Adopting aggressive downsampling strategy (e.g., pool-
+ing and stride convolution), single-path architecture has
+2162-237X © 2024 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: Temple University. Downloaded on March 03,2025 at 20:42:37 UTC from IEEE Xplore.  Restrictions apply. 
+
+---PAGE---
+
+ZHOU et al.: DPNet FOR REAL-TIME OBJECT DETECTION WITH LIGHTWEIGHT ATTENTION 4505
+Fig. 1. Feature heatmaps of two visual examples in MS COCO [9] validation
+set using ShuffleNetV2 [10] and DPNet. The red denotes high responses, while
+the blue indicates low activations. For clarity, bounding boxes and associated
+labels have also been superimposed on objects of interest. Two rows show
+the heatmaps from low-resolution (deep layer) and high-resolution (shallow
+layer) features, respectively. Compared with ShuffleNetV2 [10], the heatmaps
+of DPNet are more accurate, as most pixels with higher activations are located
+in object regions. (Best viewed in color.)
+been dominant in backbone design for real-time object
+detection [12], [17], [18]. As fine object details are dis-
+carded step-by-step from shallow-to-deep convolutional
+layers, the produced high-level features are not beneficial
+to accurately locate objects. Two visual examples are
+given in Fig. 1. The first row shows that ShuffleNetV2
+[10] prefers to extract features from surrounding areas
+of input images. Although lightweight detectors fol-
+low high-accuracy CNNs that employ FPN to relieve
+this problem [15], simply integrating such inaccurate
+features from shallow to deep layers via elementwise
+addition or concatenation may be harmful for detecting
+objects [19].
+2) Due to the limited network capacity, recent lightweight
+detectors may have weak representation ability of visual
+data [20]. In the second row of Fig. 1, for example,
+high filter responses sometimes spread over a cluttered
+background (e.g., trees and sea), while areas containing
+the objects of interest are less activated. The under-
+lying reason mainly lies in that, due to the limited
+receptive field, lightweight convolutions are very limited
+in encoding global dependencies [20]. Some networks
+prefer to utilize large convolution kernels (e.g., 31 × 31)
+[21], [22] or self-attention [23]; yet, they always involve
+huge computational cost and a heavy model size that is
+not suitable for real-time object detection. As a result,
+how to enhance feature representation ability with a
+small computational budget still remains unclear for
+lightweight object detection.
+To address these shortcomings, this article describes a
+dual-path network, called DPNet, with a lightweight atten-
+tion design for real-time object detection. As shown in
+Fig. 2, DPNet is composed of three components: backbone,
+neck, and detection head. To remedy the problem of aban-
+doning object details, unlike previous lightweight detection
+networks [10], [11], [12] that always employ single-path
+structure, DPNet adopts a parallel-path architecture, leading to
+a dual-resolution backbone. More specifically, the resolution
+of the low-resolution path (LRP) is gradually reduced as usual,
+where high-level semantic cues are encoded. Conversely,
+the resolution of the high-resolution path (HRP) remains
+unchanged, where low-level spatial details are extracted.
+Both paths are significant for lightweight object detection.
+Considering the complementary nature of two subnetworks,
+a bidirection fusion module (Bi-FM) is constructed to enhance
+communications between two paths, facilitating information
+flow among variable-resolution features. Although the back-
+bone of DPNet has nearly duplicated shape with respect to
+single-path architecture [10], [11], [12], the computational
+complexity and network size are not significantly increased.
+To leverage representation capability and computational
+efficiency, we develop ShuffleNetV2 unit [10] with a
+lightweight self-correlation module (LSCM) that mimics self-
+attention [23], [24], producing an attention-based shuffle unit
+(ASU). LSCM is decomposed into two steps: attention com-
+putation and feature reweighting. Similar to self-attention,
+the first step produces attention maps by calculating ele-
+mentwise similarity. However, instead of exploring dense
+pixel-to-pixel/channel-to-channel dependencies [23], [24] that
+require a large amount of computations, LSCM is more
+lightweight and computationally cheaper, as it investigates
+sparse pixel-to-region/channel-to-group-channel mutual cor-
+relations in low-dimensional embeddings, leading to the
+linear computational costs with respect to input resolutions.
+In the second step, LSCM adopts elementwise reweighting
+to further reduce computational costs, where the calculated
+attention maps are directly multiplied to flatten features, not
+involving complicated matrix multiplication widely used in
+self-attention. In Fig. 2, to make full use of features with
+different resolutions in the neck, LSCM is further extended
+to a lightweight cross correlation module (LCCM). LCCM
+works in a bidirectional fashion: top–down (LCCM-TD) and
+bottom–up (LCCM-BU). LCCM-TD introduces high-level
+semantics to guide low-level features. Conversely, LCCM-BU
+utilizes low-level details to refine high-level cues. As shown
+in Fig. 1, since DPNet inherits the merits from the dual-path
+backbone and lightweight attention design, pixels within tar-
+get object regions (e.g., human heads, hands, and feet) are
+correctly activated, either in high-resolution or low-resolution
+features. In short, the main contributions of this article are
+threefold.
+1) In contrast to mainstream lightweight detectors that use a
+single-path backbone, DPNet employs a dual-path archi-
+tecture that extracts high-level semantics and maintains
+low-level details, synchronously. Different from inte-
+grating various resolution features in FPN, also known
+as the neck part, of detection networks, our DPNet
+designs a dual-resolution path in the backbone, which
+is, to our best knowledge, rarely explored in recent
+networks. Moreover, due to its elegant dual-path archi-
+tecture, DPNet is able to perform feature interactions in
+backbone that are impossible in traditional single-path
+object detectors.
+2) We design a lightweight attention-based module LSCM
+that leverages implementing efficiency and represen-
+tation capability. LSCM is computationally cheap as
+its computational complexity is linear to input fea-
+ture resolutions. Even so, it still achieves powerful
+Authorized licensed use limited to: Temple University. Downloaded on March 03,2025 at 20:42:37 UTC from IEEE Xplore.  Restrictions apply. 

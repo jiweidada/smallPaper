@@ -1,0 +1,21 @@
+--- geom342.py
++++ 342_geometry_stage3_v2/geom342.py
+@@ -169,3 +169,18 @@
+     assert torch.isfinite(C).all() and torch.isfinite(iou).all()
+     valid=(cand_classes[:,None]==gt_labels[None,:])&(iou>=.5)
+     return C,iou,valid
++
++
++# Raw native query arrays include queries not retained by fullP. Their coordinates
++# are preserved even if decoded w/h are nonpositive. This does not validate them
++# as candidate boxes, nor change the frozen window selector or candidate filter.
++def raw_query_cxcywh_to_640_xyxy(boxes_norm):
++    b=torch.as_tensor(boxes_norm).float()*640.
++    assert b.device.type=='cpu' and b.shape==(300,4) and torch.isfinite(b).all()
++    cx,cy,w,h=b.unbind(-1)
++    return torch.stack([cx-w/2,cy-h/2,cx+w/2,cy+h/2],-1)
++
++def select_raw_query_window(raw_edges_640):
++    b=torch.as_tensor(raw_edges_640)
++    assert b.device.type=='cpu' and b.shape==(300,4) and torch.isfinite(b).all()
++    return frozen_stage1.select_window(b)

@@ -1,0 +1,184 @@
+Frequency-Dynamic Attention Modulation for Dense Prediction
+Linwei Chen1 Lin Gu2,3 Ying Fu1∗
+1Beijing Institute of Technology 2RIKEN AIP 3The University of Tokyo
+chenlinwei@bit.edu.cn; lin.gu@riken.jp; fuying@bit.edu.cn
+Abstract
+Vision Transformers (ViTs) have significantly advanced
+computer vision, demonstrating strong performance across
+various tasks. However, the attention mechanism in ViTs
+makes each layer function as a low-pass filter, and the
+stacked-layer architecture in existing transformers suffers
+from frequency vanishing. This leads to the loss of crit-
+ical details and textures. We propose a novel, circuit-
+theory-inspired strategy called Frequency-Dynamic Atten-
+tion Modulation (FDAM), which can be easily plugged into
+ViTs. FDAM directly modulates the overall frequency re-
+sponse of ViTs and consists of two techniques: Attention
+Inversion (AttInv) and Frequency Dynamic Scaling (FreqS-
+cale). Since circuit theory uses low-pass filters as funda-
+mental elements, we introduce AttInv, a method that gener-
+ates complementary high-pass filtering by inverting the low-
+pass filter in the attention matrix, and dynamically combin-
+ing the two. We further design FreqScale to weight different
+frequency components for fine-grained adjustments to the
+target response function. Through feature similarity analy-
+sis and effective rank evaluation, we demonstrate that our
+approach avoids representation collapse, leading to consis-
+tent performance improvements across various models, in-
+cluding SegFormer, DeiT, and MaskDINO. These improve-
+ments are evident in tasks such as semantic segmentation,
+object detection, and instance segmentation. Additionally,
+we apply our method to remote sensing detection, achieving
+state-of-the-art results in single-scale settings. The code is
+available at https://github.com/Linwei-Chen/FDAM.
+1. Introduction
+In recent years, Vision Transformers (ViTs) have revolu-
+tionized computer vision, achieving state-of-the-art perfor-
+mance across various dense prediction tasks [21,47,55,92].
+However, when applying ViTs [21] to vision tasks, a
+critical issue emerges. The attention mechanism in ViTs
+exhibits a strong low-pass filtering characteristic [61, 83].
+As shown in Figure 1(a), frequency analysis reveals that
+*Corresponding Author
+(a) Attention frequency response analysis (b) Feature spectrum analysis
+Figure 1. Frequency analysis. We stack a model with pure
+12 attention layer. (a) Attention frequency response analysis re-
+veals that our modulated attention maintains a higher mean mag-
+nitude across all frequency bands compared to standard attention,
+while also exhibiting greater diversity in high-frequency regions.
+(b) Feature spectrum analysis shows that our modulated attention
+maintains a stable high-frequency ratio and consistently preserves
+high-frequency information across layers, unlike standard atten-
+tion, which rapidly loses it and results in representation collapse.
+this low-pass filtering limits spectral diversity, severely re-
+stricting the frequency representation power. This limita-
+tion is exacerbated by the stacked-layer architecture. As
+illustrated in Figure 1(b), feature spectrum analysis shows
+that standard attention rapidly loses high-frequency infor-
+mation across layers, with the high-frequency ratio drop-
+ping sharply from the initial layers to the deeper layers
+(nearly 0). This leads to frequency vanishing and blurred
+feature representations, negatively impacting performance
+on tasks requiring fine-grained visual understanding.
+To address this issue, we propose Frequency-Dynamic
+Attention Modulation (FDAM), a novel, circuit-theory-
+inspired strategy to modulate the overall frequency response
+of ViTs. FDAM consists of two techniques: Attention In-
+version (AttInv) and Frequency Dynamic Scaling (FreqS-
+cale). Drawing on circuit theory [2, 73, 85], which treats
+low-pass filters as fundamental building blocks, we intro-
+duce our first technique, AttInv. In AttInv, we view attention
+matrix as a set of low-pass filters and invert them (analogous
+to s-domain inversion in circuit design) to derive comple-
+mentary high-pass filters. At each layer, both low-pass and
+high-pass filters are dynamically weighted. By cascading
+these layers over L levels, the architecture forms 2L unique
+combinations of filter weights, enabling it to learn complex
+frequency responses, as shown in Figure 2.
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+22620
+
+
+---PAGE---
+
+LowpassHighpassBandpass/stopRandom
+AttentionOursTarget
+Figure 2. Analysis of frequency response fitting. From the center
+to the border are low- to high-frequency components. It is evident
+that the attention mechanism has strong low-pass characteristics,
+which makes it difficult to effectively fit high-pass, band pass/stop,
+and random filters. In contrast, our method, AttInv, demonstrates
+a superior capability in fitting these diverse frequency responses,
+indicating greater flexibility and effectiveness in handling a wide
+range of frequency characteristics.
+The second technique, termed FreqScale, operates in a
+frequency-dynamic manner. It addresses the limitation of
+AttInv by providing fine-grained adjustments to the target
+response function. While AttInv effectively combines low-
+pass and high-pass filters, it lacks precise control over indi-
+vidual frequency components. FreqScale re-weights feature
+maps across separate frequency bands and dynamically am-
+plifies high-frequency signals. This enables a more nuanced
+and adaptive adjustment of feature representations, enhanc-
+ing the model’s ability to distinguish between different cat-
+egories for dense prediction tasks such as segmentation.
+These techniques are computationally efficient and can
+beeasily plugged intoexisting ViT architectures. By incor-
+porating these methods, we address the low-pass limitations
+in ViTs across various vision tasks, enabling full-spectrum
+feature representation. This results in significant perfor-
+mance improvements in dense prediction tasks, such as se-
+mantic segmentation (SegFormer +2.4 mIoU on ADE20K),
+object detection (Mask DINO +1.6 AP on COCO), and in-
+stance segmentation (Mask DINO +1.4 AP on COCO). Ad-
+ditionally, our method achieves 78.61 when applied to re-
+mote sensing object detection, surpassing previous state-
+of-the-art methods under single-scale training and testing
+settings. Furthermore, feature similarity analysis [61] and
+effective rank evaluation [37] confirm that our approach ef-
+fectively prevents representation collapse.
+Our contributions can be summarized as follows:
+• We diagnose the low-pass filtering characteristic of
+ViTs’ attention mechanism through mathematical and
+spectral analysis. It reveals how this characteristic re-
+stricts frequency representation and leads to feature
+degradation, providing a clear understanding of the
+challenges faced by ViTs in fine-grained visual tasks.
+• We introduce Frequency-Dynamic Attention Modu-
+lation (FDAM), comprising two techniques: AttInv
+and FreqScale. AttInv leverages the low-pass filtering
+characteristic to create a complementary high-pass fil-
+ter, enabling full-spectrum feature representation. Fre-
+qScale provides fine-grained frequency adjustments by
+re-weighting and amplifying frequency signals. To-
+gether, these techniques effectively address the limi-
+tations of traditional attention mechanisms.
+• Our methods are computationally efficient and can be
+easily integrated into existing ViT architectures. They
+achieve significant performance gains across diverse
+vision tasks. Extensive analysis, including effective
+rank evaluation [37], demonstrates that our approach
+avoids representation collapse.
+2. Related Work
+Vision Transformer .Following the success of attention-
+based architectures in neural machine translation [80],
+computer vision researchers explored Vision Transformers
+(ViT) [21]. These models tokenize image patches and pro-
+cess them using sequential attention mechanisms, achieving
+strong performance on classification benchmarks.
+In recent years, various ViT variants have been proposed
+[24, 31, 42, 55, 70, 75, 77, 78, 95, 109, 110]. Hybrid archi-
+tectures, such as [35, 86], combine convolutional inductive
+biases with attention mechanisms. Hierarchical designs like
+[84] use progressive resolution reduction for efficient multi-
+scale processing. To address quadratic complexity, win-
+dowed attention mechanisms [31, 55] and multi-granularity
+interactions [95] have been introduced. MetaFormer [101]
+demonstrated that the success of transformer stems from the
+residual MetaFormer framework rather than specific atten-
+tion operators. TransNeXt [70] explores alternative spatial
+interaction paradigms inspired by biomimetic vision.
+Beyond image classification, ViT variants have inspired
+the application of Transformers to other vision tasks, such
+as object detection [47,114], semantic segmentation [72,92,
+106], and instance segmentation [15, 41].
+Frequency-Domain Learning.Frequency-domain analy-
+sis has served as a foundational pillar in signal processing
+for decades [25, 65]. Recent advances have extended these
+principles to deep learning, where they enhance model op-
+timization strategies [100] and improve the generalization
+capacity of deep neural networks (DNNs) [12, 81].
+The integration of frequency-domain techniques into
+DNN architectures has demonstrated serveral advantages,
+such as capturing global contextual patterns through
+spectral operations [17, 27, 36, 49, 67], strengthening
+domain-generalizable representations through frequency-
+aware learning [10, 43, 50]. Researcher also utilize
+frequency-domain techniques in neural operations. For in-
+stance, FcaNet [66] enhances feature recalibration through
+frequency component analysis, while FreqFusion [8] op-
+timizes multi-scale feature fusion using spectral proper-
+ties. Subsequent work has further resolved aliasing arti-
+22621

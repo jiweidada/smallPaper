@@ -1,0 +1,35 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 13
+Fig. 7:Examples of Poor Annotations.In modern detectors, highly conﬁdent detections
+classiﬁed as both mislocalized and misclassiﬁed or background errors are likely to be
+mislabeled examples on COCO. In the ﬁrst two images, the ground truth should have
+been labeled as crowds. In the third, some of the donuts simply weren’t labeled. =
+ground truth, = predictions.
+In this comparison, the ﬁrst immediately clear pattern is that Background error
+decreases both in overall prevalence (pie charts) and absolute magnitude (bar charts) with
+increasing density of annotations. Faster R-CNN on Pascal is dominated by background
+error, but of reduced concern on COCO. Both LVIS and Cityscapes, which are very
+densely annotated, have almost no background error at all. This potentially indicates
+that much of the background error in Pascal and COCO are simply due to unannotated
+objects (see Sec. 3.4).
+As expected, missed ground truths is a large issue for densely annotated datasets like
+Cityscapes. The core challenge on Cityscapes is the presence of many small objects,
+which are well known to be difﬁcult to detect with modern algorithms. On the other
+hand, LVIS’s challenge is missing ground truth by failing to classify detections properly,
+likely due to its enormous number of classes and its very long tail.2 The trend of densely
+annotated datasets being biased toward missing ground truth is also represented in the
+false positive and false negative error distributions (vertical bars). Overall, Pascal is
+heavily biased toward false positives, COCO is mixed, and LVIS and Cityscapes are
+both biased toward false negatives. Note that LVIS is biased toward false negatives
+even though classiﬁcation error dominates because most of the false positives are being
+ignored in AP calculations due to how LVIS is evaluated, meaning that on LVIS, you
+aren’t penalized nearly as much for false positives.
+On COCO, Mask R-CNN has a harder time localizing masks (Fig. 6b) than boxes
+(Fig. 6a), but the opposite is true for LVIS, possibly because of its higher quality masks,
+which are veriﬁed with expert studies [12]. Again, this potentially indicates that a lot of
+the error in instance segmentation may be derived by mis-annotations.
+3.4 Unavoidable Errors
+We ﬁnd in Sec. 3.3 that a lot of the background and localization error may simply be
+due to mis- or unannotated ground truth. Examining the top errors more closely, we
+ﬁnd that indeed (at least in COCO), many of the most conﬁdent errors are actually
+2 Note that this conclusion has changed from the original version of the paper, due an oversight
+in how ignored detections are handled in the toolkit (see the Appendix for details).

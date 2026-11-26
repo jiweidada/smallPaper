@@ -1,0 +1,158 @@
+本场新结果与独立核验；最近mask先例为原生Astra C已实际核读的汇报，不冒充主助手全文核验。
+
+
+===== 16_补答核心资产摘要.txt =====
+核心资产摘要，原始完整来源在03/09及其链接；仅压缩材料，不改变新目标、原判据或原始结果。
+新目标：找到至少一条有实质创新且值得申请训练的具体方法线。三Astra/xhigh+一Claude Opus5.5轮流，不限轮数/无训练核查次数，不因候选失败结束，也不硬凑。当前不训练、不远程、不监测。专家只读文件/公开原文，不运行脚本模型，主助手核查。
+
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A6 attention采样集中在已失败tiny群体0/85、0/93，未过25%门槛。不主张所有attention无用。
+A7 骨干stem的随机/预训相混不能归因结构；late-downsample原有，不能再提作创新。旧fine_residual局部高分辨率encoder几何残差被用户停于10/17轮，没有完整正证据，当前不恢复。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D2 BASE12 EMA548val离线CPU原N vs每queryargmax删D/补R：N AP6.128496/7.908137；R5.190986/6.738981，R-N-.937510/-1.169156pp，停止该版。删除secondary-class TP3333/3361，新增query TP432/545，补入大量背景。不能把重复query类全当无用。pipeline CPU另登记，不称复现原GPU1e-8。
+D3 BASE24两dev批原损失历史Adam端点，ordered变化2081/2400、1855/2400，但成员仅换38/19，约99%保留。已覆盖tiny bestsite都没换出，分母小；逆序槽换框差<2.8e-6，不能把排序当巨大集合不稳定。
+D4 分布方差U已有partialrank-.0898/-.1146，16批均负但效应弱；GFLv2/GaussianYOLOv3/D-FINE先例强，不为加方差评分再训练。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+
+当前可用：data08 isolated_v3/A(seed1)、B(seed2) development00–07保存640增强输入、GT、同前向原生匹配、普通所有层pred_boxes/pred_corners/ref_points。data10保存BASE24 online native fullmodel梯度、Adam状态、可供隔离重建。已反复开发，不叫独立验证。可使用CPU2线程低优先级少量冻结前向/反传及独立Adam虚拟端点，不累计更新、不写模型、不伪装训练。现成范围、topK、DDF表不再说待统计。
+
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+
+===== 71_最近原文逐式核对_20261021.txt =====
+2026-10-21 America/Los_Angeles。仅记录当前实际阅读范围，不把资料转述冒充独立核验。
+
+一、RA-MOSAIC，ACM TOMM 2025，DOI 10.1145/3715133
+主助手通过搜索返回的同DOI出版社全文索引，独立读到§3.1.2、§3.2、完整式2；直接HTML/PDF仍403。原文地址 https://doi.org/10.1145/3715133 。此处是索引文本阅读，不是完整PDF/结构图核验。
+式2显示：min sum_i [alpha*x_i+(1-alpha)*(x_i-mu)/sigma]，x_i=w_i^k/(t_w*t_h)，w_i=1-mean_conf_i，mu=mean_i(x_i)，sigma=sqrt(mean_i((x_i-mu)^2))，k=2、alpha=.9；面积总和不超过Pb，.95<=t_w/t_h<=1.1。其WACC还做估计RoI覆盖、可重复RoI、多尺度tile选择、装箱和动态canvas。
+数学复核：若同一组xi的sigma>0，标准化项求和为0，因此所写目标等价于alpha*sum_i wi^2/area_i；sigma=0原文式未定义。不能替作者改成绝对值或平方、也不能声称逐式复现了其完整系统。
+它已做尺度/置信度驱动的有限像素分配，不能把“困难区域多给像素”或固定640上限当创新。当前sum_i n_sub4_i*s_i不是它的同公式；计数替代均值、线性尺度效用和当前可行域是具体差别，但差别本身不证明贡献足够。不能说其必丢GT；它保护的是估计RoI集合，和真实训练GT occurrence完全保留不是同一声明。
+
+二、Transmission Line Bird Species Detection and Identification Based on Double Data Enhancement and Improvement of YOLOv8s
+Applied Sciences 2025,15(24),12953。官方入口 https://www.mdpi.com/2076-3417/15/24/12953 （429）；出版全文 https://www.researchgate.net/publication/398497227_Transmission_Line_Bird_Species_Detection_and_Identification_Based_on_Double_Data_Enhancement_and_Improvement_of_YOLOv8s 。主助手已独立读§3.2、式7–9和算法1，不只读摘要。
+密度Di=sum_j(wj*hj)/(WH)，按密度排序邻域±5选另外三源；特征尺度Si=median_j sqrt(wj^2+hj^2)；lambda_i=clip(ST/Si,.5,1.5)。ST原文是标准输入尺寸，不能擅自改成期望目标尺寸。缩放后四象限放到2ST画布，再RandomCrop到ST。文字称拼接中心按缩放尺寸最大化目标保留，但无明确求解公式，算法未保证全部GT与可见支持保留。
+因此已有训练期GT尺度驱动Mosaic。当前固定同源/同GT的计数效用和硬约束未被此式直接覆盖；训练/推理场景或离散27个候选本身不能充当创新。
+
+三、已有已核原文
+Scale-Aware Mosaic，Electronics2026 DOI10.3390/electronics15051075，官方PDF已归档并读§3.1和A1/图3、4；LZU CVPR2023 arXiv2303.15390v1，已读§3.2/4/5.1及方法图。两者已覆盖尺度补采样/受限画布非均匀放大的一般原理。
+Stitcher/Dynamic Scale Training原文尚未在本次独立完成方法核验。不可按Claude记忆就判当前同法或不同。公开代码入口 https://github.com/yukang2017/Stitcher ，论文 https://arxiv.org/abs/2004.12432 。
+
+当前判断：simple_risk有真实冻结前提，但尚未证明独立方法增量；下一项需检验sub4计数是否优于普通全部GT计数，不能继续包装已经失败的instance_objective。
+
+
+===== 78_固定曝光布局_计数反例与得失完整回交.txt =====
+2026-10-21 America/Los_Angeles。新增实测，不是AP/预计结果。主线目标尚未完成。
+
+新增代码/结果：72事前协议；73_layout_counterexamples.py→74_layout_counterexamples（零前向）；75补充执行、76_all_count_frozen.py→77_all_count_frozen。旧50/53/54及原65结果未改，复杂instance_objective仍按原判据停止。
+
+一、数量加权强简单反例
+同一131个真实Mosaic、同GT/source occurrence/27候选/scale>=.8和原>=4不逆跨：只将risk的n_sub4替换为n_all。两个增强流69/62事件里，布局不同10/12；原sub4跨4px数量all_count708/706，risk717/706。原16图中布局不同3/8+2/8，跨4为all_count201/156，risk201/157。
+渲染仍61同一恢复及RGBA路径，原SHA精确；5个布局差异事件中只有2张输入SHA没有64预测，其他直接复用；两个原BASE24在线模型各仅1次新CPU batch2前向，共2次，约4秒。权重/缓冲及checkpoint SHA未变。没有backward/optimizer/训练/heldout/远端/监测，未写checkpoint。
+
+同16图、2878GT、原sub4固定1503，计数不是AP：
+                              model1              model2
+sub4真类.5 risk/all_count       147 / 143           166 / 164
+sub4真类.75 risk/all_count       22 / 22             39 / 39
+sub4几何.5 risk/all_count        177 / 177           191 / 193
+sub4几何.75 risk/all_count        29 / 29             41 / 43
+全GT几何.5 risk/all_count        1027 / 1041         1056 / 1071
+全GT几何.75 risk/all_count       482 / 486           532 / 535
+全GT真类.5新增 risk/all_count     193 / 189           207 / 204
+全GT真类.5丢失 risk/all_count     80 / 65             69 / 57
+
+72事前要求risk两模型主指标均严格>all_count：确实通过(+4/+2)。这是预先定义的非零资源筛查，不能当显著性、较大效应或独立创新成立；没有临时加差值门槛。相对原样的大部分改善可由一般GT数量布局复制，而且后者全图几何更好。不能把risk相对原样的+75/+85全算成sub4专属设计的收益。
+两者共享可行域本来含尺寸保护，因此all_count不是完全不使用尺寸信息；它只替换效用权重，不证明整个方案无需尺寸。
+
+二、严格教师接纳版本停止
+按72第5条，每模型独立检查16图：risk必须保留所有原样真类.5存在性GT、全GT几何.5不降且有sub4新增。两模型均0/16可接纳、增益0；按原筛查停止此精确版本。不松条件，不把逐GT推理丢失冒充训练遗忘或不可退化保证。
+
+三、Claude“可学习带”触发未出现
+原sub4在risk变换后的最大短边7.9533577px，1503次曝光中1145仍<4，358在4–8；没有任何>=8，当前不存在被放大到10–16px的面板事实。
+按逐GT真类.5存在性计算（区别于最大一对一覆盖）：
+model1：<4新增/丢失28/4；4–8新增/丢失58/6。
+model2：<4新增/丢失27/7；4–8新增/丢失75/6。
+因此不据此另造[4,8]目标；无覆盖也不能推出Hungarian边很远或回归梯度是噪声。当前数据可反驳具体担忧，不能推断训练最优尺度。
+
+四、neutral.75优势不是主要来自risk缩小源
+neutral可行11图、其余原样5图（67明确事后控制）。按risk源scale分解全GT几何.75存在性：
+model1 risk grow源 neutral-only62/risk-only47；shrink1/1；identity0/0。
+model2 grow66/54；shrink4/1；identity0/0。
+所以把差异归因于非tiny源压缩暂无根据；此表只是描述，位置/邻接/插值仍共同改变，不能声称放大导致代价。存在性净数也不等于最大一对一数。
+
+五、原文进展
+71已独立核到鸟文式7–9/算法1和RA-MOSAIC完整式2（出版社索引正文，非完整PDF）。RA确实按w=1-平均conf及面积预算分配分辨率；其标准化项按所写式求和为0，sigma>0时目标化成alpha*sum w_i^2/area_i。不能替作者改公式，也不能把训练/推理差别说成新原理。风险计数并非同式，但当前独立方法增量仍薄。
+Stitcher最新arXiv2004.12432v2名为Dynamic Scale Training，主助手已读§3.2：按小目标loss比例阈值决定下一迭代普通/缩小拼图，另有batch维拼图。不能将训练反馈选Mosaic作为未有先例；当前并未实测其方法。
+
+六、下一具体候选（未验证，非创新结论）
+原生Astra C建议以all_count为强基线，固定RGB/GT/query/loss，改decoder deformable attention的取值：每层以query当前reference中心确定真实source-occurrence，排除落到另一供体的sampling点，按head重归一化；中心在背景/无保留点退回原权重。单图source恒1则推理退化原算子。其触发是当前布局同时有真实新增与丢失、改变供体邻接；尚未证明跨供体上下文有害。
+最低成本应比较原算子、真实供体限制、每query/head等删除点数的固定随机限制，记录被删权重质量和全部得失；不能把等点数当等质量。encoder RF和双线性取值仍可混合来源，不能宣称彻底隔离。
+最近先例必须核NaViT/Patch n’ Pack（已显式按图像身份mask packed self-attention）、Cascade-DETR（按前层预测框约束），以及检测的image packing。不能仅换成deformable落点就称首创，也不能只因都是mask就关键词否决。专家需比较实际query/source身份、取值算子和训练作用变量，提出实质修订或真正不同设计。当前不新增训练。
+
+
+===== 65_固定曝光布局冻结检测_完整结果回交.txt =====
+2026-10-21 America/Los_Angeles。实测完成，不是预计结果。按53原判据停止复杂instance_objective；不申请训练该复杂版本，不修改判据。总研究目标仍未完成，继续探索。
+
+一、实现与证据
+事前协议53、54；RGB准备61_prepare_layout_rgb.py，完整产物62_layout_rgb；模型与统计63_frozen_layout_detection.py，完整结果64_frozen_layout_detection/02_results.json、逐图01_rows.json、两个seed全部原始预测PT及SHA。
+16张共享新开发输入：两增强seed各取前8个四源非空且无MixUp的Mosaic，原GT共2878行、原640短边<4固定曝光1503；未挑检测表现或instance/risk差异选图，原N>Q图保留。
+在这16图里，instance/risk图像真正不同：增强seed1有3/8、seed2有2/8；不是0差异面板。原instance/source/risk布局相同时，去重的预测确实共用，不制造浮点假差异。
+
+62通过全部控制：原source RGB SHA、原生Resize320→Affine nearest fill0→Photo→Flip重建，最终Resize640与float32/255的输入SHA与49记录完全相同；真正按source mask拆开再原位置拼回RGB逐像素一致、最终tensor一致。所有GT行、source occurrence、类别和顺序保留。新布局沿51已有s和54居中t连续映射，没有裁块取整后沿旧GT尺度计数；float32目标误差逐臂记录。固定已观测像素，不声称恢复源细节。16图渲染约10.8秒，无模型。
+
+模型：BASE24 online，严格加载model键。seed1检查点SHA741d57a2d6ecb7439de17fedbc8462315ab05309da2ba35b9d38d2c3e2dd9d87；seed2 bcf1d9a7a20115835d9e9df3e09a71419f41d1612c2e7b687c47ff3c41952cf0。eval-mode、640、固定权重及BN，无DN训练分支。权重/缓冲与检查点前后SHA均不变。
+总62个去重输入/模型，共32次batch4原生CPU forward，约25.3秒；没有backward、optimizer、训练、权重保存、远端/GPU/监测或heldout读取。最多48次的资源上限未超出。
+
+二、完整主结果表（均为覆盖计数，不是AP）
+“正确类”按原生sigmoid(class×query)展开top300；保留一个query多个类别的规则。固定原sub4组内最大一对一真类匹配，不与其他组覆盖数相加。全图geo对原普通300个query框、不限类别算最大一对一匹配。
+
+模型seed1，16图、2878GT、固定sub4=1503：
+臂                    sub4正确类.5/.75    sub4几何.5/.75    全图几何.5/.75
+原样                  72 / 7              95 / 8             921 / 412
+instance_objective    131 / 22            161 / 27           1009 / 481
+simple_risk           147 / 22            177 / 29           1027 / 482
+fixed_random          114 / 22            147 / 26           1002 / 479
+global_tight          117 / 17            148 / 21           1009 / 475
+
+模型seed2，同16图、2878GT、固定sub4=1503：
+原样                  81 / 14             100 / 15           918 / 424
+instance_objective    157 / 39            180 / 42           1039 / 531
+simple_risk           166 / 39            191 / 41           1056 / 532
+fixed_random          131 / 29            158 / 32           1028 / 520
+global_tight          142 / 33            166 / 39           1042 / 515
+
+中性.5布局只有11/16图可行（2128GT、sub4曝光1195），另5图为NA。完整指标在原始JSON，不能直接用11图总数与主表16图总数作差，不将NA按0补齐。
+完整.001/.3阈值真类覆盖、逐GT存在性新增/丢失、全部类别/几何覆盖、N>Q及按增强seed分层在逐图原始JSON。新增/丢失是逐GT存在性，不依赖最大匹配任意身份。
+例如simple_risk全GT真类.5新增/丢失分别193/80、207/69，不可用覆盖总数不下降冒充原来一个目标都没丢。
+
+三、按原判据的取舍
+instance原sub4正确类.5相对原样+59/+76，相对random+17/+26，全图几何均不降；但相对simple_risk为−16/−9。两个模型都不满足严格大于simple_risk，均判失败。复杂目标停止，不能改目标函数、换cohort/阈值或从6/10差异事件另挑较好子集挽救。
+simple_risk相对原样+75/+85，较random+33/+35，较整体裁紧+30/+24；全图几何+106/+138。两个增强seed分层也同方向：
+模型1：增强seed1 原30→risk74，增强seed2 原42→risk73。
+模型2：增强seed1 原37→risk88，增强seed2 原44→risk78。
+这是新的可重复开发现象：固定同source/GT曝光和640预算时，简单逐源分配可优于整体回收外围空白与同可行集随机布局。它没有证明复杂优化必要，也没有证明训练迁移或方法新颖。
+
+四、论证边界与下一步
+此结果是冻结模型对训练图新开发面板的反应，不是独立val/test-dev、不是真实AP或误检率、更不是两独立训练种子的最终收益。原1503是曝光数，可含同原GT重复，不作为独立样本显著性检验。原样与改布局还涉及位置/邻接/插值，不能仅凭正确类覆盖认定唯一尺度根因。所有新增臂共用渲染器，risk/instance/random的相互比较不靠更换Photo参数。
+LZU已明确有限画布的upsampling本身可有用，所以该一般原理非新贡献。当前更具体的问题是训练Mosaic中保持同一供体/GT曝光时，如何分配有限画布；复杂实例目标已被简单风险反证，不能为了创新包装它。
+新近邻尚需实核：Applied Sciences2025 15/24/12953的adaptive scale Mosaic；RA-MOSAIC ACM DOI10.1145/3715133。网页429/403、两次PDF读取SSL失败并不等于没有先例。不得在原文未核时宣布本项目首创。
+完整结果交回三Astra与Claude：应先明确简单固定曝光分配与实际近邻是否存在实质区别，若仅工程差异则提出真正不同且有数据触发的设计。无需先证明训练AP，不以冻结覆盖、专家票数或把复杂换成简单的名字宣布总目标完成。当前不新增训练。
+
+
+===== 72_固定曝光布局_反例与得失首检协议.txt =====
+2026-10-21 America/Los_Angeles。在读取本次新增控制结果前登记；这是基于65和67结果提出的新核查，不重写50/53/54，也不挽救已停止的复杂目标。
+
+1. 保持51所有131个Mosaic事件、实际source/GT身份、27布局候选、original优先平局、scale>=.8和原>=4不逆跨约束。新增最强便宜计数控制 all_count：J=sum_i n_all_i*s_i。仅将risk权重n_sub4换成n_all。不更换供体/GT，不裁、不增加输入尺寸。
+2. 第一阶段零模型前向：报告每个增强seed全事件与原62选中16事件中all_count/risk布局不同数、原sub4跨4数、scale范围。保存all_count布局和源相似变换，与旧risk重新计算一致后才允许后续渲染。若全相同则撤回sub4权重的独立贡献，无需检测；否则只对与64已有输入SHA不同的图补同两模型冻结前向，沿原生300及组内最大匹配口径。
+3. 后续检测对当前sub4权重的保留判据：两个模型各自risk的固定原sub4正确类IoU.5严格高于all_count，才保留“sub4特异效用有必要”的候选解释。任何一端不严格高于即撤回这项必要性主张；不是判所有布局方法无效，也不是总研究目标结束。全GT几何.5/.75与全部原主臂照报，不隐去代价。冻结通过不等于AP/创新或训练迁移已证明。
+4. 同次零前向诊断（事后探索，不能反过来修改53）：用62的原16图及64逐GT存在性，报告risk新增/丢失的原sub4目标在变换后短边<4、4–8、8–12、>=12中的分布，说明是否真有Claude担心的>8过度放大；报告risk变换后原sub4最大短边。使用存在性而非任意最大匹配身份，明确和最大匹配覆盖总数不同。
+5. 教师严格接纳修订的几何可行性：每个模型独立在原样/risk二选一；仅在risk保留全部原样正确类IoU.5存在性GT、全GT几何最大匹配.5不降且有原sub4新增时接纳risk，其余用原样。报告接纳事件数、全部得失及原sub4净增。若任一种子接纳为0或sub4净增为0，停止此严格接纳版本，不松条件/换阈值。它即使非零也不自动成为方法贡献；还需近邻与同率/净增简单控制。
+6. neutral或原样67与risk的.75差异，按源scale<1/=1/>1分解逐GT几何存在性新增/丢失，保留原sub4分组。仅定位差异，不称缩小造成因果；neutral/risk的位移、上下文、插值也一起改变。
+7. 只读现有文件，CPU2线程/低优先级/affinity13,15/空闲内存>8GiB，最多20分钟。此阶段不构造模型、不backward、不optimizer、不读heldout、不远程、不监测、不写checkpoint。独立目录保存结果及SHA。数据/渲染/脚本异常先修实现，不按异常输出判方法。

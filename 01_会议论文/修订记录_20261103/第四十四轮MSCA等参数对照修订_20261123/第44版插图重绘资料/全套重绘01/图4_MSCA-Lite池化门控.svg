@@ -1,0 +1,115 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="167.64mm" height="48.61560mm" viewBox="0 0 960 278.4" version="1.1" role="img" aria-labelledby="fig-title fig-desc">
+  <title id="fig-title">MSCA-Lite pooling and energy gating</title>
+  <desc id="fig-desc">Two average-pooled maps and the identity map are aligned to the original 40 × 40 spatial grid and averaged. The energy gate uses per-channel spatial statistics of the mean feature. Its weights multiply the original 512-channel input F.</desc>
+  <metadata>Revision 44, Figure 4. Scientific sources: MSCA_Lite.py, Figure 4 labels and equations (1)–(2) in the revision 44 manuscript. Layout references: MambaVision (CVPR 2025), Fig. 3 for the separate direct value path; the approved Figure 1 artwork. Native SVG shapes, text and connectors.</metadata>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#223D4B"/>
+    </marker>
+    <marker id="weight-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#265F64"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="278.4" fill="#FFFFFF"/>
+  <g id="connections" inkscape:label="Data flow">
+    <path d="M87 153 H127" stroke="#223D4B" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M106 153 V34 H843 V140" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="original-value" data-from="input" data-to="multiply" marker-end="url(#flow-arrow)"/>
+    <circle cx="106" cy="153" r="3.05" fill="#223D4B"/>
+    <path d="M127 153 V80 H495" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="identity-to-grid" data-from="input" data-to="identity-grid" marker-end="url(#flow-arrow)"/>
+    <path d="M127 153 H150" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-pool2" data-from="input" data-to="pool2" marker-end="url(#flow-arrow)"/>
+    <path d="M127 153 V225 H150" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-pool4" data-from="input" data-to="pool4" marker-end="url(#flow-arrow)"/>
+    <circle cx="127" cy="153" r="3.05" fill="#223D4B"/>
+    <path d="M297 153 H319" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="pool2-up2" data-from="pool2" data-to="up2" marker-end="url(#flow-arrow)"/>
+    <path d="M473 153 H495" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="up2-grid2" data-from="up2" data-to="grid2" marker-end="url(#flow-arrow)"/>
+    <path d="M297 225 H319" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="pool4-up4" data-from="pool4" data-to="up4" marker-end="url(#flow-arrow)"/>
+    <path d="M473 225 H495" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="up4-grid4" data-from="up4" data-to="grid4" marker-end="url(#flow-arrow)"/>
+    <path d="M517 80 H531 V123 H547" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="identity-mean" data-from="identity-grid" data-to="mean" marker-end="url(#flow-arrow)"/>
+    <path d="M517 153 H547" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="pool2-mean" data-from="grid2" data-to="mean" marker-end="url(#flow-arrow)"/>
+    <path d="M517 225 H531 V183 H547" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="pool4-mean" data-from="grid4" data-to="mean" marker-end="url(#flow-arrow)"/>
+    <path d="M658 153 H683" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="mean-energy" data-from="mean" data-to="energy" marker-end="url(#flow-arrow)"/>
+    <path d="M805 153 H830" stroke="#265F64" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="energy-product" data-from="energy" data-to="multiply" marker-end="url(#weight-arrow)"/>
+    <path d="M856 153 H875" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="product-output" data-from="multiply" data-to="output" marker-end="url(#flow-arrow)"/>
+  </g>
+  <g id="input" inkscape:label="Input F">
+    <path d="M39.0 139.36 l14 -6.72 H87.0 L73.0 139.36 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M73.0 139.36 L87.0 132.64000000000001 V166.64000000000001 L73.0 173.36 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="39.0" y="139.36" width="34" height="34" fill="#C7DDDF"/>
+    <path d="M47.50 139.36 V173.36 M39.0 147.86 H73.0 M56.00 139.36 V173.36 M39.0 156.36 H73.0 M64.50 139.36 V173.36 M39.0 164.86 H73.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M77.90 137.01 V171.01" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M82.80 134.66 V168.66" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="39.0" y="139.36" width="34" height="34" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="63" y="111" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Input F</text>
+    <text x="63" y="198" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">512 × 40 × 40</text>
+  </g>
+  <g id="output" inkscape:label="Output Y">
+    <path d="M875.0 139.36 l14 -6.72 H923.0 L909.0 139.36 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M909.0 139.36 L923.0 132.64000000000001 V166.64000000000001 L909.0 173.36 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="875.0" y="139.36" width="34" height="34" fill="#C7DDDF"/>
+    <path d="M883.50 139.36 V173.36 M875.0 147.86 H909.0 M892.00 139.36 V173.36 M875.0 156.36 H909.0 M900.50 139.36 V173.36 M875.0 164.86 H909.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M913.90 137.01 V171.01" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M918.80 134.66 V168.66" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="875.0" y="139.36" width="34" height="34" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="899" y="111" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Output Y</text>
+    <text x="899" y="198" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">512 × 40 × 40</text>
+  </g>
+  <text x="475" y="25" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.3" text-anchor="middle" font-weight="bold">Original F (value path)</text>
+  <text x="302" y="71" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="middle" font-weight="bold">Identity</text>
+  <g id="pool2" inkscape:label="pool2">
+    <rect x="150" y="127" width="147" height="52" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="223.5" y="148" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.0" text-anchor="middle" font-weight="bold">2 × 2 avg pool</text>
+    <text x="223.5" y="169" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">stride 2 · 20 × 20</text>
+  </g>
+  <g id="up2" inkscape:label="up2">
+    <rect x="319" y="127" width="154" height="52" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="396.0" y="148" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="15.7" text-anchor="middle" font-weight="bold">Bilinear upsample</text>
+    <text x="396.0" y="169" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">to 40 × 40</text>
+  </g>
+  <g id="pool4" inkscape:label="pool4">
+    <rect x="150" y="199" width="147" height="52" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="223.5" y="220" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.0" text-anchor="middle" font-weight="bold">4 × 4 avg pool</text>
+    <text x="223.5" y="241" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">stride 4 · 10 × 10</text>
+  </g>
+  <g id="up4" inkscape:label="up4">
+    <rect x="319" y="199" width="154" height="52" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="396.0" y="220" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="15.7" text-anchor="middle" font-weight="bold">Bilinear upsample</text>
+    <text x="396.0" y="241" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">to 40 × 40</text>
+  </g>
+  <g id="identity-grid" inkscape:label="Aligned spatial feature">
+    <rect x="495.0" y="69.0" width="22" height="22" fill="#D9E9E7" stroke="#5C827D" stroke-width="1.25"/>
+    <path d="M500.5 69.0 v22 M495.0 74.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M506.0 69.0 v22 M495.0 80.0 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M511.5 69.0 v22 M495.0 85.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="grid2" inkscape:label="Aligned spatial feature">
+    <rect x="495.0" y="142.0" width="22" height="22" fill="#D9E9E7" stroke="#5C827D" stroke-width="1.25"/>
+    <path d="M500.5 142.0 v22 M495.0 147.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M506.0 142.0 v22 M495.0 153.0 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M511.5 142.0 v22 M495.0 158.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="grid4" inkscape:label="Aligned spatial feature">
+    <rect x="495.0" y="214.0" width="22" height="22" fill="#D9E9E7" stroke="#5C827D" stroke-width="1.25"/>
+    <path d="M500.5 214.0 v22 M495.0 219.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M506.0 214.0 v22 M495.0 225.0 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M511.5 214.0 v22 M495.0 230.5 h22" stroke="#94B4B2" fill="none" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="mean" inkscape:label="mean">
+    <rect x="547" y="104" width="111" height="98" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="602.5" y="132" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="20.5" text-anchor="middle" font-weight="bold">Mean</text>
+    <text x="602.5" y="157" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.7" text-anchor="middle" font-weight="normal">of 3 maps</text>
+    <text x="602.5" y="183" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="20.2" text-anchor="middle" font-weight="bold" xml:space="preserve">F<tspan font-size="15.35" dy="4.44">ms</tspan></text>
+    <desc>Arithmetic mean with equal weights, after bilinear resizing.</desc>
+  </g>
+  <g id="energy" inkscape:label="energy">
+    <rect x="683" y="104" width="122" height="98" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="744.0" y="131" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.8" text-anchor="middle" font-weight="bold">Energy gate</text>
+    <text x="744.0" y="158" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="18" text-anchor="middle" font-weight="normal" xml:space="preserve">G(F<tspan font-size="13.68" dy="3.96">ms</tspan><tspan dy="-3.96">)</tspan></text>
+    <text x="744.0" y="184" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="middle" font-weight="normal">λ = 0.0001</text>
+    <desc>Sigmoid energy gate computed from the per-channel spatial mean and variance of the averaged maps.</desc>
+  </g>
+  <g id="multiply" inkscape:label="Elementwise product">
+    <circle cx="843" cy="153" r="13" fill="#FFFFFF" stroke="#223D4B" stroke-width="1.8"/>
+    <circle cx="843" cy="153" r="3.05" fill="#223D4B"/>
+  </g>
+  <text x="941" y="249" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="20.5" text-anchor="end" font-weight="bold" xml:space="preserve">Y = F ⊙ G(F<tspan font-size="15.58" dy="4.51">ms</tspan><tspan dy="-4.51">)</tspan></text>
+</svg>

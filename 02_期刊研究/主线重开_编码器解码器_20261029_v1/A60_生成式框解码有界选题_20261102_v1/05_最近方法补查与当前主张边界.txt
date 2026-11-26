@@ -1,0 +1,24 @@
+A60最近方法补查与当前主张边界
+Material Passport：ARS定向前期调研的增补；单助手；原始材料为公开论文方法HTML、作者仓库说明、出版者/作者机构题录。本文件不改变已冻结实验或423条文献总库，不标记用户已读。
+
+1. CEOSOD阅读范围仍未升级为全文
+交叉核对DOI10.1109/TCYB.2026.3704176、作者机构题录和Crossref，出版者原文入口为https://ieeexplore.ieee.org/document/11580320/ 。Crossref print日期为2026-11，作者机构页仍注明in press；不把网页抓取日期当发表日期。
+本次正常访问出版者页面和stamp入口均返回HTTP202空HTML，未取得PDF；没有绕过访问限制。精确题名/DOI检索及作者机构入口没有提供可读全文。只能说本轮这些通道未取得，不断言全球无全文。
+作者仓库默认提交仍为2a3a49d1c193ff5996f1f39c41df8914eccd65b1，与先前固定版本相同，原14文件树未因此成为完整训练实现。CEOSOD仍是“摘要+README/目录”阅读范围，其细节是否与A60重合仍未知。
+来源：https://researchwith.njit.edu/en/publications/a-novel-one-step-small-object-detector-for-autonomous-aerial-vehi/ ；https://github.com/BrainPotter/CEOSOD ；closest_prior_supplement_v1中的原始JSON与访问回执。
+
+2. 由作者引用补入更早的ConsistencyDet
+Jiang, Wang, Wang, Li, Leng. ConsistencyDet: A Few-step Denoising Framework for Object Detection Using the Consistency Model. arXiv:2404.07773v5，2025-04-03。https://arxiv.org/abs/2404.07773v5 ；方法原文https://arxiv.org/html/2404.07773v5 。
+阅读范围：v5的III-B、III-C与III-D相关方法、公式6–11、算法3–5；先定位到v2，随后确认v5标题/作者和相关方法。不是全文实验、补充或作者代码审计；没有运行其代码，没有采用其公开成绩作为本地基线。
+[原文事实] 已采用非线性全局噪声日程、输入预条件化、相邻时刻的检测监督和少步框解码。
+[本次推断] 所读算子不直接等于本候选的按目标尺度归一化四边误差进度条件；这只是有限方法对照，不是排清CEOSOD或所有时间条件先例。
+
+3. 收紧可以检验的主张
+“噪声到框”“时间FiLM”“少步/一步检测”“非线性日程”“输入噪声归一化”均不是A60的独立创新。不能把上述做法换到VisDrone、换名或仅采用ResNet宿主当贡献。
+当前具体对照仍是：在CFM尺寸偏插值产生完全相同的扰动框后，M使用物理插值时刻，Q使用相对几何进度。数据、参数、标签、公共匹配器、初始化、推理调用数均固定。若Q超过M，只支持这套条件化配方在该设置下有增益。
+[尚未消除的解释] M与Q的时间标签分布、每图跨query的一致程度也随条件选择变化。即使Q短测胜出，也不能据此证明“尺度几何”是唯一原因，或证明普通条件坐标变换/均衡无法取得相似收益。该问题属于通过短测后需要独立确认的机制风险；本轮不事后增加第四组或修改门槛。
+[待验证假设] Q在固定12轮时超过相同扰动框的M，并同时通过相对B的APs、总体AP和延迟门槛。当前没有新AP，几何暴露和容量结果不替代这个检验。
+
+4. 执行边界
+原B训练PID30239/start30772460、监督器30238/start30772425的只读核查继续；M/Q尚未启动。当前代码/协议不改、不重试、不扩容。所有操作仍以最新进程/终点回执为准，不依据本文件的历史状态自动启动任何任务。
+本补查新增0次模型前向、0次优化器更新。训练期间真实累计另见原始actual_events.jsonl及A60_formal_observe_NNN.json；本地和服务器时间各按产生机器记录，不用它们的绝对钟差推断训练速度，超时监督使用monotonic。

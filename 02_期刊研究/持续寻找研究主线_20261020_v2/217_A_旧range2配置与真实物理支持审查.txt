@@ -1,0 +1,126 @@
+217 A：旧“range×2”配置与真实物理支持审查
+2026-10-21。仅阅读现有索引、冻结配置、算子源码、运行回执与历史EMA重载记录，并核对小型文本文件SHA；未运行研究脚本、模型、前向、反传、求解、训练或远端操作。只新增本文件，不改16、旧实验或其结论。
+
+结论
+
+A5的两seed固定12轮实验，确实扩大了FDR的物理可表示域。它不是只把reg_scale从4改成8，而是安装独立TailGridBinding，保持reg_scale=4、up=.5及31个内部节点不变，只把两个极端节点从−4/+4改为−8/+8；预测期望与普通/DN FGL标签编码同步使用新网格。
+
+因此旧ΔAPs +.2128868578/−.3735241770 pp的mixed结论必须保留，不能借reg_scale的抵消关系撤销旧失败或重做同一版本。需要修正的是“全局range×2”的简称精度：应称“全query/全边统一的极端节点×2，内部31点不变”，不能误写成“reg_scale×2”或“所有33点均匀×2”。
+
+一、从16/A5追到实际执行，而不是只看候选名称
+
+根路径均为 C:/Users/jiwei/Desktop/小论文投稿/ 。
+
+1. 英文小论文/持续寻找研究主线_20261020_v2/16_补答核心资产摘要.txt第8行摘要；
+   同目录03_首场共同资料.txt第153–160行A5明确指向：
+   outputs/fdr_tail12_20261011_v2/two_seed_fixed12_decision_v32.json。
+   该原件的status为REJECT_FDR_ENDPOINT2_NO_EXTENSION_OR_RETRY，固定epoch12、EMA，不换best epoch。
+
+2. 两份实际收回的训练包，而非当前工作副本：
+   outputs/fdr_tail12_20261011_v2/terminal_collection/seed1_endpoint2_v1/extracted/
+   outputs/fdr_tail12_20261011_v2/terminal_collection/seed2_endpoint2_v1/extracted/
+   各包含 bundle/plan.json、bundle/resolved.yml、code/tail_grid.py、code/experiment.py、run/runtime_start.json、candidate_reload_v1/verification.json。
+   两份plan均arm=endpoint2、endpoint_factor=2.0。resolved.yml第288–289行等处均reg_max=32、reg_scale=4；不是8。
+
+3. 两份实际code/tail_grid.py第28–37行：
+   grid=original(reg_max,up,reg_scale,deploy=deploy)
+   return torch.cat((grid[:1]*factor,grid[1:-1],grid[-1:]*factor),dim=0)
+   第41–44行同时改utils.weighting_function和decoder.weighting_function，并断言translate_gt的全局函数绑定为expanded。故不只是训练标签扩大，也不只是输出解码扩大。
+   install先核原生utils和decoder文件SHA，拒绝不同源码；factor只允许注册的1或2。
+   code/experiment.py第21–22行在构建YAMLConfig/模型前执行TailGridBinding(plan['endpoint_factor']).install()。candidate_reload的verify_candidate_reload.py第89–90行也安装同一个binding。
+
+4. 两seed的run/runtime_start.json均记录：
+   candidate=FDR_ENDPOINTS_ONLY_FACTOR2；factor=2；
+   ordinary_bins=33；central_supports_unchanged=31；
+   native_reference_and_reg_scale_unchanged=true；
+   FGL_encoder_and_prediction_decoder_share_same_grid=true。
+   此处“FGL encoder”指GT到bin标签编码，不是图像Transformer encoder；不要误读为给图像encoder增加了FDR。
+   没有新增参数或state_dict键；从epoch0激活，沿原132轮recipe只跑固定前12轮。
+
+5. 源码内容与SHA绑定：
+   两seed实际tail_grid.py的本次只读SHA均为
+   9067d636399715201398937c828601cbee41c0f16f48cdaabfd5a779945fe684，
+   与package_freeze.json、各plan identity和runtime_start一致。
+   seed1 plan本次SHA：
+   87389949fdcdac7fd765386ad779e1ee9e818b971a51c7316d2da53d4264f6b6；
+   seed2 plan本次SHA：
+   79fed576092818dd9995b0a85564b741a2112824ecc22cd15466da3db83e8cfc；
+   均与实际runtime/重载identity一致。
+
+6. 原生operator的冻结来源：
+   outputs/scale_protection12_20261010_v1/terminal_collection/seed1_target_protect_v1/extracted/native/engine/deim/dfine_utils.py
+   outputs/scale_protection12_20261010_v1/terminal_collection/seed1_target_protect_v1/extracted/native/engine/deim/dfine_decoder.py
+   这是A5收回报告声明复用并校验的native source packet。两文件本次SHA分别：
+   ad87ec5a50b1970e76b06f7242298ffa332beaf78c828ac3e8d41ac656ec5f6c
+   b31408e49d4961e1e82692703b8f9fc3f07f1e280fd13ee12f896cb337f9bae5
+   与tail_grid.py硬编码绑定、实际source_binding.json一致；也与当前dn_pre_frozen_diagnostic_20261020_v1/native内这两个文件的本次SHA一致。因此本次公式不是拿未经核对的工作副本推旧训练。
+
+二、原生公式确实有R抵消，但旧实验没有走这个改法
+
+记R=|reg_scale|、u=|up|，N=32。原生dfine_utils.py第9–40行：
+ W_0=−2uR，W_32=+2uR；
+ 内部正节点W_(16+i)=(1+uR)^(i/15)−1，i=1,...,15，
+ 负节点对称，W_16=0。
+ d_e=Σ_k p_ek W_k。
+distance2bbox第121–125行：
+ x_L=c_x−(R/2+d_L)w/R=c_x−w/2−(d_L/R)w；
+ x_R=c_x+(R/2+d_R)w/R=c_x+w/2+(d_R/R)w。
+y轴相同替换c_y,h。闭支持是softmax期望可表示集合的闭包，端点一般需logit趋于无穷才精确取得。
+
+所以任意R>0，固定u时原生物理区间为：
+ I_L=[c_x−(1/2+2u)w, c_x+(2u−1/2)w]；
+ I_R=[c_x+(1/2−2u)w, c_x+(1/2+2u)w]。
+R在端点完全抵消。只把reg_scale从4改8且up=.5，物理支持不变；不能称物理range×2。
+
+但“支持不变”也不等于模型完全不变。归一化内部节点
+ W_(16+i)/R=[(1+uR)^(i/15)−1]/R
+通常随R变化；i=15为u、i=0为0不变，其余内部节点改变。实际影响可包括相同期望概率下的框、期望梯度、GT插值权重与训练几何；变量是网格曲率/节点分配，不是最大物理范围。该代数限定正确，却与A5实际干预不同。
+
+原生decoder第604–605行将up=.5和reg_scale均设requires_grad=False；历史BASE12常量原件：
+ outputs/sod_fdr_range_20261010_v1/FDR_constants_seed1.json
+ outputs/sod_fdr_range_20261010_v1/FDR_constants_seed2.json
+均记录decoder.up与decoder.decoder.up为[.5]，对应reg_scale均[4]，checkpoint SHA分别与A5基线身份一致。本轮未重新加载checkpoint；这里是亲读原常量提取回执，加上绑定源码/配置的证据。
+
+三、旧endpoint2究竟扩大多少、改变哪些量
+
+旧实验仍R=4、u=.5，原W端点±4，改后端点±8，内部31个节点完全保留。代入未改的distance2bbox：
+
+                  原生                         endpoint2
+左边物理区间      [c_x−1.5w,c_x+0.5w]          [c_x−2.5w,c_x+1.5w]
+右边物理区间      [c_x−0.5w,c_x+1.5w]          [c_x−1.5w,c_x+2.5w]
+上/下边           同式换c_y,h                   同式换c_y,h
+
+每条边围绕原参考边的位置半径从1个参考宽/高变成2个，区间长度从2w/2h变成4w/4h。这是实际物理域扩展。参考中心/宽高本身没有乘2，也没有R分母同步抵消。
+
+它不是无代价地“只让新GT进来”：
+— 原末端内部节点为±2，尾部插值间隔从[2,4]变成[2,8]，左端对称；中央31节点虽不动，原已在支持内但位于尾段的GT插值标签也改变。
+— 固定同一PMF的解析反事实下，Δd_e=4(p_e,32−p_e,0)，左边Δx=−w(p_32−p_0)，右边Δx=+w(p_32−p_0)。所以一般会改变已有预测，而非只改变越界样本。训练后PMF当然也可能不同，该式不能直接分解最终AP因果。
+— ordinary与DN都使用新标签网格，跨层相同；FGL、DDF、L1/GIoU公式与权重保留，不代表其数值、梯度和训练轨迹不变。
+— 尾段更宽不等于存在硬像素量化误差：连续softmax期望仍可表达内部实数。不能据“节点稀疏”直接解释seed2下降。
+
+仅把up=.5改为1会得到相同端点±8，但会改变所有非中心内部节点；A5没有执行这个up×2版本。它和endpoint2可表示闭域相同、参数化与FGL插值不同。可以作此精确区分，但不能因此把up×2自动提升为新主线；其新变量只是内部网格配置，尚无新的机制证据。
+
+四、实际训练/重载回执支持什么
+
+两seed的
+ outputs/fdr_tail12_20261011_v2/terminal_collection/seed{1,2}_endpoint2_v1/extracted/candidate_reload_v1/verification.json
+均为PASS_SAVED_CANDIDATE_RELOAD，strict_loaded_tensors=794；
+stats_max_abs_fraction_difference=0，stats_tolerance=0；
+native_GT_hits_exact=true；
+all548_stage_arrays_exact=true，encoder/pre/final等数组最大差均0。
+重载代码使用相同端点binding。外层verification_report_v1.json均为PASS_FDR_FIXED12_DOWNLOADED_EVIDENCE_AND_SAVED_EMA_RELOAD，并记录native_source_files_reused_and_verified=468。
+这些是历史已执行回执，本次只读，不冒称本次重跑验证。
+
+固定12 EMA原结果：
+seed1 ΔAP +.2907754433，ΔAPs +.2128868578，ΔsmallAP75 +.00211491695 pp；
+seed2 ΔAP +.1389434788，ΔAPs −.3735241770，ΔsmallAP75 −.3388825859 pp。
+原事前条件每seed APs严格正、AP非负，要求两seed均过；seed1过、seed2不过，最终REJECT保持。mixed并不等于全部指标下降，也不支持“扩域一概有害”。它精确否定的是该固定12双seed筛查版本达到当时训练验收条件；不是132轮收敛结论，不是AP显著性检验。
+
+五、与147、07的边界及本次决定
+
+147的原文件/157回交是在当前C0四个开发输入上比较框族：joint original/conditional/rectangle/range2，sub4真类IoU.5为135/138/138/168；conditional净增3未达原门槛。它是GT辅助的物理域上界，不是旧endpoint2训练结果，也不是up或R消融。不能把147的range2上界168当成旧训练应该涨的证明。
+
+07是BASE24固定33节点、第二层一次换为sg(b1)参考、旧端点包络保护、PMF插值迁移与最大熵混合，主坏框群体完整新增5/3；它改变参考和概率历史表示，不等于旧endpoint2只把两个端点外移。旧endpoint2结果不能单独证明所有重锚无效；07的已有独立结果和历史原型仍按原范围保留。
+
+本次事实已落在“确实扩大物理域”的分支，因此不启动题设中仅在‘旧实验其实只改节点参数’时才需要的补充设计，也不为同一range-rescue再拟一个缓存表。应保留旧mixed、停止复活统一端点×2；在后续引用中采用准确名称并分清：reg_scale曲率、up全网格扩展、endpoint-only扩展、条件框族与重锚是不同干预。支持域相同不意味着训练同效，但这种区分本身不构成新的训练理由。
+

@@ -1,0 +1,208 @@
+245 A：物理标度候选有限训练预案——未执行，当前精确 k4 版不得启动
+2026-10-21
+
+当前状态先行
+
+本文件开始编写时尚在等待 floor 缓存；编写期间 root 回交 244 完成，本人随后只读其 01_results.json 核对：A 的主集合 1170 槽，F4/E4 新增支持均为 2；B 的主集合 1066 槽，F4/E4 均为 0。按 229 事前“两 seed 主集合都非零”约定，screen 为 mixed、未通过。F8 的 11/11 是敏感性结果，不能升为主尺度来挽救；T2 的 245/216 也不能抵销该版历史训练 mixed。
+
+因此，本精确 F4 版不作为已保留主线，不启动训练、不提出执行申请。本文件完整保存同支持比较的条件设计和经核实的续训实现边界，不是把失败方案挂起等待换门槛。若后续产生实质不同变量，必须另立版本和协议，不能直接修改本文件的 k、群体或 screen 字段复活。239 保留为结果前判断，不回写。
+
+244 来源：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/持续寻找研究主线_20261020_v2/244_BASE24_cached_displacement_floor_probe_fixed/01_results.json
+SHA256=9dfbf71fc5ea60820b529c4e1e0fb0c0412fd96af034a40f439a3e98618160b9。
+该记录为 16 个 development batch、每 seed 32 输入曝光；41.234 秒，source 不变，0 新模型/梯度/更新。F4 的 ordinary GO 新增非法框为 0，属于冻结几何事实，不是训练效用证明。本文不把这些缓存计数改称 AP、学习曲线或独立验证。
+
+本轮只读元数据、recipe、旧 Python 文本及协议，并新建本 txt；没有 torch.load checkpoint，没有执行预检、模型、训练、部署、远端命令或队列。以下程序文件和命令入口尚未实现。
+
+一、原拟回答的问题与三个臂
+
+原拟问题：固定 pre base 框、对同一个 reference 使用完全相同的闭可达域时，F4 对内部物理单位的缩放，是否比只移动端点的 E4 更有利于学习实际边界修正？不是再次证明“范围扩大就能覆盖更多 GT”。
+
+设实际输入 H×W、reference=(cx,cy,w,h)、R=4、原生 33 节点 W_j、端点 W_0=−4/W_32=4，p=softmax(z)、μ=Σp_jW_j。左右 base 边 b_L=cx−w/2、b_R=cx+w/2。三臂均保留原 300 ordinary queries、3 FDR 层、原 GO/own/DN 规则、真实 GT、原损失权重及参数数量。
+
+N：x_L=b_L−w μ_L/R，x_R=b_R+w μ_R/R。
+F4：s_x=max(w,4/W)、s_y=max(h,4/H)；只把 residual 中的 w,h 换成 s_x,s_y，base 半宽高不换。水平逆映射分别是 R(b_L−g_L)/s_x、R(g_R−b_R)/s_x。
+E4：保留 w/R 解码，两个端点乘 α_x=s_x/w，内部 31 节点不动；纵向同理。等价物理有符号节点的端点 ±s_x，内部为 (w/R)W_j。target 用 E 自己的节点插值，不复用 F 的 target。
+N 是任务效用控制；E4 是最强同支持简单控制；F4 是候选。k8、旧全局 T2、pre-size clamp C4 不进入本轮三臂训练预算。
+
+对每一个相同 reference，F4/E4 的四边支持相同，容量/any-query 的闭支持必要界也相同。这是数学自检，不是 F4 的胜项。端到端训练后 reference 会分化，所以不同模型自身的最终支持图未必相同；要声称的是相同支持规则下的内部参数化及反馈，不能偷换成训练全程每个框都拥有完全相同的实际支持图。
+
+二、待证机制要比“L1 梯度小”具体
+
+令一条边的 sign 为 σ，m_tail=p_0+p_32，a_tail=p_32−p_0，μ_inner=Σ_(j=1…31)p_jW_j。相对 N，E4 的新增位移为：
+ Δb_E=σ(s−w)a_tail，故 |Δb_E|≤(s−w)m_tail。
+F4 的新增位移为：
+ Δb_F=σ(s−w)μ/4=σ(s−w)(a_tail+μ_inner/4)。
+因此 F4−E4=σ(s−w)μ_inner/4。
+E4 扩域增量的 logit Jacobian 为：
+ ∂Δb_E/∂z_j=σ(s−w)[p_32(1_(j=32)−p_j)−p_0(1_(j=0)−p_j)]。
+其 L1 范数不超过 2(s−w)m_tail。F4 的对应增量为 σ(s−w)p_j(W_j−μ)/4，不必由两端尾质量承载。
+
+可失败假设是：原 PMF 的尾质量很小时，名义上相同的新支持域，对 E4 是否需要更多尾部概率迁移才能产生所需修正；F4 使用内部概率是否有学习上的价值。E4 能重新学习尾概率，因此这个问题不是 E4 永远不可达。上述导数与界限是公式，尚不能证明真实尾概率构成瓶颈；当前 F4 screen 阴性也不能被这段公式抵销。
+
+D-FINE §4.1/附录 A.4 已讨论节点范围、曲率与定位精度取舍。本方案不能主张首次发现“网格影响优化”。另一个强替代解释是局部有效学习率/梯度幅度变化：AdamW 历史二阶矩、全局 clip=.1、FGL 插值、IoU 权重和 LQE 都能改变最终更新，较大 Jacobian 不保证有效参数步更大或更正确。N/E/F 训练即使阳性，首先支持内部参数化的整体作用，不能独立证明纯 Jacobian 因果。
+若将来值得进入机制深挖，一个有限的后续简单控制可为 E4 加 detached 的 query/axis 几何梯度增益，检验普通梯度放大能解释多少；它不自动等价 F4，也不加入当前六次短程。不得为排除所有解释扩展无限训练臂。
+
+三、已亲读的 BASE24 起点：两个 seed 各自一个共同完整 checkpoint
+
+共同根目录：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/data/00_实验计划与证据索引/本次24轮双基线模型下载_20261009_v1/
+
+seed1：seed1/run/last.pth
+SHA256=741d57a2d6ecb7439de17fedbc8462315ab05309da2ba35b9d38d2c3e2dd9d87。
+seed2：seed2/run/last.pth
+SHA256=bcf1d9a7a20115835d9e9df3e09a71419f41d1612c2e7b687c47ff3c41952cf0。
+两文件本地元数据大小均为 165110878 bytes。本轮只读文件元数据，没有加载张量，也没有重新全量计算 checkpoint SHA；以上身份来自已有 sample_plan、下载和诊断记录。
+
+证据链：
+— 00_下载说明与核验.txt：固定第24轮完整 checkpoint，raw/EMA 不是拆开的模型；last 与 best_stg1 分开。下载 SHA/bytes 和 ZIP CRC 已有历史核验。
+— 各 seed/bundle/plan.json、resolved.yml、run/args.json、runtime_start、endpoint_epoch24/training_completion.json：旧 fine_residual_screen24 baseline 身份与固定24轮端点。
+— 英文小论文/data/08_匹配聚合覆盖探针_20261019_v1/sample_plan.json：两起点 expected_last_epoch=23、recipe_epochs=132，冻结预测用 raw/model。
+— 同目录 baseline_recipes.json：完整旧132轮 recipe；不是 相位机制论文_20261018/data/source_snapshot/common.yml 的24轮配方。
+— 英文小论文/data/09_DN初始化冻结诊断_20261020_v1/seed{1,2}/capture_complete.json：历史 checkpoint 绑定和 optimizer 末层状态。其中 seed1 的 pre_bbox_head 末层 state_step=38788、lr=.0004；这是局部历史证据，不能冒称本轮重新检查了全 optimizer。
+
+已存 training_audit_epochs.jsonl 的 epoch23：
+ seed1：attempts=38808，实际 optimizer step=38788，EMA_updates=38808。
+ seed2：attempts=38808，实际 optimizer step=38787，EMA_updates=38808。
+旧 AMP 跳步使 optimizer step 与 attempts/EMA_updates 不同；不能把这三种计数强制设成相等。
+
+未来若实施，N/E4/F4 在同 seed 内必须分别从这个 seed 的同一 raw/model、EMA/module+updates、optimizer moments/steps、GradScaler 状态起步。不能用 EMA 初始化 raw，不能候选独自 reset optimizer，不能把两 seed 的状态互换，也不能接续前一训练臂的结果。
+本轮不打开 CP，故完整 key 集、全部 optimizer ID/name/shape 映射、scaler 和序列化辅助状态是否存在及数值逐项相等，仍是未来 CPU preflight 的明确待检项，不能填“已通过”。发现缺失时必须说明并修订预案，禁止默认静默重置。
+
+四、确定的训练时段与调度语义
+
+原拟上限：3 臂 ×2 seed ×12 新训练 epoch，共 72 model-epochs。从 last_epoch=23 恢复后训练绝对 zero-based epoch=24…35，即完成第25…36轮；最终 last_epoch=35。不是重复第24轮，也不是从零训练12轮。
+
+必须保持旧 recipe 的 schedule horizon=132。短程停止属于 runner 边界，不把 epoches 改成36或12来压缩调度：
+— AdamW：默认 lr=.0004，backbone 对应组 lr=.0002；betas=(.9,.999)，weight_decay=.0001，norm/bn 分组按原 regex。
+— flatcosine：lr_gamma=.5、flat_epoch=64、warmup_iter=2000、no_aug_epoch=12。
+— augmentation policy epochs=[4,64,120]，Mosaic probability 与 mixup 等原设置保持；mixup_epochs=[4,64]，collate stop_epoch=120，base_size_repeat=20，batch=4，workers=4。
+— EMA decay=.9999、warmups=1000、start=0；继承 updates，不重新 warmup EMA。
+— AMP 启用，原 use_amp_fallback_fp32=false；clip_max_norm=.1。
+— num_denoising=100、label_noise_ratio=.5、box_noise_scale=1，MAL/FGL/DDF/L1/GIoU 权重原样。
+
+这段全在原 flat/增强阶段内，不到 epoch120 的 stage transition；不载 best_stg1，也不存在这一段的 best_stg2 端点。统一评价最终 epoch35 的 EMA。中途原生 best 文件即使保留，也没有入选资格。
+
+特别核过的 scheduler 事实：本地完整 native 的 FlatCosineLRScheduler 类本身没有 state_dict/load_state_dict；det_solver.fit 在 train() 装载状态后重新构造该 scheduler。det_engine 使用 cur_iters=epoch×len(loader)，随后 step(cur_iters+i,optimizer)。因此应继承 optimizer 的 lr/initial_lr、绝对 epoch、原132配方，再按此解析式重建 FlatCosine；不得虚构“已从 CP 恢复 FlatCosine 序列化状态”，也不得重新从 current_iter=0 warmup。
+辅助 lr_warmup_scheduler 或其它实际序列化状态如存在则保留；当前 self scheduler 路径不改用它。recipe 中 metric_lr_reducer 未配置、baseline_log_monitor.enabled=false，不能因短程 AP 变化启动降 LR 或指标早停。
+
+五、旧启动器不能直接复用的两个陷阱
+
+亲读旧：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/fine_residual_screen24_20261009_v2/experiment.py
+其 validate_plan 仅接受旧 baseline/fine_residual 与0…23短程，train_run 对 resume 明确 raise ValueError；load_state_dict 还要求旧 fine_residual_geometry_identity 完全一致。它没有 F4/E4、新 epoch 边界或新 ancestry 规则。因此旧 CLI 不存在“一改参数即可跑六臂”的可用入口。
+
+完整 native 只读来源：
+C:/Users/jiwei/Desktop/小论文投稿/outputs/scale_protection12_20261010_v1/terminal_collection/seed1_target_protect_v1/extracted/native/
+本轮核对下列三个源码 SHA 与旧 training_source_binding.json 完全一致：
+ engine/solver/_solver.py=f854c0b3796a7631550ec2189078ea3ff7360298a973364fc3267cb36c819fe1
+ engine/solver/det_solver.py=524b0da7be1381caf74e0ae350ca98362e77a4ff67bedf3a0d32ddc59dc97b5e
+ engine/optim/lr_scheduler.py=7b2653e44276aa0a1a67536e24d544c53e3b5226baed892b732d83b19c604844
+
+_solver._setup 在 cfg.resume 非空时直接把 output_dir 设成 resume 文件的父目录。绝对禁止把未来 --resume 指向历史下载目录/历史 run 的 last.pth，否则 native 会向原目录保存 last 等文件。
+规定的隔离办法：新准备程序在每个新 run 目录内创建一份字节完全相同的 start_epoch23.pth（核源/副本 SHA）；resume 指向该新副本。启动时 assert native 最终 output_dir 恰为该新 run，且解析路径绝不属于历史根目录。原 CP 只读；新副本和最终 last/epoch35 端点名分开。也可由新 solver 显式覆盖 output 路由，但必须以 CPU dry run 证明该行为；不能靠传入一个 output_dir 参数假定有效。
+
+新的 lineage 检查只能允许“已绑定 seed 的旧 BASE24 checkpoint →新指定 N/E4/F4 run”这一精确导入，不能简单删掉 identity 审查。记录 parent CP SHA、旧 recipe/source identity、新 operator config 与新实现 SHA；随后保存的 checkpoint 需持有新的 arm 身份，禁止跨臂 resume。
+
+六、随机流：共同重新播种，不假装恢复历史流
+
+旧 checkpoint 的普通 state_dict 不是完整 Python/NumPy/CUDA/worker augmentation 随机状态快照。本计划不声称精确重放原 BASE24 若继续训练时的历史数据顺序。
+未来每个新臂使用独立进程，按基础 seed=1 或2使用相同播种规则；从同一个状态加载后，在首次 resumed training iterator 前统一重播种 Python、NumPy、torch CPU/CUDA。模型构造、预检、初始 resume eval 不得在三臂中造成不同的训练 RNG 起点；预检在单独进程运行，正式起点 RNG hash 存证。
+DataLoader/sampler generator、worker_init 规则、worker数、persistent_workers、set_epoch(24…35)、collate 设置全相同。F/E 纯算子不新增随机抽样；DN 仍走原规则。记录前三臂首100批 inputs+targets 和 pre-forward RNG hash，另按 epoch 记录输入滚动摘要与实际 DN group/正槽统计，检测流是否分叉。日志审计本身不得调用随机数。
+相同 seed 和设置是配对设计，不等于跨平台每一个浮点算子 bitexact；随机输入审计与数值差异分开。发生数据/RNG不一致时保留结果并降低配对解释，查实现问题，不用挑批重跑补齐。候选导致 AMP 跳步可影响 optimizer/EMA计数，真实记录，不调整成相同更新数来掩盖失败。
+不自动恢复原脚本的旧队列、旧监控或失败重试；当前根本不启动任何进程。
+
+七、真实尺寸、ordinary/DN、训练/部署必须闭环
+
+实现位置以新副本的 native 为准，历史源不改：
+1. DEIM.forward 从实际输入 tensor 的 H/W 获取 input_hw，传入 DFINETransformer。不能用 orig_size、只用 eval_spatial_size=640、由 P3 尺寸猜回输入，或固定4/640。若未来支持动态导出，不得因 Python int/常量折叠把 H/W 烘焙成一次 trace 的值。
+2. Decoder 的 pre_bboxes 与 ref_points_initial=pre_bboxes.detach() 保留；F4 只改后续 signed residual 单位。units 从对应初始 ref 与本批 input_hw 计算并 detach；每层共享同 query 的初始单位，不能改为每层新框宽高。
+3. E4 要有每 query/每轴的端点网格。可用原 μ 加 4(α−1)(p_32−p_0) 解码，或用等价物理节点期望；须与普通 softmax/Integral 路径的数值契约一致。不能只修改一个全局 project 常量代替 query-specific 控制。
+4. 正逆一致：F4 用原 base 的 residual 除 s；E4 按自身节点编码。FGL target 在 no_grad 下生成，IoU、MAL target、DDF matched weight 用实际新框重算，不能固定原零权重。对于负宽高不偷偷排序或 clamp。
+5. ordinary、各 aux、DN 各层都携带对应 units/mode；DN split 使用原 offset，DN refs 不能借 ordinary refs；FGL 普通与 DN 缓存各自正确重置。pre/encoder 无 corners 的输出不增加伪 FDR loss。pre 的 GO 几何监督保留，own 仅用于其 MAL。
+6. 推理、EMA.module、convert_to_deploy/Integral 的 project cache、独立评估和导出必须使用相同 arm/k/input_hw 规则。arm/k 不必新增可训练参数或持久 tensor key，但必须存入可校验模型身份/config；不能载相同 tensor 后默认走 N。
+7. 训练只激活当前 native 路由。若发布代码宣称支持可选 rtdetrv3/group pack 等其它入口，需一起正确携带单位并单测；本短程不激活新分支。
+
+八、未来新文件与 CLI 形态；以下全部待实现
+
+建议独立本地工程根：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/fdr_physical_scale_tail12_20261021_v1/
+建议独立本地工件根：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/data/fdr_physical_scale_tail12_20261021_v1/
+这两个根目前均未为本预案创建。未来如已存在同名内容，准备程序应拒绝覆盖，使用明确新版本，不自动加后缀把多次运行混在一起。
+
+需要新增但本轮未写的文件：
+— plan_manifest.json：三臂公式、k4、种子、两个 parent CP/recipe SHA、schedule132、epoch24…35、source/evaluator/数据绑定、禁止自动完整配方升级。
+— configs/{N,E4,F4}_seed{1,2}.json：六份仅 arm/seed/path 允许差异的完整 resolved 配置；审查时给差异白名单。
+— native/：独立冻结训练源码副本及仅四处必要修改（deim/decoder/utils/criterion），携带源文件 SHA 和 diff。
+— experiment.py：新 prepare/preflight/train/evaluate/compare 子命令；resume ancestry、新目录保护、epoch35 保存后停止。
+— test_physical_scale.py、preflight_cpu.py：代数、路由、状态恢复、loss/deploy 一致性检查。
+— audit_training.py、evaluate_endpoint.py、compare_endpoints.py：无 RNG 观测、独立末轮加载/推理、同协议比较。
+— bundles/{arm}_seed{seed}/ 与 runs/{arm}_seed{seed}/；run 内 start_epoch23.pth、last.pth、epoch35_final.pth 或对 final last 的不可变副本、runtime与输入审计、独评目录互不覆盖。
+
+仅示意的新 CLI 契约，不是现在可执行的命令，不可调用旧 experiment.py 代替：
+ python -B <NEW_CODE>/experiment.py prepare --manifest <NEW_DATA>/plan_manifest.json
+ python -B <NEW_CODE>/experiment.py preflight-cpu --manifest <NEW_DATA>/plan_manifest.json
+ python -B <NEW_CODE>/experiment.py train --bundle <NEW_DATA>/bundles/N_seed1
+ python -B <NEW_CODE>/experiment.py evaluate --bundle <NEW_DATA>/bundles/N_seed1 --checkpoint <NEW_DATA>/runs/N_seed1/epoch35_final.pth --weights ema --output <NEW_DATA>/runs/N_seed1/independent_epoch36
+ python -B <NEW_CODE>/experiment.py compare --manifest <NEW_DATA>/plan_manifest.json
+其余五臂同形态。解析器、manifest schema、source snapshot、六份配置、preflight 和 endpoint reload 尚未实现/验证；这里没有已验证的一键启动命令。未来执行环境路径和 Python/GPU 版本也不能借本地 Windows 路径假装已经部署。
+
+九、必要单测与 CPU 预检，不拿它们当方法收益
+
+未来至少需要下列有限检查；本轮全部未运行：
+— 代数：zero μ 返回原 base；未激活 axes 与 native 等价；F 正逆/两bin target 的物理均值一致；F/E端点和支持逐项相等、内部节点按定义不同；E端点物理量随实际 H/W；四条边符号和 x/y 不能交换。
+— 尺寸：640²、512²、544²及一个非方形输入的 pure decoder 测试，覆盖两轴只激活其一。k4 是真实输入像素，不是640等效值。
+— target/loss：inside/boundary/outside 编码、ordinary 与 DN 各自 refs、batch/GO idx 对齐、每层缓存重置；实际新框的 IoU 权重；不把 encoder/pre 当有 corners。新born invalid 原样记录。
+— state：CPU 只加载两份 CP，strict 检查 raw/EMA模型键形状、488可训练张量对应 optimizer 参数分组/ID、moments/steps、scaler、EMA updates；N/E/F无新增训练参数、三个臂加载后的状态摘要同 seed 完全一致。
+— resume：不做 optimizer step 的 CPU dry run 构建训练器，检查 last_epoch=23、output_dir新目录、加载来源副本SHA、下一epoch=24、schedule horizon132、绝对global iteration与各组lr、没有重新warmup；缺失字段 fail closed，不自动填初值。FlatCosine 按第四节解析重建而非要求一个不存在的 state_dict。
+— 集成：必要时一小合成 batch（如 B=2、128×192，保证 encoder候选数够300）在 CPU 完整 forward/criterion finite 检查 ordinary+DN，再作同输入 eval/deploy 数值一致性；具体误差容差在实现检查前锁定，N 对原生、F/E对其公式分别核。若只做 pure decoder 测试，必须明确尚未验证全调用链。
+— N 必须通过原生数值复现；未来三臂采用实际训练精度时还需记录首真实训练 batch 的 finite loss/grad、正确units和损失路由。CPU检查不伪装成GPU AMP已验证。
+
+这些是工程可运行性，不是额外要求冻结 AP/梯度方向阳性。本精确 F4 版已因229 screen未过而不推进，所以现在不会为它执行上述预检、构建代码或加载 CP。
+
+十、末轮统一独评与指标口径
+
+若该比较在合格的新版本中另获授权，主比较预先固定为各 seed 的 epoch36 EMA：F4−E4 的 APs；任务净价值同时看 F4−N 的 APs 与 AP；E4−N 描述端点支持规则是否已足够。共同报告 AP50/AP75/APm/APl、small AP75、分类结果及实际训练有限性。都用百分点评价差，不将小数比例差当 pp。
+
+按旧 BASE24 实际验证协议：548张、10类，原 val annotation SHA=0329595b1f5aa8153732407a1d906de0dd5db7b7e8e005b8941ff19e90e774bd；输入640²；保留原图尺寸还原；后处理跨 query×class flatten 取 top300，可有同query多类候选，不能擅自改 argmax。COCO maxDets=[1,10,100] 是逐图逐类计算中的截断，不能改成全图只保留100 queries。area阈值保持原 COCO area 定义，不把 actual_input_sub4 当 APs。
+
+独评须在新进程从新最终完整 checkpoint 严格载 EMA，核 last_epoch=35、arm/k与源码身份；重新在同一548图生成预测，保存框/score/(q,c)索引、原尺寸、评价协议、precision/recall和 evaluator fingerprint。训练日志中的 best 和训练时观察式 capture 不是独立重载验证。所有臂用同一已绑定 pycocoeval 完整 Python+compiled backend 版本；不可一臂GPU native、一臂另换CPU实现，然后把差异当方法效果。
+
+历史 evaluator 绑定可读代码：英文小论文/code/fine_residual_screen24_20261009_v2/evaluator_binding.py、evaluator_sources.json、results.py。旧 results.capture 只接受 epoch23/旧arm，须新写适合epoch35的出口并同样核协议，不能直接冒用。
+
+机制读数仅解释训练：同一预存开发 fixture 的 reference 激活率、tail mass、内部期望、新框 IoU/FGL权重和实际修正，区分固定原GO观察与新网络原生matching；不要求它们额外变成入选门槛。直接日志中的局部梯度或oracle覆盖不能替代最终检测指标。
+
+十一、短训结论在训练前怎么说清楚
+
+本预案的24→36是从原生训练状态切换参数化后的12轮适应性 screen；旧PMF与Adam moments均为 N 学得，F/E 的初始扰动不同。它能排查实施故障、明显不稳定和可重复坏方向，不能代表从头按完整配方训练该参数化的极限，更不能证明低于噪声的微小优效。
+
+不设“必须+.2 pp且显著”之类没有本试验功效依据的硬阈值，也不把两个任意微小正数写成主线成立：
+— source/状态/随机输入/输出目录等身份或实现失败：记实施失败，该次不能作方法阴性，按原失败现场保存，不自动改参数重跑。
+— 训练有非有限loss/梯度、崩溃或持续非法几何导致原损失不能计算：此版不具备直接训练可用性；停止自身任务并保存，不触碰别的任务、不自动AMP改FP32或重启补预算。
+— 六臂完整后，F 相对 N/E 出现两seed一致的任务下降、且不是打印精度/评价器误差，定位和全体代价也支持坏方向：拒绝自动进入完整配方。幅度和所有原始值公开；小幅双负也不冒作普遍显著损害。
+— 方向混合、差值很小或缺少一致任务证据：结论为此短程未分清/不支持追加，不能择seed、换best、改k或追训到正为止；不把“未分清”写成严格等效或所有物理标度无用。
+— F 相对 E/N 有方向一致且可审查的任务改善，并有对应学习变化：只允许提出进入完整配方的下一次审查；不是自动延长、不是统计显著或已完成论文。
+— E/F 都胜 N 而 F 无可重复额外优势：不能宣称内部物理单位是必要的新贡献。若只有 F−E 好、F−N 不好，也不能跳过净效用。
+
+两seed不能估准训练随机方差，548张的配对图像不确定性也不能代替seed方差。若未来报告图像级配对 bootstrap，必须统一三臂重采样并完整重算AP、预先固定次数与随机种子；它不是为达到显著性反复加样/改变终点的工具。本次没有把 bootstrap 实现追加为启动前无限门槛。
+
+十二、资源预算：有证据的计数与 NA 分开
+
+已存 epoch21/22/23 审计每轮增加1617 batch attempts。若保持原 dataset、batch4和drop_last，12轮每臂预计19404 attempts；六臂合计116424 attempts。真实 optimizer steps 可能因 AMP跳步减少，应另计；EMA更新按原实现计，不用116424冒作必然成功更新数。预算为固定12新轮/臂，无自动重试与完整132升级。
+若保留已核 native fit 的原有逐epoch验证和resume前验证，则训练部分为6×(12+1)=78次548图验证；末轮独评再6次，共84次，另加有限预检。此为源码流程计数，不是耗时。若以后决定省去中途验证，必须统一改六臂runner并在新协议提前说明，不能看到曲线后只对某臂删评。
+GPU小时、wall time、峰值VRAM/RAM：NA。本轮没有当前执行设备或续训throughput的可比测量。旧 supervise.py 的18小时/24轮是硬timeout上限，不是可用于线性推算的实测预算。不能把244的41秒缓存时间换算成训练成本。
+起点 CP 每份165110878 bytes；六个隔离起点副本约990665268 bytes（十进制约0.991GB），六份同量级完整末轮 CP 再约0.991GB，仅此两类约1.98GB。实际新CP体积、周期性checkpoint、预测、日志、环境和源码额外占用未测，完整磁盘预算NA，不把这个下界写成总需求。未来准备阶段据实际文件保留策略和可用空间填写资源manifest。
+
+十三、完成性与缺项
+
+已完成的是：明确变量/强对照、真实CP与132 recipe来源、具体续训时段、状态/RNG/部署语义、原生resume输出路径陷阱、原始评估口径、有限短训解释以及有来源的资源计数。
+未完成且未声称完成的是：新代码、六份实际manifest/config、全状态CPU装载、ordinary/DN/deploy集成测试、执行环境/资源审批、任何训练、末轮独评。当前 k4 已不满足229，因此也不应继续制作或运行这些缺项来把它包装成可开训主线。
+
+只读绑定补记：
+baseline_recipes.json SHA=46e5c21aa0308061ac3523871c3c9966309a0a26b4a0777245edff4c3997f4bf。
+sample_plan.json SHA=825bbfb56b6e2db79209460dd6b22ba06a2450b93ab863e46a3a147c2faacc99。
+229_绝对位移标度_缓存诊断事前协议.txt SHA=a1ce08c7ca815c93ceec1c877530b959e9cb6ccd1659847cb8c941b89799166a。
+旧 fine_residual_screen24_20261009_v2/experiment.py SHA=27c4a578387f2a5a6791b040deed298c62ea0f2b73b2164b71b146bf324f3228。
+
+最终状态：条件预案已写；精确 F4 版必要 screen mixed，未保留为可启动主线；无新增训练申请或执行。下一条研究需有实质不同变量，既不被此阴性封杀所有参数化，也不以改尺度、改群体或新命名回避本次结果。

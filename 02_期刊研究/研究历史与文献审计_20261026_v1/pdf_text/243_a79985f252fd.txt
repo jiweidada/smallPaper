@@ -1,0 +1,181 @@
+Multivariate Conﬁdence Calibration for Object Detection
+Fabian K ¨uppers1, Jan Kronenberger 1, Amirhossein Shantia 2, Anselm Haselhoff 1
+{fabian.kueppers, jan.kronenberger, anselm.haselhoff }@hs-ruhrwest.de, ashantia@visteon.com
+1Ruhr West University of Applied Sciences
+Bottrop, Germany
+2Visteon Electronics GmbH
+Kerpen, Germany
+Abstract
+Unbiased conﬁdence estimates of neural networks
+are crucial especially for safety-critical applications.
+Many methods have been developed to calibrate biased
+conﬁdence estimates. Though there is a variety of methods
+for classiﬁcation, the ﬁeld of object detection has not been
+addressed yet. Therefore, we present a novel framework to
+measure and calibrate biased (or miscalibrated) conﬁdence
+estimates of object detection methods 1. The main difference
+to related work in the ﬁeld of classiﬁer calibration is that we
+also use additional information of the regression output of
+an object detector for calibration. Our approach allows,
+for the ﬁrst time, to obtain calibrated conﬁdence estimates
+with respect to image location and box scale. In addition,
+we propose a new measure to evaluate miscalibration of
+object detectors. Finally, we show that our developed
+methods outperform state-of-the-art calibration models for
+the task of object detection and provides reliable conﬁdence
+estimates across different locations and scales.
+1. Introduction
+Modern object detection algorithms are widely used
+in several domains like autonomous driving or medical
+diagnosis. Most of these object detectors, based on
+neural networks, provide a score for a certain class and
+a proposal of the object location and scale. In previous
+work it has been shown that modern architectures for
+classiﬁcation tasks tend to be overconﬁdent with their
+predictions compared to the observed accuracy [3] and
+thus are called miscalibrated. Calibration in the scope
+of predictors means that the observed accuracy of the
+predictor matches its mean conﬁdence. Miscalibration
+can be observed for modern object detection models as
+well. However, a well-calibrated object detector is crucial
+1The framework is publicly available at: https://github.com/
+fabiankueppers/calibration-framework
+Miscalibration Score on
+COCO detections
+relative cy
+0.0
+0.5
+1.0
+relative cx
+0.0 0.5 1.0
+5
+10
+15
+20
+25
+30
+D-ECE [%]
+Figure 1: Miscalibration evaluation on the COCO dataset
+for a R-FCN ResNet-101 [1]. The miscalibration
+score highly depends on the object location (the center
+coordinates cx and cy) and increases as the prediction gets
+close to the image boundaries. The evaluation is based on
+the detection expected calibration error (D-ECE), a variant
+of the expected calibration error (ECE) [14].
+especially in safety-critical applications like pedestrian
+detection for autonomous driving applications.
+For image classiﬁcation, there are methods to calibrate
+the predictions of a network as a post-processing step
+(logistic calibration/Platt scaling [19], temperature scaling
+[3], etc.). These methods can easily be applied to object
+detection tasks. However, these well-known methods only
+take the conﬁdence scores of the detections into account.
+As illustrated in Fig. 1, the calibration error highly depends
+on the object location and increases as the prediction gets
+close to the image boundaries. A similar behavior can be
+observed with respect to the object width and height. These
+
+
+---PAGE---
+
+Input Images
+Object Detector
+Classiﬁcation
+Branch
+
+
+sheep, 0.86
+sheep, 0.72
+...
+
+
+Regression
+Branch
+conﬁdence only
+conﬁdence and
+box information
+Standard
+Calibration
+vs.
+Box-sensitive
+Calibration
+Figure 2: Extended box-sensitive or multivariate calibration proposed in this paper (bottom) vs. standard conﬁdence
+calibration (top). An object detector predicts a class with a certain conﬁdence and a box proposal containing information
+about location and scale. Standard calibration methods only take the conﬁdence into account. Our approach also includes the
+regression branch of an object detector in order to improve the calibration results.
+location-dependencies are not captured by conventional
+calibration methods but might be very important especially
+in safety-critical domains. For example, in road trafﬁc
+it often occurs that a pedestrian suddenly appears at the
+roadside to cross the road and is therefore located at the
+image boundaries. If we observe a miscalibration especially
+at the boundaries, we cannot trust in the conﬁdence score.
+Motivated by the empirical observation that the
+calibration error depends on bounding box properties, our
+goal is to develop box-sensitive calibration methods for
+detectors. We propose a simple and effective framework
+to measure and optimize the calibration properties of object
+detectors. The approach treats the detector as a black-box
+and is therefore applied after the regular training process.
+Our framework is agnostic to the used detection method as
+well as to the underlying calibration algorithm. In other
+words, we do not modify the learning objective of a detector
+and thus our work is orthogonal to ongoing research in
+regularization methods for calibration [15, 22, 18]. We
+show how to extend common calibration algorithms, e.g.
+logistic calibration, and how to measure miscalibration
+location and/or scale dependent. We use pretrained state-of-
+the-art object detection methods (SSD [12], Faster R-CNN
+[20] and R-FCN [1]) to evaluate our considerations about
+the developed calibration algorithms.
+2. Related Work
+Common methods for conﬁdence calibration in the
+domain of classiﬁcation are histogram binning [23],
+isotonic regression [24], Bayesian binning into quantiles
+(BBQ) [14], ensemble of near isotonic regression (ENIR)
+[13], logistic calibration/Platt scaling [19], temperature
+scaling [3] and beta calibration [9]. These methods are
+applied during inference as a post-processing step after
+classiﬁcation. A straight forward transfer of these methods
+to object detectors is possible, but might not utilize the full
+potential - dependencies between the estimated conﬁdences
+and the regression output might have an inﬂuence.
+In contrast to post-processing calibration methods, [22]
+has recently proposed a method to obtain well-calibrated
+classiﬁers during model training. The authors have shown
+that the uncertainty obtained by Monte-Carlo dropout is
+correlated with the miscalibration and hence they use the
+uncertainty to control an additional regularization term.
+This approach is related to the ongoing research in the
+domain of model uncertainty. A common way to obtain
+uncertainties are Bayesian neural networks (BNNs) [2, 6].
+An additional approach to obtain uncertainties for one-stage
+object detectors is presented by [7]. However, it has been
+shown that even those uncertainty estimates are biased and
+thus need calibration [2, 8, 7]. In [8], a method is proposed
+to perform regression calibration on the conﬁdence interval
+obtained by a BNN. In contrast, [18] use a regression
+calibration framework to obtain calibrated object locations.
+These approaches are orthogonal to ours and could be used
+in tandem with ours. For example, the framework proposed
+in this paper can either be used to integrate a dependence to
+the regression output or to further optimize the calibration
+in a post-processing step.
+Similarly, IoU-Net [5] and GIoU [21] are a valuable
+extension to our proposed framework to demonstrate further
+orthogonal calibration directions. In contrast to our
+approach, IoU-Net focuses on ﬁne-tuning the regression
+output to improve the IoU between predicted and ground-
+truth position. They introduce an additional location
+conﬁdence (regression) in conjunction with the conﬁdence
+(categorical). They even support the need for our calibration
+method because they show that the ’regular’ conﬁdence
+is not a direct measure for misalignment. We agree that
+an improved localization might have an impact on the
+precision and thus on the conﬁdence calibration as well, but
+the necessity of conﬁdence calibration remains.
+An approach to obtain well-calibrated conﬁdence
+estimates for object detection is proposed in [15]. They
+perform a temperature scaling [3] by adding an auxiliary
+output to the network that scales the remaining logits.
+Additionally, the authors propose a variation of the expected

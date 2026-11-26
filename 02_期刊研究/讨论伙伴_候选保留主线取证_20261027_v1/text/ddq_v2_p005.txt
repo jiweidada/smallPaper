@@ -1,0 +1,94 @@
+Figure 4. An illustration of pyramid shuffle. For queries in a
+specific scale level, it can do the interaction with queries in an
+adjacent level by shuffling S channels. Before concatenating to
+the feature of the target level, the feature from other levels should
+be interplate to the same size as the target level.
+S to 64 which means each feature level exchanges infor-
+mation from 128 channels with other levels. (Comparison
+with other approaches to model the interaction among dense
+queries, ablation, and the analysis of pyramid shuffle can be
+found in our supplementary material.)
+As for the distinct queries selection module in DDQ
+FCN, we first select the top 1000 predictions according to
+the classification score from each feature level and then
+apply a class-agnostic non-maximum suppression with a
+threshold of 0.7 to ensure both distinctness and generality
+across different datasets.
+4.3. DDQ R-CNN
+We combine DDQ FCN with two refine stages in Sparse
+R-CNN to construct the DDQ R-CNN. As shown in Fig. 3.
+(b), thanks to the fast processing of dense distinct queries
+in DDQ FCN, we select 300 most representative queries ac-
+cording to the classification score from the remaining dis-
+tinct queries. Then we concatenate the feature in the dis-
+tinct position of the last feature map of the classification
+branch and regression branch to construct the query embed-
+ding. The query embedding and the corresponding bound-
+ing box prediction will be passed to the refinement head
+of Sparse R-CNN. Different from Sparse R-CNN which re-
+quires 6 stages of iterative query refinement, DDQ R-CNN
+needs as few as 2 refinement stages. Actually, the long it-
+eration stages in Sparse R-CNN mainly compensate for the
+drawbacks caused by the sparse and sometimes similar in-
+put queries. For one thing, sparse queries could not cover
+all instances at initialization and thus need long cascading
+stages to refine. For another, similar queries also require
+long refinements to distinguish from each other to output a
+one-hot prediction for each instance [2]. In contrast, the
+dense distinct queries from DDQ R-CNN have addressed
+the above issues, and hence the number of iterative refine-
+ments can be significantly reduced. We also report the re-
+sults when we change the number of queries and refinement
+heads of DDQ R-CNN in the supplementary material.
+4.4. DDQ DETR
+We construct DDQ DETR based on Deformable
+DETR* . As shown in Fig. 3. (c), We follow Two-Stage
+Deformable DETR [38] to process dense queries. Instead
+of initializing the content part with transformed coordinates,
+we fuse the feature map embedding of distinct positions as
+the content part, which makes the initial queries more dis-
+tinct. A class-agnostic NMS with a threshold of 0.8 is set to
+select distinct queries before each refining stage. To com-
+pare with recent DETRs, we keep the original 6 refining
+stages and select K distinct queries for the refining stages.
+We also select the top 1.5 K queries directly according to
+classification scores as dense queries for the auxiliary head
+in the decoder. The parallel forward of dense queries and
+distinct queries follows the H-DeformableDETR [11] and
+Group DETR [4]. We set K to 900, following DINO [33].
+5. Experiments
+In this section, we first introduce two standard bench-
+marks MS COCO [18] and CrowdHuman [23]. Then we
+introduce the setting of training and inference on both
+datasets. We also present three examples to show how end-
+to-end detectors with different architectures evolve to our
+DDQ step by step. At last, we compare DDQ with state-
+of-the-art conventional detectors and recent end-to-end de-
+tectors on MS COCO and CrowdHuman, which show that
+DDQ blends the advantages of two design paradigms. The
+latency of current popular models and DDQ is compared in
+our supplementary material.
+5.1. Datasets
+MS COCO 2017 [18] detection dataset is mainly used for
+comparison and ablation studies. It contains 118k training,
+5k validation images, and 20k test images without annota-
+tions. There are on average 7 instances per image in this
+dataset. We report bounding box mean average precision
+(AP) as the performance metric, which is the mean average
+precision over multiple thresholds. If not specified, AP on
+the validation set is set as default.
+Besides, we also report the performance on the Crowd-
+Human dataset [23], which has 15k training images and
+4.4k validation images with around 23 heavily occluded in-
+stances per image. For evaluation, we use AP, mMR, and
+Recall as the metrics. mMR means the average log miss
+rate over false positives per image ranging in
+
+10−2, 100
+following the official report [23]. A lower value of mMR
+means a better quality of high-scoring bounding boxes. All
+evaluation results are reported on the CrowdHuman valida-
+tion subset.
+* indicates it is an improved version based on techniques in
+DINO [33]. Details can be found in our supplementary material
+5

@@ -1,0 +1,43 @@
+8 Senthivel and Vu
+To address the lack of metrics for evaluating query usefulness, we propose in-
+corporating routers to dynamically filter redundant or uninformative queries,
+improving efficiency and performance.
+Scatter Layer
+Gather Layer
+Cross-AttentionFeed Forward
+Router
+Indexes
+Self-Attention
+(a) EEQR SA
+Scatter Layer
+Self-Attention
+Cross-AttentionFeed Forward
+Router
+Gather Layer
+Indexes (b) EEQR CA
+Router
+Scatter Layer
+Gather Layer
+Self-AttentionCross-Attention
+Feed Forward
+Indexes (c) EEQR F
+Fig. 3: Entry-Exit Query Routing mechanism for redirecting queries in Transformer
+decoder. (a) EEQRSA bypasses the SA layer. (b)EEQRCA bypasses the CA layer. (c)
+EEQRF skips the entire decoder layer. Bypassed layers are highlighted in white.
+4.1 Three Components of Entry Exit Query Routing (EEQR) Module
+Our algorithm can be seamlessly integrated into various DETR-based architec-
+tures. It employs a routing mechanism through strategically chosen layers and
+encapsulates any decoder stack within the DETR decoder.
+a. Router layercomputes a routing score for each query to determine whether
+it should be propagated to the subsequent layer. Our gating mechanism first
+computes this routing score to decide whether an object query passes through a
+layer. We accomplish this by projecting the object queries into a 2D space using
+a learnable projection matrixWR ∈ Rd×2:
+score = Linear(Q) = QWR ∈ RNq×2 (5)
+This matrix is the only additional parameters we introduce into DETR-based
+models. The score values are binarized to identify the indices of queries that
+should bypass or pass through a given transformer layer:
+σEE = max(sigmoid(score)) ∈ RNq (6)
+Consequently, σEE, where ‘EE’ stands for ‘entry exit’, is partitioned into two
+disjoint subsets. We denoteσs and σp as the disjoint subsets ofσEE, where σs
+361

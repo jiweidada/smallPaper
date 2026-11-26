@@ -1,0 +1,77 @@
+A28 新架构原文对照与参考保持状态更新候选
+记录时间：2026-10-31T00:28:18.859467+00:00
+
+当前结论：继续寻找主线，尚未达到可正式定题的证据要求。本轮形成新的编码器候选P：“变分辨率航拍检测中的选择性状态更新校准”。它有明确的原生代码入口、可计算的增量草案和适用限制；没有证实真实航拍缺陷、检测收益或新颖性。O的单向查询隔离增量继续不晋级；N仍未验证，原A22保持终止。
+
+1. 检索策略与记录
+本轮定向检索44条查询、11批，先查完整方法，再核对官方代码和单卡条件。不是系统综述，也不能以未检索到完全同名方法证明首创。核心矩阵由82增至92篇：新增8份原始PDF及2条仅片段/摘要记录；固定3个作者仓库，核验23个源文件Git blob。全文检索记录见 C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A28_新架构原文与算子筛查_v1\search_strategy_and_log.json。
+只依赖原作者/会议/出版商/arXiv技术证据；论文列表和博客仅帮助发现来源。早期三批的完整返回留于对话工具记录，后八批及相关主来源返回已保存JSON，不能声称导出了全部原始检索返回。
+
+2. 核心文献矩阵与最近工作对比
+MI-DETR已提出独立参数的并行多次询问、UFI深浅编码层连接与Lite-MI共享自注意力。其表6已有相近参数/计算量的串行层数对照，所以“多读几次”“共享自注意力”“补同预算对照”都不能直接立为新贡献。
+AugDETR已按query特征对多个编码深度生成融合权重，排除仅把固定深度配对改成自适应门控的首创说法。Le-DETR（CVPR2026 Findings）已研究EfficientNAT、局部注意力及较低预训练成本；其COCO结果不是本研究的单卡或航拍验证。
+VBased仅取得原始投稿的索引片段，已提到DeltaNet与局部注意力组合；mHC-DEIM仅读SSRN作者摘要，已报告mHC移植DEIM。没有把两篇记为全文阅读或已验证完整实现。
+S4ND已做二维SSM分辨率适配，DF-Mamba已设计选择性步长随递归尺度变化，Mamba-3已分析并改进状态输入离散化。分辨率不变、缩放步长、高阶积分或换上现成Mamba都不是本候选的首创点。
+表格ICL论文指出DeltaNet的长度/状态漂移并给出写入率衰减，但那是其他任务的原文证据；不能视为无人机或VSSD已经存在同一缺陷。
+
+3. 可继续核查的问题与证据边界
+[原文/源码] VMamba的所选官方配置 vssm1_tiny_0230s / v05_noz 使用每通道1维状态。参考函数先加delta_bias并softplus，然后采用 h'=exp(delta*A)h+delta*B*u，输出含原始D*u。论文附录明确把输入项称为一阶近似；这是已说明的模型设计，不是本轮发现的代码错误。源码commit：2ed52ead062a51a64521ed3871d52914bf532876。
+[我的推断] 若推理网格改变，应区分状态保留与新信息写入的共同适配。直接把delta乘一个比例，未必保持原模型在参考网格上学得的离散更新行为。
+[待验证假设] 这种更新尺度差异是否在真实高分辨率航拍检测中产生额外小目标损失；参考保持的联合校准能否在同分辨率、同权重和同输出预算下改善AP，而非仅改变分数或放大特征。
+没有把上述假设当作已确证研究空白。二维扫描顺序、真实新增细节、卷积、padding、位置和检测头都可能造成跨分辨率变化；公式不能自动排除这些解释。VSSD的非因果KV聚合没有相同顺序beta更新，P不能沿用N的训练或把表格机制直接套上去。
+
+4. 算法增量草案、可行性与风险
+把原生单状态更新写成 h'=exp(a)h+b，其中a=delta*A，b=delta*B*u。对参考与当前网格比例rho，草案为：
+  a_rho=rho*a
+  b_rho=expm1(rho*a)/expm1(a)*b
+a趋零时该比值取rho；rho=1直接走原生分支。rho暂拟每阶段N_reference/N_current，只是待验证的网格面积/扫描进度策略，不宣称等于真实二维物理规律。
+这属于经典仿射流/SSM重离散化，公式本身不作为新数学贡献。唯一可能的增量是面向既有近似选择性扫描checkpoint的参考保持推理校准策略；它也可能与既有方法等价，仍需排查。
+在state_dim1时，可将 g=expm1(rho*a)/(rho*expm1(a)) 折入每通道u，并使用rho*delta，将原始D*u保留在扫描外，可能复用现有内核。高维状态一般需要不同状态极点的不同增益，不能直接声称同一快速实现成立。完整native/CUDA接入、dtype和梯度均未核验，未改作者代码，也未运行模型。
+单卡约24GB可先承担小张量原生函数核验；正式检测host、预训练权重和训练耗时还没确定。MI-DETR默认900queries、6/6层、4inquiries、batch16及多卡启动，不是已证明能在本机原配方训练的依据。更换现成骨干本身仅作对照，不列为创新。
+
+5. 本轮完成的验证
+冻结后运行1000组合成仿射系数，细分2/4/8/16倍的参考保持更新相对原更新最大绝对误差为4.440892098500626e-15，参考步长下系数逐位保持，单状态输入折叠最大误差为1.7763568394002505e-15。另用几何级数闭式重新核验；高维不同极点需要不同增益的反例已保留。
+这只验证“细分块内系数相同”的条件代数性质，不是任意二维图像不变性、原生预训练模型前向一致、检测AP或训练可行性的证明；不是新定理或新颖性证据。本轮真实模型/扫描函数调用0、真实图像任务评价0、优化器更新0、GPU调用0。
+
+6. 最小后续方案（草案，当前分配0）
+先核查P是否已被已有参考保持校准/SSM重离散化方法覆盖。若仍有具体差异，再冻结最多24次原生CPU扫描组件调用：4个合成fixture，每个比较原生、rho1旁路、2倍朴素/联合细分、4倍朴素/联合细分。重点核对softplus顺序、原始D*u、输出dtype与有限性；rho1全返回张量必须逐位一致，块常系数细分才检查端点近似一致。它不需要新训练或真实图像。
+组件通过后才验证可严格加载的Tiny权重、VisDrone检测host与单卡峰值显存/耗时，之后才决定是否训练新的有限基线。正式任务以VisDrone为主候选；检测host及独立复验数据集尚未冻结，YOLO26s可保留作常规参照，不把换骨干写成创新。新host的类别映射和输出数必须重新核对，不能直接套A27的12类后处理。
+任务验证必须在相同输入分辨率下配对比较同一checkpoint，包含原生、只改步长、直接ZOH、参考保持校准及简单幅度控制，排除放大输入本身的收益。先审计既有图像使用清单，再选新的预测盲开发样本；完整验证集、额外seed/独立航拍数据是后续确认条件。统计门槛和停止条件在看结果前冻结。
+优先核查P：参考保持的选择性状态更新校准。先排除其是否只是已有SSM重离散化/仿射流的同一应用，再冻结最多24次原生CPU扫描函数的合成接入核验；当前分配0。通过后才查完整checkpoint、VisDrone检测host和单卡资源，再决定任务试验。O当前增量不晋级，N不自动升主线，A22不重启。
+
+7. 可核验参考文献与阅读范围
+MI_DETR: MI-DETR: An Object Detection Model with Multi-time Inquiries Mechanism
+  https://openaccess.thecvf.com/content/CVPR2025/papers/Nan_MI-DETR_An_Object_Detection_Model_with_Multi-time_Inquiries_Mechanism_CVPR_2025_paper.pdf
+  阅读范围：Complete3.1-3.4 and4.4;selected4.1-4.3/tables1,2,5,6. Figure3/Eq1-5 visually checked onPDFpage4. Author decoder/configuration/core branches statically inspected;not all experiments or reproduced models.
+AugDETR: AugDETR: Improving Multi-scale Learning for Detection Transformer
+  https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/03484.pdf
+  阅读范围：Complete3.1-3.3 and selected main-result table;not all ablations,appendices or code. Eq5 read in primary full text.
+Le_DETR: Revisiting Real-Time Detection Transformer with Efficient Encoder Design
+  https://openaccess.thecvf.com/content/CVPR2026F/papers/Huang_Revisiting_Real-Time_Detection_Transformer_with_Efficient_Encoder_Design_CVPRF_2026_paper.pdf
+  阅读范围：Complete3.1-3.5,selected4.1/tables1,3,4. Not full experimental audit or appendix. No verified complete author-code/weight release in this search.
+VBased: VBased: Revisiting Architectural Design for Simple Linear Attention Models in Vision
+  https://openreview.net/pdf?id=bMDc1wMkNe
+  阅读范围：Indexed primary abstract/introduction and1.2-1.3 fragments only. Official PDF fetch403/challenge;no full-text reading,code or experiments.
+mHC_DEIM: mHC-DEIM: Object Detection for Shelf Scenes under Dense Arrangement, Multi-Angle Inclination and Low-Illumination
+  https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6557880
+  阅读范围：Author abstract in indexed primary listing only. Full40-page document not retrieved/read;direct page403.
+DF_Mamba: Dynamic Fractal Mamba: A Neural Renormalization Group Flow for Scale-Invariant Sequence Modeling
+  https://proceedings.mlr.press/v306/fang26p.html
+  阅读范围：Complete3.1-3.4;selectedAppendixA.14-A.15. Figure1/Eq3,5 visually checkedPDFpage3. Not all theory,experiments or author code.
+Tabular_Length_Drift: Adapting Linear-Time Architectures for Tabular In-Context Learning
+  https://arxiv.org/abs/2609.36337v1
+  阅读范围：Complete4.4/5;selected4.1/4.3;Figure3 and recurrence visually checkedPDFpage8. Selected native beta-decay helper and configuration inspected;not whole appendix/training/reproduction.
+S4ND: S4ND: Modeling Images and Videos as Multidimensional Signals Using State Spaces
+  https://arxiv.org/abs/2210.06583v1
+  阅读范围：Sec3,selected4.1,4.2 and selected5.3. PDFpage5 visually checked for multidimensional construction and resolution-dependent step. Not whole paper or code.
+VMamba: VMamba: Visual State Space Model
+  https://arxiv.org/abs/2401.10166v4
+  阅读范围：Abstract,Sec3 andAppendixA,selectedFig2 scan diagram. Official reference scan,SS2Dv2 forwarding and one active Tiny config statically inspected. Not full empirical paper or trained-model reproduction.
+Mamba3: Mamba-3: Improved Sequence Modeling using State Space Principles
+  https://proceedings.iclr.cc/paper_files/paper/2026/hash/8abd2043b71a074278d5f687947bff9c-Abstract-Conference.html
+  阅读范围：Sec2.2,complete3.1 through remarks andAppendixB.1. Other innovations,full experiments and kernels not fully read/reproduced.
+
+方法草案：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A28_新架构原文与算子筛查_v1\P_method_draft.json
+最小验证草案：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A28_新架构原文与算子筛查_v1\minimal_validation_DRAFT.json
+来源与合成核验：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A28_新架构原文与算子筛查_v1\source_and_algebra_verification.json
+本轮不是主线完成声明，也没有启动任何下一组实验。整体目标保持active。

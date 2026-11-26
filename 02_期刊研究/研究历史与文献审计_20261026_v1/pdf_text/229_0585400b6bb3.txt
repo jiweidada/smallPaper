@@ -1,0 +1,202 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+Oriented Tiny Object Detection: A Dataset,
+Benchmark, and Dynamic Unbiased Learning
+Chang Xu ∗, Ruixiang Zhang ∗, Wen Yang†, Haoran Zhu, Fang Xu, Jian Ding, Gui-Song Xia
+Abstract—Detecting oriented tiny objects, which are limited in
+appearance information yet prevalent in real-world applications,
+remains an intricate and under-explored problem. To address
+this, we systemically introduce a new dataset, benchmark, and
+a dynamic coarse-to-fine learning scheme in this study. Our
+proposed dataset, AI-TOD-R, features the smallest object sizes
+among all oriented object detection datasets. Based on AI-
+TOD-R, we present a benchmark spanning a broad range of
+detection paradigms, including both fully-supervised and label-
+efficient approaches. Through investigation, we identify a learn-
+ing bias presents across various learning pipelines: confident
+objects become increasingly confident, while vulnerable oriented
+tiny objects are further marginalized, hindering their detection
+performance. To mitigate this issue, we propose a Dynamic
+Coarse-to-Fine Learning (DCFL) scheme to achieve unbiased
+learning. DCFL dynamically updates prior positions to better
+align with the limited areas of oriented tiny objects, and it
+assigns samples in a way that balances both quantity and
+quality across different object shapes, thus mitigating biases
+in prior settings and sample selection. Extensive experiments
+across eight challenging object detection datasets demonstrate
+that DCFL achieves state-of-the-art accuracy, high efficiency, and
+remarkable versatility. The dataset, benchmark, and code are
+available at https://chasel-tsui.github.io/AI-TOD-R/.
+Index Terms—Object detection, Dataset and benchmark, Un-
+biased learning
+I. I NTRODUCTION
+W
+HEN observations approach the physical limit of a
+camera’s properties (e.g., focal length and resolution),
+the captured images will inevitably contain objects at ex-
+tremely tiny scales. This situation, though extreme, is prevalent
+in real-world applications ranging from micro-vision ( e.g.,
+medical and cell imaging [1]) to macro-vision ( e.g., drone
+and satellite imaging [2], [3]). In these professional domains,
+imaging typically adopts an overhead perspective to more
+accurately capture the primary features of the objects, resulting
+in them appearing in arbitrary orientations.
+Detecting arbitrarily oriented tiny objects is a fundamental
+yet highly challenging step towards achieving an intelligent
+understanding of these scenarios. Meanwhile, numerous risk-
+sensitive applications demand the precise and robust detec-
+tion of tiny objects with orientation information, to name a
+* Equal contribution, † Corresponding author.
+C. Xu, R. Zhang, W. Yang, H. Zhu, and F. Xu are with the School of
+Electronic Information, Wuhan University, Wuhan, 430072 China. E-mail:
+{xuchangeis, zhangruixiang, yangwen, zhuhaoran, xufang }@whu.edu.cn
+J, Ding is with the King Abdullah University of Science and Technology.
+E-mail: jian.ding@kaust.edu.sa
+G-S. Xia is with the School of Computer Science and the State
+Key Lab. LIESMARS, Wuhan University, Wuhan, 430072, China. E-mail:
+guisong.xia@whu.edu.cn
+Fig. 1. This paper systemically introduces the challenging task of oriented
+tiny object detection, with the AI-TOD-R dataset, benchmark, and a dynamic
+coarse-to-fine learning pipeline. Upper: Typical annotation examples from AI-
+TOD-R and detection paradigms covered by this benchmark, where “L.”, “U.”,
+“S. L.”, and “C. L.” denote labelled, unlabelled, sparsely labelled, and coarsely
+labelled images, respectively. Lower: A comparison of learning paradigms
+for oriented object detection. Compared to prior arts (left), our proposed
+pipeline (right) mitigates the learning bias against oriented tiny objects with
+a dynamically updated prior and a coarse-to-fine sample learning scheme.
+few, traffic monitoring [4], border surveillance [5], medical
+diagnostics [1], and defect identification [6]. Unfortunately,
+previous studies mainly focus on detecting generic objects [7]
+or arbitrarily oriented objects [8]. When it comes to the more
+challenging task of detecting oriented tiny objects, existing
+methods often struggle to deliver satisfactory performance.
+Typically, 77% objects in DOTA-v2 [3] are in the size range
+of 102-502 pixels, while the State-Of-The-Art (SOTA) perfor-
+mance [9] is still lower than 30% AP@50:5:95. As a hard nut to
+crack in the community, what makes things worse is the lack
+of task-specific datasets and benchmarks designed to prompt
+the development of detection methods. So far, there is only one
+recently released dataset (SODA-A) [10] tailored to relevant
+study, while its research focus mainly lies on small-scale rather
+than tiny-scale objects 1.
+Taking a step towards more severe challenges, this work
+1According to existing literature [11], [12], small and tiny objects are
+defined as objects smaller than 322 and 162 pixels, respectively
+arXiv:2412.11582v1  [cs.CV]  16 Dec 2024
+
+---PAGE---
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+systemically explores the oriented tiny object detection prob-
+lem from perspectives of dataset, benchmark, and method.
+A visual summary of this work is presented in Figure 1.
+To further push the boundaries of oriented object detection
+for extremely tiny objects, we contribute a new dataset
+dedicated to oriented tiny object detection, named AI-TOD-
+R (Section III). With a mean object size of only 10.6 2 pixels,
+AI-TOD-R is the dataset of the smallest object size for oriented
+object detection. This challenging dataset is established using
+a semi-automatic annotation process via supplementing AI-
+TOD-v2 [13] with orientation information and ensuring high
+annotation quality. Then, we benchmark diverse object
+detection paradigms with AI-TOD-R to investigate how
+different detection paradigms perform on oriented tiny ob-
+jects (Section IV). What distinguishes this benchmark from
+prior arts is that we break the fully-supervised paradigm and
+study both supervised and label-efficient methods, catering to
+broader and more practical applications. Our findings reveal
+that generic object detectors tend to exhibit abnormal results
+when confronted with extremely tiny objects. Notably, the
+learning bias appears invariably across various methods. The
+objects’ tiny size and low confidence characteristics make
+them easily suppressed or ignored during model training. The
+vanilla optimization process will inevitably pose them into
+significantly biased prior setting and biased sample learning
+dilemmas, severely impeding the performance of oriented tiny
+object detection (Section IV-D). To address this issue, we
+propose a new approach : Dynamic Coarse-to-Fine Learning
+(DCFL), aimed at providing unbiased prior setting and sample
+supervision for oriented tiny objects (Section V). On the
+one hand, we reformulate the static prior into an adaptively
+updating prior, thereby guiding more prior positions towards
+the main area of tiny objects. On the other hand, dynamic
+coarse-to-fine sample learning separates the label assignment
+into two steps: the coarse step offers diverse positive sample
+candidates for objects of various sizes and orientations, and
+the fine step warrants the high quality of positive samples for
+predictions.
+We perform experiments on eight heterogeneous bench-
+marks, including tiny/small oriented object detection (AI-
+TOD-R, SODA-A [10]), oriented object detection with large
+numbers of tiny objects (DOTA-v1.5 [3], DOTA-v2 [3]),
+multi-scale oriented object detection (DOTA-v1 [14], DIOR-
+R [15]), and horizontal object detection (VisDrone [2], MS
+COCO [11]). Our results demonstrate that DCFL remark-
+ably outperforms existing methods for detecting tiny objects
+(Section VI). Moreover, our results highlight three char-
+acteristics of DCFL: (1) Costless improvement : Extensive
+experiments on various datasets show that DCFL improves
+the detection performance without adding any parameter or
+computational overhead during inference. (2) Versatility: The
+DCFL approach can be plugged into both one-stage and two-
+stage detection pipelines and improve their performance on
+oriented tiny objects. Beyond oriented tiny objects, DCFL also
+enhances the detection performance of generic small objects.
+(3) Unbiased learning . By dissecting the training process,
+we reveal how DCFL achieves unbiased learning—adaptively
+updating priors to better align with tiny objects’ main areas,
+while balancing the quantity and quality of samples across
+different scales.
+Aiming at addressing the challenging task of oriented
+tiny object detection, this paper provides a comprehensive
+extension of our previous conference version [16]. Beyond
+methodological contributions published previously, this journal
+extension introduces several additional advancements:
+• Establishing a task-specific dataset for oriented tiny ob-
+ject detection, features the smallest object size among
+oriented object detection datasets, compensating for the
+lack of resources in this challenging area.
+• Creating a benchmark that covers a variety of object
+detection paradigms, including both fully-supervised and
+label-efficient methods, revealing learning biases against
+oriented tiny objects across these approaches.
+• Demonstrating the versatility of DCFL by plugging it into
+both one-stage and two-stage methods, and verifying its
+generalization ability on small oriented object detection
+by validating on SODA-A dataset.
+II. R ELATED WORKS
+A. Small and Oriented Object Detection Datasets
+Small and tiny object detection datasets. Due to the lack
+of specialized datasets, early studies on Small Object Detection
+(SOD) are mainly based on small objects in generic or some
+task-specific datasets. For example, the generic object detec-
+tion dataset MS COCO [11], face detection dataset Wider-
+Face [17], pedestrian detection dataset EuroCity Persons [18],
+and Drone-view dataset VisDrone [2] all contain a consider-
+able number of small objects that could assist related studies.
+As the SOD performance has been struggling for a long time,
+the establishment of specialized dataset for SOD is receiving
+growing attention. TinyPerson [19] is the first dataset designed
+for tiny-scale person detection. AI-TOD [12], [13] is the first
+multi-category dataset for tiny object detection. DTOD [20]
+compounds the challenge by addressing not only the tiny
+size of objects but also their dense packing. Recently, the
+introduction of the first large-scale SOD dataset SODA [10]
+along with its benchmark further highlights the necessity of
+targeted research on SOD.
+Oriented object detection datasets. Oriented object de-
+tection is an important direction of visual detection since
+orientation information significantly reduces the background
+region in bounding boxes with minimal additional parameters.
+The multi-scale datasets DOTA-v1/1.5/2 [3], [14] and DIOR-
+R [15] are widely adopted for performance benchmarking,
+where the DOTA-v2 is also characterized by its large number
+of small objects. In addition to these generic datasets, task-
+specific datasets are also introduced to dissect some targeted
+problems. For example, some datasets are established to
+study specific classes (e.g., HRSC2016 [21], UACS-AOD [22],
+VEDAI [23]), some are designed for the fine-grained object
+detection ( e.g., FAIR1M [24]), while some datasets are pro-
+posed for specific modalities ( e.g., SSDD [25]). Meanwhile,
+there are also datasets designed for other scenarios sensitive
+to the object’s orientation, including text [26], retail [27], and
+crack detection [28].

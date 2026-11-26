@@ -1,0 +1,203 @@
+Repulsion Loss: Detecting Pedestrians in a Crowd
+Xinlong Wang1∗ Tete Xiao2∗ Y uning Jiang3 Shuai Shao3 Jian Sun3 Chunhua Shen4
+1Tongji University
+1452405wxl@tongji.edu.cn
+2Peking University
+jasonhsiao97@pku.edu.cn
+3Megvii, Inc.
+jyn, shaoshuai, sunjian@megvii.com
+4The University of Adelaide
+chunhua.shen@adelaide.edu.au
+Abstract
+Detecting individual pedestrians in a crowd remains a
+challenging problem since the pedestrians often gather to-
+gether and occlude each other in real-world scenarios. In
+this paper , we ﬁrst explore how a state-of-the-art pedestrian
+detector is harmed by crowd occlusion via experimentation,
+providing insights into the crowd occlusion problem. Then,
+we propose a novel bounding box regression loss speciﬁ-
+cally designed for crowd scenes, termed repulsion loss. This
+loss is driven by two motivations: the attraction by target,
+and the repulsion by other surrounding objects. The repul-
+sion term prevents the proposal from shifting to surrounding
+objects thus leading to more crowd-robust localization. Our
+detector trained by repulsion loss outperforms the state-of-
+the-art methods with a signiﬁcant improvement in occlusion
+cases.
+1. Introduction
+Occlusion remains one of the most signiﬁcant challenges
+in object detection although great progress has been made
+in recent years [
+10, 9, 24, 19, 1, 20, 11, 3]. In general, occlu-
+sion can be divided into two groups: inter-class occlusion
+and intra-class occlusion. The former one occurs when an
+object is occluded by stuff or objects of other categories,
+while the latter one, also referred to as crowd occlusion ,
+occurs when an object is occluded by objects of the same
+category.
+In pedestrian detection [
+31, 14, 6, 5, 7, 21], crowd oc-
+clusion constitutes the majority of occlusion cases. The
+reason is that in application scenarios of pedestrian de-
+tection, e.g., video surveillance and autonomous driving,
+pedestrians often gather together and occlude each other.
+For instance, in the CityPersons dataset [
+33], there are a
+∗The work was done when Xinlong Wang and Tete Xiao were interns
+at Megvii, Inc.
+Target Groundtruth T
+Surrounding Groundtruth B
+Predicted Box (for the target)
+Repulsion Loss = Distattr(     ,     ) – Distrep(     ,     )
+Attraction Term Repulsion Term
+Figure 1. Illustration of our proposed repulsion loss. The repulsion
+loss consists of two parts: the attraction term to narrow the gap be-
+tween a proposal and its designated target, as well as the repulsion
+term to distance it from the surrounding non-target objects.
+total of 3, 157 pedestrian annotations in the validation sub-
+set, among which 48. 8% of them overlap with another an-
+notated pedestrian whose Intersection over Union (IoU) is
+above 0. 1. Moreover, 26. 4% of all pedestrians have con-
+siderable overlaps with another annotated pedestrian whose
+IoU is above 0. 3. The highly frequent crowd occlusion
+severely harms the performance of pedestrian detectors.
+The main impact of crowd occlusion is that it signif-
+icantly increases the difﬁculty in pedestrian localization.
+For example, when a target pedestrian T is overlapped by
+another pedestrian B, the detector is apt to get confused
+since these two pedestrians have similar appearance fea-
+tures. As a result, the predicted boxes which should have
+bounded T will probably shift to B, leading to inaccurate
+localization. Even worse, as the primary detection results
+are required to be further processed by non-maximum sup-
+pression (NMS), shifted bounding boxes originally from T
+may be suppressed by the predicted boxes of B, in which
+T turns into a missed detection. That is, crowd occlusion
+makes the detector sensitive to the threshold of NMS: a
+higher threshold brings in more false positives while a lower
+7774
+
+
+---PAGE---
+
+threshold leads to more missed detections. Such undesir-
+able behaviors can harm most instance segmentation frame-
+works [
+11, 18], since they also require accurate detection
+results. Therefore, how to robustly localize each individual
+person in crowd scenes is one of the most critical issues for
+pedestrian detectors.
+In state-of-the-art detection frameworks [
+9, 24, 3, 19],
+the bounding box regression technique is employed for ob-
+ject localization, in which a regressor is trained to narrow
+the gap between proposals and ground-truth boxes mea-
+sured by some kind of distance metrics ( e.g., SmoothL1
+or IoU). Nevertheless, existing methods only require the
+proposal to get close to its designated target, without tak-
+ing the surrounding objects into consideration. As shown
+in Figure
+1, in the standard bounding box regression loss,
+there is no additional penalty for the predicted box when
+it shifts to the surrounding objects. This observation makes
+one wonder whether the locations of its surrounding objects
+could be taken into account if we want to detect a target in
+a crowd?
+Inspired by the characteristics of a magnet, i.e., magnets
+attract and repel , in this paper we propose a novel local-
+ization technique, referred to as repulsion loss (RepLoss).
+With RepLoss, each proposal is required not only to ap-
+proach its designated target T , but also to keep away from
+the other ground-truth objects as well as the other propos-
+als whose designated targets are not T . In other words, the
+bounding box regressor with RepLoss is driven by two mo-
+tivations: attraction by the target and repulsion by other sur-
+rounding objects and proposals. For example, as demon-
+strated in Figure
+1, the red bounding box shifting to B
+will be given an additional penalty since it overlaps with a
+surrounding non-target object. Thus, RepLoss can prevent
+the predicted bounding box from shifting to adjacent over-
+lapped objects effectively, which makes the detector more
+robust to crowd scenes. Our main contributions are as fol-
+lows:
+• We ﬁrst experimentally study the impact of crowd oc-
+clusion on pedestrian detection. Speciﬁcally, on the
+CityPersons benchmark [
+33] we analyze both false
+positives and missed detections caused by crowd oc-
+clusion quantitatively, which provides important in-
+sights into the crowd occlusion problem.
+• Two types of repulsion losses are proposed to address
+the crowd occlusion problem, namely RepGT Loss and
+RepBox Loss. RepGT Loss directly penalizes the pre-
+dicted box for shifting to the other ground-truth ob-
+jects, while RepBox Loss requires each predicted box
+to keep away from the other predicted boxes with dif-
+ferent designated targets, making the detection results
+less sensitive to NMS.
+• With the proposed repulsion losses, a crowd-robust
+pedestrian detector is trained end-to-end, which out-
+performs all the state-of-the-art methods on both
+CityPerson and Caltech-USA benchmarks [
+7]. It
+should also be noted that the detector with repulsion
+loss signiﬁcantly improves the detection accuracy for
+occlusion cases, highlighting the effectiveness of re-
+pulsion loss. Furthermore, our experiments on the
+PASCAL VOC [
+8] detection dataset show that the Re-
+pLoss is also beneﬁcial for general object detection,
+besides pedestrians.
+2. Related Work
+Object Localization. With the recent development of
+convolutional neural networks (CNNs) [
+16, 26, 12], great
+progress has been made in object detection, in which ob-
+ject localization is generally framed as a regression prob-
+lem that relocates an initial proposal to its designated tar-
+get. In R-CNN [
+10], a linear regression model is trained
+with respect to the Euclidean distance of coordinates of a
+proposal and its target. In [
+9], the SmoothL1 Loss is pro-
+posed to replace the Euclidean distance used in R-CNN for
+bounding box regression. [
+24] proposes the region proposal
+network (RPN), in which bounding box regression is per-
+formed twice to transform predeﬁned anchors into ﬁnal de-
+tection boxes. Densebox [
+15] proposes an anchor-free, fully
+convolutional detection framework. IoU Loss is proposed
+in [
+29] to maximize the IoU between a ground-truth box and
+a predicted box. We note that a method proposed by Desai
+et al. [
+4] also exploits the attraction and repulsion between
+objects to capture the spatial arrangements of various object
+classes, still, it is to address the problem of object classiﬁca-
+tion via a global model. In this work, we will demonstrate
+the effectiveness of the Repulsion Loss for object localiza-
+tion in crowd scenes.
+Pedestrian Detection. Pedestrian detection is the ﬁrst and
+an critical step for many real-world applications. Tradi-
+tional pedestrian detectors, such as ACF [
+5], LDCF [22]
+and Checkerboard [32], exploit various ﬁlters on Inte-
+gral Channel Features ( IDF) [6] with sliding window strat-
+egy to localize each target. Recently, the CNN-based de-
+tectors [
+17, 30, 21, 14, 28] show great potential in dominat-
+ing the ﬁeld of pedestrian detection. In [ 28, 30], features
+from a Deep Neural Network rather than hand-crafted fea-
+tures are fed into a boosted decision forest. [
+21] proposes
+a multi-task trained network to further improve detection
+performance. Also in [
+23, 27, 34], a part-based model is
+utilized to handle occluded pedestrians. [ 13] works on im-
+proving the robustness of NMS, but it ends up relying on an
+additional network for post-processing. In fact, few of pre-
+vious works focus on studying and overcoming the impact
+of crowd occlusion.
+7775

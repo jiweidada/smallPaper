@@ -1,0 +1,111 @@
+Academic Editor: Nikolaos
+Mitianoudis
+Received: 19 August 2026
+Revised: 10 September 2026
+Accepted: 14 September 2026
+Published: 17 September 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+RIF-YOLO-N: Lightweight P3 Residual Identity Fusion with
+Resolution-Guided Fine-T uning for Tiny-Object Detection
+Mansoor Iqbal 1
+ , Balaj Khalid 2
+ , Syed Zarak Shah 3, Mishal Sarfraz 4, Khalid Munir 5 and Zahid Ullah 6,*
+1 Big Earth Data Analytics Department, Eratosthenes Center of Excellence, Limassol 3012, Cyprus
+2 Viterbi School of Engineering, University of Southern California, Los Angeles, CA 90007, USA
+3 Department of Computational Sciences & Engineering, Harrisburg University of Science & Technology,
+Harrisburg, PA 17101, USA
+4 Department of Electrical and Computer Engineering, Oregon State University, Corvallis, OR 97331, USA
+5 Department of Computer Science, University of Alabama at Birmingham, Birmingham, AL 35294, USA
+6 Dipartimento di Elettronica, Informazione e Bioingegneria, Politecnico di Milano, 20133 Milano, Italy
+* Correspondence: zahid.ullah@polimi.it
+Abstract
+Tiny-object detection remains challenging because repeated downsampling degrades the
+limited spatial information available for small targets. This paper proposes RIF-YOLO-
+N, a lightweight detector that strengthens the finest P3 pathway of YOLOv8n through
+residual identity fusion (RIF). RIF combines neck-level semantic features with backbone-
+level spatial features via an identity-safe residual mechanism, preserving the original
+anchor-free P3/P4/P5 detection hierarchy. Resolution-guided fine-tuning (RGFT) further
+adapts the detector to higher-resolution inputs without adding a new detection head. The
+framework is evaluated on VisDrone, UAVDT, and VEDAI. At1024 × 1024, RIF-YOLO-N
+with RGFT improves mAP 50:95 from 0.235 to 0.243 on VisDrone, from 0.519 to 0.543 on
+UAVDT, and from 0.252 to 0.419 on VEDAI. On VisDrone, mAP50 also increases from 0.401
+to 0.415, while model complexity rises only from 3.008M to 3.061M parameters and from 8.1
+to 8.8 GFLOPs. Size-stratified analysis shows improvements for both tiny and small objects,
+with the larger AP 50 gain observed for the small-object group. Ablation and resolution
+studies further support the selected P3 enhancement and show that RGFT performance
+depends on the chosen fine-tuning resolution. Overall, RIF-YOLO-N improves lightweight
+tiny-object detection without introducing an additional prediction scale or substantially
+redesigning the detector.
+Keywords: tiny-object detection; UAV imagery; RIF-YOLO-N; P3 feature enhancement;
+resolution-guided fine-tuning; lightweight object detection; tiny object detection
+1. Introduction
+Object detection is a fundamental computer vision task that supports localization
+and recognition in applications such as intelligent transportation, surveillance, robotics,
+remote sensing, and visual monitoring. Modern deep detectors have achieved strong
+performance by learning hierarchical feature representations from large-scale datasets [1–3].
+However, detection accuracy decreases when scenes contain large-scale variation, dense
+object distributions, occlusion, motion blur, complex backgrounds, and objects that occupy
+only a small fraction of the image [4,5].
+Tiny-object detection is a challenging problem due to the limited number of pixels
+on very small targets, weak texture, and poorly defined boundaries, which limit the dis-
+J. Imaging 2026, 12, 450 https://doi.org/10.3390/jimaging12090450
+
+---PAGE---
+
+J. Imaging 2026, 12, 450 2 of 40
+criminative information for classification and localization searching in tiny-object detection
+problems [6,7]. These objects can be suppressed further by repeated convolution and spatial
+downsampling layers, which will suppress the fine-grained information needed to repre-
+sent them [8]. The problem applies to multiple visual domains, including traffic monitoring,
+surveillance, remote sensing, and UAV imagery. The UAV datasets are challenging since
+objects are often far away, occluded, and have low contrast with complex backgrounds. The
+preservation and enhancement of fine-scale features are important for the reliable detection
+of tiny objects because of these characteristics.
+Recent studies address small- and tiny-object detection through several design strate-
+gies. Feature-pyramid enhancement and multi-scale feature fusion are widely used to
+preserve fine-scale information and strengthen cross-scale representations [9–11]. Related
+approaches improve multi-scale information interaction and feature aggregation for tiny
+targets [12]. Lightweight detector redesigns instead aim to improve small-object represen-
+tation while controlling computational complexity [13–15]. Other YOLO-based methods
+combine lightweight architectures with specialized enhancement or fusion mechanisms
+for efficient UAV tiny-object detection [16–18]. High-resolution prediction branches can
+preserve spatial information but often increase computational cost, while attention and
+feature-pyramid redesigns may modify several detector components simultaneously. Such
+changes can make it difficult to isolate the contribution of a specific feature-enhancement
+mechanism. Lightweight detectors face the opposite problem: reducing model complexity
+can weaken the spatial or semantic information needed for tiny-object localization. This mo-
+tivates a controlled feature-enhancement strategy that strengthens fine-scale representation
+without adding a new prediction scale or substantially redesigning the detector.
+This paper proposes RIF-YOLO-N, a lightweight framework for tiny-object detection
+based on controlled enhancement of the existing YOLOv8n P3 pathway. The proposed
+residual identity fusion (RIF) module combines the semantically enriched neck-level P3
+feature with the corresponding backbone-level spatial feature through an identity-safe
+residual mechanism. This design strengthens the finest existing detection pathway while
+preserving the original anchor-free P3/P4/P5 prediction hierarchy and the P4/P5 feature
+paths. Resolution-guided fine-tuning (RGFT) further adapts the enhanced representation to
+higher-resolution inputs without introducing an additional detection head. The resulting
+framework, therefore, targets improved tiny-object representation while maintaining a
+compact detector structure.
+The proposed framework is evaluated on VisDrone, UAVDT, and VEDAI to examine its
+behavior under different tiny-object distributions and resolution conditions. The evaluation
+includes a controlled comparison with YOLOv8n, resolution sensitivity analysis, size-
+stratified and class-wise evaluation, detection diagnostics, component ablation, architecture
+selection experiments, computational analysis, and comparison with representative existing
+detectors. On VisDrone at 1024 × 1024, RIF-YOLO-N improves mAP 50 from 0.401 to
+0.415 and mAP50:95 from 0.235 to 0.243, while increasing the model size from 3.008M to
+3.061M parameters and the computational cost from 8.1 to 8.8 GFLOPs. The detailed
+analyses show that the gains are concentrated mainly in tiny and small objects, while the
+cross-dataset results indicate that the effect of input resolution varies across datasets and
+evaluation metrics.
+The main contributions of this paper are as follows:
+• This study formulates lightweight tiny-object detection as a constrained fine-scale
+feature-representation problem, where the objective is to strengthen the spatially sen-
+sitive P3 representation while preserving the original P3/P4/P5 prediction hierarchy
+and limiting additional computational cost.
+https://doi.org/10.3390/jimaging12090450

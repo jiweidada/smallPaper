@@ -1,0 +1,15 @@
+本文件是第4轮提交之后主助手补查；尚未送入专家，下一轮送入。只读源码/论文，没有执行模型。
+
+代码：英文小论文/code/p2_candidate_seed1_full132_20261007_v1/engine/deim/deim_criterion.py loss_local第337–385行。
+358–360行：用indices取得assigned target_boxes，计算该query预测框与所分配GT的IoU。
+371–373行：DDF正负mask只由选中query集合决定。
+375行：DDF的选中query权重weight_targets_local[idx]被替换为上述IoU。
+381–385行：DDF正负组尺度取mask数量，分别均值再混合。
+所以即使重分配保持原query集合S、pair数K、num_boxes_go不变，DDF正负mask和组尺度不变，DDF的逐query IoU权重仍会随GT身份改变。“DDF完全不变”不能由S/K不变推出。若研究主张只干预boxes/FGL的GT覆盖，需在隔离实现里显式让DDF继续取原生union的GT/IoU/掩码，或者把DDF耦合效应列为单独待区分变量；不能只说DN和teacher没改就当全损失隔离。
+
+数学推论（未执行代码，不是新实验）：当N<=Q，各层匹配包含一个覆盖全GT的injective Hungarian，候选边E为这些匹配的并集，S为至少有一条边的query集合、K=|S|，则存在每q in S恰好一条边、每GT至少一条边、pair总数仍K的解。取其中一个完整Hungarian，再给剩余S上的query任取一条已有边即可。这里所谓保覆盖约束是普通受限二部图分配/流问题，不是新优化数学；不能将已有求解器叫创新。N>Q不在该保证中。
+
+追加近邻：
+P26 H-DETR / DETRs with Hybrid Matching，arxiv2207.13080v3，2023。官方作者PDF https://www.microsoft.com/en-us/research/uploads/prod/2023/06/DETRs-with-Hybrid-Matching.pdf ，web读取PDF3–5页§3.2：训练期混合O2O/O2M，额外query分支/按轮/按层的方案都已列出，复制GT+Hungarian不是新算法。微软源urllib下载403已记录，web原PDF14页可读，不称本地下载成功。
+P27 Unbalanced Optimal Transport: A Unified Framework for Object Detection，CVPR2023。https://openaccess.thecvf.com/content/CVPR2023/papers/De_Plaen_Unbalanced_Optimal_Transport_A_Unified_Framework_for_Object_Detection_CVPR_2023_paper.pdf 。本地已下载10页并提取，SHA fefb427f29275950b3bce55ba3f721727d6681ff09df0c60064d4f183845fd43。已读PDF2–5页§1.1/2.1–2.3：预测→最近GT会留下未覆盖GT的取舍、GT→预测及Hungarian极限情况、OT marginals及UOT软约束已有系统讨论。“从局部择一转为全局覆盖约束”作为抽象数学想法并非新颖；需要具体跨层频次合并问题的实证/可检验预测，而非claim新transport。
+P28 Beyond Hungarian: Match-Free Supervision for End-to-End Object Detection，arxiv2603.08514v1。https://arxiv.org/html/2603.08514v1 §3.2–3.4：GT跨注意力probe生成对应、双向筛选与稀疏化、每GT权重归一。已有本地91号PDF。本次只读方法段，不将其报告的速度/精度作为已复现事实。“每GT质量归一/稀疏query选择”也不能直接称创新。

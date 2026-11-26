@@ -1,0 +1,46 @@
+Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS 7
+This helps achieves a consistent optimization in both tasks. Given predicted bounding box
+bi and GT box ˆbi , our regression loss is defined as follows:
+Lreg =
+Npos
+∑
+i
+e(−ri/τ) · (Ll1(bi, ˆbi) +LGIoU (bi, ˆbi)) (6)
+Ultimately, our loss is defined as:
+L =
+L−1
+∑
+l=1
+Ltask (Pl, G(k)) +Ltask (P, G), (7)
+where Ltask is a weighted combination of classification loss Lcls and Lreg [1], G(k) is an
+augmented version of GT by copying k times and L is the total number of decoder layers.
+In summary, the Align-DETR introduces an Align Loss along with a matching strategy
+to solve the misalignment issue for higher precision on localization of DETR. Without loss
+of generality, our method can be integrated into any DETR-like architecture.
+4 Experiments
+4.1 Setup
+Datasets. We conduct all our experiments on MS-COCO 2017 [23] Detection Track and
+report our results with the mean average precision metric on the validation dataset.
+Implementation details. We use DINO [45] as the baseline method, along with their
+default hyper-parameter settings. The DINO baseline adopts deformable-transformer [54]
+and multi-scale features as inputs. For the hyper-parameters introduced in Align-DETR, we
+set k = 4, α = 0.25, and τ = 1.5. To ensure a fair comparison with recent methods [13, 26,
+45], we train Align-DETR for 1 × and 2× schedules. We implement our methods with the
+help of open-source library detrex [34]. To optimize the model, we set the initial learning
+rate to 1×10−4 and decay it by multiplying 0.1 for backbone learning. We use AdamW [28]
+as the optimizer with 1× 10−4 weight decay and set batch size to 16 for all our experiments.
+4.2 Main Results
+We conduct experiments using DINO [45] andH-DETR [14] as the baselines, which adopts
+the deformable-transformer as the backbone. DINO uses tricks such as CDN, look forward-
+twice, and bounding box refinement for better performance. We follow DINO’s approach
+and adopt its tricks. Regarding to backbone, we use an Resnet-50 (R-50) [11] backbone with
+4-scale features (P3, P4, P5, and P6) as input.
+The results are presented in Tab. 1 and Tab. 2. Despite the highly optimized structure of
+DINO [45], our method still outperforms it by 1.5% and 1.3% AP in 1 × and 2× schedules,
+respectively. This indicates that even the advanced DETR-variant can be affected by the
+misalignment problem. Then we compare Align-DETR to two recent state-of-the-art meth-
+ods, DAC-DETR [13] and Stable-DINO [26], and find that Align-DETR achieves higher
+AP while using fewer tricks such as memory fusion, demonstrating its superior effective-
+ness. It’s noteworthy that Align-DETR exhibits highly competitive performance, particu-
+larly in detecting small objects. In this domain, it surpasses Stable-DINO by 1.8% in terms
+of AP, indicating that small objects are more susceptible to the misalignment issue. This

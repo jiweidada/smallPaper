@@ -1,0 +1,155 @@
+4.3. Remarks
+The Gnet is fundamentally different than GreedyNMS in
+the sense that all features are updated concurrently, while
+GreedyNMS operates sequentially. Since Gnet does not
+have access to GreedyNMS decisions (unlike [
+13]), it is sur-
+prising how close performance of the two algorithms turns
+out to be in section
+5. Since we build a potentially big net-
+work by stacking many blocks, the Gnet might require large
+amounts of training data. In the experiments we deliberately
+choose a setting with many training examples.
+The Gnet is a pure NMS network in the sense that it has
+no access to image features and operates solely on detec-
+tions (box coordinates and a conﬁdence). This means the
+Gnet cannot be interpreted as extra layers to the detector.
+The fact that it is a neural network and that it is possible to
+feed in a feature vector (from the image or the detector) into
+the ﬁrst block makes it particularly suitable for combining
+it with a detector, which we leave for future work.
+The goal is to jointly rescore all detections on an im-
+age. By allowing detections to look at their neighbours and
+update their own representation, we enable conditional de-
+pendence between detections. Together with the loss that
+encourages exactly one detection per object, we have sat-
+isﬁed both conditions from section
+3. We will see in sec-
+tion 5 that the performance is relatively robust to parameter
+changes and works increasingly well for increasing depth.
+5. Experiments
+In this section we experimentally evaluate the proposed
+architecture on the PETS and COCO dataset. We report
+results for persons, and as well for the multi-class case.
+Person category is by far the largest class on COCO, and
+provides both crowded images and images with single per-
+sons. Other than overall results, we also report separately
+high and low occlusion cases. We are interested in perfor-
+mance under occlusion, since this is the case in which non-
+maximum suppression (NMS) is hard. All-in-all we show
+a consistent improvement over of GreedyNMS, conﬁrming
+the potential of our approach.
+All results are measured in average precision (AP),
+which is the area under the recall-precision curve. The
+overlap criterion (for matching detections to objects) is tra-
+ditionally 0.5 IoU (as for Pascal VOC, noted as AP 0.5).
+COCO also uses stricter criteria to encourage better locali-
+sation quality, one such metric averages AP evaluated over
+several overlap criteria in the range [0.5, 0.95] in 0.05 incre-
+ments, which we denote by AP 0.95
+0.5 .
+5.1. PETS: Pedestrian detection in crowds
+Dataset. PETS [
+8] is a dataset consisting of several
+crowded sequences. It was used in [ 13] as a roughly sin-
+gle scale pedestrian detection dataset with diverse levels
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+81.4 Gnet
+80.7 Strong Tnet
+55.0 GreedyNMS > 0.0
+66.0 GreedyNMS > 0.1
+71.4 GreedyNMS > 0.2
+75.0 GreedyNMS > 0.3
+76.6 GreedyNMS > 0.4
+73.4 GreedyNMS > 0.5
+64.8 GreedyNMS > 0.6
+Figure 4: Performance on the PETS test set.
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+occlusion range [0.0,0.5)
+81.9 Gnet
+81.5 Strong Tnet
+57.1 GreedyNMS > 0.0
+68.2 GreedyNMS > 0.1
+73.9 GreedyNMS > 0.2
+77.3 GreedyNMS > 0.3
+78.1 GreedyNMS > 0.4
+74.2 GreedyNMS > 0.5
+65.0 GreedyNMS > 0.6
+0.0
+ 0.2
+ 0.4
+ 0.6
+ 0.8
+ 1.0
+recall
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+precision
+occlusion range [0.5,1.0)
+28.7
+28.4
+14.3
+20.0
+21.4
+21.2
+20.6
+17.2
+11.2
+Figure 5: Performance on the PETS test set for different
+occlusion ranges.
+of occlusion. Even though we aim for a larger and more
+challenging dataset we ﬁrst analyse our method in the setup
+proposed in [
+13]. We use the same training and test set as
+well as the same detections from [ 28], a model built specif-
+ically to handle occlusions. We reduce the number of de-
+tections with an initial GreedyNMS of 0.8 so we can ﬁt the
+joint rescoring of all detections into one GPU. (Note that
+these detections alone lead to bad results, worse than “Gree-
+dyNMS > 0.6” in
+4, and this is very different to having input
+of GreedyNMS of 0.5 as an input like in [ 13]).
+Training. We train a model with 8 blocks and a 128 di-
+mensional detection representation for 30k iterations, start-
+ing with a learning rate of 10−3 and decrease it by 0.1 every
+10k iterations.
+Baselines. We compare to the (typically used) classic
+GreedyNMS algorithm using several different overlap
+thresholds, and the Strong Tnet from [
+13]. Since all meth-
+ods operate on the same detections, the results are fully
+comparable.
+Analysis. Figure
+4 compares our method with the Gree-
+dyNMS baseline and the Tnet on the PETS test set. Start-
+4512

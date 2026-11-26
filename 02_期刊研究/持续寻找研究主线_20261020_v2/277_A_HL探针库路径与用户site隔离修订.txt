@@ -1,0 +1,24 @@
+277｜H/L像素探针库路径与用户site隔离修订
+2026-10-21。执行环境修正；科学公式、固定名单、生成/评分、读出、统计单位与解释边界全部沿用267/268，不改旧文件、不改变研究问题。仅运行新脚本合成，不读取真实数据。
+
+根因与保留
+268命令未使用-s，Python用户site的NumPy2.5.3抢先于D:/Anaconda/Lib/site-packages/numpy。旧269_natural_HL_synthetic.json如实保留该环境的合成通过记录，SHA6960742c7ed7f056c3b759deff8e4ce222b1cdacfeb9644a6a8728dafc3eacd5；不覆盖、不撤换、不据此宣称真实数据结果。
+旧268 SHA4342c54fed81476393897522d4f7d50b8ccbaf6c92d25694d869f937354bcbd4，旧267 SHA9c40a1339bdcb1f63a2874b948b360717889b3673299496eead9e76eebe06983。267中针对268的NumPy2.5.3说明保留为历史；新278由本修订明确改为关闭用户site后的NumPy1.26.4。
+
+278精确变更范围
+以268复制，不重新实现任何方法。除新脚本/协议/输出编号外，代码仅：
+1. NumPy版本锁2.5.3→1.26.4。
+2. runtime入口要求sys.flags.no_user_site==1，缺-s即退出。
+3. resources新增numpy_file=np.__file__和no_user_site记录，以实际导入位置为证。
+torch2.5.1+cpu、torchvision0.20.1+cpu、Pillow10.4.0、CPU2/interop1/affinity[13,15]/BelowNormal/RAM>8GiB约束均不变。不安装/修改任何库。
+sample_bilinear、grid、views、patches、readout、aggregate_gt、aggregate_images、synthetic、select_panel等方法体不变；固定development16图、最多64 tinyGT、四个±2偏移、H/L/Hdegraded、同O4/16²、按图聚合及无自动GO全部不变。新方法文件名278_natural_development_HL_pixel_probe_isolated.py。
+
+实际命令口径
+合成（作者本轮唯一执行模式）：
+  & 'D:\Anaconda\python.exe' -s -X utf8 -B '<V2>\278_natural_development_HL_pixel_probe_isolated.py' --synthetic-only
+输出279_synthetic.json，已存在则拒绝覆盖；要求真实图像/hash/标注/plan/CP/模型/forward/update等计数均0。合成通过仍不是H优于L的结果。
+
+真实（留给主控审后调用，作者不执行）：
+  & 'D:\Anaconda\python.exe' -s -X utf8 -B '<V2>\278_natural_development_HL_pixel_probe_isolated.py' --real-images
+新建279_natural_development_HL_pixel_probe目录。后续仍逐图SHA、每参与图只解码一次，输出源路径/版本/指纹；不覆盖旧269或旧结果。使用UTF8启动解决控制台中文路径展示，不改变图像采样/解码公式。
+本次不改变267记录的6157文献边界，也不把环境修正当作候选降级或新的科学重复。

@@ -1,0 +1,71 @@
+# Dense O2O
+train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: Mosaic, output_size: 320, rotation_range: 10, translation_range: [0.1, 0.1], scaling_range: [0.5, 1.5],
+           probability: 1.0, fill_value: 0, use_cache: False, max_cached_images: 50, random_pop: True}
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640], }
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+        - {type: ConvertBoxes, fmt: 'cxcywh', normalize: True}
+      policy:
+        epoch: [4, 29, 50]   # list
+        ops: ['Mosaic', 'RandomPhotometricDistort', 'RandomZoomOut', 'RandomIoUCrop']
+      mosaic_prob: 0.5
+
+  collate_fn:
+    mixup_prob: 0.5
+    mixup_epochs: [4, 29]
+    stop_epoch: 50    # epoch in [72, ~) stop `multiscales`
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: Resize, size: [640, 640], }
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+  shuffle: False
+  total_batch_size: 64
+  num_workers: 4
+
+# Unfreezing BN
+HGNetv2:
+  freeze_at: -1         # 0 default
+  freeze_norm: False    # True default
+
+# Activation
+DFINETransformer:
+  activation: silu
+  mlp_act: silu
+
+## Our LR-Scheduler
+lrsheduler: flatcosine
+lr_gamma: 0.5
+warmup_iter: 2000
+flat_epoch: 29    # 4 + epoch // 2, e.g., 40 = 4 + 72 / 2
+no_aug_epoch: 8
+
+DEIMCriterion:
+  # 基础参数
+  alpha: 0.75  # 明确设置，避免使用默认的0.2
+  gamma: 1.5
+  num_classes: 10  # VisDrone数据集类别数
+
+  # 损失配置
+  losses: ['mal', 'boxes', 'local']
+  weight_dict: {loss_mal: 1.2, loss_bbox: 5.5, loss_giou: 2.2, loss_fgl: 0.18, loss_ddf: 1.6}
+
+  # SADM参数
+  use_scale_adaptive_matching: True
+  scale_thresholds: [0.0005, 0.005, 0.05]
+  scale_loss_weights:
+    small: 1.3
+    medium: 1.0
+    large: 0.8
+  mal_alpha: 0.25

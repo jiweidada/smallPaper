@@ -1,0 +1,68 @@
+A52定向调研与当前候选。总目标active；尚未确认可投稿主线。
+Material Passport: academic-research-suite；定向、非系统前期调研和必要代码验证。所有阅读为助手阅读；不声明用户已读。
+
+1. 问题收敛、检索策略与记录
+A51“共同交换量约束”固定12已未达门槛并关闭：B AP/APs24.178231/14.161092；M24.162271/14.351411；Q24.053732/14.281900。Q−B APs+.120808pp，Q−M−.069512pp。原始权重、日志、SHA、数据流和终点全部保留，不换层、权重、seed补救。
+本轮先查两个不同入口：图像边缘观测/定位监督，固定像素预算的非均匀图像采样。CABB已覆盖裁剪一致监督，FOVEA/ZoomDet已覆盖固定画布非均匀放大；旧D017又已有截断观测候选。当前无具体剩余增量，均不分配训练。此为暂不选择，不是实验失败或否定整个领域。
+随后核查query竞争、关系和原生边界分布，查询包括rotation-equivariant DETR、DETR attention sink、MDS/Relation-DETR、partial order、distribution-aware relation、probabilistic/integrated positional encoding、DETR Fourier uncertainty及kernel mean。原始返回见01/02/03 JSON；无检索命中不等于全球无人研究。
+旋转编码泛化也不提升为候选：已有RO2-DETR/ReDiffDet等，而且A45已有该问题族的未推进记录。本轮未提出新操作。
+最终收敛为一个可区分的候选问题：在相同输入、query与监督下，原生离散边界分布的非高斯形状，能否改善解码器query间的关系编码，并优于同均值/同方差的高斯近似？
+这属于旧17号报告H2的具体化；旧H2未训练，不得称新发现，也不得把它登记成旧训练阴性。当前只有数学/源码依据，尚无本候选检测收益。
+
+2. 核心文献矩阵与实际阅读范围
+Relation-DETR，Hou等，ECCV2024/arXiv2407.11699v1：本轮原文HTML§4.1开头、相对点框公式；继承旧17登记的算子及源码阅读。归一化相对几何、位置关系注意力先验已存在；不是本项目发明。
+Relation-DETR+，IEEE TPAMI2026，DOI10.1109/TPAMI.2026.3708265：本轮仅PubMed原文摘要，不含全文。摘要说明层间编码、门控关系调制已有；精确算子重合仍需后续全文核查。
+EASE-DETR，Gao等，CVPR2024：复用旧17已核验的完整§3.1–3.4与主要公式页阅读，未新读全部实验。score领先/落后及点IoU参与注意力；相似query之间竞争的概念已有。
+MDS-DETR，Lee等，arXiv2605.23507v1：本轮阅读原文摘要、§III-C、§IV-A/B；本地PDF第4、5页图文核查。因果置信度掩码、TP吸收token、对称点框关系偏置均已有。没有复现其one-to-many/one-to-one整套训练，不引用其AP作本项目对照。
+DETRNN，Wu等，arXiv2610.05191v1：本轮原文HTML§3.1–3.3，算法1及密度阈值式；旧17另登记完整3.1–3.4阅读。竞争排序、IoU/类相似度、局部密度阈值与RNN读序都已有，本候选不使用这些排序、RNN或额外token。
+mip-NeRF，Barron等，arXiv2103.13415v3/ICCV2021：本轮下载并核验PDF，阅读§3/3.1，视觉核查PDF第4、5页，重点式11–16；不是完整实验/附录阅读。高斯积分正余弦编码及方差衰减是既有基础。
+Exact-NeRF，Isaac-Medina等，arXiv2211.12285v2：只有原文摘要；精确积分与高斯近似的比较已有，不能声称本项目首创精确期望优于高斯。未读其积分推导或全部结果。
+D-FINE和UQ-DETR：复用A50已登记的选读范围，见A50/06。分布回归、LQE/FGL/DDF和不确定性匹配已有；本宿主并非完全没用分布。
+CABB：CVPR2021原文摘要；FOVEA：作者项目摘要；ZoomDet：作者摘要和HTML方法3.1/3.2开头。它们足以排除本轮的宽泛提案，未作逐式全文复现。
+源文件版本、PDF SHA与本地可视页见primary_acquisition_v1.json、selected_pages；下载全文不等于读完全文。
+
+3. 与最近工作和历史逐项比较
+当前原生ECDet-S：decoder self-attention接收query内容、初始点框位置embedding和DN硬mask；原生完整边界bins用于FDR/LQE/损失，但未直接构成两query之间的关系偏置。这是所审固定源码的接口事实，不是所有DETR的结论。
+Relation/EASE/MDS：使用点框几何或IoU/排名。Q改为实际物理坐标下的边界边际分布嵌入，但保留普通点几何，既有关系编码概念不作为创新。
+高斯积分编码：M保留同样边界均值、方差和相同结构，将离散形状近似成高斯；Q仅保留原生离散形状。Q若优于B而不优于M，不能支持高阶分布增量。
+旧17 H2：原为未训练备选，无既定完整算子；本次给出明确的边际特征函数、成对核、DN边界及同矩控制，是具体化，不重写历史裁决。
+A50：使用E|edge−GT|改变训练Hungarian匹配；本轮不改匹配、标签数、损失、GO或框解码，关系偏置只改变后续self-attention。A50的64图作用小不能直接当本方案训练阴性；其原配方不重启。
+D045只测Mosaic供体来源硬mask；D072是标准NMS+预算重选，旧APs阳性保留，但tiny TP并不一致；本轮不加NMS、不重选候选、不改变query数。
+A42/A43/A48/A49/A51固定终点负结果均保留；本轮不换细尺度读出、教师、BN、ignore监督或共同尺度交换。
+
+4. 研究空白的证据等级
+[原文与源码事实] 点框相对几何、query竞争、积分位置编码与分布回归均有文献；当前宿主没有直接用完整离散边际作为成对关系输入。
+[我们的推断] 均值/方差相同的离散分布可有不同特征函数，故“同矩高斯已足够”和“非高斯形状有额外用途”可在同参数下比较。这是标准数学性质，不是新理论。
+[待验证假设] 这些差别可为密集小目标query交互提供有用信号，优于简单高斯近似。尚未证明点框关系是主要漏检原因，也未证明MDS等对小目标有害。
+[尚未解决] 新近直接方法的全文重合、分布是否可靠、短训练收益与独立测试泛化。定向检索不足以保证首次或无人做过。
+
+5. 候选操作、可行性和主要风险
+将每条原生边际在原图归一化坐标上的特征写为phi_i(omega)=sum_k p_ik exp(i*omega*x_ik)；M替换为exp(i*omega*mu_i−omega^2*var_i/2)。omega=2pi*2^j，j=0..7，固定不搜索。
+每两query/每条边取Re[phi_i conj(phi_j)]，得到32维描述；拼接相同的4维常规相对点几何，送36→48→8的两层映射，输出0.1倍注意力加性偏置。
+只有第2–4层使用前层分布；四边沿用原生ref_points_initial与project的仿射物理解码，避免把更新后的点框错作FDR参考。概率、支撑与点框detach，关系分支不向前层边际传新梯度。
+只计算普通300个query之间的关系；DN行/列额外偏置为0，原生硬mask完整保留。最后投影权重为0，初始化关系偏置恰为0；M/Q相同6480新参数，同新模块seed20261102，不动推理所需输入。
+边际嵌入不是完整有效框后验、不是P(同一对象)，四边依赖与校准未知。离散bins在高频可能引入支撑格点伪信号，未宣称抗混叠定理或概率可靠性。周期性、尺度坐标、额外MLP和一次短seed均有风险。
+数学检查已通过：点极限、排列等变、float64共同平移、同矩可区分、DN硬mask、新投影梯度及初始零偏置。最初开发检查混用float32点几何与float64容差，已改为按输入精度计算；未运行检测器或训练。
+不能用toy性质替代实际AP，不能因式子可区分就称创新成立。
+
+6. 最小验证路线及冻结边界
+先容量检查：最多9次整模型前向、6次临时更新、0正式轮。B/M/Q各一次相同FP32初始eval，允许绝对数值误差1e−5；M/Q各3次BF16真实batch8更新，覆盖同一实际epoch0首批、最大单图GT批、最大另一批总GT；显存上限23GiB。权重检查和实际分布基统计只验证代码/容量/输入差别，非检测收益。
+容量失败不自动重试或启动训练。协议为capacity_protocol_FROZEN_v1.json。此文件不代替正式训练冻结。
+若通过且源/历史边界无新冲突：复用A49核验的B12，M/Q从公共10类初始化各训练12轮，均用VisDrone6471train/548val、640stretch、batch8、训练seed20261101、同一数据/目标/RNG流、原生优化器与loss。
+固定4/8/12观察，12轮EMA作主结局。门槛Q−B APs≥0.5pp、Q−M APs≥0.3pp、Q−B AP≥−0.2pp；全部通过才进入主线价值综合判断。失败无权重、频段、位置、层数或seed救援。
+当前指标COCO式/class0 union/maxDets300，不是官方挑战分数。B早已可见，val548历经多候选选择，不是未触碰测试集；即使短测通过也需独立评价和配对seed路线，不能据此声称统计显著或已可投稿。
+当前A52检测器前向/更新均0；正式上限和累计数只在实际冻结/启动后更新。
+
+7. 可核验参考链接
+Relation-DETR https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06646.pdf
+Relation-DETR+ https://doi.org/10.1109/TPAMI.2026.3708265
+EASE-DETR https://openaccess.thecvf.com/content/CVPR2024/papers/Gao_EASE-DETR_Easing_the_Competition_among_Object_Queries_CVPR_2024_paper.pdf
+MDS-DETR https://arxiv.org/abs/2605.23507v1
+DETRNN https://arxiv.org/abs/2610.05191v1
+mip-NeRF https://arxiv.org/abs/2103.13415v3 ; https://jonbarron.info/mipnerf/
+Exact-NeRF https://arxiv.org/abs/2211.12285v2
+CABB https://openaccess.thecvf.com/content/CVPR2021/html/Porzi_Improving_Panoptic_Segmentation_at_All_Scales_CVPR_2021_paper.html
+FOVEA https://www.cs.cmu.edu/~mengtial/proj/fovea/
+ZoomDet https://arxiv.org/abs/2602.07512v2
+宿主 https://github.com/Intellindust-AI-Lab/EdgeCrafter/tree/d8752b75c9beaecfcdd0e5cd207bae3b6946ae23
+

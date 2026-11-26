@@ -1,0 +1,48 @@
+fine_residual 唯一候选：v4 完整评价器绑定与原生接口核验
+
+结论
+唯一主候选仍为 fine_residual，baseline 与 fused_residual 仍为必要对照，两 seed、132 轮原协议不变。geometry.py、residual.py、stage_trace.py 和六份模型配置与 v3 逐字节相同。没有新增主干、损失或第二个改进方案。
+本版解决的是评价身份缺口，并验证了正式训练源码的导入、六份配置读取和三个新初始化模型的 CPU 接口。未训练、未加载共同初始化/训练 checkpoint、无新 AP，不证明该方案最有效或创新成立。
+
+为什么需要本版
+v3 只保存 cocoeval.py 的 SHA。但原 COCOeval.computeIoU 实际通过 mask.iou 调用 _mask 编译扩展；即使 cocoeval.py 相同，扩展不同仍可能改变 IoU 和评价结果。用户提供的源码中，编译分支还受原文件夹名影响，进一步说明只核对一份 Python 文件不充分。
+
+已落实到代码的改变
+prepare 要求 --evaluator-root 指向实际 pycocoeval 包目录，将六份已验证 Python 源码与一个编译扩展的 SHA 一起写入准备身份。
+verify_bundle 在训练前核对所有文件；训练入口在导入 engine 前激活该目录，检查实际加载的七个模块，以及 cocoeval.maskUtils、mask.iou 到扩展的引用关系。
+运行开始回执保存完整评价器身份；最终结果 capture 再次核对实际模块。六次正式结果比较要求源码和编译扩展均一致，并与各自准备身份一致；旧的只含 cocoeval.py SHA 的记录不会被当作本版结果接受。
+这种绑定证明文件与调用来源一致，不单独证明编译扩展算法正确，也不证明与历史远端二进制数值等价。既有历史复现超差仍保留。
+
+本轮已完成的工程验证
+1. 21 项完整包身份与导入检查通过。包括源码变动、扩展变动/缺失/重复、加载其他路径、IoU 引用被替换、Python 源码相同而扩展不同等拒绝路径。未调用任何评价计算或模型。
+2. 初次正式入口导入缺少 dill，失败回执原样保留。依据本地 20260929 迁移包 pip_freeze.txt 中版本，向本版 native_import_deps 单独安装 dill 0.4.1、easydict 1.13、nvidia-ml-py 13.615.71；不修改默认解释器全局包。轮包来自现有 pip 配置使用的清华镜像，SHA 保存在交付回执；这三个版本的出处是迁移记录，不能改称 132 轮训练环境已完整复刻。
+3. 使用该独立依赖目录后，正式 p2_candidate_seed1_full132_20261007_v1/engine 源码导入、候选注册、实际 COCOeval 类对应均通过。六份准备配置经原生 YAMLConfig 读取后与准备内容一致；未触发模型、优化器、EMA、数据加载器等延迟构建。
+4. 通过原生 YAMLConfig.model 构建 baseline/fused/fine 三个新初始化网络，各一次 640×640 CPU 合成前向，共 3 次。13 项检查通过：输出形状与有限性、原参数及持久缓冲区不变、前向不消耗 RNG、两个残差组只多五个状态张量且共有初始状态相同、两个残差组初始输出与基线逐位相同。未读取真实研究图像或训练权重，没有梯度、优化器或参数更新，没有 CUDA 初始化。
+旧版本已有检查未改称本轮重复通过。此前 v3 的阶段钩子代码保持原样，本轮没有重新运行其 45+10 项检查。
+
+准备包与入口
+本版 prepared_local 下已有三组、两 seed，共六份 PREPARED_NOT_TRAINED 准备包；runs 不存在。
+本地 evaluator_root 已指向前一轮建立的 Windows CPython 3.10 独立评价目录，启动时由 experiment.py 显式加入搜索路径，不依赖全局安装。
+native_import_deps 是额外的本地导入依赖目录，工程脚本显式使用它。直接执行 train 时也需要在该子进程的 PYTHONPATH 加入此目录，或使用已经具有对应依赖的完整环境；不要把工程脚本的导入成功当成默认解释器已全局安装这些包。
+
+可重跑的只导入及配置核验（不训练，输出必须为新路径）：
+python check_native_import.py --bundle prepared_local/baseline_seed1 --extra-python-path native_import_deps --read-configs --output <新回执路径>
+
+未来经授权训练仍使用：
+python experiment.py train --bundle prepared_local/<arm>_seed<seed>
+需要完整原生运行环境，并按上一段在子进程设置本地补充依赖路径；本轮没有执行此命令。
+迁移到 Linux 时不能使用本地 .pyd；必须使用目标环境实际安装的 pycocoeval 包，重新 prepare 并绑定其 .so。三组两 seed 必须用相同的完整评价包。路径或环境改变不能手改旧回执。
+结果比较使用本版 results.py，要求六份实际完成训练的 endpoint、last.pth 和阶段归档；工程数据和旧版输出不能替代新实验。
+
+尚未通过的关口
+共同初始化实际加载、训练过程、优化器/EMA/CUDA/AMP、最终评价捕获的完整运行及成本，仍未实际执行。
+原生导入和初始输出一致，只证明工程接口及零残差起点，不能证明学习后的净收益。历史 AP 的独立数值复现和远端编译扩展行为仍未核验。
+现有研究证据、竞争解释和唯一候选的因果边界仍见 v3/01_机制判定与证据缺口.txt。本版只更新该文件中“完整评价依赖缺失、原生导入未核验”的部分，不消除其他研究缺口。
+
+证据入口
+engineering_evaluator/report.json：21 项评价器身份检查。
+engineering_evaluator/native_import_01.json：缺 dill 的原始失败。
+engineering_evaluator/native_import_02.json：原生导入成功。
+engineering_evaluator/native_config_03.json：六份原生配置读取成功。
+engineering_native_models/report.json：三个新初始化实际网络 CPU 接口检查。
+01_交付回执与SHA.json：旧材料完整性、核心文件不变、准备包、依赖与本版交付 SHA。

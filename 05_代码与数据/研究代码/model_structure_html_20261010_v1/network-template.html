@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DEIM-D-FINE-S · 可折叠网络结构</title>
+<style>/* ___NETWORK_STYLE___ */</style>
+</head>
+<body>
+<header><h1>DEIM-D-FINE-S / HGNetv2-B0 · 网络结构</h1><p>640 × 640 输入 · 300个普通查询 · 3层解码器 · 大结构默认收起，逐层展开可查看每个实际算子</p></header>
+<div class="toolbar">
+<label>路径 <select id="mode"><option value="train">训练结构（含去噪和辅助头）</option><option value="eval">推理结构</option></select></label>
+<label>跳转 <select id="jump"><option value="backbone">主干 Backbone</option><option value="backbone.stem">Stem</option><option value="backbone.stages.0">骨干 Stage 0</option><option value="backbone.stages.1">骨干 Stage 1 / P3</option><option value="backbone.stages.2">骨干 Stage 2 / P4</option><option value="backbone.stages.3">骨干 Stage 3 / P5</option><option value="encoder.input_proj">Encoder输入投影</option><option value="encoder.encoder">Encoder注意力</option><option value="encoder.fpn_blocks">FPN</option><option value="encoder.pan_blocks">PAN</option><option value="decoder.input_proj">Decoder输入投影</option><option value="decoder.enc_output">候选与TopK</option><option value="decoder.pre_bbox_head">初始框</option><option value="decoder.decoder.layers.0">Decoder Layer 0</option><option value="decoder.decoder.layers.1">Decoder Layer 1</option><option value="decoder.decoder.layers.2">Decoder Layer 2</option><option value="decoder.denoising_class_embed">去噪查询</option><option value="decoder.dec_score_head">类别预测头</option><option value="decoder.dec_bbox_head">分布回归头</option></select></label>
+<label class="search"><span>查找</span><input id="search" placeholder="模块或算子，例如 stem2a / grid_sampler" aria-label="查找模块或算子"></label><button id="next">下一处</button><span id="matches"></span>
+<button id="collapse-all">收起大结构</button><button id="expand-all">全部展开</button>
+<button id="minus" aria-label="缩小">−</button><span id="zoom-label">100%</span><button id="plus" aria-label="放大">＋</button><button id="start">输入端</button><button id="fit">适应当前图</button>
+<button id="export">导出当前SVG</button><button id="export-full">导出完整SVG</button><button id="inventory-toggle" class="mobile-toggle">模块树</button>
+</div>
+<div id="status" aria-live="polite">正在载入网络结构…</div>
+<main class="workspace" id="workspace">
+<aside class="inventory"><h2>模块树 <span id="module-total">683</span></h2><p class="tree-help">箭头折叠目录 · 点击名称查看结构</p><div id="module-list" role="tree" aria-label="模型注册模块树"></div></aside>
+<section id="viewport" aria-label="网络数据流，拖动平移，滚轮缩放"><svg id="network" role="img" aria-label="可逐层展开的完整网络图"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"></path></marker></defs><g id="world"></g></svg><div id="legend"><span class="stage-backbone">主干</span><span class="stage-encoder">特征融合</span><span class="stage-decoder">解码与预测</span><span style="color:var(--gt)">输入 / GT</span><span style="color:var(--muted)">▸ 收起的结构</span></div></section>
+<aside class="details" id="details"><h2>节点信息</h2><p class="empty">点击一个大结构，再点击右侧“展开内部结构”。左侧模块树可以独立折叠；完整算子与连接均保留。</p></aside>
+</main>
+<dialog id="source-dialog"><button id="close-source">关闭源码</button><h2 id="source-title"></h2><pre id="source-code"></pre></dialog>
+<script type="application/json" id="network-data">___NETWORK_DATA___</script>
+<script>
+if(document.getElementById('network-data').textContent.trim().startsWith('___')){
+ const target=new URL('../../../outputs/model_structure_html_20261010_v1/deim-dfine-s-full-network.html',location.href);
+ const link=document.createElement('a');link.href=target.href;link.textContent='点击打开完整网络图';
+ document.getElementById('status').replaceChildren(document.createTextNode('正在转到已生成的完整网络图。'),link);location.replace(target.href);
+}
+</script>
+<script>/* ___DAGRE_VENDOR___ */</script>
+<script>/* ___NETWORK_UI___ */</script>
+</body></html>

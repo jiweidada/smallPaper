@@ -1,0 +1,170 @@
+Deep Mixture Density Network for Probabilistic Object Detection
+Yihui He∗ and Jianren Wang∗
+Abstract— Mistakes/uncertainties in object detection could
+lead to catastrophes when deploying robots in the real world. In
+this paper, we measure the uncertainties of object localization
+to minimize this kind of risk. Uncertainties emerge upon
+challenging cases like occlusion. The bounding box borders of
+an occluded object can have multiple plausible conﬁgurations.
+We propose a deep multivariate mixture of Gaussians model
+for probabilistic object detection. The covariances help to
+learn the relationship between the borders, and the mixture
+components potentially learn different conﬁgurations of an
+occluded part. Quantitatively, our model improves the AP of
+the baselines by 3.9% and 1.4% on CrowdHuman and MS-
+COCO respectively with almost no computational or memory
+overhead. Qualitatively, our model enjoys explainability since
+the resulting covariance matrices and the mixture components
+help measure uncertainties.
+I. I NTRODUCTION
+Object detection provides crucial perception information
+for real-world applications like robotics grasping [1] and self-
+driving cars [2]. Mistakes/uncertainties in object detection
+could potentially risk the success of the robot’s operation and
+even human lives [3], [4], [5]. In this paper, we minimize
+this kind of risk by measuring uncertainties of bounding
+box localization. The uncertainties are quantiﬁed by a simple
+Gaussian mixture model.
+Currently, there are two styles of bounding box annotation
+among the large-scale object detection datasets: (1) visible
+box that only contains visible parts ( e.g., MS-COCO [6] and
+PASCAL VOC [7]) (2) full box that contains both visible
+and occluded parts ( e.g., CrowdHuman [8] and VehicleOc-
+clusion [9]). For full box annotation, regressing a single set
+of bounding box coordinates works well for fully visible
+objects, since it is a unimodal problem. However, when an
+object is occluded, we observe that its occluded parts can
+have several plausible conﬁgurations ( e.g., Figure 1 (b)),
+which is a multimodal problem. Even for visible box an-
+notation, an object sometimes still exhibits multiple modes
+due to inaccurate labeling ( e.g., Figure 1 (c) vs. (d)). We
+argue that an object detector robust to occlusion should learn
+a multimodal distribution with the capability of proposing
+more than one plausible hypothesis for the conﬁguration of
+an occluded part.
+Besides, we also observe that the bounding box coor-
+dinates have correlations by nature. Take Figure 1 (c) as
+an example, by knowing the position of the car’s roof, we
+can easily infer the location of the left border even without
+looking at it. Therefore, an object detector robust to occlusion
+*indicates equal contribution. Yihui He and Jianren Wang are Robotics
+Institute, Carnegie Mellon University, 5000 Forbes Ave, PA 15213, USA.
+{he2@alumni,jianrenw@andrew}.cmu.edu
+also needs to be capable of inferring the correlations between
+the occluded bounding box borders and the visible ones.
+Motivated by these two observations, we propose a deep
+multivariate mixture of Gaussians model for object detection
+under occlusion. Concretely, instead of regressing a single set
+of bounding box coordinates, our model regresses several
+sets of coordinates, which are the means of the Gaussians.
+Moreover, we learn a covariance matrix for the coordinates
+of each Gaussian mixture component. These components are
+summed together as the prediction for the distribution of
+plausible bounding box conﬁgurations. At inference time,
+we choose the expectation of our model’s distribution as the
+ﬁnal predicted bounding box.
+To demonstrate the generalizability of our proposed model,
+we conduct experiments on four datasets: CrowdHuman,
+MS-COCO, VehicleOcclusion, and PASCAL VOC. Quan-
+titatively, our model improves the AP (Average Precision
+of the baselines by 3.9% and 1.4% on CrowdHuman and
+MS-COCO respectively (Table I and Table II). Qualitatively,
+our model enjoys explainability since the resulting bounding
+boxes can be interpreted using the covariance matrices and
+the Gaussian mixture components (Figure 6 and Figure 5).
+More importantly, our model is almost computation and
+memory free, since predicting the mixture components only
+requires a fully-connected layer, and we can discard the
+covariance matrices at inference time (Table VI).
+II. R ELATED WORK
+a) Object Detection: Deep convolutional neural net-
+works were ﬁrst introduced to object detection in R-
+CNN [10] and Fast R-CNN [11]. Currently, there are mainly
+two types of object detectors: one-stage object detectors
+and two-stage object detectors. One-stage detectors like
+YOLO [12], SSD [13] and RetinaNet [14] are fast in gen-
+eral. Two-stage detectors [15], [16], [17], [18] are accurate
+however sacriﬁcing speed. Although, we conduct most exper-
+iments based on the Faster R-CNN heads of Faster R-CNN
+and Mask R-CNN, we also ﬁnd that our method consistently
+improves single stage methods like YOLOv3 [19] (Table IV).
+b) Object Detection Under Occlusion: Occlusion-
+aware R-CNN [20] proposes to divide pedestrian detection
+into ﬁve parts and predict the visibility scores respectively,
+which are integrated with the prior structure information of
+the human body into the network to handle occlusion. [21]
+proposes an attention network with self or external guidance.
+These methods are speciﬁcally designed for pedestrian de-
+tection task. By contrast, our method is designed for general
+object detection.
+arXiv:1911.10614v2  [cs.CV]  2 Jul 2020
+
+---PAGE---
+
+(a) (b) (c) (d)
+Fig. 1: We observe that an occluded bounding box usually exhibits multiple modes in most detection datasets, no matter
+whether the ground truth annotation is visible box or full box: (a) visible bounding box annotation (b) full object bounding box
+labeled by different annotators (c) visible bounding box annotated accurately (d) visible bounding box annotated inaccurately
+(better viewed in color )
+Deep V oting [22] proposes to utilize spatial information
+between visual cues and semantic parts and also learn visual
+cues from the context outside an object. However, detecting
+semantic parts needs manual labels, which our approach does
+not require. Besides, our approach does not introduce addi-
+tional computation during the inference (Table VI). Amodal
+instance segmentation [23] considers the task of predicting
+the region encompassing both visible and occluded parts of
+an object. The authors propose to add synthetic occlusion to
+visible objects and retain their original masks, then employ
+a CNN to learn on the generated composite images, which
+resembles the VehicleOcclusion in our experiments. Based
+on our previous work [24] propose bounding box regression
+with uncertainty, which is a degradation case of our model
+(Gaussian).
+c) Datasets for Detection under Occlusion: Currently,
+there are three categories of annotation for an occluded
+object: (1) visible bounding box that contains the visible
+parts (2) full box that contains both visible and occluded
+parts of an object annotated by human (3) full box by syn-
+thesizing occluders on a visible object. MS-COCO, PASCAL
+VOC, ImageNet [25] and Cityscapes [26] fall into the ﬁrst
+category. CrowdHuman and Semantic Amodal Segmentation
+dataset [27] require the annotators to label the invisible
+parts. VehicleOcclusion instead synthesizes the occluders
+for visible objects. We conduct experiments on MS-COCO,
+PASCAL VOC, CrowdHuman, and VehicleOcclusion, cov-
+ering all these categories.
+III. A PPROACH
+A. F ormulation
+We observe that when an object is partially occluded, the
+occluded bounding box border can usually be inferred to
+some extent by other visible parts of the object ( e.g., it is
+easy to infer the left border of the car given the car roof
+position in Figure 1 (c)). Besides, the occluded bounding
+box exhibits multiple modes. For example, the left arm of
+1024RoI 1024
+7x7
+x256
+Faster R-CNN
+with RPN 
+N
+class     μ z                U 
+Nx4xK Nx10xKNxK
+ɸ 𝚺(Nx4x4xK) 
+Fig. 2: Faster R-CNN head architecture for our approach:
+We extended the existing Faster R-CNN head to predict the
+parameters of multivariate mixture of Gaussian µµµ, φφφ and ΣΣΣ
+the teddy bear could have several possible conﬁgurations
+in Figure 1 (b). Motivated by these two observations, we
+propose to estimate the bounding box coordinates as a prob-
+ability distribution during bounding box regression instead of
+a set of deterministic coordinates. Speciﬁcally, we propose
+to estimate a multivariate mixture of Gaussians distribution
+with a deep network [28]. Multivariate Gaussian helps the
+case where bounding box borders have correlations, and
+a mixture of Gaussians helps the case where an occluded
+bounding box border exhibits multiple modes. Formally, we
+predict the distribution pθ (xxx|III) given the feature maps III of
+a region of interest (RoI). The distribution is parameterized
+by θ, which is a neural network ( e.g., Faster R-CNN head,
+Figure 2). The distribution has K components N (µµµ iii, ΣΣΣiii).

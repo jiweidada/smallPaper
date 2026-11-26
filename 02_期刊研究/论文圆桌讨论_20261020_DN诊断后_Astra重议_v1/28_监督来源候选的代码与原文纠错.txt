@@ -1,0 +1,25 @@
+追加静态核查，无训练/网络前后向/远端操作。
+
+1. data08已经保存逐层原生匹配，不必先重新运行匹配器。
+isolated_v3/A/development/batch00_analysis.json有branch_matches字段：每图的final、aux_0、aux_1、pre、enc_0各自query/GT索引；inputs[i].branches[stage].native_union同时保存pair_query、pair_GT。对应frozen_predictions/development的同批pred_boxes和pred_logits也存在。B端同类路径可用。generation seal及prediction_sha256可用于重核；所有使用范围仅development，未打开heldout。
+这纠正Claude“未保存逐层indices，只能重算”的说法。旧缓存还没有pre网络activation，不等于匹配索引也缺失。
+
+2. 原criterion精确位置已经实读。
+native/engine/deim/deim_criterion.py 584–605：最终层匹配、两个aux匹配、pre自身匹配以及encoder匹配共同传入_get_go_indices。
+500–519：先统计(q,g)频次，再每个query只保留最高频GT；GT可以对应多个query。
+623–665以及encoder段：use_uni_set=True时，各ordinary层boxes/local以及pre boxes都用同一indices_go/num_boxes_go。MAL仍用每层本来的匹配。pre已经参与union，并且后层本来就有这些union配对的几何监督。
+B的“移走pre项再加到首次层”实际是原有后层该配对项额外增权，不能写成给后层补上原来没有的监督。其独特性若有，只能来自样本特异的层间预算重分配。
+
+3. 监督作用点已有直接近邻，不能只比Align-DETR。
+MS-DETR: Efficient DETR Training with Mixed Supervision，CVPR2024，原PDF第4–5页§3.3及Figure4：明确比较在decoder输出及内部cross-attention后/不同attention顺序处施加O2M监督，发现位置与CA/SA承担角色是否一致会影响效果。
+官方原文 https://openaccess.thecvf.com/content/CVPR2024/papers/Zhao_MS-DETR_Efficient_DETR_Training_with_Mixed_Supervision_CVPR_2024_paper.pdf 。项目本地已有 早期分类复核_20261006_MS_DETR_CVPR2024.pdf 及_text同名提取文件，本次已读相关页。
+它不是自动等同于B的按配对匹配来源分配层间预算，但“监督应施加在合适阶段/位置”本身不是新原则。
+
+4. 其他近邻与反例。
+Stable-DINO原文§2及§2.4已经研究跨decoder层匹配不稳定及多优化路径；Align-DETR v2第5–7页已经用每GT候选排序、质量软目标来处理跨层目标变化。不能把跨层query身份漂移叫新发现。
+原始DETR criterion对aux层各自匹配，以及当前实现原生use_uni_set=False，构成必须考虑的强简单控制。若仅切换pre为本层匹配就能解释变化，不能再以复杂来源转移作为新主张。默认开关还会改变匹配分母，必须如实记录，而不是假称所有预算自动相同。
+
+5. 对A/Claude最新表述的纠错。
+A5“精确GT超出支持域”不能推出corners积分偏移大或中心交叉项a_x大；原资产中端点贴近极少（3/7）恰说明不能作这个链式推断。
+detached reference只截断最终损失到pre的这条直接路径，不代表后层不能通过自己的参数补偿。现有baseline没有新提的交叉梯度，更不能说这种梯度造成现有损害。
+交叉项是否朝GT宽高的符号只描述一个通道，不能以样本多数直接决定阻断合理性；GIoU耦合、幅度、共享参数映射、最终目标都重要。通道非零或不同方向本身不是有效性证据。

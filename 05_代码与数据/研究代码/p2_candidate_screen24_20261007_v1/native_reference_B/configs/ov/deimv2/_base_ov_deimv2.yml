@@ -1,0 +1,75 @@
+task: detection
+
+model: OVDEIM
+criterion: DEIMCriterion
+postprocessor: PostProcessor
+
+use_focal_loss: True
+eval_spatial_size: [640, 640]
+checkpoint_freq: 5
+text_cache_file: text_embedding/tips_v2_visdrone_text_cache.pth
+
+OVDEIM:
+  backbone: HGNetv2
+  encoder: HybridEncoderV2
+  decoder: OVDEIMV2Transformer
+  img_dim: 256
+  text_dim: 768
+  text_adapter_layers: 1
+
+OVDEIMV2Transformer:
+  feat_channels: [256, 256, 256]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 256
+  num_levels: 3
+  num_layers: 4
+  eval_idx: -1
+  num_queries: 300
+  num_denoising: 100
+  label_noise_ratio: 0.5
+  box_noise_scale: 1.0
+  num_points: [3, 6, 3]
+  cross_attn_method: default
+  query_select_method: default
+  activation: silu
+  dim_feedforward: 512
+
+PostProcessor:
+  num_top_queries: 300
+
+DEIMCriterion:
+  weight_dict: {loss_mal: 1, loss_bbox: 5, loss_giou: 2}
+  losses: ['mal', 'boxes']
+  gamma: 1.5
+  alpha: 0.75
+  matcher:
+    weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0
+    change_matcher: True
+    iou_order_alpha: 4.0
+    matcher_change_epoch: 45
+
+train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: Mosaic, output_size: 320, rotation_range: 10, translation_range: [0.1, 0.1], scaling_range: [0.5, 1.5], probability: 1.0, fill_value: 0, use_cache: True, max_cached_images: 50, random_pop: True}
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640], }
+        - {type: SanitizeBoundingBoxes, min_size: 1}
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+        - {type: ConvertBoxes, fmt: 'cxcywh', normalize: True}
+        - {type: RandomLoadTexts, num_classes: 10}
+        - {type: LookupTextFeats}
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: Resize, size: [640, 640], }
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}

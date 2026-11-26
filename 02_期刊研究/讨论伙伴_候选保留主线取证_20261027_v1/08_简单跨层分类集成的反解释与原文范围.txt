@@ -1,0 +1,19 @@
+简单多观察点分类证据是尚未排除的反解释
+2026-10-27，依对方最后一次定向补查要求，完成后不继续扩大检索。本文件不运行任何新统计或选择器。
+
+明确的一般性先例：Cascade R-CNN（Cai与Vasconcelos，CVPR2018）
+官方原文Table2及§5.4可见文本明确：给定第三stage proposals，对三个classifier的概率平均得到ensemble结果。这是相邻检测家族，操作在最终proposal上，并非DETR同query的原pre/final两点分数；但“把多个阶段的类别预测用于最终分类补证”本身已经存在。
+来源：https://openaccess.thecvf.com/content_cvpr_2018/papers/Cai_Cascade_R-CNN_Delving_CVPR_2018_paper.pdf
+官方CameraReady版本同项文字：https://openaccess.thecvf.com/content_cvpr_2018/CameraReady/2603.pdf
+实际范围：官方索引可见Table2、stage-wise比较与§5.4段落；没有完整本地PDF、没有PDF SHA或结构预检。未复现其性能，不声称当前简单平均必然与原文方法等效。
+
+DETR阶段性语义传递的先例：DETRDistill（Chang等，ICCV2023）
+官方索引可见§4.1和§6文本：teacher/student预测先用Hungarian作对应，逐decoder阶段传递logits层知识，正例含分类与位置；负例仅位置。其逐stage方式与只用末stage知识有原文对照。这是跨模型的阶段性传递，不能说成同一模型一次预测内的pre/final类别平均，也不是本次固定300预算单pair交换。
+来源：https://openaccess.thecvf.com/content/ICCV2023/papers/Chang_DETRDistill_A_Universal_Knowledge_Distillation_Framework_for_DETR-families_ICCV_2023_paper.pdf
+实际范围：官方索引返回的方法§4.1和实验解释§6；直接整篇打开403，没有本地文件/SHA，不声称完成整篇阅读。其self-distillation用语也不能未经核对就等同本模型早晚层自集成。
+
+对Hclass/Hswap的含义
+pre_argmax(q)==c是已保存pre完整类别向量的确定函数。消费该向量的多观察点分类规则具有构造此标记的信息；这是数学信息可用性推论。它不证明固定线性平均会得到相同选择或性能，也不证明任一既有训练方法已经达到当前条件效应。
+Hclass只控制final可靠度及几何的粗分档，尚未排除“多一次类别预测/普通一致性或集成”的解释。把同一个信息叫“类别历史”或“类别轨迹”不会自动产生独特贡献；两个观察点也不是完整轨迹。
+若Hswap阳性，可先写成固定缓存上该信息可被某条预定同预算规则读出；若失败，停止具体交换。资格正差、关键性负差、Hpre恒0退化及原4×4冻结结果分别保留。与完整近邻的公平比较和额外信息归因仍未过关，不能由检索未找到某个完全同名公式补齐。
+无需在本轮临时加入可调权重集成或更多候选公式来追求阳性；此处仅明确一个未排除的竞争解释及来源。

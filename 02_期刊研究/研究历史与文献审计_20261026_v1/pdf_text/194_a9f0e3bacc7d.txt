@@ -1,0 +1,117 @@
+Academic Editor: Wen Yang
+Received: 20 January 2025
+Revised: 28 January 2025
+Accepted: 30 January 2025
+Published: 1 February 2025
+Citation: Li, C.; Zhang, J.; Huo, B.;
+Xue, Y. DHQ-DETR: Distributed and
+High-Quality Object Query for
+Enhanced Dense Detection in Remote
+Sensing. Remote Sens. 2025, 17, 514.
+https://doi.org/10.3390/rs17030514
+Copyright: © 2025 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license
+(https://creativecommons.org/
+licenses/by/4.0/).
+Article
+DHQ-DETR: Distributed and High-Quality Object Query for
+Enhanced Dense Detection in Remote Sensing
+Chenglong Li
+ , Jianwei Zhang *, Bihan Huo
+ and Yingjian Xue
+School of Mathematics and Statistics, Nanjing University of Information Science and Technology,
+Nanjing 210044, China; 202212150015@nuist.edu.cn (C.L.); lizimo@nuist.edu.cn (B.H.);
+202312150037@nuist.edu.cn (Y.X.)
+* Correspondence: zhangjw@nuist.edu.cn
+Abstract: With the widespread application of remote sensing technologies and UAV im-
+agery in various fields, dense object detection has become a significant and challenging
+task in computer vision research. Existing end-to-end detection models, particularly those
+based on DETR, often face criticism due to their high computational demands, slow con-
+vergence rates, and inadequacy in managing dense, multi-scale objects. These challenges
+are especially acute in remote sensing applications, where accurate analysis of large-scale
+aerial and satellite imagery relies heavily on effective dense object detection. In this pa-
+per, we propose the DHQ-DETR framework, which addresses these issues by modeling
+bounding box offsets as distributions. DHQ-DETR incorporates the Distribution Focus
+Loss (DFL) to enhance residual learning, and introduces a High-Quality Query Selection
+(HQQS) module to effectively balance classification and regression tasks. Additionally, we
+propose an auxiliary detection head and a sample assignment strategy that complements
+the Hungarian algorithm to accelerate convergence. Our experimental results demonstrate
+the superior performance of DHQ-DETR, achieving an average precision (AP) of 53.7% on
+the COCO val2017 dataset, 54.3% on the DOTAv1.0, and 32.4% on Visdrone, underscoring
+its effectiveness for real-world dense object detection tasks.
+Keywords: detection transformer; dense object detection; multi-scale object detection;
+distribution modeling
+1. Introduction
+Object detection is a foundational element in computer vision, involving the determi-
+nation of object locations and their categorical classification. Its significance transcends
+general applications, particularly in specialized fields such as remote sensing and Un-
+manned Aerial Vehicle (UAV) imagery. In these areas, object detection is crucial for tasks
+including monitoring environmental changes, identifying urban structures, and evaluating
+disaster zones. Dense object detection is particularly important in these contexts due to the
+high density and complexity of objects in satellite and aerial imagery, necessitating precise
+mapping and real-time decision-making.
+Presently, the architectures employed in object detection can be broadly divided into
+two categories: convolutional neural networks (CNNs) and Transformers. The development
+and refinement of CNN-based object detectors have been the subject of extensive research.
+Initially, a two-stage strategy predominant in the field involved region proposal followed
+by classification. However, these approaches often suffer from performance degradation
+when dealing with low-resolution imagery, and their intricate pipeline hampers real-time
+inference capabilities [1–3]. This shortcoming has paved the way for efficient one-stage
+Remote Sens. 2025, 17, 514 https://doi.org/10.3390/rs17030514
+
+---PAGE---
+
+Remote Sens. 2025, 17, 514 2 of 20
+detectors, which have emerged as a significant area of focus in both research and application.
+These detectors generate dense predictions directly on feature maps, thus achieving a more
+favorable trade-off between accuracy and computational efficiency [4–11]. Some approaches
+utilize anchor boxes, adjusted by offsets and scales derived from prior knowledge [6–10],
+while others advocate for anchor-free methods, emphasizing greater adaptability and
+criticizing the lack of versatility in anchor-based designs [ 4,5,12]. However, one-stage
+detectors are not without limitations, and overcoming these presents a significant challenge
+for further advancements. For instance, these detectors find it challenging to make sparse
+predictions without compromising on detection performance and recall rates. Additionally,
+the dense predictions they generate do not naturally align with the desired outcome,
+necessitating manual post-processing steps, such as non-maximum suppression (NMS),
+to eliminate duplicate predictions. This additional step introduces delays in inference,
+and may degrade accuracy. While improved NMS methods have been proposed, their
+generalizability remains limited. Moreover, the literature has yet to adequately address
+challenges surrounding dense multi-scale object detection [13–15].
+The Detection Transformer (DETR) has transformed the object detection paradigm by
+recasting it as a set prediction problem, leveraging transformer encoder–decoder architec-
+tures and the Hungarian algorithm for matching [16]. As a pioneering method, DETR has
+initiated a new direction in object detection research, yet there is ample room for refine-
+ment in areas such as training methodologies and computational efficiency. For example,
+Deformable DETR improves upon DETR’s slow convergence and performance on small
+objects by incorporating multi-scale deformable attention modules [17]. DAB-DETR en-
+hances the interpretability of DETR by integrating anchor boxes into the decoder’s query
+modeling [18]. DN-DETR accelerates convergence by bypassing the Hungarian matching
+process, instead feeding noisy ground truth directly to the decoder [19]. Group DETR lever-
+ages one-to-many training relationships by introducing multiple object queries, thereby
+improving performance [20]. Sparse-DETR reduces computational demands in the encoder
+through the use of sparse queries, while Focus-DETR achieves a refined balance between
+model complexity and accuracy by selectively focusing on 30% of the foreground tokens
+and semantic features [ 21]. RT-DETR further reduces computation without sacrificing
+performance by restricting multi-head self-attention to downsampled features at a factor of
+32 [22].
+The Detection Transformer (DETR) has been the subject of extensive research, ex-
+ploring various methods to enhance its performance. Nonetheless, DETR continues to
+encounter challenges, particularly in the realm of dense multi-scale object detection, where
+its performance remains limited. To address these challenges, we introduce DHQ-DETR,
+a novel approach that redefines the paradigm of object detection. Firstly, we revolutionize
+the concept of the bounding box by positing that the ground truth adheres to a Dirac
+distribution. In conjunction with the Intersection over Union (IoU) loss, we implement the
+distribution focus loss (DFL), which exhibits consistent performance in managing objects
+across diverse scales. Secondly, we integrate a high-quality query selection module to
+improve the initialization of object queries, thereby ensuring better alignment between clas-
+sification and regression tasks. Lastly, drawing inspiration from CO-DETR, we introduce
+an additional detection head and a refined assignment method that increases the number
+of positive samples in the decoding layer. This enhancement not only boosts the stability of
+the Hungarian algorithm, but also accelerates model convergence [23,24].
+In this paper, we unveil DHQ-DETR, an end-to-end object detection model, the archi-
+tecture of which is depicted in Figure 1. DHQ-DETR achieves notable detection results,
+including an AP of 53.7% on the COCO val2017 dataset, an AP of 54.3% on the DOTAv1.0

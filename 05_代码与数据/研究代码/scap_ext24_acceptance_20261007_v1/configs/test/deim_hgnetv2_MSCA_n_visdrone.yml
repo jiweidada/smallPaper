@@ -1,0 +1,65 @@
+# Option 1: MSCA Balanced Strategy (推荐 - 平衡精度和速度)
+__include__: [
+  '../dfine/dfine_hgnetv2_n_custom.yml',
+  'visdrone2019_mpsma.yml',
+  '../base/deim.yml',
+]
+
+print_freq: 400
+output_dir: ./outputs/deim_hgnetv2_n_MSCA_Mixagg_320
+
+DEIM:
+  backbone: HGNetv2_MSCA
+
+HGNetv2_MSCA:
+  name: 'B0'
+  return_idx: [ 2, 3 ]
+  freeze_at: -1
+  freeze_norm: False
+  use_lab: True
+  pretrained: False
+  #agg: ['simam', 'simam', 'msca_lite', 'msca_lite']
+  agg: ['ese', 'simam', 'msca_lite', 'msca_dilated']
+
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.0002
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.0002
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0004
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+epoches: 320
+
+# 学习率调度器相关
+flat_epoch: 164    # 按照注释公式：4 + 320 // 2 = 164
+no_aug_epoch: 24   # 最后阶段不使用数据增强的轮数
+lr_gamma: 1.0
+
+## Our DataAug
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: [4, 156, 296]   # 原来是 [4, 78, 148]，按比例加倍
+
+  collate_fn:
+    mixup_epochs: [4, 156]     # 原来是 [4, 78]，按比例加倍
+    stop_epoch: 296            # 原来是 148，按比例加倍
+    base_size_repeat: ~
+
+  total_batch_size: 4
+
+val_dataloader:
+  total_batch_size: 4

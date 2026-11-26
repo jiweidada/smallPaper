@@ -1,0 +1,39 @@
+10 Senthivel and Vu
+b. EEQRCA. The CA layers enable object queries to capture information from
+the encoded feature maps, thereby updating their content. However, while all
+object queries are updated, only a subset is supervised, either by the final loss
+or the auxiliary losses computed within each stack. Consequently, some queries
+are subject to over-supervision, being supervised multiple times across different
+stacks. As illustrated in Fig. 3b, our proposed routing module allows queries to
+bypass the CA layer, preventing them from updating their content based on the
+feature maps. The computations are:
+QSA = SA(Q), QCA = Gth(QSA, σs), Q = FFN(Sct(QCA,QP )) (10)
+c. EEQRF. As noted in [3], object queries can shift their associations across
+transformer layers, underscoring the importance of the decoder stack for consis-
+tent object query updates from both self-attention and cross-attention modules.
+Consequently, not all layers are necessary, and our routing module selectively by-
+passes entire decoder stacks. Following this, as illustrated in Fig. 3c, theEEQRF
+router design is as follows:
+QSA = SA(Gth(Q, σs)), QCA = CA(QSA), Q = FFN(Sct(QCA,QP ))
+In summary, each wrapper module selectively routes object queries to by-
+passcertaintransformerlayers.QR-DETRaddscomputationaloverhead,mainly
+from the routing mechanism’s gathering and scattering layers.
+5 Experiments
+We first detail our training settings, then present QR-DETR’s consistent AP
+improvements on COCO over various baselines. Ablation studies and qualita-
+tive/quantitative results are also provided for deeper performance insights.
+5.1 Settings
+Dataset. Similar to other DETR methods [15,25,30,45], we evaluate our ap-
+proach on the challenging COCO 2017 [23] object detection benchmark, which
+consists of 118K training and 5K validation images with diverse object instances
+of varying sizes.
+Technical Details.We follow the original DETR training protocol and utilize the
+same training losses (focal for classification andL1 and GIoU for regression).
+Following common practice, the backbone network is initialized with ImageNet-
+pretrained ResNet-50 weights and the Transformer parameters are initialized
+using the Xavier Initialization scheme. We use the AdamW [27] optimizer with
+different learning rates:10−5 for the backbone network and10−4 for the Trans-
+former encoder and decoder. The data augmentation scheme is the same as in
+DETR: we use scale augmentation, resizing the input images such that the short-
+est side is at least 480 and at most 800 pixels while the longest at most 1333. The
+363

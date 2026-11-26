@@ -1,0 +1,581 @@
+===上一场三位完整回应和第四位失败记录===
+第 01 轮
+3 / 4 条完整回应
+
+依次阅读本轮已完成的观点；每轮轮换首位，所有专家拥有相同发言权。
+
+C
+Codex A · 机制与具体约束
+Codex · 平等专家
+原文
+模型与配置记录
+
+我的判断是：两候选均暂不立项，不值得申请本轮训练。依据是所贴协议与完整结果；本次未独立读取源码，不能宣称完成代码复核。停止理由是必要门槛失败，不是损失差“小到无意义”。
+
+候选一的具体机制成立于有限范围：拼接正项DDF可达的r0/r1新增残差，将梯度投影到三个几何半空间交集；各层沿原union和分母，final约束通过累计路径作用，r2不接收正项DDF反传。但两个seed的ΔG为+2.1592e−6、+1.75397e−5，FGL分别恶化+5.92152e−4、+4.97689e−4；也未稳定胜过single_total和matched_norm。seed1还被teacherbetter_gate在两指标同时支配。它没有证明逐层约束比总量约束或缩放更值得投入。
+
+候选二的ΔG为+1.89361e−5、−3.11945e−4，FGL却改善−0.088762、−0.054649，呈现真实的指标分离。GT两点的ΔG为−0.00340943、−0.00103836，但FGL明显恶化，不能说它全面支配重定位。即便承认这一点，重定位仍未过几何门槛，seed2原生重选重匹配相对原方案恶化+0.00471798。争论形状是否潜在有用，不改变此次决定。
+
+我认为还能保留三层区分：分布拟合改善、积分解码几何改善、教师知识跨层迁移有效，是三个不同命题。FGL下降不足以识别教师形状的独立价值；残差坐标的一阶保护也不能推出共享参数、裁剪和历史Adam后的有限步保护。逆温度公式已针对正确极小点校正，不能沿旧温度问题否定结果；截断统计覆盖全部union边，缺少active加权口径，不能直接解释失败。
+
+按所给原文，GEM已覆盖同形QP；BTKD++覆盖教师纠偏原则，但不等于这里的物理距离平移。操作差异可以记录，原理首创与有效迁移均不能声称。实际安排是保留45—47的协议、九臂全表和未证实假设，结束本目标的计算投入；不追加第三项核查，也不把GT增权换名晋级。两模型、重复开发输入的结果只支持本次资源决定，不证明这两类思想普遍无效。
+
+C
+Claude · 原创性与反例
+Claude · 平等专家
+原文
+模型与配置记录
+Claude · 原创性与反例：首轮意见
+当前主张
+
+两候选都暂不申请训练。我同意 Codex A 的结论。下面补充三处 Codex A 没有展开的证据，它们会改变"保留什么知识"，但不改变这次决定。我只看了所贴结果，没有读 ddf_candidates_frozen.py，因此不对实现做 bug 判定。
+
+对 Codex A 的回应
+
+1. 候选一的几何效应基本可以由范数缩放解释。
+Codex A 说候选一"未稳定胜过 single_total 和 matched_norm"。实际差距比这句话更紧：
+
+seed1 的 multi 减 matched_norm，ΔG 只有 1.35e−7。
+multi 与 single 的方向差范数约为 1.55e−4，原正梯度范数约为 1.2e−3，方向差约 13%，但几何端点几乎没有分开。
+matched_norm 的 FGL 在 seed1 还改善了 −2.8e−5。
+
+所以这是一个具体反例：在这组输入上，"逐层半空间"带来的 G 变化几乎等于"把正项梯度按逐 query 范数缩小"带来的变化。不能声称累计残差坐标上的逐层约束有不可替代的作用。GEM Eq8 的同形 QP 加上这个结果，候选一在方法层面已经没有剩余增量可以申报。
+
+2. 候选二区别于 BTKD++ 的那项操作，在约三分之一的边上按构造就失效。
+
+每层约有 1428/4540（seed1 00）和 1235/4552（seed2 00）的期望边位于支持域外。
+截断质量合计 1513 和 1328，平均每边约 0.29–0.33。
+
+Codex A 说截断量不能直接当失败原因，我同意，因为没有 active 加权统计。但这不是事后解释，而是结构事实：物理平移"保形"的前提只对约三分之二的边成立。这与 A5 中约 98.5% 零 IoU 配对在支持域外的结论方向一致。因此候选二相对 BTKD++ 的可申报差异，最多是"支持域内的部分边保留形状"，范围比登记时设想的窄。
+
+3. 不能把 FGL 分离读成"教师形状有价值"。
+GT_two_bin 在温度校正后，KL 极小点正好是 FGL 自己的两点目标，FGL 却恶化 +0.36 和 +0.25。这只能是有限步效应，可能来自全局裁剪联动或 Adam 历史，而不是目标设计本身。D0 已经显示裁剪联动项最多可占 67%。因此"重定位的 FGL 优于 GT 两点"同样可能是幅度效应。
+
+不是 bug 的地方
+
+layer0 和 layer1 的重定位诊断逐值相同，这是预期行为，不是 bug：两层共用 final 教师 r2，也共用初始参考 ref_points_initial，平移目标只取决于教师和 GT。
+
+仍需证据与安排
+不做第三项计算。
+只读 02_results.json 中已保存的各臂更新范数和裁剪系数，用来在档案里标注第 3 点是否属于幅度效应。这是阅读已有文件，不新增核查。
+档案里写清楚以下几条：
+multi 的几何效应约等于 matched_norm。
+约三成边的平移目标在支持域外。
+GT_two_bin 的 G 下降属于已知的 GT 监督增强（Chen NIPS2017 一类），不作为新主线。
+关闭正项后 seed1 的 FGL 改善、seed2 的 FGL 恶化，说明 DDF 正项本身的作用依 seed 而变。
+
+剩下的分歧只在档案措辞，不影响"暂不立项"。最终学术判断由用户决定。
+
+C
+Codex B · 检测失败与方法价值
+Codex · 平等专家
+原文
+模型与配置记录
+
+我回应Claude的三项具体主张：“几何效应可由范数缩放解释”“约三分之一边保形失效”“FGL分离可能只是幅度效应”。我赞成两候选均暂不立项，但这些解释需要收窄。本次只依据所贴材料，未独立复核源码。
+
+决定性数字已经充分：候选一两seed的ΔG为+2.1592e−6/+1.75397e−5，FGL恶化+0.000592/+0.000498；候选二ΔG为+1.89361e−5/−3.11945e−4，且seed2原生重选重匹配反向+0.004718。均未过登记门槛。候选二FGL改善−0.088762/−0.054649值得记录，却不能替代几何条件；GT两点也没有全面支配它。
+
+Claude强调matched_norm，使我进一步降低了对逐层投影增量的期待；但“范数缩放解释了效应”仍超出证据。seed1端点几乎相等，seed2的multi却比matched_norm差1.3079e−5。因此可写“未展示超越缩放的价值”，不能写成机制已被缩放解释，更不能据此证明该坐标设计普遍没有价值。
+
+支持域问题也须区分：所列比例是目标边坐标越界比例，不是保形失效比例。目标均值在域内，分布尾部仍可能被截断；所以“约三分之二保形”无法由这些数字推出。全部union边的统计又不等于实际正项加权影响。A5来自不同阶段，不能据其98.5%直接解释本次失败。
+
+我采纳A对“拟合、几何、迁移”的区分，将FGL改善视为指标分离，而非教师形状有效的证据。正确极小点不保证跨批有限Adam步下降；但D0的裁剪占比也不能归因本次结果。幅度效应仍是假设。GEM限制QP首创主张，BTKD++限制纠偏原则首创主张，均不抹去具体操作差异。
+
+从漏检出发，保留的设计约束是：零IoU配对的正项DDF权重为零，这两法缺少对它们的直接干预，只可能通过共享参数间接影响。未来不同设计必须说明改变哪个作用变量，不能把teacherworse频次直接当漏检瓶颈证据。当前仍缺教师形状的独立价值和检测终点收益证据。
+
+我的实际建议是封存九臂全表与上述未证实命题，结束本目标计算投入，不追加第三项核查或现版本训练，也不将GT增权改名晋级。分歧影响机制措辞，不影响此次资源决定。
+
+C
+Codex C · 数学与强简单对照
+Codex · 平等专家
+调用失败，本轮没有完整回答。
+
+===事前协议===
+登记于读取新候选的数值输出之前。对应当前用户目标的最多两项核查，旧 D0–D5 不计入。
+
+候选一：在真实未 detach 的 corner 新增残差坐标汇总普通正项 DDF 梯度，按 query 拼接可达的 r0/r1（原正项不回传到教师 r2）。分别保护 aux0、aux1、final 的原 union、原分母 5L1+2GIoU 一阶方向，求距离原正项梯度最近的三个半空间交集投影。所有约束停止求导；其余损失、负项 DDF、DN、匹配、归一化、原 T5 不变。增量仅可能是累计路径上逐层约束相对单总损失约束的价值，投影本身已有 PCGrad 先例。
+
+候选二：把教师 T1 实际解码概率在非均匀距离坐标上平移到 GT 距离，再用相邻 bin 的线性质量拆分重采样。越界质量截断，统计截断质量及均值偏差，不能声称仍严格保形或对齐 GT。使用 q=normalize(r^(1/T)) 作为 T5 的 KL 目标，这样 KL 极小点的 T1 分布才是 r。直接移动 T5 概率不具备该性质。不声称有限网络 Adam 步单调保护几何。
+
+真实数据触发：旧 D5 的 teacherworse 约占 raw student-IoU 正权重和的 43%，其中约 75% 的输出坐标 DDF 梯度与几何梯度相反；这不是归一化总梯度份额或训练损害证明。
+
+最近原文：D-FINE §4.1–4.2 已有累计分布与 GO-LSD，LD CVPR2022 已有定位分布 KL，Chen NIPS2017 §3.3 Eq4 已有 teacher-bounded GT 回归，PCGrad NIPS2020 §2 已有冲突投影。TAR 只读到摘要，重定位软目标查新未穷尽。不得据此宣称不存在先例。
+
+统一资产：BASE24 online seed1/seed2，各 development00/01，4 图/批，两个 seed 复用同一 8 张增强输入。所有配方、488 个可训练张量、历史 AdamW 状态、当前 LR、全局 .1 裁剪均沿原代码。使用旧重播 DN seed，不要求恢复历史随机流。所有虚拟端点各自从同一原参数出发，不累计，不保存模型。
+
+固定有限对照：original、half_positive、off_positive、teacherbetter_gate（教师 IoU > 学生 IoU）、single_total（同残差坐标，单个各层总几何约束）、multi_layer（候选一）、matched_norm（逐 query 与 multi_layer 正梯度范数一致的原方向缩放）、relocated_target（候选二）、GT_two_bin（和候选二相同 T5、正项权重和分母，用 GT 两点物理分布，温度目标同样校正）。不搜索阈值/温度/学习率。
+
+一次共享原生前向减少资源，但两候选分别计一项核查，即启动后 auditsUsed=2。两种子各做 00→01 和 01→00 的跨批虚拟 Adam。只读复制的优化器状态，原参数/缓冲恢复并校验 SHA；不调用真实 optimizer.step，不操作远端。
+
+主要评估：固定原物理 encoder query，固定评估批的原 union 和分母，最终层 G=5L1+2GIoU（双精度统计）及不加 IoU 权重的 FGL CE。附原 IoU 权重 FGL、MAL、IoU、各层几何和更新/裁剪幅度。原生重新选 query 作为敏感性评估，必须重新按原 matcher/union 求对应，不能沿用旧 query 序号对应。零步 functional 重播验证数值底噪。
+
+继续申请训练的事前筛选：候选在每个 seed 的两方向、按评估分母汇总的 G 上，相对 original 及各自关键简单对照均至少下降 1e-5；不加权 FGL CE 每个 seed 不恶化超过 1e-5；MAL 不恶化超过 1e-3；原生重选后的重新匹配 G 不得反转方向。候选一关键对照 single_total 和 matched_norm，候选二关键对照 GT_two_bin；此外不能被 half/off/gate 在 G 和不加权 FGL 两项同时支配。此门槛只决定是否值得申请训练，不宣称统计显著、AP 收益或证明创新。任一必要项不满足则本次暂不申请该候选训练，完整阴性结果回专家。原始结果未出来前冻结代码 SHA，结果出来后不得改门槛/换名救活。
+
+实现合成单测：小矩阵半空间 QP 的可行性、恒等、正交和零梯度；两残差前后层耦合反例；非均匀线性重采样质量守恒/未截断均值、温度逆变换。先合成后真实。
+
+资源：隔离 CPU torch2.5.1，2 线程、低优先级、固定自身 CPU 亲和，空闲 RAM <8GiB 即退出。两项合计最多 15 分钟；无 GPU、无训练、无新预测数据集。冻结历史源及证据不修改。
+
+
+===最近原文===
+本轮新增原文阅读，供结果复审，不改已经登记的两项数值核查和门槛。
+
+1. GEM，NIPS2017，§3 Eq8，PDF p4：最近梯度的多半空间 QP 已存在，公式与候选一的投影子问题同形。区别是原文保护过去任务的参数梯度，而候选一作用于同一检测器的新增 corner 残差、逐 query 保护多个解码层。因而不能把 QP 或“约束多个目标”当新算法。必须证明累计残差的坐标选择和逐层约束比单总损失投影/减权有不可替代的价值。
+https://proceedings.neurips.cc/paper_files/paper/2017/file/f87522788a2be2d171666752f97ddebb-Paper.pdf
+
+2. PCGrad，NIPS2020，§2.3，PDF p4：负内积触发单侧正交投影，按随机任务顺序重复。候选一使用同一 query 上联合残差坐标与精确小 QP；“随机序列投影 vs 精确交集投影”是实现区别，不自动构成检测方法贡献。
+https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf
+
+3. BTKD++，IJCV2026，2026-07-08 已发表；已直接读取出版社正文 §3.3.2、§4.1，而非只看摘要。原文按 easy/hard 判断教师偏差，保护非偏差子空间的概率，并在偏差子空间按标签重分配概率。检测扩展将连续回归量转成固定范围上的离散截断高斯，GT 为单 bin，回归也做纠偏。因此“用 GT 修正教师、保留其他暗知识、扩展到回归”已被覆盖。
+候选二的确切不同：不人为高斯化坐标，使用 D-FINE 的原始 33-bin 非均匀预测，在物理距离上平移全部概率质量并相邻插值，T5 目标经逆温度校正。它不是 BTKD++ 的偏差两位置概率再分配；但共享纠偏原则，剩余贡献必须是物理分布形状本身比 GT 两点监督更有价值。平移后截断可破坏均值和形状，没有普遍几何保护保证。
+https://link.springer.com/article/10.1007/s11263-026-02924-x
+
+4. D-FINE，§4.1/4.2：原文已有非均匀分布累计、联合匹配、FGL 与末层向前层的 DDF。LD，CVPR2022，§3.2 Eq3–4：已有边缘概率分布的温度 KL。两篇均是方法的直接基底，不得将“定位分布蒸馏”重新申报为贡献。本次通读相关段落没有看到上述联合残差 QP 或物理平移规则；这只是限定阅读范围内的区别，不是穷尽查新证明。
+https://arxiv.org/html/2410.13842
+https://arxiv.org/pdf/2102.12252
+
+判断原则：相同研究动机不等于公式等价。GEM 的 QP 子问题确实同形，BTKD++ 的教师纠偏原则相同但具体概率操作不同；分别准确陈述。任何候选最终仍须通过已经登记的强简单对照。
+
+
+===完整结果===
+两项 DDF 冻结核查：完整结果与事前门槛
+
+耗时 248.23 秒；2 seed × 2 development 批，各 4 图，同一 8 张增强输入。新训练 0，远端操作 0。
+G 和 FGL 均是损失（越低越好），不是 AP。Δ 均为同 seed、同输入、同 Adam 状态的候选减 original。按评估分母汇总，不逐图平均。
+
+seed | arm | G | ΔG | 不加权FGL | ΔFGL | MAL | 原生重选且重匹配G
+1 | original | 3.0339576613 | +0.0000000000 | 16.3403530415 | +0.0000000000 | 0.3520926680 | 3.0043168571
+1 | half_positive | 3.0339829916 | +0.0000253303 | 16.3396415354 | -0.0007115061 | 0.3521058058 | 2.9959011884
+1 | off_positive | 3.0340058358 | +0.0000481745 | 16.3389684385 | -0.0013846029 | 0.3521187284 | 2.9991380792
+1 | teacherbetter_gate | 3.0339531844 | -0.0000044769 | 16.3401098157 | -0.0002432258 | 0.3521034357 | 3.0009222308
+1 | single_total | 3.0339653508 | +0.0000076894 | 16.3408634104 | +0.0005103689 | 0.3521006469 | 3.0042343319
+1 | multi_layer | 3.0339598205 | +0.0000021592 | 16.3409451935 | +0.0005921520 | 0.3521045324 | 3.0037707743
+1 | matched_norm | 3.0339596851 | +0.0000020238 | 16.3403245676 | -0.0000284738 | 0.3520951667 | 3.0015490153
+1 | relocated_target | 3.0339765974 | +0.0000189361 | 16.2515906941 | -0.0887623473 | 0.3517430001 | 2.9962540376
+1 | GT_two_bin | 3.0305482328 | -0.0034094285 | 16.6969499599 | +0.3565969184 | 0.3531455596 | 2.9938066367
+2 | original | 2.8236637079 | +0.0000000000 | 16.1433240712 | +0.0000000000 | 0.3573512696 | 2.8066413947
+2 | half_positive | 2.8240455593 | +0.0003818514 | 16.1473715332 | +0.0040474619 | 0.3573560531 | 2.8079630515
+2 | off_positive | 2.8243595954 | +0.0006958875 | 16.1514668664 | +0.0081427951 | 0.3573721713 | 2.8071333250
+2 | teacherbetter_gate | 2.8237476875 | +0.0000839796 | 16.1448601429 | +0.0015360717 | 0.3573484333 | 2.8097871279
+2 | single_total | 2.8236769726 | +0.0000132647 | 16.1437101993 | +0.0003861281 | 0.3573501292 | 2.8077741801
+2 | multi_layer | 2.8236812476 | +0.0000175397 | 16.1438217603 | +0.0004976891 | 0.3573503697 | 2.8072004603
+2 | matched_norm | 2.8236681685 | +0.0000044606 | 16.1434304091 | +0.0001063378 | 0.3573510047 | 2.8068769782
+2 | relocated_target | 2.8233517628 | -0.0003119452 | 16.0886747413 | -0.0546493300 | 0.3571613182 | 2.8113593749
+2 | GT_two_bin | 2.8226253511 | -0.0010383568 | 16.3979029016 | +0.2545788304 | 0.3587011057 | 2.8162496953
+
+逐候选判定：
+multi_layer: 本次暂不申请训练
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "original", "difference": 2.15915967816116e-06, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "single_total", "difference": -5.530288803790029e-06, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "matched_norm", "difference": 1.3533836318302406e-07, "passed": false}
+未通过：{"seed": 1, "check": "native_rematching_G_no_reversal", "control": "matched_norm", "difference": 0.0022217589962290063, "passed": false}
+未通过：{"seed": 1, "check": "FGL_unweighted_CE_noninferior_screen", "control": "original", "difference": 0.0005921520153400195, "tolerance": 1e-05, "passed": false}
+未通过：{"seed": 1, "check": "not_simultaneously_dominated_G_FGL", "control": "teacherbetter_gate", "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "original", "difference": 1.7539669697974603e-05, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "original", "difference": 0.0005590655398441946, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "single_total", "difference": 4.274956823202558e-06, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "matched_norm", "difference": 1.3079056303766379e-05, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "matched_norm", "difference": 0.0003234820869555399, "passed": false}
+未通过：{"seed": 2, "check": "FGL_unweighted_CE_noninferior_screen", "control": "original", "difference": 0.0004976890899328623, "tolerance": 1e-05, "passed": false}
+relocated_target: 本次暂不申请训练
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "original", "difference": 1.8936062007313126e-05, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "GT_two_bin", "difference": 0.003428364547845675, "passed": false}
+未通过：{"seed": 1, "check": "native_rematching_G_no_reversal", "control": "GT_two_bin", "difference": 0.0024474009081223436, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "original", "difference": 0.004717980137606048, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "GT_two_bin", "difference": 0.0007264116412581956, "passed": false}
+
+诊断与核验（原始整数/误差，所有批次，不挑样本）：
+{"seed": 1, "batch": 0, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 1135, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0012142240447063773, "multi_positive_gradient_norm": 0.0011835153017279681, "multi_minus_single_norm": 0.00015536458280799036, "original_opposes_layer_counts": [155, 236, 262], "multi_modified_queries": 291, "matched_norm_max_abs_error": 1.0842021724855044e-19}, "diagnostics": [{"layer": 0, "pairs": 1135, "teacherbetter": 443, "desired_edges_out_of_support": 1428, "total_edges": 4540, "relocated_clipped_mass_sum": 1513.314697265625, "relocated_GT_mean_absolute_error_sum": 59359.3046875, "relocated_GT_mean_max_error": 456.9569091796875, "relocated_two_bin_L1_sum": 4551.0859375, "inverse_temperature_recovery_max_error": 3.5762786865234375e-07, "full_native_ddf_reconstruction": 0.09059498459100723}, {"layer": 1, "pairs": 1135, "teacherbetter": 386, "desired_edges_out_of_support": 1428, "total_edges": 4540, "relocated_clipped_mass_sum": 1513.314697265625, "relocated_GT_mean_absolute_error_sum": 59359.3046875, "relocated_GT_mean_max_error": 456.9569091796875, "relocated_two_bin_L1_sum": 4551.0859375, "inverse_temperature_recovery_max_error": 3.5762786865234375e-07, "full_native_ddf_reconstruction": 0.006293844431638718}]}
+{"seed": 1, "batch": 1, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 683, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0009457561189369827, "multi_positive_gradient_norm": 0.0009218079930423385, "multi_minus_single_norm": 0.00011635692648374871, "original_opposes_layer_counts": [136, 180, 194], "multi_modified_queries": 215, "matched_norm_max_abs_error": 6.776263578034403e-20}, "diagnostics": [{"layer": 0, "pairs": 683, "teacherbetter": 194, "desired_edges_out_of_support": 795, "total_edges": 2732, "relocated_clipped_mass_sum": 859.6974487304688, "relocated_GT_mean_absolute_error_sum": 14218.921875, "relocated_GT_mean_max_error": 318.2153015136719, "relocated_two_bin_L1_sum": 2655.73388671875, "inverse_temperature_recovery_max_error": 2.980232238769531e-07, "full_native_ddf_reconstruction": 0.04921127110719681}, {"layer": 1, "pairs": 683, "teacherbetter": 187, "desired_edges_out_of_support": 795, "total_edges": 2732, "relocated_clipped_mass_sum": 859.6974487304688, "relocated_GT_mean_absolute_error_sum": 14218.921875, "relocated_GT_mean_max_error": 318.2153015136719, "relocated_two_bin_L1_sum": 2655.73388671875, "inverse_temperature_recovery_max_error": 2.980232238769531e-07, "full_native_ddf_reconstruction": 0.0036414023488759995}]}
+{"seed": 2, "batch": 0, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 1138, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.001069483943912972, "multi_positive_gradient_norm": 0.0010341074169216264, "multi_minus_single_norm": 0.00015480287221242292, "original_opposes_layer_counts": [226, 319, 360], "multi_modified_queries": 410, "matched_norm_max_abs_error": 5.421010862427522e-20}, "diagnostics": [{"layer": 0, "pairs": 1138, "teacherbetter": 447, "desired_edges_out_of_support": 1235, "total_edges": 4552, "relocated_clipped_mass_sum": 1328.2314453125, "relocated_GT_mean_absolute_error_sum": 34434.40625, "relocated_GT_mean_max_error": 276.5337219238281, "relocated_two_bin_L1_sum": 4782.1181640625, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.0670623630285263}, {"layer": 1, "pairs": 1138, "teacherbetter": 393, "desired_edges_out_of_support": 1235, "total_edges": 4552, "relocated_clipped_mass_sum": 1328.2314453125, "relocated_GT_mean_absolute_error_sum": 34434.40625, "relocated_GT_mean_max_error": 276.5337219238281, "relocated_two_bin_L1_sum": 4782.1181640625, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.00641130656003952}]}
+{"seed": 2, "batch": 1, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 682, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0008642847177496276, "multi_positive_gradient_norm": 0.0008414861618265472, "multi_minus_single_norm": 0.00011010259417947867, "original_opposes_layer_counts": [140, 195, 207], "multi_modified_queries": 228, "matched_norm_max_abs_error": 8.131516293641283e-20}, "diagnostics": [{"layer": 0, "pairs": 682, "teacherbetter": 195, "desired_edges_out_of_support": 795, "total_edges": 2728, "relocated_clipped_mass_sum": 865.485107421875, "relocated_GT_mean_absolute_error_sum": 17965.45703125, "relocated_GT_mean_max_error": 526.677978515625, "relocated_two_bin_L1_sum": 2739.51708984375, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.045850969851017}, {"layer": 1, "pairs": 682, "teacherbetter": 192, "desired_edges_out_of_support": 795, "total_edges": 2728, "relocated_clipped_mass_sum": 865.485107421875, "relocated_GT_mean_absolute_error_sum": 17965.45703125, "relocated_GT_mean_max_error": 526.677978515625, "relocated_two_bin_L1_sum": 2739.51708984375, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.0035436961334198713}]}
+
+关键局限：Two checkpoints, same8 augmented inputs, reused development only. No independence, significance, convergence or AP evidence. Projection guarantee only residual-coordinate direct first-order step; transported target clipping may destroy GT mean/shape.
+两项预算已用完。不得改门槛、继续温度/阈值搜索或给本版本换名后再筛。结果交回四专家；没有候选通过是允许的终点。
+
+===已保存更新幅度，只读抄录，不能据此归因===
+仅抄录本次已保存的更新幅度，不进行新前向/新梯度，也不据相关性断言原因。
+seed,batch,arm,global_gradient_norm,clip_factor,parameter_update_L2
+1,0,original,11.252739906311035,0.008886723779141903,0.25297851883746975
+1,0,half_positive,11.249122619628906,0.008889581076800823,0.2524994028489317
+1,0,off_positive,11.247457504272461,0.00889089796692133,0.2520751945965582
+1,0,teacherbetter_gate,11.252581596374512,0.008886849507689476,0.2527007700164386
+1,0,single_total,11.253900527954102,0.008885807357728481,0.25293316260956955
+1,0,multi_layer,11.254382133483887,0.008885427378118038,0.2529128041199712
+1,0,matched_norm,11.253079414367676,0.008886455558240414,0.2529557401100189
+1,0,relocated_target,11.375155448913574,0.008791088126599789,0.25697178706710916
+1,0,GT_two_bin,13.542123794555664,0.007384365890175104,0.29345968344235795
+1,1,original,10.300373077392578,0.009708384983241558,0.27255152322159426
+1,1,half_positive,10.299792289733887,0.009708932600915432,0.27242940355743966
+1,1,off_positive,10.29955005645752,0.009709160774946213,0.2723386007879768
+1,1,teacherbetter_gate,10.301396369934082,0.009707421064376831,0.27253983042252755
+1,1,single_total,10.302274703979492,0.009706593118607998,0.2725587353503811
+1,1,multi_layer,10.302017211914062,0.009706836193799973,0.2725732401843312
+1,1,matched_norm,10.300626754760742,0.009708146564662457,0.2725500371935064
+1,1,relocated_target,10.33584976196289,0.009675062261521816,0.27437173251767355
+1,1,GT_two_bin,11.118616104125977,0.008993924595415592,0.28519139362620105
+2,0,original,20.125455856323242,0.0049688308499753475,0.21570494749659658
+2,0,half_positive,20.125329971313477,0.0049688625149428844,0.21573322611723084
+2,0,off_positive,20.12601089477539,0.004968694411218166,0.21577084696399185
+2,0,teacherbetter_gate,20.127304077148438,0.004968374967575073,0.21574799313352913
+2,0,single_total,20.12649917602539,0.004968573804944754,0.2157195599207188
+2,0,multi_layer,20.127017974853516,0.004968445282429457,0.21572645429377235
+2,0,matched_norm,20.125581741333008,0.004968800116330385,0.21570493606769855
+2,0,relocated_target,20.228790283203125,0.004943449050188065,0.21771213667987266
+2,0,GT_two_bin,21.892528533935547,0.004567767959088087,0.2420886319313874
+2,1,original,9.740538597106934,0.010266372002661228,0.24814515616749488
+2,1,half_positive,9.739432334899902,0.010267538018524647,0.24813829653773326
+2,1,off_positive,9.738682746887207,0.010268328711390495,0.24815399855552497
+2,1,teacherbetter_gate,9.738049507141113,0.010268996469676495,0.24813264225612833
+2,1,single_total,9.74224853515625,0.010264569893479347,0.24817179219268096
+2,1,multi_layer,9.74184799194336,0.010264991782605648,0.24817648796513514
+2,1,matched_norm,9.740492820739746,0.010266420431435108,0.2481454686781067
+2,1,relocated_target,9.747176170349121,0.010259381495416164,0.2499695106858569
+2,1,GT_two_bin,10.906122207641602,0.009169161319732666,0.27368921523349254
+
+===本次已执行并冻结SHA的完整源码===
+"""Two preregistered DDF candidates. Local CPU independent virtual endpoints only.
+
+No optimizer.step/checkpoint writes. Native frozen model/loss source is imported
+unchanged. Corrections replace ONLY ordinary positive DDF adjoints at the actual
+non-detached corner residuals; all other gradients remain native.
+"""
+import os
+os.environ['MKL_THREADING_LAYER']='SEQUENTIAL'
+import datetime,gc,hashlib,itertools,json,sys,time,traceback
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent;WORK=ROOT.parents[1]
+sys.path.insert(0,str(WORK/'英文小论文/code/source_allocation_frozen_20261020_v1'))
+import diagnostic as d
+from engine.deim.dfine_utils import bbox2distance,weighting_function
+torch,np=d.torch,d.np
+OUT=ROOT/'ddf_candidates_frozen'
+OLD=WORK/'英文小论文/data/10_来源分配冻结诊断_20261020_v1'
+ARMS=['original','half_positive','off_positive','teacherbetter_gate','single_total',
+      'multi_layer','matched_norm','relocated_target','GT_two_bin']
+
+def sha(p):return d.native.sha(p)
+def save(p,v):d.native.save_json(p,v)
+def progress(**kw):d.progress(**kw)
+
+def project_halfspaces(g,c):
+    """Exact small active-set QP in float64, per row. c[n,m,d] h[n,d]>=0.
+
+    Normalize row directions and input scale, enumerate all <=3 active sets.
+    This avoids sequential PCGrad's order dependence and needs no scipy/runtime.
+    """
+    original_dtype=g.dtype;g=g.double();c=c.double()
+    size=g.norm(dim=-1,keepdim=True);unit=g/size.clamp_min(1e-30)
+    c=c/c.norm(dim=-1,keepdim=True).clamp_min(1e-30)
+    best=unit.clone();cost=torch.full((len(g),),float('inf'),dtype=torch.float64)
+    for count in range(c.shape[1]+1):
+        for active in itertools.combinations(range(c.shape[1]),count):
+            if not active:
+                h=unit;nonnegative=torch.ones(len(g),dtype=torch.bool)
+            else:
+                a=c[:,active,:];gram=a@a.transpose(1,2)
+                lam=-(torch.linalg.pinv(gram,rtol=1e-11)@(a@unit.unsqueeze(-1))).squeeze(-1)
+                h=unit+(a.transpose(1,2)@lam.unsqueeze(-1)).squeeze(-1)
+                nonnegative=(lam>=-1e-8).all(-1)
+            feasible=((c@h.unsqueeze(-1)).squeeze(-1)>=-1e-8).all(-1)&nonnegative
+            distance=(h-unit).square().sum(-1)
+            better=feasible&(distance<cost)
+            best[better]=h[better];cost[better]=distance[better]
+    assert torch.isfinite(cost).all(),'QP has no enumerated feasible KKT point'
+    assert float((c@best.unsqueeze(-1)).min())>=-2e-8
+    return (best*size).to(original_dtype)
+
+def resample_mass(p,positions,bins):
+    """Barycentric mass split on sorted nonuniform support, explicit clipping."""
+    clipped=positions.clamp(float(bins[0]),float(bins[-1]))
+    hi=torch.searchsorted(bins.contiguous(),clipped.contiguous(),right=True).clamp(1,len(bins)-1)
+    lo=hi-1;fraction=(clipped-bins[lo])/(bins[hi]-bins[lo])
+    out=torch.zeros_like(p)
+    out.scatter_add_(-1,lo,p*(1-fraction));out.scatter_add_(-1,hi,p*fraction)
+    mass=(p*((positions<bins[0])|(positions>bins[-1]))).sum(-1)
+    return out,mass
+
+def inverse_temperature_target(physical,T=5):
+    q=physical.pow(1/T)
+    return q/q.sum(-1,keepdim=True)
+
+def synthetic_tests():
+    g=torch.tensor([[-1.,2.],[1.,2.],[0.,0.]],dtype=torch.float64)
+    c=torch.tensor([[[1.,0.],[0.,1.]]]*3,dtype=torch.float64)
+    h=project_halfspaces(g,c)
+    assert torch.allclose(h,torch.tensor([[0.,2.],[1.,2.],[0.,0.]],dtype=torch.float64),atol=1e-12)
+    # Same normal twice, and opposing normals: singular Gram, nonzero nullspace.
+    hh=project_halfspaces(g,torch.tensor([[[1.,0.],[-1.,0.],[1.,0.]]]*3,dtype=torch.float64))
+    assert float(hh[:,0].abs().max())<1e-12 and torch.equal(hh[:,1],g[:,1])
+    # z0=r0,z1=r0+r1: a later gradient can move the first geometry.
+    r=torch.tensor([0.,0.],dtype=torch.float64,requires_grad=True)
+    z0=r[0];z1=r.sum();gg=torch.autograd.grad(-z1,r,retain_graph=True)[0]
+    c0=torch.autograd.grad(z0,r,retain_graph=True)[0];c1=torch.autograd.grad(-z1,r)[0]
+    assert float(c0@gg)<0 and float(c1@gg)>0
+    assert float(c0@project_halfspaces(gg[None],torch.stack([c0,c1])[None])[0])>=-1e-12
+    bins=torch.tensor([-4.,-1.,0.,.3,4.],dtype=torch.float64)
+    p=torch.tensor([[0.,.2,.5,.3,0.]],dtype=torch.float64)
+    moved,mass=resample_mass(p,bins[None]+.2,bins)
+    assert float(mass)==0 and abs(float(moved.sum())-1)<1e-14
+    assert abs(float((moved*bins).sum()-(p*bins).sum()-.2))<1e-14
+    q=inverse_temperature_target(moved)
+    recovered=q.pow(5);recovered/=recovered.sum(-1,keepdim=True)
+    assert float((recovered-moved).abs().max())<1e-14
+    return dict(QP_identity_zero_singular=True,cumulative_counterexample=True,
+                barycentric_mass_mean=True,physical_temperature_inverse=True)
+
+def pos_distill(outputs,targets,union,criterion):
+    idx=criterion._get_src_permutation_idx(union)
+    gt=torch.cat([t['boxes'][gi] for t,(qi,gi) in zip(targets,union)])
+    B,Q=outputs['pred_boxes'].shape[:2];K=len(gt);T=5.
+    norm=(4*K*8/B)**.5/((4*K*8/B)**.5+(4*(B*Q-K)*8/B)**.5)/(4*K)
+    bins=weighting_function(criterion.reg_max,outputs['up'],outputs['reg_scale']).detach()
+    teacher=outputs['pred_corners'][idx].detach().reshape(K,4,33)
+    physical=teacher.softmax(-1)
+    t_iou=d.box_iou(d.box_cxcywh_to_xyxy(outputs['pred_boxes'][idx].detach()),d.box_cxcywh_to_xyxy(gt))[0].diagonal()
+    totals={k:0 for k in ['original','teacherbetter_gate','relocated_target','GT_two_bin']}
+    diagnostics=[]
+    for layer,o in enumerate(outputs['aux_outputs']):
+        student=o['pred_corners'][idx].reshape(K,4,33)
+        s_iou=d.box_iou(d.box_cxcywh_to_xyxy(o['pred_boxes'][idx].detach()),d.box_cxcywh_to_xyxy(gt))[0].diagonal().detach()
+        weight=s_iou[:,None]*norm*criterion.weight_dict['loss_ddf']
+        with torch.no_grad():
+            ref=o['ref_points'][idx].detach();scale=float(outputs['reg_scale'].abs())
+            xyxy=d.box_cxcywh_to_xyxy(gt)
+            desired=torch.stack([(ref[:,0]-xyxy[:,0])/(ref[:,2]/scale+1e-16)-scale/2,
+                                 (ref[:,1]-xyxy[:,1])/(ref[:,3]/scale+1e-16)-scale/2,
+                                 (xyxy[:,2]-ref[:,0])/(ref[:,2]/scale+1e-16)-scale/2,
+                                 (xyxy[:,3]-ref[:,1])/(ref[:,3]/scale+1e-16)-scale/2],-1)
+            shift=desired-(physical*bins).sum(-1)
+            relocated,clip_mass=resample_mass(physical,bins[None,None,:]+shift[...,None],bins)
+            two,_=resample_mass(torch.ones_like(desired[...,None]),desired[...,None],bins) if False else (None,None)
+            # Same native FGL two-bin target, including native out-of-support policy.
+            labels,wr,wl=bbox2distance(ref,xyxy,criterion.reg_max,outputs['reg_scale'],outputs['up'])
+            labels=labels.long().reshape(K,4);two=torch.zeros_like(physical)
+            two.scatter_add_(-1,labels[...,None],wl.reshape(K,4,1))
+            two.scatter_add_(-1,(labels+1)[...,None],wr.reshape(K,4,1))
+            target={'original':(teacher/T).softmax(-1),'teacherbetter_gate':(teacher/T).softmax(-1),
+                    'relocated_target':inverse_temperature_target(relocated),
+                    'GT_two_bin':inverse_temperature_target(two)}
+            errors=((relocated*bins).sum(-1)-desired).abs()
+            support_in=(desired>=bins[0])&(desired<=bins[-1])
+            # Clipping means this translation does NOT generally preserve the GT mean.
+            diagnostics.append(dict(layer=layer,pairs=K,teacherbetter=int((t_iou>s_iou).sum()),
+                desired_edges_out_of_support=int((~support_in).sum()),total_edges=4*K,
+                relocated_clipped_mass_sum=float(clip_mass.sum()),
+                relocated_GT_mean_absolute_error_sum=float(errors.sum()),
+                relocated_GT_mean_max_error=float(errors.max()),
+                relocated_two_bin_L1_sum=float((relocated-two).abs().sum()),
+                inverse_temperature_recovery_max_error=float(((target['relocated_target'].pow(T)/target['relocated_target'].pow(T).sum(-1,keepdim=True))-relocated).abs().max())))
+        for name,prob in target.items():
+            kl=torch.nn.functional.kl_div((student/T).log_softmax(-1),prob,reduction='none').sum(-1)*T*T
+            w=weight*((t_iou>s_iou).to(weight.dtype)[:,None] if name=='teacherbetter_gate' else 1.)
+            totals[name]=totals[name]+(kl*w).sum()
+        # Independently reconstruct full native DDF (positive + negative) value.
+        z=o['pred_corners'].reshape(-1,33);tt=o['teacher_corners'].detach().reshape(-1,33)
+        mask=torch.zeros(B,Q,dtype=torch.bool);mask[idx]=True
+        w=o['teacher_logits'].sigmoid().max(-1).values.clone();w[idx]=s_iou
+        m4=mask[...,None].expand(-1,-1,4).reshape(-1)
+        v=(w[...,None].expand(-1,-1,4).reshape(-1).detach()*T*T*
+           torch.nn.functional.kl_div((z/T).log_softmax(-1),(tt/T).softmax(-1),reduction='none').sum(-1))
+        positive=(m4.sum()*8/B)**.5;negative=((~m4).sum()*8/B)**.5
+        full=((v[m4].mean()*positive+v[~m4].mean()*negative)/(positive+negative))*criterion.weight_dict['loss_ddf']
+        diagnostics[-1]['full_native_ddf_reconstruction']=float(full.detach())
+    return totals,diagnostics,idx
+
+def capture_losses(criterion,outputs,targets):
+    criterion.mark(outputs);trace=[];unions=[]
+    match,unionfn=criterion.matcher.forward,criterion._get_go_indices
+    def fm(*a,**k):
+        r=match(*a,**k);trace.append(d.native.cpu_tree(r['indices']));return r
+    def fu(*a,**k):
+        r=unionfn(*a,**k);unions.append(d.native.cpu_tree(r));return r
+    criterion.matcher.forward,criterion._get_go_indices=fm,fu
+    try:losses=criterion(outputs,targets,epoch=24)
+    finally:criterion.matcher.forward,criterion._get_go_indices=match,unionfn
+    assert len(trace)==5 and len(unions)==1
+    return losses,unions[0],trace[0],criterion.record['ordinary']['denominator']
+
+def metric(outputs,targets,union,denom,criterion,own):
+    row=d.metric(outputs,targets,union,denom,criterion,own)
+    idx=criterion._get_src_permutation_idx(union)
+    target=torch.cat([t['boxes'][g] for t,(_,g) in zip(targets,union)])
+    ref=outputs['ref_points'][idx].detach()
+    label,wr,wl=bbox2distance(ref,d.box_cxcywh_to_xyxy(target),criterion.reg_max,outputs['reg_scale'],outputs['up'])
+    z=outputs['pred_corners'][idx].reshape(-1,33)
+    with torch.no_grad():
+        unweighted=criterion.unimodal_distribution_focal_loss(z,label,wr,wl,torch.ones(len(label)),avg_factor=denom)
+        criterion._clear_cache()
+        fg=d.native.DEIMCriterion.loss_local(criterion,outputs,targets,union,denom)['loss_fgl']
+        row['FGL_unweighted_CE']=float(unweighted)
+        row['FGL_native_studentIoU_weighted']=float(fg)
+        row['stage_geometry']={name:d.metric(o,targets,union,denom,criterion,own)['weighted_geometry']
+            for name,o in zip(['aux0','aux1','final'],outputs['aux_outputs']+[outputs])}
+    return row
+
+def make_case(model,criterion,selector,named,binding,buffers,row,seed,folder):
+    payload=d.payload_for(row);rng=payload['spec']['forward_DN_seed']
+    d.restore_buffers(model,buffers);d.reset_rng(rng);selector.mode='native'
+    residuals=[];handles=[]
+    for head in model.decoder.dec_bbox_head:
+        handles.append(head.register_forward_hook(lambda module,args,out:residuals.append(out)))
+    try:outputs=model(payload['images'],payload['targets'])
+    finally:
+        for h in handles:h.remove()
+    assert len(residuals)==3
+    topk=selector.observed.clone()
+    losses,union,own,denom=capture_losses(criterion,outputs,payload['targets'])
+    pos,diag,idx=pos_distill(outputs,payload['targets'],union,criterion)
+    for i in range(2):
+        error=abs(diag[i]['full_native_ddf_reconstruction']-float(losses[f'loss_ddf_aux_{i}']))
+        assert error<3e-6,(i,error)
+    total=sum(losses.values());parameters=[p for _,p in named]
+    raw=residuals[:2]
+    # Positive ordinary DDF cannot propagate through the detached final teacher.
+    grad_last=torch.autograd.grad(pos['original'],residuals[-1],allow_unused=True,retain_graph=True)[0]
+    assert grad_last is None or float(grad_last.abs().max())==0
+    def residual_grads(loss):
+        result=torch.autograd.grad(loss,raw,allow_unused=True,retain_graph=True)
+        return [torch.zeros_like(r) if g is None else g.detach() for g,r in zip(result,raw)]
+    ordinary_offset=raw[0].shape[1]-300
+    raw_idx=(idx[0],idx[1]+ordinary_offset)
+    gs={name:residual_grads(value) for name,value in pos.items()}
+    g=torch.cat([x[raw_idx] for x in gs['original']],-1)
+    stage_c=[]
+    for stage,o in enumerate(outputs['aux_outputs']+[outputs]):
+        terms=d.geometric_terms(o['pred_boxes'],payload['targets'],union)
+        G=(5*terms[0].sum()+2*terms[1].sum())/denom
+        cc=residual_grads(G)
+        stage_c.append(torch.cat([x[raw_idx] for x in cc],-1))
+        if stage==0:assert float(cc[1].abs().max())==0
+    c=torch.stack(stage_c,1)
+    h=project_halfspaces(g,c)
+    single=project_halfspaces(g,c.sum(1,keepdim=True))
+    ratio=h.double().norm(dim=-1)/g.double().norm(dim=-1).clamp_min(1e-30)
+    assert float(ratio.max())<=1+1e-6
+    # Candidate/controls only change per-query adjoints on actual residual tensors.
+    replacements={
+        'original':g,'half_positive':g*.5,'off_positive':g*0,
+        'single_total':single,'multi_layer':h,'matched_norm':g*ratio.to(g.dtype)[:,None]}
+    for name in ['teacherbetter_gate','relocated_target','GT_two_bin']:
+        replacements[name]=torch.cat([x[raw_idx] for x in gs[name]],-1)
+    endpoints={};updates={};checks={}
+    base=metric(outputs,payload['targets'],union,denom,criterion,own)
+    for k,arm in enumerate(ARMS):
+        correction=0
+        parts=(replacements[arm]-g).split(132,dim=-1)
+        for r,delta in zip(raw,parts):correction=correction+(r[raw_idx]*delta.detach()).sum()
+        progress(seed=seed,batch=row['batch'],stage='full_parameter_gradient',arm=arm)
+        grads=torch.autograd.grad(total+correction-correction.detach(),parameters,allow_unused=True,retain_graph=k<len(ARMS)-1)
+        endpoints[arm],updates[arm]=d.virtual_endpoint(model,named,binding,grads)
+        del grads,correction
+    previous=json.loads((OLD/f'seed{seed}/batch{row["batch"]:02d}_capture.json').read_text(encoding='utf8'))
+    for key in ['global_gradient_norm_native_FP32','global_clip_factor','parameter_update_L2_norm']:
+        checks[key+'_original_vs_previous']=abs(updates['original'][key]-previous['updates']['original'][key])
+        assert checks[key+'_original_vs_previous']<1e-10
+    checks['base_topk_exact_previous']=topk.tolist()==previous['topk_indices'];assert checks['base_topk_exact_previous']
+    # A zero functional step must reconstruct outputs before endpoint conclusions.
+    selector.mode='fixed';selector.fixed=topk;d.reset_rng(rng)
+    with torch.no_grad():zero=torch.func.functional_call(model,({n:p.detach() for n,p in model.named_parameters()},d.native.cpu_tree(buffers)),(payload['images'],payload['targets']),strict=True)
+    zm=metric(zero,payload['targets'],union,denom,criterion,own)
+    checks['zero_final_boxes_max_error']=float((zero['pred_boxes']-outputs['pred_boxes'].detach()).abs().max())
+    checks['zero_geometry_abs_error']=abs(zm['weighted_geometry']-base['weighted_geometry'])
+    checks['zero_unweighted_FGL_abs_error']=abs(zm['FGL_unweighted_CE']-base['FGL_unweighted_CE'])
+    assert checks['zero_final_boxes_max_error']<3e-7
+    assert checks['zero_geometry_abs_error']<1e-8 and checks['zero_unweighted_FGL_abs_error']<1e-8
+    stats=dict(pairs=len(g),residual_coordinate_dimension=g.shape[-1],
+        original_positive_gradient_norm=float(g.double().norm()),multi_positive_gradient_norm=float(h.double().norm()),
+        multi_minus_single_norm=float((h-single).double().norm()),
+        original_opposes_layer_counts=[int(((c[:,m].double()*g.double()).sum(-1)<-1e-12).sum()) for m in range(3)],
+        multi_modified_queries=int(((h-g).abs().max(-1).values>1e-12).sum()),
+        matched_norm_max_abs_error=float(((g.double()*ratio[:,None]).norm(dim=-1)-h.double().norm(dim=-1)).abs().max()))
+    save(folder/f'batch{row["batch"]:02d}_capture.json',dict(seed=seed,batch=row['batch'],diagnostics=diag,
+        residual_stats=stats,checks=checks,base=base,updates=updates,topk_indices=topk.tolist(),
+        union=d.indices_json(union),native_loss_components={k:float(v.detach()) for k,v in losses.items()}))
+    del outputs,losses,total,pos,residuals,raw,gs,g,c,h,single,replacements,zero
+    gc.collect();d.restore_buffers(model,buffers)
+    assert not any(p.grad is not None for p in model.parameters())
+    return dict(payload=payload,rng=rng,topk=topk,union=union,own=own,denom=denom,endpoints=endpoints,base=base)
+
+def evaluate(model,criterion,selector,buffers,source,target,seed,src,dst):
+    result=dict(seed=seed,generator_batch=src,evaluation_batch=dst,before=target['base'],arms={})
+    for arm in ARMS:
+        result['arms'][arm]={}
+        for mode in ['fixed','native']:
+            d.reset_rng(target['rng']);selector.mode=mode;selector.fixed=target['topk']
+            with torch.no_grad():
+                outputs=torch.func.functional_call(model,(source['endpoints'][arm],d.native.cpu_tree(buffers)),(target['payload']['images'],target['payload']['targets']),strict=True)
+                if mode=='fixed':union,own,denom=target['union'],target['own'],target['denom']
+                else:
+                    fresh,union,own,denom=capture_losses(criterion,outputs,target['payload']['targets'])
+                    del fresh
+                result['arms'][arm][mode]=metric(outputs,target['payload']['targets'],union,denom,criterion,own)
+            del outputs
+        progress(seed=seed,generator=src,evaluation=dst,stage='cross_batch',arm=arm,
+                 fixed_G=result['arms'][arm]['fixed']['weighted_geometry'])
+    return result
+
+def main():
+    resources=d.native.resource_limits();assert resources['available_RAM_GiB']>12
+    tests=synthetic_tests()
+    proto=json.loads((OLD/'01_冻结协议与资产.json').read_text(encoding='utf8'))
+    for source in proto['sources']:assert sha(source['path'])==source['sha256']
+    OUT.mkdir(exist_ok=False);d.OUT=OUT
+    protocol=dict(utc=d.now(),spec_path=str(ROOT/'45_两项核查前登记.txt'),spec_sha256=sha(ROOT/'45_两项核查前登记.txt'),
+        runner_sha256=sha(__file__),native_import_sha256=sha(d.__file__),old_protocol_sha256=sha(OLD/'01_冻结协议与资产.json'),
+        audits_consumed=2,arms=ARMS,synthetic_tests=tests,resources=resources,
+        model_forwards_expected=80,new_training_steps=0,optimizer_step_calls=0,remote_operations=0,
+        holdout_read=False,scope='BASE24online2seeds, development00/01. Virtual all-parameter historical AdamW endpoints, not actual training or AP.',
+        evaluation='fixed physical query + fixed original union primary; native query reselection + fresh native matching/union secondary',
+        limitations='Two checkpoints, same8 augmented inputs, reused development only. No independence, significance, convergence or AP evidence. Projection guarantee only residual-coordinate direct first-order step; transported target clipping may destroy GT mean/shape.')
+    save(OUT/'01_protocol.json',protocol)
+    ledger_path=ROOT/'39_新目标与执行预算.json';ledger=json.loads(ledger_path.read_text(encoding='utf8'))
+    assert ledger['auditsUsed']==0
+    ledger.update(auditsUsed=2,status='two_preregistered_frozen_audits_running',
+        candidates=['joint_residual_multilayer_positive_DDF','physical_teacher_shape_relocation'],
+        audit_protocol_sha256=sha(OUT/'01_protocol.json'))
+    ledger_path.write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf8')
+    recipes=json.loads((d.OLD/'baseline_recipes.json').read_text(encoding='utf-8-sig'))
+    start=time.monotonic();rows=[]
+    for seed in [1,2]:
+        folder=OUT/f'seed{seed}';folder.mkdir()
+        cp=proto['checkpoints'][str(seed)];assert sha(cp['path'])==cp['sha256']
+        raw=torch.load(cp['path'],map_location='cpu',weights_only=False)
+        assert raw['last_epoch']==23 and recipes[str(seed)]['clip_max_norm']==.1
+        model=d.native.build_model(recipes[str(seed)]);model.load_state_dict(raw['model'],strict=True);model.train()
+        criterion=d.native.build_criterion(recipes[str(seed)]);criterion.load_state_dict(raw['criterion'],strict=True)
+        named,binding=d.full_optimizer_binding(model,raw,recipes[str(seed)])
+        assert len(named)==488 and sum(p.numel() for _,p in named)==10231995
+        buffers={n:b.detach().clone() for n,b in model.named_buffers()};before_hash=d.native.model_hash(model)
+        binding_hash=hashlib.sha256()
+        for n,v in binding.items():
+            for key,x in v['state'].items():binding_hash.update((n+key).encode());binding_hash.update(x.numpy().tobytes() if torch.is_tensor(x) else str(x).encode())
+        del raw;gc.collect();selector=d.QuerySelection(model.decoder)
+        cases={}
+        for batch in [0,1]:
+            assert time.monotonic()-start<900
+            assert d.psutil.virtual_memory().available>8*2**30
+            cases[batch]=make_case(model,criterion,selector,named,binding,buffers,proto['batches'][batch],seed,folder)
+        for src,dst in [(0,1),(1,0)]:
+            assert time.monotonic()-start<900
+            result=evaluate(model,criterion,selector,buffers,cases[src],cases[dst],seed,src,dst)
+            rows.append(result);save(folder/f'cross_{src:02d}_to_{dst:02d}.json',result)
+        d.restore_buffers(model,buffers);assert d.native.model_hash(model)==before_hash
+        assert sha(cp['path'])==cp['sha256']
+        after_hash=hashlib.sha256()
+        for n,v in binding.items():
+            for key,x in v['state'].items():after_hash.update((n+key).encode());after_hash.update(x.numpy().tobytes() if torch.is_tensor(x) else str(x).encode())
+        assert after_hash.hexdigest()==binding_hash.hexdigest()
+        save(folder/'integrity.json',dict(original_checkpoint_SHA_unchanged=True,original_model_and_buffers_unchanged=True,
+             original_optimizer_copy_unchanged=True,trainable_tensors=len(named),trainable_scalars=sum(p.numel() for _,p in named)))
+        del model,criterion,named,binding,cases,buffers;gc.collect()
+    save(OUT/'02_results.json',dict(protocol=protocol,rows=rows,seconds=time.monotonic()-start,training_steps=0))
+    ledger=json.loads(ledger_path.read_text(encoding='utf8'));ledger['status']='two_audits_complete_awaiting_expert_review'
+    ledger['results_sha256']=sha(OUT/'02_results.json');ledger_path.write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf8')
+    progress(stage='complete',seconds=time.monotonic()-start)
+
+if __name__=='__main__':
+    try:main()
+    except BaseException as e:
+        if OUT.exists():save(OUT/('failure_'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'.json'),dict(error=repr(e),traceback=traceback.format_exc(),automatic_retry=False))
+        raise

@@ -1,0 +1,39 @@
+from pathlib import Path
+import ast,datetime,hashlib,json,runpy,sys
+sys.stdout.reconfigure(encoding='utf-8')
+D=Path(__file__).resolve().parent;B=D.parent;P30=B/'A30_YOLO26双头原生读出核查_v1';P31=B/'A31_空间语义读出最近工作与缓存控制_v1'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def save(p,o):
+ with Path(p).open('x',encoding='utf-8') as f:json.dump(o,f,ensure_ascii=False,indent=2);f.write('\n')
+prior=read(B/'75_A32架构原文与共格关联核验回执.json')
+for p,h in prior['files_sha256'].items():assert sha(p)==h,p
+c30=read(P30/'native_dual_head_protocol_FROZEN.json');root=c30['remote_root'];output=root+'/architecture_probe_v1/a33_fixed_pixels_phase_20261030_v1'
+eligible=[c for c in c30['cases'] if min(c['geometry']['pad_ltrb'][1],c['geometry']['pad_ltrb'][3])>=32]
+cases=sorted(eligible,key=lambda c:hashlib.sha256(('A33fixedpixels-v1|'+c['file_name']).encode()).hexdigest())[:24]
+assert len(cases)==24
+local_images=Path(r'D:\数据集\visdrone2019\VisDrone2019-DET-train\images')
+for c in cases:
+ assert sha(local_images/c['file_name'])==c['sha256']
+ c['original_A30_index']=c['index'];p=P30/'downloaded_evidence/captures'/('case_%03d.npz'%c['index'])
+ c['reference_capture']=c30['remote_output']+'/captures/'+p.name;c['reference_capture_sha256']=sha(p)
+namespace=runpy.run_path(str(D/'analyze_native_phase.py'));fixture=namespace['fixture']();save(D/'metric_fixture_receipt.json',fixture)
+ann=[g for g in read(P31/'region_policy_GT.json')['annotations'] if g['image_id'] in {c['image_id'] for c in cases}]
+e0=namespace['exposure_flags'](ann,cases,0);e8=namespace['exposure_flags'](ann,cases,8)
+for shift in [-8]:assert namespace['exposure_flags'](ann,cases,shift)==e8
+for shift in [-32,-16,16,32]:assert namespace['exposure_flags'](ann,cases,shift)==e0
+group_images={g['id']:g['image_id'] for g in ann}
+sep=[g for g in e0 if e0[g] and not e8[g]];merge=[g for g in e0 if not e0[g] and e8[g]]
+support=dict(small_GT=len(e0),separate_GT=len(sep),merge_GT=len(merge),separate_images=len({group_images[g] for g in sep}),merge_images=len({group_images[g] for g in merge}))
+assert min(len(sep),len(merge))>=50 and min(support['separate_images'],support['merge_images'])>=5,support
+local_files=dict(GT=P31/'region_policy_GT.json',raw_annotations=P31/'raw_annotations_verified.json',matcher=P30/'independent_coco_reaggregation.py',region_helper=B/'A27_查询扩容同预算任务诊断_v1/o27_metrics.py',analysis=D/'analyze_native_phase.py')
+remote_assets={root+'/'+p:h for p,h in c30['remote_asset_sha256'].items()}
+reference_predictions={}
+for branch,name in [('M','Mbox_Mscore_NMS_predictions_original.json'),('O','Obox_Oscore_TOPK_predictions_original.json')]:
+ reference_predictions[branch]=c30['remote_output']+'/'+name;remote_assets[reference_predictions[branch]]=sha(P30/'downloaded_evidence'/name)
+runtime=read(P30/'downloaded_evidence/runtime_model_info.json');shifts=[0,-8,8,-16,16,-32,32]
+cfg=dict(phase='A33',status='FROZEN_BEFORE_ANY_NEW_MODEL_FORWARD',recorded_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),question='At fixedvisiblepixelsandrelativeinstancegeometry,does changingnominal16cellsharing predictnative tinyGT hit changes beyondwhole32periodcontrols?',prior_goal_turn='progress:A32 added5corepapers and25sourceblobs;initialneighborassociation weakened aftervisibilitycontrol;no newalgorithm.',remote_root=root,remote_output=output,checkpoint=c30['checkpoint'],host_package=c30['host_package'],source_files=c30['source_files'],versions=c30['versions'],remote_assets=remote_assets,evaluator=root+'/code/evaluate_fixed.py',reference_predictions=reference_predictions,reference_state_digest=runtime['state_dict_digest_before'],torchvision_imported_before_inference=runtime['torchvision_imported'],cases=cases,eligible_cases=len(eligible),case_selection='First24bySHA256(A33fixedpixels-v1|filename),amongexisting100withtop/bottompadding>=32;geometryandfileidentityonly,not predictions.',shifts_y=shifts,output_groups=[k+'_'+str(dy) for k in ['M','O'] for dy in shifts],local_inputs={k:dict(path=str(v),sha256=sha(v)) for k,v in local_files.items()},caps=dict(whole_detector_forwards=169,extra_native_O_decodes=168,all_native_head_decodes=337,optimizer_updates=0,standalone_TAL_calls=0,new_training_jobs=0,wall_seconds=1800),execution='24images x7shifts plusonefirstzerooffsetnativeend2endTrue repeat. FP32unfusedeval,requires_gradFalse. No warmup/modelpredict/autobatch/optimizer/TALcalls;noautomaticretryorqueue.',pixel_control='Prepare RGB oncewithpinnedcv2historicalhelper;torch.roll onuniformoriginalletterboxpadding;assert exactwholeinverse andeveryrealpixel preservation for eachshift. No new interpolation,visiblecropping or object displacementrelative toneighbors.',zero_fidelity='Forall24zerooffsets,rawM/O boxes/logitsanddecodedboxes bitwiseequal A30 NPZ;finalM/O originalrecords exactlyequal archivednativepredictions. Repeatednativeend2endTrue Ooutput andbothrawheads bitwiseequal. Checkpoint/state/source/images unchanged.',postprocess=c30['postprocessing'],exposure_definition='Inputsmallarea<1024. ReconstructcanonicalratioasFraction(str(ratio)).limit_denominator(1e6),assertwithin1e-12;centerscalculatedwithrationalannotationcoordinates. Sharedfloor16cell butdifferentfloor8cells amongvalidsmallGT. Classindependent. +/-8changesmembershipidentically; +/-16/32preserveit. Nominalgeometry,not actualreceptivefield or tokenexclusivity.',prelaunch_support=support,metrics=dict(policy='Source-alignedVisDroneignoredregions plusCOCO101@500;not officialfullVisDronebenchmark reproduction.',FP_budget=222,FP_budget_rule='floor(9.26 x24);sameglobalFPprefixbudget in everybranch/shift andresample,wholeequal-scoreblocks,noGTperinstance thresholding.',primary='ForO:mean(Hit(+/-8)-Hit(+/-32)|E0=1,E8=0) minusmean(same|E0=0,E8=1),atIoU0.5andmatchedglobalFP.',secondary='Mcontrast,8versus32flipburden,all14APs/fixedFPcounts,16periodintermediatecontrol,clearlylabelledGToraclephaseuniondiagnostic.',bootstrap_seed=433103,bootstrap_draws=1000,bootstrap='Resample24imagesjointly;reestimateeachconditionglobalFPthresholdoneverydraw;weightedGTcounts preserveimagereplicates. Reportundefineddraws.',gates=['group>=50GTand5imagesineachswitchdirection','Ocontrast>=0.02','Opairedbootstraplower>0with>=950validdraws','Oflip8-minus-flip32>=0.02','Mcontrast>=0'],gate_scope='Screening heuristic chosenbeforeoutcomes;advancesmechanismquestiononly,notarchitecturecause,noveltyornewalgorithm.'),interpretation_limits=['Repeateddevelopmentimages,nofreshconfirmation.','YOLO26isnotECDet:do not inferViTtokenmergingfromthisdiagnostic.','Integertranslatedcontent is preserved,but finitepadding/boundaries,scorecalibration,andpositioneffects canstillaffectoutputs.','Nominal16cellsharing is notactualCNNsupportormaximuminstancecapacity.','LPSandshift-equivariantViTalreadycoverphaseindices/decoding;AeroPinWorldalreadyadoptsphase-awarePConvforUAV;no genericphase noveltyclaim.','GToracleunions/bestphase diagnosticsare not deployablegains or acommonFPselectionpolicy.','Nohead/encodertraining,nocompression/restorationexperiments,nooldDEIM/A22restart.'],prior_A32_files_verified=len(prior['files_sha256']),historical_39092_cap_remains_closed=True,A30_101_cap_remains_closed=True,automatic_followups=False,new_algorithm_approved=None)
+for name in ['native_phase_worker.py','launch_native_once.py','analyze_native_phase.py']:ast.parse((D/name).read_text(encoding='utf-8'))
+save(D/'phase_protocol_FROZEN.json',cfg)
+save(D/'execution_inputs_manifest.json',dict(worker_sha256=sha(D/'native_phase_worker.py'),protocol_sha256=sha(D/'phase_protocol_FROZEN.json'),launcher_sha256=sha(D/'launch_native_once.py'),analysis_sha256=sha(D/'analyze_native_phase.py')))
+print(json.dumps(dict(status=cfg['status'],eligible_cases=len(eligible),cases=24,shifts=shifts,cap=169,support=support,prior_A32_files_verified=108),ensure_ascii=False))

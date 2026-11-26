@@ -1,0 +1,79 @@
+--- 英文小论文\code\stem_remaining_primary_analysis12_20261011_v1\analyze.py
++++ 英文小论文\code\stem_random_primary_analysis12_20261011_v1\analyze.py
+@@ -1,4 +1,4 @@
+-"""All-GT descriptive comparison of actual primary12 Stem controls; no replay claim."""
++"""All-GT random native-Stem versus enhanced Stem primary12 comparison; no replay claim."""
+ from pathlib import Path
+ import argparse
+ import hashlib
+@@ -32,16 +32,16 @@
+ 
+ 
+ def analyze(seed,arm):
+-    assert seed in (1,2) and arm in ('attention_spatial_mean','early_final_downsample')
++    assert seed in (1,2) and arm=='native_stem_scratch'
+     tools=module('remaining_primary_tools',ROOT/'英文小论文/code/stem_init_stage_analysis_20261011_v2/compare_saved_stages.py')
+     protocol,geometry,onset,rank,readers=tools.prepared()
+     jp=ROOT/'英文小论文/code/stem_joint_error_analysis_20261011_v2'
+     assert sha(jp/'analyze.py')==read(jp/'protocol.json')['analysis_sha256']
+     joint=module('remaining_primary_joint_partition',jp/'analyze.py')
+-    folder=ROOT/f'outputs/stem_component_primary_collection_20261011_v2/seed{seed}_{arm}_v1'
++    folder=ROOT/f'outputs/stem_primary_collection_20261011_v1/seed{seed}_{arm}_v1'
+     v=read(folder/'primary_verification_v1.json')
+-    assert v['status']=='PASS_COMPONENT_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS'
+-    assert v['verification_script_sha256']==sha(ROOT/'英文小论文/code/stem_component_primary_verify12_20261011_v2/verify_primary.py')
++    assert v['status']=='PASS_RANDOM_STEM_PRIMARY12_ALL_FILES_AND548_STAGE_ARRAYS'
++    assert v['verification_script_sha256']==sha(ROOT/'英文小论文/code/stem_random_primary_collection12_20261011_v1/verify_primary.py')
+     assert v['all_collected_files_verified'] and v['actual_stage_images']==548
+     assert not v['saved_EMA_independent_replay_verified'] and not v['formal_terminal_reader_passed']
+     packet=Path(v['downloaded_packet']);manifest=read(packet/'primary_manifest.json')
+@@ -50,8 +50,8 @@
+     for n,item in manifest['files'].items():
+         assert (packet/n).stat().st_size==item['bytes'] and sha(packet/n)==item['sha256'],n
+     base=tools.cached_baseline(seed,protocol,readers['full'])
+-    summary,flags,_=readers['control'].native_endpoint(packet/'run/endpoint_epoch12',base['annotation'])
+-    readers['control'].stages(packet/'run',v['identity'],base['annotation'])
++    summary,flags,_=readers['reference'].native_endpoint(packet/'run/endpoint_epoch12',base['annotation'])
++    readers['reference'].stages(packet/'run',v['identity'],base['annotation'])
+     assert summary['identity']==v['identity'] and summary['native_stats']==v['native_stats']
+     cache=ROOT/'outputs/stem_primary_joint_analysis12_20261011_v1'
+     assert sha(cache/'report.json')=='787c0a77fe0aa4027097b5cc6f5cb571c6c66d4fb536a85e71382bcfabaf56bd'
+@@ -63,7 +63,7 @@
+     assert full_summary['identity']==full_v['identity'] and full_summary['native_stats']==full_v['native_stats']
+     for k in ('common_init_sha256','baseline_checkpoint_sha256','baseline_first100_sha256','val_annotation_sha256','evaluator_binding'):
+         assert summary['identity'][k]==full_summary['identity'][k]
+-    root=ROOT/'outputs/stem_remaining_primary_analysis12_20261011_v1';root.mkdir(exist_ok=True)
++    root=ROOT/'outputs/stem_random_primary_analysis12_20261011_v1';root.mkdir(exist_ok=True)
+     dest=root/f'seed{seed}_{arm}';dest.mkdir(exist_ok=False)
+ 
+     def image(iid):
+@@ -117,8 +117,8 @@
+                 lost_TP_full_outcomes={n:int((lost&(fl==i)).sum()) for i,n in enumerate(joint.LABELS)})
+     np.savez_compressed(dest/'control_stage_per_GT.npz',**control)
+     source_protocol=read(packet/'code/training_protocol.json')
+-    report=dict(status='SAME_GT_PRIMARY12_COMPONENT_DESCRIPTION_SINGLE_SEED_REPLAY_PENDING',seed=seed,arm=arm,
+-        control_scope=source_protocol['controls'][arm],all548_images=True,all38759_GT=True,all10_categories_retained=True,
++    report=dict(status='SAME_GT_PRIMARY12_RANDOM_NATIVE_VS_ENHANCED_DESCRIPTION_REPLAY_PENDING',seed=seed,arm=arm,
++        control_scope='Native Stem default random initialization; all non-Stem native pretrained states retained. Both configurations omit native Stem pretrained states; structure, its initialization and capacity still differ.',all548_images=True,all38759_GT=True,all10_categories_retained=True,
+         full_AP_percent={n:full_summary['native_stats'][i]*100 for n,i in (('AP',0),('APs',3))},
+         control_AP_percent={n:summary['native_stats'][i]*100 for n,i in (('AP',0),('APs',3))},
+         full_minus_control_pp={n:(full_summary['native_stats'][i]-summary['native_stats'][i])*100 for n,i in (('AP',0),('APs',3))},
+@@ -130,9 +130,9 @@
+             full_primary_joint_manifest_sha256=sha(cache/'manifest.json'),prepared_protocol_sha256=sha(tools.PROTOCOL),
+             joint_protocol_sha256=sha(jp/'protocol.json')),analysis_source_sha256=sha(__file__),
+         saved_EMA_independent_replay_verified=False,formal_terminal_reader_passed=False,
+-        other_seed_same_fixed12_endpoint_pending=True,causal_root_proven=False,novelty_proven=False,
++        other_seed_report_must_be_combined=True,causal_root_proven=False,novelty_proven=False,
+         new_model_forwards=0,new_evaluator_calls=0,new_native_evaluator_or_Hungarian_matching_calls=0,new_optimizer_updates=0,new_training_epochs=0,
+-        scope='Exploratory description of actual native primary12 tensors. Same-GT joins are not cross-run query/box identities. First boundary contains only selected300 REGRESSED boxes; no dense8400 regressed boxes, unique TopK-versus-regression diagnosis, historical training assignments or AP decomposition is inferred. Small-cohort TP uses all-area native GT flags, not APs-specific matching. Other seed and independent saved-EMA proof remain required.')
++        scope='Exploratory description of actual native primary12 tensors. Same-GT joins are not cross-run query/box identities. First boundary contains only selected300 REGRESSED boxes; no dense8400 regressed boxes, unique TopK-versus-regression diagnosis, historical training assignments or AP decomposition is inferred. Small-cohort TP uses all-area native GT flags, not APs-specific matching. Combine both seed reports; independent saved-EMA proof remains required. This is the net early-learning effect of architecture plus its random initialization, not a unique mechanism or parameter-matched comparison.')
+     assert 'torch' not in sys.modules and not any(n.startswith('pycocoeval') for n in sys.modules)
+     write(dest/'report.json',report)
+     write(dest/'manifest.json',dict(files={x.relative_to(dest).as_posix():sha(x) for x in dest.rglob('*') if x.is_file()}))
+@@ -143,5 +143,5 @@
+ 
+ if __name__=='__main__':
+     parser=argparse.ArgumentParser();parser.add_argument('--seed',type=int,choices=(1,2),required=True)
+-    parser.add_argument('--arm',choices=('attention_spatial_mean','early_final_downsample'),required=True)
++    parser.add_argument('--arm',choices=('native_stem_scratch',),required=True)
+     a=parser.parse_args();analyze(a.seed,a.arm)

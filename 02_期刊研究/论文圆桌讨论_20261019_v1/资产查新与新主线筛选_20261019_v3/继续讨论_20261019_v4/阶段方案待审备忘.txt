@@ -1,0 +1,18 @@
+这是主助手的方案备忘，不是专家共识，不是执行授权，不是已冻结实验协议。
+
+可复用资产（本轮只读文件元数据/JSON，无torch.load/模型前向）：
+英文小论文/data/00_实验计划与证据索引/本次24轮双基线模型下载_20261009_v1/seed1/run/last.pth
+英文小论文/data/00_实验计划与证据索引/本次24轮双基线模型下载_20261009_v1/seed2/run/last.pth
+均165110878字节。它们是旧132日程截断在24轮的baseline，不是当前96日程。seed1 args.json确认epoches132/flat64/noaug12/warmup2000/三层decoder/300queries/100DN/DEIMCriterion losses mal,boxes,local，权重bbox5,giou2,fgl0.15,ddf1.5,mal1，包装模型ResidualGeometryDEIM arm=baseline。只看到文件不能确认checkpoint内容、optimizer完整性、可继续训练状态，也未审当前96源码。
+
+候选探针可先用这些旧132模型，明确结论只限该已核资产；如最终研究转当前96，必须先完整核对checkpoint、配置及实际criterion再重建相应探针。不能把两个日程的效果合并。
+
+探针设计可能需要保存：完整源图ID/增强随机状态、输入与target SHA、raw-vs-EMA标识、checkpoint SHA、实际参与分支、逐层框/分数及Hungarian边、频次、原生/候选/末层锚定补齐映射、query集合S和K、按GT覆盖/重复分配数、跨层IoU/L1/GIoU/FGL及DDF原生权重、回归GT与各层分类GT不同的比例、固定裁决顺序、求解耗时。未经前向测量不能填发生率/代价/收益。
+
+隔离实现额外风险：
+1. FGL目标缓存self.fgl_targets按一次forward首个ordinary索引创建，union在各层共用。若离线比较每层自身Hungarian，要针对不同映射正确清缓存重算，不能直接把不同GT索引塞进同一个缓存。原生的跨层缓存不应在该项目训练中擅改。
+2. DDF第375行权重依赖assigned GT的IoU。仅保持S/K不会隔离此项，须显式保留U0计算的DDF权重与mask。
+3. 多规则共用同一冻结输出时，criterion缓存/输出字段注入必须隔离，避免先算一个规则污染后算规则；不能把执行顺序效应当处理效应。
+4. 原始模型训练模式前向会更新BN统计、用随机数、生成DN。未来探针只准用隔离模型实例，前后审计权重与BN，固定/恢复RNG、同一次前向供规则比较；不接触生产进程。
+
+可能的最低训练筛选是U0/候选/末层锚定补齐共3臂、2seed，从同seed完全相同状态起点、固定短窗终点（例如旧132日程第24→36轮，12轮仅作拟议成本上限，不代表已有授权或成功阈值）。如optimizer等缺失就共同初始化fresh短程，不能只给候选换起点。旧24轮baseline不能充当其后12轮同期U0。裸每层Hungarian先作离线对照，避免第一阶段变成多目标搜索。需要专家确认是否值得该规模和怎样防止中期端点选择。

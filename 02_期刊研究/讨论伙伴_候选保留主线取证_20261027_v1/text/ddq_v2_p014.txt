@@ -1,0 +1,42 @@
+H. Impact of Query Construction in DDQ R-
+CNN
+We try five ways to construct queries in DDQ R-CNN.
+As shown in Table. 13, None means all query embeddings
+are set to a zero tensor, and the refinement stages only get
+meaningful query bounding boxes. This attempt reduces the
+performance to 43.2 AP. Simply constructing queries from
+the FPN results in 1.0 AP degradation. Reg means only
+using the last feature map of the regression branch, which
+drops the performance by 0.6 AP. Constructing queries from
+the last feature map in the classification branch can be an
+alternative as it can get a comparable performance(only 0.3
+AP drop).
+Table 13. Impact of Query Construction in DDQ RCNN
+AP AP50 AP75
+None 43.2 61.0 47.9
+FPN 43.6 61.7 48.0
+Cls 44.3 62.2 48.6
+Reg 44.0 62.5 48.3
+Cls&Reg 44.6 63.0 48.8
+I. DQS with Different IoU Threshold in
+CrowdHuman
+In this section, we show the robustness of distinct queries
+selection(DQS) with different IoU thresholds in CrowdHu-
+man. We can find there is a clear performance bottleneck
+for traditional detector ATSS even with carefully adjusting
+the threshold of NMS.
+Table 14. Performance of DDQ on COCO when DQS adopts dif-
+ferent IoU thresholds. Results of ATSS adopting different IoU
+thresholds in post-processing are also reported. None means we
+remove DQS or post-processing from the inference pipeline.
+CrowdHuman 0.5 0.6 0.7 0.8 0.9 None
+DDQ FCN 88.0 91.8 92.7 92.8 92.3 91.7
+DDQ RCNN 91.8 92.9 93.5 93.3 93.2 93.2
+ATSS 88.3 89.6 88.4 85.3 78.9 42.7
+J. Social Impact
+The potential social impact of this work inherits from
+object detection. Because human behaviors often cause
+crowded scenes, and DDQ achieves excellent performance
+in such scenes, it may be applied to some applications that
+violate human privacy, such as surveillance.
+14

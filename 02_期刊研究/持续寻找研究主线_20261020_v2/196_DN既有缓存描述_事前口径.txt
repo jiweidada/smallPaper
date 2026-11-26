@@ -1,0 +1,18 @@
+196 DN既有缓存描述：执行前固定口径
+2026-10-21。仅描述188已有真实DN输出，不新增模型前向、checkpoint读取、匹配、梯度或优化。C写197，root审后执行。默认新目录198_C0_cached_DN_descriptive，禁止覆盖及读取heldout。
+
+输入唯一为188_C0_true_GO_support_cache/01_cache.pt，SHA256=8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9；188输出manifest SHA=b655c054be540e0332256db51027433e00b876182b2e36bea6b55bff3d1bb6ba。加载前核manifest全部输出hash及cache身份。使用原生box_ops.py的FP32 cxcywh→xyxy与box_iou，先对精确IoU边界、重复GT汇总及DN group索引做合成自检，再读取真实cache内容。--synthetic-only只运行合成自检，不读取188或创建输出。
+
+阶段固定为DN pre、DN FDR各层、普通final-own和普通final-GO。DN与GO取188实际loss_calls中boxes调用的query/GT索引；ordinary final-own取final mal调用索引，另核matching.indices_own_final。DN不重新选框或Hungarian。记录每图各stage原生loss分母、positive slot数、unique GT数、GT出现次数分布和DN positive group数；raw GT固定902，每图146/280/418/58。
+
+DN group身份仅在原生索引布局精确成立时给出：单图N个GT、G组、DN总槽2NG，positive q=2Nk+g（k=0..G−1，g=0..N−1），且实际q等于dn_meta.dn_positive_idx、g顺序及split均一致。通过才以q//(2N)记group和单列first-group（k=0）；不通过报告不可确定，绝不按列表位置猜。当前是否G=1由cache实读，不提前把首组和全部组当两次独立证据。
+
+所有阶段用两种统计单位，不能混称：
+1. 逐正槽：按既定query/GT配对计算IoU，统计>=.5、>=.75的数量/比例、均值、分位数[0,.1,.25,.5,.75,.9,1]；重复GT的多个槽各计一次。
+2. 逐GT best：仅在该stage已配给此GT的正槽中取最大IoU，是oracle汇总；单独报告represented GT的均值/分位，及以全部该组raw GT为分母的覆盖率。没有正槽的GT不伪造IoU为0加入均值，而在逐GT表中留空并计为未覆盖。不能将DN多槽best与ordinary单槽当公平能力比较。
+
+每项按all、original_sub4、current_target_sub4三组分别报。original_sub4严格来自188保存的历史曝光标记（总453）；current_target_sub4严格由当前target normalized cxcywh宽高min*640<4计算，来源不同，不覆盖或重定义前者。报告两者逐图数量及交集/各自独有。两组允许重叠，不能相加当互斥总体。
+
+保存02_pairs.csv（image/stage/query/GT/class/group/两种sub4/当前短边/原生IoU及两阈值）；03_GT_best.csv（每图每stage每GT，包括无正槽GT）；04_summary.json含逐图与四图pooled汇总、原分母、重复数和first-group描述；其余文件记录合成结果、来源SHA与执行。pooled是跨四图按对应统计单位合并，不是图平均；不得混用native训练loss分母和描述统计分母。
+
+资源：CPU2/interop1、affinity13/15、BelowNormal、RAM>8GiB、MKL_THREADING_LAYER=SEQUENTIAL；0 model/CP/forward/backward/VJP/cache-autograd/update。只按保存预测计算几何IoU，不检查分类正确、score或top300部署预算；不是AP。DN含来自GT并加噪的类别embedding、GT扰动初始化和不同attention mask，因此无论数值高低都不能单凭它断言瓶颈因果、可学性、训练收益或新方法。没有60%/30%及其他效果准入门槛。

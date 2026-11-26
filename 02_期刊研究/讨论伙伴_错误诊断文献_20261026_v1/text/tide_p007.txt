@@ -1,0 +1,32 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 7
+(a) Default COCO eval style error
+curves.
+(b) Swapping the order of errors
+changes magnitudes drastically.
+Fig. 2: The problem with computing errors progressively.The COCO evalanalyze
+function [1] computes errors progressively, which we show for Mask R-CNN [ 13]
+detections on mAP50. On the right, we swap the order of applying the classiﬁcation
+and background oracles. The quantity of each error remains the same, but the perceived
+contribution from background error (purple region) signiﬁcantly decreases, while it
+increases for all other errors. Because COCO computes background error second to last,
+this instills a belief that it’s more important than other errors, which does not reﬂect
+reality (see Sec. 2.3).
+precise on the missing GT. The alternative to this would be to add new detections,
+but it’s not clear what the score should be for that new detection such that it doesn’t
+introduce confounding variables. We discuss this choice further in the Appendix.
+Other Error Types While the previously deﬁned types fully account for all error in the
+model, how the errors are deﬁned doesn’t clearly delineate false positive and negative
+errors (since cls, loc, and missed errors can all capture false negatives). There are cases
+where a clear split would be useful, so for those cases we deﬁne two separate error types
+by the oracle that would address each:
+1. False Positive Oracle: Suppress all false positive detections.
+2. False Negative Oracle: SetNGT to the number of true positive detections.
+Both of these oracles together account for 100mAP like the previous 6 oracles do, but
+they bin the errors in a different way.
+2.3 Limitations of Computing Errors Progressively
+Note that we are careful to compute errors individually (i.e., each ∆AP starts from
+the vanilla AP with no errors ﬁxed). Other approaches [ 1,4] compute their errors
+progressively (i.e., each∆AP starts with the last error ﬁxed, such that ﬁxing the last
+error results in 100AP ). While we ensure that applying all oracles together also results
+in 100AP , we ﬁnd that a progressive∆AP misrepresents the weight of each error type
+and is strongly biased toward error types ﬁxed last.

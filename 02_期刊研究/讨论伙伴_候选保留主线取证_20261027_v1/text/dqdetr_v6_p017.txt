@@ -1,0 +1,39 @@
+Appendix
+A Quantitative Results
+A.1 FP/FN Under Different Density Situation
+In Table A1, we explore our DQ-DETR’s performance under different density
+situations, including sparse and dense images. We classify images with less than
+100 objects as sparse and images with over 900 objects as dense. LRP FP and
+LRP FN [14] are used as the evaluation metric. Unlike AP metrics, a lower
+LRP value implies better performance. Previous DETR-like models apply a fixed
+number of object queries, while our DQ-DETR uses a dynamic number of queries
+depending on the object’s density in the picture.
+DINO-DETR uses a fixed number of 900 queries for detection, no matter
+whether in dense or sparse situations. The number of queries exceeds the number
+of objects in the sparse image and hence introduces many underlying false pos-
+itive samples (FP). In contrast, for dense images, the number of queries DINO-
+DETR uses is far less than the number of objects in images, which is beyond the
+detection capability of DINO-DETR, leaving lots of instances undetected (FN)
+and causes a large LRP FN score. Our proposed DQ-DETR dynamically adjusts
+the number of queries used for detection, resulting in fewer FP in sparse images
+and fewer FN in dense images.
+T able A1:LRP FP and LRP FN score under different density situations in AI-TOD-
+V2. DINO-DETR is compared as the baseline.
+Method Situation LRP FP LRP FN
+DINO-DETR
+Sparse 29.4 40.7
+Dense 36.8 75.1
+DQ-DETR
+Sparse 25.7 36.4
+Dense 35.4 51.5
+A.2 Ablation of Categorical Counting Module
+In the categorical counting module, we categorize the number of objectsN
+per image into four levels, which areN ≤ 10, 10 < N ≤ 100, 100 < N ≤ 500, and
+N > 500. We selected the numbers 10, 100, and 500 based on the AI-TOD-V2
+dataset’s characteristics, i.e., the mean and standard deviation of the number
+of instances N per image. Further, we only classify the number of objectsN
+into four levels due to the long-tail distribution of the training samples. For the
+N > 500 situation, there are only 46 training images in this situation, which is
+much fewer than other cases and leads to a poor classification performance with
+only 56.6% accuracy. Although there are at most 2267 instances per image in the
+AI-TOD-V2 dataset, the long-tail distribution of the training samples restricts

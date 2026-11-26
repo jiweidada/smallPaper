@@ -1,0 +1,176 @@
+Salience DETR: Enhancing Detection Transformer
+with Hierarchical Salience Filtering Refinement
+Xiuquan Hou1, Meiqin Liu1,2,*, Senlin Zhang2, Ping Wei1, Badong Chen1
+1National Key Laboratory of Human-Machine Hybrid Augmented Intelligence,
+National Engineering Research Center for Visual Information and Applications,
+and Institute of Artificial Intelligence and Robotics, Xi’an Jiaotong University, Xi’an, China
+2College of Electrical Engineering, Zhejiang University, Hangzhou, China
+xiuqhou@stu.xjtu.edu.cn, liumeiqin@zju.edu.cn, slzhang@zju.edu.cn,
+pingwei@mail.xjtu.edu.cn, chenbd@mail.xjtu.edu.cn
+Abstract
+DETR-like methods have significantly increased detec-
+tion performance in an end-to-end manner. The main-
+stream two-stage frameworks of them perform dense self-
+attention and select a fraction of queries for sparse cross-
+attention, which is proven effective for improving perfor-
+mance but also introduces a heavy computational burden
+and high dependence on stable query selection. This paper
+demonstrates that suboptimal two-stage selection strategies
+result in scale bias and redundancy due to the mismatch
+between selected queries and objects in two-stage initial-
+ization. To address these issues, we propose hierarchical
+salience filtering refinement, which performs transformer
+encoding only on filtered discriminative queries, for a bet-
+ter trade-off between computational efficiency and preci-
+sion. The filtering process overcomes scale bias through
+a novel scale-independent salience supervision. To com-
+pensate for the semantic misalignment among queries, we
+introduce elaborate query refinement modules for stable
+two-stage initialization. Based on above improvements, the
+proposed Salience DETR achieves significant improvements
+of +4.0% AP , +0.2% AP , +4.4% AP on three challenging
+task-specific detection datasets, as well as 49.2% AP on
+COCO 2017 with less FLOPs. The code is available at
+https://github.com/xiuqhou/Salience-DETR.
+1. Introduction
+Object detection is a fundamental task in computer vi-
+sion with numerous practical applications. Despite the
+significant advancements made by convolutional detectors
+[1, 21, 23, 24] in recent decades, they are still limited by
+*Corresponding author
+Topk 900 queriesTopk 100 queries Topk 300 queries
+Large objects Small objects Background query
+Scale bias for large objects
+Symmetrical query
+Redundance in one-to-one match
+Figure 1. Visualization of selected queries in two-stage initializa-
+tion. Queries and object annotations are denoted in points and
+bounding boxes respectively. The selection results illustrate scale
+bias and redundancy despite one-to-one Hungarian matching.
+manually-designed components such as non-maximum sup-
+pression [3]. With the recent advent of DEtection TRans-
+former (DETR) [3], end-to-end transformer-based detectors
+have shown remarkable performance improvement in the
+COCO challenge [32, 38].
+Among the large number of variants of DETR, the latest
+high-performance frameworks follow a two-stage pipeline
+that performs dense self-attention in the encoder and se-
+lects sparse queries for cross attention in the decoder [6, 14,
+19, 32, 34, 37, 38]. This does improve the detection per-
+formance but also results in increased computation and the
+requirement for stable two-stage query initialization [35].
+As shown in Figure 1, we observe that in task-specific de-
+tection scenarios involving weak objects ( e.g. small-scale
+objects affected by scattering and low contrast [11]), ex-
+isting two-stage selection results exhibit a significant scale
+bias towards large objects and redundancy in background
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+17574
+
+
+---PAGE---
+
+Table 1. Pre-ablation studies on query number of DINO on MSSD
+Two-stage queries AP AP 50 AP75 APS APM APL
+300 49.0 78.1 49.0 19.6 28.8 43.3
+600 49.4 79.3 48.7 18.9 46.5 43.8
+900 51.0 80.0 52.5 20.0 47.4 44.8
+and symmetrical queries. This results in unsatisfactory per-
+formance due to indiscriminative queries. So, what causes
+these issues and how can we mitigate them?
+We attribute these issues to two types of redundancy
+in the detection transformer: encoding redundancy and
+selection redundancy. It is generally agreed that image
+foreground contributes more discriminative features for de-
+termining object categories and locations than background
+[15, 26, 35]. Therefore, performing self-attention on back-
+ground queries may introduce irrelevant and indiscrimina-
+tive information, which leads to the encoding redundancy.
+Table 1 shows that DETR-like methods can still benefit
+from more two-stage queries, even though the number of
+them has been much larger than that of actual objects. This
+indicates that the queries selected for two-stage initializa-
+tion do not exactly match one-to-one with actual objects,
+i.e. selection redundancy. These two redundancies result in
+a heavy computational burden as well as indiscriminative
+queries.
+Numerous efforts have been made to mitigate redun-
+dant calculation and select discriminative queries. For
+instance, Deformable DETR [37] reduces the complex-
+ity from quadratic to linear and explores multi-scale in-
+formation usage through deformable attention with sparse
+reference points. Sparse DETR [26] and Focus DETR
+[35] update only foreground queries for encoding efficiency
+and achieve comparable precision with much fewer self-
+attention queries. However, existing query filtering methods
+apply coarse-grained filtering directly to all tokens, disre-
+garding the multi-scale characteristics where high-level to-
+kens embed more abstract semantics while requiring lower
+computation compared to low-level tokens [11, 15]. More-
+over, scale independence is essential when evaluating query
+importance for unbiased query selection, while the above
+methods select queries based on the foreground confidence,
+which may favor large-scale objects and result in a semantic
+imbalance. Consequently, query filtering becomes ambigu-
+ous and misleading.
+To tackle these challenges, this paper proposes a novel
+detector with hierarchical salience filtering refinement,
+named Salience DETR. We introduce a salience-guided su-
+pervision that is scale-independent to overcome the scale
+bias during query filtering. With the proposed supervi-
+sion, a hierarchical query filtering mechanism is proposed
+to mitigate encoding redundancy by encoding only selected
+queries. In order to compensate for the semantic misalign-
+ment among queries, we propose three elaborate modules to
+refine queries from the perspectives of multi-scale features,
+foreground-background differences and selection strategies.
+Extensive experiments confirm the superior performance
+and minimal computational cost of Salience DETR.
+2. Related Work
+2.1. End-to-End detection transformer
+DETR (DEtection TRansformer) proposed by Carion et al.
+[3] treats detection as a set prediction task and supervises
+the training with one-to-one matching through the Hun-
+garian algorithm. Various works have been exploring the
+transformer-based detectors by accelerating training con-
+vergence and improving detection performance [14, 19, 32,
+34, 37, 38]. Deformable DETR [37] introduces a frame-
+work consisting of two-stage pipeline, deformable atten-
+tion, and multi-scale tokens that is instructive for subse-
+quent DETR-like methods. Condition-DETR [22] focuses
+on the extremities of objects through conditional spatial
+queries to address the slow convergence issue. Since the
+queries in DETR have no explicit physical meanings, An-
+chor DETR [30] reintroduces the concepts of anchor query
+to guide the transformer to focus on specific region modes.
+DINO [34] integrates dynamic anchor [19] and contrast
+denoising training [14] to construct a mainstream detec-
+tion framework and realizes the first state-of-the-art perfor-
+mance among DETR-like methods on COCO. Several re-
+cent works focus on improving performance by incorporat-
+ing training-only designs, such as group queries [6], hybrid
+query matching [12] and IoU aware BCE loss [2], while
+leaving the inference process unchanged. Most recently,
+Co-DETR [38] introduces a versatile label assignment man-
+ner that adds parallel auxiliary heads during training and
+achieves state-of-the-art performance on COCO [16].
+2.2. Lightweight Detection Transformer
+Despite the promising performance of the transformer, its
+high calculation complexity and memory cost hinder further
+applications. As a representative of attention lightweight-
+ness, deformable attention [37] attends sparse spatial sam-
+plings to reduce the computational and memory complex-
+ity. Efficient-DETR [31] optimizes the structure to reduce
+encoder and decoder layers while maintaining comparable
+performance. Recent works focus on reducing the num-
+ber of queries participating in self-attention in the encoder.
+In particular, Lite DETR [15] prioritizes high-level feature
+updates to reduce the number of queries. PnP-DETR [29]
+compresses entire feature maps by abstracting them into a
+fine-grained vector and a coarse background vector. Sparse
+DETR [26] refines only the top- ρ% tokens for all encoder
+layers based on DAM results. Focus DETR [35] further
+introduces the foreground token selector integrated with a
+17575

@@ -1,0 +1,101 @@
+=====核心资产摘录，完整旧发言与原始数表均保留，以下不新增结果=====
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+Material Passport
+Origin: academic-research-suite / experiment-agent；root汇总147、150原始结果
+Date: 2026-10-21 America/Los_Angeles
+Scope: C0 online best_stg2、127固定四个开发输入；902 GT、453个原sub4；不是两个模型seed、不是正式val/test-dev结果
+Verification: 147/00_results.json及150/02_LOO_results.json、04_execution.json均实际读取；B/C分别审查，无足以推翻阴性的实现错误。原始结果优先于本文。
+
+一、145/146→147，条件展开可达族核查：完整阴性
+原生33节点、up=.5、R=4，框族原始⊂conditional⊂rectangle⊂range2。计算单query矩形合法域内联合最优IoU，再作真类top300资格下的最大容量1匹配；分母和GT组不换。
+预定主比较joint conditional−joint original：sub4真类IoU.5需净增≥10且≥2图净正。
+实际分图[0,1,2,0]，净增3，2图正；gate=false。
+
+模式                     all真类.5 / sub4真类.5 / sub4真类.75
+实际预测                         324 / 51 / 10
+joint original                   472 /135 /129
+joint conditional                479 /138 /131
+joint rectangle                  480 /138 /131
+joint range2                     515 /168 /162
+fixed-wh original                430 /114 /56
+fixed-wh conditional             434 /115 /57
+fixed-wh rectangle               434 /115 /57
+fixed-wh range2                  468 /137 /75
+
+嵌套/原框域/阈值敏感性自检通过，sub4真类.5无接近阈值边。1e-8仅嵌套容差，不是全局最优误差证书。算法的实数域最优论证与FP64实施精度分开表述。
+停止此固定conditional版本，不追加rho门槛、不换cohort、不改q(s)挽救。原始域135与实际51的差只说明存在作用面，不识别其来自分类、优化、编码器或特定监督，更不是预期AP。
+
+二、148/149→150，配对边际监督共享bias核查：完整阴性
+缓存127 eval logits/boxes＋114固定原train union；匹配和求和分母均保留，跨eval/train的小预测差异已披露。仅参数decoder.dec_bbox_head.2.layers.2.bias[132]的局部偏导，不是完整网络、分类/LQE或真实优化器步。
+O：原生FGL .15*sg(IoU)*四边CE。
+M：原边缘PMF的独立外积，经t=(r-l)/2、s=(r+l)/2推到原33节点上的四个t/s边际CE。没有学边间协方差，也不是完整联合分布。
+C：同t/s单位的连续L1强简单控制；不是原生绝对框L1。
+目标G：原5*L1(cxcywh)+2*GIoU。四图留一，三图方向均值→一图目标梯度内积；同132维参数空间配平到O方向范数。正gain表示一阶预测下降，不是更新后AP。
+
+组别                 O                  M                  C
+allordinary    2.185474678e-5     1.531588672e-5    -1.818813250e-5
+allsub4       -2.150023856e-6    -4.436050792e-6    -4.948683065e-6
+hard_sub4      1.472796923e-6     1.026018319e-6    -5.193663518e-6
+other          2.038194985e-5     1.428986840e-5    -1.299446898e-5
+
+M主组为正且胜C，但不胜O，仅1/4图胜O；全普通组也低于O，原gate=false。四图均有正权重hard配对，方向均非零。原FGL数值误差1.11e-16、梯度相对误差1.88e-16；native框回读误差约5.68e-8至6.68e-8。
+停止本精确M版本，不放大到整头、改权重/节点以救此结果。不把局部阴性推成所有分布监督都无效。
+
+三、执行边界与后续
+147与150均零模型前向、零模型反传、零模型/优化器更新。150仅缓存与合成小张量autograd；旧checkpoint未加载、未写。输入、源码SHA前后一致；2CPU线程、interop1、Below Normal、亲和13/15，可用RAM>8GiB，无远端或监测操作。
+这两个精确版本停止，不代表持续寻找目标完成。153/154圆桌已提出不同的预算交换排序候选；下一步先做缓存标签前提表158/159，待检查真实排序/原MAL/固定匹配/分别增删后，再决定是否值得新的共享参数无训练核查。
+当前127包含完整C0末层pred_logits[300,10]及框，缺分类头hidden；不能再说完整分数缺失。它并非BASE24当前两seed，也不能沿用1886/1923为当前规模。
+
+四、确切原生分类与截断口径（已读source_snapshot/common.yml和native源码）
+PostProcessor：sigmoid后flatten跨类top300，同query可出多个类别候选。
+Criterion gamma=1.5、alpha=.75、mal_alpha未设→None；MAL匹配真类软目标IoU^1.5，未匹配目标0；负权重sg(sigmoid)^1.5，正权重1。
+Matcher自身gamma=2、alpha=.25，class/bbox/giou权重2/5/2，不要混成MAL gamma=2。
+原生MAL普通末层自己的Hungarian与union几何索引不是同一件事。缓存核查须重新运行eval末层matcher，不冒用114 train union为该索引。缓存局部MAL方向也不代表aux/DN/全网络总方向。
+
+上一场162中已形成的设计，不当作共识或实测：
+最终候选(q,c)，S是跨类原生top300。预算外i/预算内j，H平均10阈值最大匹配数，d=H(S-j+i)-H(S)。C纠正仅softplus(zj-zi)不够，边界需b=min保留分数、c=max其他预算外分数，三项[c+m-zi]+、[zj+m-b]+、[zj+m-zi]+；c确为max，原文并无min错误。共享头经JJ^T，不能以自由logit动作冒充可学。
+固定对照u_a=候选匹配到同类own Hungarian GT时十阈值覆盖平均，否则0；dfix=ui-uj。分别增删dsep=[H(S+i)-H(S)]-[H(S)-H(S-j)]。B反例说明进入者已有正身份仍可因退出者冗余产生分歧；Claude撤回非q*近零即停。A给直接共享GT的跨阈值反例，不能以长增广路缺席停止。
+候选独立时H是子模秩和；同query多类共享名额版本则不保证。项目真实评价同query多类是独立检测，按类greedy且每类100上限，与最大匹配不同。C给γ负反例，A说明三边界不能唯一决定内部排名，所以缓存动作必须确定。B提出叠加g0+λgv与同预算加强g0；A第六轮提醒欧氏grad不等Adam历史步。它们是后续候选路径，不新增本次标签核查的门槛。
+当前158/159实施中：固定127四张C0缓存，inside ranks285–300/outside301–316共256对/图，实际对调两logit、其他分数框不变；H query容量和候选独立都报、原项目pure Python COCO式greedy/面板PR、dfix、dsep、真实native末层普通MAL方向。eval末层own matcher重新计算，114trainunion不用作分类own。先看真实标签/选对规模与简单信号能否复制，数据阳性才锁真实共享头检查。四图是多次用过的增强开发面板，不是跨seed/val/完整AP证据。
+
+Material Passport
+Origin: root primary-source reading notes, academic-research-suite
+Date: 2026-10-21
+Type: 原文阅读笔记，不是已下载原论文；read_scope逐篇标注；不声称作者代码复现
+
+1. Rank & Sort Loss, ICCV2021, arxiv2107.11669v1
+https://arxiv.org/html/2107.11669v1
+实际读取§3.1–3.2与§4式6–12。用既定连续质量标签y_i分正负；先排序正负，再按质量排列正例。式7–8分别当前/目标rank+sort误差；式9–10把误差分配到高分负例或高分低质量正例；式12允许正例同时接收上推、下压信号。已覆盖质量排序、pairwise误差分配和提升/抑制两方向。
+当前指定S-j+i后重新匹配的边际并非这些式中既定y_i；这是一项变量差别，尚非有用增量。强简单对照应保留固定匹配质量标签＋同边界loss，不能只比每候选maxGT-IoU。
+
+2. Rank-DETR, arxiv2310.08854v2
+https://arxiv.org/html/2310.08854v2
+实际读取§3.1–3.4式1–8。架构包含rank-aware分类logit偏置、跨层query排序并融合rank表示。式6质量目标t=(GIoU+1)/2；式8高阶匹配效用p[c]*IoU^alpha，原文采用较大alpha并从训练中段开始。
+已有DETR评分/几何一致性、查询排序和全局匹配竞争，不应声称一般集合监督首次。当前剩余差别仅是部署top300之后指定退出者与进入者的边际，需胜过native MAL、fixed matching及分别增删对照；不能以排序术语否定，也不能靠换术语立创新。
+
+3. Learning Non-Maximum Suppression, CVPR2017
+https://openaccess.thecvf.com/content_cvpr_2017/papers/Hosang_Learning_Non-Maximum_Suppression_CVPR_2017_paper.pdf
+实际读取§4.1及§4.2起始。对整组检测联合重评分，按当前分数贪心匹配生成label：每GT仅高分获匹配者正、重复者负，训练二元加权logistic。标签依赖当前预测与其他框。已覆盖动态匹配标签与duplicate-aware联合重评分。当前预算交换的确定动作不同于该标签生成，但不可主张“首次考虑冗余/相互影响”。
+
+4. NMS-Loss, ICMR2021, arxiv2106.02426v1
+https://arxiv.org/html/2106.02426v1
+实际读取§2.1–2.3式2–3。pull修正同GT未抑制框，push修正不同GT误抑制；用框间IoU和停止梯度的分数权重训练几何。不是当前冻结框的score-only top300交换，不能只因都修重复而判完全相同；但按实际后处理错误造监督的大原则已存在。
+
+5. End-to-end training of object class detectors for mean average precision, Henderson/Ferrari, arxiv1607.03476v2 (2017修订)
+https://arxiv.org/pdf/1607.03476
+实际读取§4.1–4.5，尤其§4.3/4.4，另读§5讨论部分。单score保持其他score固定，寻找最近能改变AP的正/负方向步，计算实际ΔAP构造SDE；MEE取上下分段线性包络平均斜率。§4.4同时处理NMS对误抑制框及其抑制者的依赖，采用两项transitivity近似。不是只给固定正负标签的排序。
+因此把本候选改成“按确定score交换的真实ΔAP加权”后，不能声称一般评测后果驱动监督首次。仍可具体比较：单score最近AP跳变/NMS近似，与跨类top300预算下两个score共同交换并重算按类匹配；这种具体差别有无独立价值，需数据和强简单对照。本文不判定已有工作未覆盖全部预算训练文献。
+
+原文与缓存检查的关系
+H=平均十阈值最大匹配数不是AP；query容量1更非COCO多类独立候选评价。即便标签和fixed matching不同，也可能被分别增删或原MAL同向信号复制；自由logit交换可实现不代表共享头可学。先做158/159确定score对调的零前向表，再冻结真实共享头检查，避免把数学反例或专家共识写成主线已成立。

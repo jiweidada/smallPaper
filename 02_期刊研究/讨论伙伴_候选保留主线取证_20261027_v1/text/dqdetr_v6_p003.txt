@@ -1,0 +1,41 @@
+DQ-DETR: DETR with Dynamic Query for Tiny Object Detection 3
+images contain dense objects concentrated in specific areas, while some only have
+a few objects scattered throughout the images.
+Stemming from the above-mentioned weakness, we propose a novel DETR-
+like method named DQ-DETR, which mainly focuses on dynamically adapting
+the numbers of queries and enhancing the position of queries to locate the tiny
+objects precisely. In this study, we propose a dynamic query selection module
+for adaptively choosing different numbers of object queries in DETR’s decoder
+stage, resulting in fewer FP in sparse images and fewer FN in dense images.
+Moreover, we generate the density maps and estimate the number of instances
+in an image by the categorical counting module. The number of object queries
+is adjusted based on the predicted counting number. In addition, we aggregate
+the density maps with the visual feature from the transformer encoder to rein-
+force the foreground features, enhancing the spatial information for tiny objects.
+The strengthened visual feature will be further used to improve the positional
+information of object queries. As such, we can simultaneously handle the images
+with few and crowded tiny objects by dynamically adjusting the number and
+position of object queries used in the decoder.
+Our contributions are summarized as follows:
+–We point out the crucial limitation of previous DETR-like methods that
+make them unsuitable for aerial image datasets.
+–We propose three components: the categorical counting module, counting-
+guided feature enhancement, and dynamic query selection. These compo-
+nents significantly enhance performance on tiny objects.
+–Experimental result shows that our proposed DQ-DETR significantly sur-
+passes the state-of-the-art method by 16.6%, 20.5% in terms of AP, APvt on
+the AI-TOD-V2 dataset.
+2 Related work
+2.1 Tiny Object Detection
+Detecting small objects is challenging due to their lack of pixels. Early works
+apply data augmentation to oversample the instance of tiny objects. For ex-
+ample, [6], copy-paste small objects into the same image. [32] proposes a K
+sub-policies that automatically transform features from the instance level. In
+addition, several approaches, such as [21,25–27], indicate that traditional Inter-
+section over Union (IoU) metrics are ill-suited for tiny objects. When the object
+size difference is significant, IoU becomes highly sensitive. To design the appro-
+priate metrics for the tiny object, DotD [27] considers the object’s absolute and
+relative size to formulate a new loss function. [21,26,27] design a new label as-
+signment based on Gaussian distribution, which alleviates the sensitivity of the
+object size. However, these methods heavily rely on the predefined threshold,
+which is unstable for a different dataset.

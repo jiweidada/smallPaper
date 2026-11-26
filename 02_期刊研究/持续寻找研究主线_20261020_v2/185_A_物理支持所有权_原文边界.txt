@@ -1,0 +1,135 @@
+185：物理支持与监督所有权——原文边界、可达集事实与一个可实施的GO修订
+Date：2026-10-21；academic-research-suite / deep-research。
+范围：仅阅读已有源码、结果、原始论文与作者公开原文，只新增本文件。没有模型前向、CPU统计/优化脚本、训练、反传、远端、数据修改或历史文件修改。182/183由nativeB撰写、root审后执行；本文不伪称读到了尚未落盘的结果。
+
+一、独立判断
+
+“有限回归支持影响分配”不是未被发现的原理：FCOS已有回归range正样本规则，GFL明确回归分布有限支持，YOLO26已讨论DFL的物理范围限制并直接移除DFL。不能把这些事实、换一个匹配solver或添加一个cost项称为贡献。
+
+不过，当前B候选也不能仅因上述关键词相似就否决。它保留FDR表示与推理，在相同query/GT/类别正槽预算中改变谁负责哪个GT；其可达关系由当前query的初始参考框和实际有限support决定，不是预测框当前IoU、不等于FPN尺度规则。一个query当前IoU差可以仍然有完整可达GT，当前IoU更好的另一个query反而可能无法精确表示它；这是具体剩余变量。
+
+我建议把这个变量落到真实几何归属：同类、固定GO query集合、固定每GT原有几何监督次数，重排所有使用GO的几何目标。下面给出完整定义。它与B的ordinary own必要界有不同操作对象，不能用182的阳性替它通过，也不在182失败后自动启动更多核查来救B。本文不追加通过门槛或新的资格表。
+
+二、当前代码中物理可达的准确含义
+
+源码根目录：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/dn_pre_frozen_diagnostic_20261020_v1/native/engine/deim/
+recipe：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/相位机制论文_20261018/data/source_snapshot/common.yml
+
+dfine_utils.py:9–40给出33个非均匀节点W_k；当前reg_max=32、R=abs(reg_scale)=4，dfine_decoder.py:604固定up=.5，故节点端点a=−2*up*R=−4，b=+4。它们是distance变量单位，不是像素，也不是bin索引0与32。
+
+对query初始参考框r_q=(cx_q,cy_q,w_q,h_q)，dfine_utils.py:121–125的实际解码为：
+ x1=cx−(R/2+d_L)*w/R； x2=cx+(R/2+d_R)*w/R；
+ y1=cy−(R/2+d_T)*h/R； y2=cy+(R/2+d_B)*h/R；
+ d_e=Σ_k softmax(z_e)_k W_k，故d_e属于[a,b]的凸包。
+
+GT为g=(x1g,y1g,x2g,y2g)时，未经translate_gt或clamp的逆映射：
+ d*_L=R*(cx−x1g)/w−R/2； d*_R=R*(x2g−cx)/w−R/2；
+ d*_T=R*(cy−y1g)/h−R/2； d*_B=R*(y2g−cy)/h−R/2。
+采用真实正w/h；分母实现中的1e−16只用于数值保护，不把极小框另换cohort。
+ A_qg=1[所有四边d*_e∈[a,b]]；
+ v_qg=Σ_e{max(a−d*_e,0)+max(d*_e−b,0)}。
+这是固定r_q时能否任意逼近GT的判别。有限logit的softmax不能精确产生端点one-hot，所以闭区间讲的是可表示集合的闭包/infimum；这不影响真正越界的判断，也不该把等端点算成训练已精确实现。
+
+若要把“越界量”解释为物理框误差，必须换单位：
+ v_xyxy(q,g)=Σ_e s_qe dist(d*_e,[a,b])，s=(w/R,h/R,w/R,h/R)。
+它是四条边独立仿射区间内最小corner-L1误差；若边独立投影得到合法框即可取到，否则只是下界。它不是原5*L1(cxcywh)+2*GIoU的精确下界，更不是AP差。B原v是参考框归一化distance单位，可以保留为其已定第二优先级，但不能直接叫像素损失。
+
+关键架构事实：dfine_decoder.py:488–503只在第一层生成pre_bboxes，并设ref_points_initial=pre_bboxes.detach()。各FDR层都调用distance2bbox(ref_points_initial, integral(pred_corners), R)，输出refs也全是同一个initial ref。508–509更新的是残差logit和attention使用的ref_points_detach，并没有把FDR物理参考框逐层改成上一层框。因此同次前向的所有FDR层共享同一物理可达集。
+结论只限固定前向：训练中的pre_bbox_head可经自己的监督改变，下一个训练步的r_q会变；不能写“这个GT永远不可学”。但不能用“再深一层累加修正就能越过端点”否认当前FDR支持事实。
+
+dfine_utils.py:65–103的translate_gt把范围外目标映到端点标签，132–155的bbox2distance之后还clamp bin索引。支持审查必须读取逆映射d*，不能看截断后的target_corners判断可达。加更多内部bin、保持端点相同，不会扩大可达凸包。
+
+三、最近原文实际覆盖到哪里
+
+1. FCOS，ICCV2019，亲读作者arxiv1904.01355v5 §3.1–3.2、Eq1–2及range段。
+https://arxiv.org/html/1904.01355v5
+https://arxiv.org/pdf/1904.01355
+原文Eq1是(l*,t*,r*,b*)=(x−x0,y−y0,x1−x,y1−y)。§3.2要求位置在GT内，且max(l*,t*,r*,b*)处于[m_(i−1),m_i]，阈值0/64/128/256/512/∞；不满足则置负，多GT歧义取最小面积。
+覆盖：用回归目标范围约束正样本分配。差别：§3.1输出exp(x)，§3.2改为exp(s_i x)，输出范围仍(0,∞)；FPN的上界是人工分工规则，非该头真实输出硬上限。当前FDR端点是数学可达上限，且候选不把越界GT删成负、不增减匹配预算。这个区别可成立，不能写“range-based assignment首次”。CVF链接403，本次亲读范围是arxiv作者稿。
+
+2. GFL，NeurIPS2020，亲读原PDF §3的DFL、Eq4–6，及本地原文。
+https://papers.nips.cc/paper_files/paper/2020/file/f0bda020d2470f2e74990a07a607ebd9-Paper.pdf
+本地：英文小论文/文献_相关原始论文_20261004/_text/07_GFL_2020_qualified-and-distributed-boxes__arXiv-2006.04388.txt。
+Eq5：ŷ=Σ_i P(y_i)y_i∈[y0,yn]；Eq6：DFL=−(y_(i+1)−y)log S_i−(y−y_i)log S_(i+1)（论文等间距Δ=1）。它给出相邻两bin线性权重使期望等于in-range标签的解。
+覆盖：有限支持、边分布、相邻标签与可逼近性。所读方法没有给出由query特定有限支持引导的同预算GT所有权重排。不能从这一有限阅读声称整个相关领域无人做过；也不能把有限支持定理算新贡献。
+
+3. D-FINE，ICLR2025。亲读本地publisher §4.1–4.2、Eq2–6、PDF p4–6，并以arxiv原文对照。
+本地：英文小论文/文献_相关原始论文_20261004/_text/105_D_FINE_ICLR2025_Publisher.txt。
+https://arxiv.org/html/2410.13842v1
+Eq2：d^l=d^0+{h,h,w,w}Σ_n W(n)Pr^l(n)；Eq3为残差logit累加后softmax；Eq4端点W(0)=−2a、W(N)=2a；Eq5为IoU加权相邻bin FGL。§4.2合并各层匹配做定位，分类仍各层一对一；Eq6做同query末层到浅层分布KL并按IoU/置信度分组加权。
+覆盖：固定初始框上的跨层分布精化与统一定位归属。剩余：所读公式/本地实现未以未截断d*检验归属可表示性。原文“union/global optimal”不能自行等同物理可达最优。
+
+4. Q-MCMF，AAAI2026，亲读arxiv2603.01524v1 §3.1–3.3、Eq1–5。
+https://arxiv.org/html/2603.01524v1
+Eq3按当前预测IoU阈值α/β剪边；Eq4在query/GT容量各为1的图上先最大流、再最小cost，允许原GT不被匹配。原文处理增量检测中的background foregrounding。
+覆盖：由几何合法边重构匹配、最大化有效对数、匹配代价次优先。B的“先多匹配可达边、再代价”具有此直接近邻，不能只靠lex顺序立新。
+剩余：B用网络表示的可达凸包而非当前预测IoU，完整保留原同类query/GT预算；下述GO修订还保留每GT原几何监督次数。它检验相同已知监督能否换到可表示它的轨迹，非删除低质量监督。未读Q-MCMF++完整期刊正文；扩展覆盖不宣称已穷尽排除。
+
+5. 新补YOLO26，arxiv2606.03748v1（2026-06-02），亲读§3.2.2 Eq1、§3.3.3 Eq4–6。
+https://arxiv.org/html/2606.03748v1
+Eq1解码d=Σ_i i softmax(z)_i，原文明确每边范围≤(K−1)*stride，并通过移除DFL改直接回归。STAL把小于最小stride的候选筛选宽/高扩成参考stride，回归仍用原GT。
+覆盖：DFL范围限制的动机及表征层解决途径、候选几何与回归GT分开。剩余：B保留FDR与所有真实GT，不扩大candidate mask或support，只改监督归属。
+谨慎：该文关于D-FINE“增K缓解range”的概述不能代替当前源码；这里W端点由up、R决定，K只增内部节点时并不扩域。不得照抄这个跨架构概述作为本项目证据。
+
+这些均是亲读方法正文而非只读搜索摘要。没有下载新PDF或改论文库；准确链接留在本文件。2026原文和经典原文分工不同，不能为满足“近年”而漏掉FCOS/GFL。
+
+四、B的ordinary own界如何准确解释
+
+按root提供的182/183设计：对每类c固定原已匹配query集合Q_c、GT集合J_c，二者等大；全部同类Q_c×J_c都是完整候选，A_qg=1的边组成可达图。令ν_c为该图最大匹配数。
+则K_min=Σ_c(|J_c|−ν_c)是完整同类一对一分配中最少outside配对数的精确值。证明：任一完整分配的可达边不超过ν_c；任一最大可达匹配的剩余query/GT数量相同，可以用完整同类边任意补全，所以这个界可达到。
+因此它对首个lex目标并非一个宽松solver上界；但它不提供第二项总v及第三项nativecost的最优解，不证明监督梯度、训练收益或GO全流程结果。用“必要界”描述其科研用途依然合适。
+
+当前四输入GT为146/280/418/58，ordinary own共784、MAL分母902。完整same-class重新分配只含原784个GT，第三图118个未匹配GT不补入。只使用全部300queries的跨类/含未匹配容量，已不是该预算问题。原最大当前IoU简单分配必须在同一集合、同类、同预算上求，不能换一个较弱greedy来抬高B。
+root已指定“若支持最大数不能在≥2图胜simple则停止B”；本文不改门槛、不为它加新例外。182尚未执行/回传给本代理时，不能预写结果阳性。
+
+五、真正的干预缺口：own换了，不等于FDR回归目标换了
+
+deim_criterion.py:500附近_get_go_indices汇总final/aux/pre/encoder匹配，按同一(query,GT)出现频次排序，再对每query只留首个GT。输出indices_go可以对某GT有多个query，但对每query只有一个几何GT；其GT可能与末层own不同。
+624附近普通boxes/local走indices_go；640附近aux同样；pre在659附近、encoder boxes在686附近也复用GO。分类MAL仍走各层own。loss_local:345–357把GO target经bbox2distance变FGL目标，并缓存后供各FDR层复用。
+
+若只替换final own，nativeGO跨层多数票可以继续选原目标；这时“不可达回归监督已被修复”的说法不成立。若只把新own直接替换GO，则会抹掉GO多query正例与每GT次数，和既定“同预算只换所有权”不一致。
+这不是一般实现洁癖：它决定方法实际改变的是分类IoU软标签、GO支持，还是定位监督密度。修订必须明确选择操作对象。
+
+六、可实施修订G：保留GO预算与每GT次数，转移整条几何监督轨迹
+
+这是我给出的一项具体修订，不是把ordinary own结果冒称完整GO。保留全部原native各层匹配，先计算原GO G0={(q,r0(q)):q∈Q_GO}。令J_GO为实际出现的GT，m_g=|{q:r0(q)=g}|，c0(q)=class(r0(q))。
+
+新的二元分配X_qg满足：
+ Σ_g X_qg=1，                    每q∈Q_GO；
+ Σ_q X_qg=m_g，                  每g∈J_GO；
+ X_qg=0，                        class(g)≠c0(q)；
+ X_qg∈{0,1}。
+
+这保持每query一个几何GT、每GT原来的几何监督次数、全部几何query身份、各query原GO类别、几何分母及分类正例槽不变。未进入G0的GT不加入；原GO未监督query不加入。它不引入同query多GT回归、第三图额外GT或任何跨类目标。
+
+在上述同类完整候选上求明确的词典序目标：
+ argmin_X lex( Σ_qg X_qg(1−A_qg),
+               Σ_qg X_qg v_qg,
+               Σ_qg X_qg C_qg )。
+C_qg用当前native末层原cost；所有量stop-gradient。完全同目标时按G0优先、再固定原ID序作确定性平局。不能用任意小epsilon宣称实现了严格lex。可用带GT需求m_g的标准最小费用流，或把每GT复制成m_g个需求槽后求指派；solver不是贡献。
+在此集合中class cost对每query的所有允许GT相同，因为它们同类，所以第三项的分类部分是常数；不能声称它给同类GT实例配对提供额外判别。
+
+精确代码位置与传递：
+  1) 隔离副本在原_get_go_indices之后、num_boxes_go计算之前，加build_support_consistent_go(outputs,targets,indices_go)。输入同次forward的final ref_points、真实up/R、原GO与GT，输出同长度同query集合的新GT列。
+  2) 使用同一个G*替换本次forward全部原来使用indices_go的ordinary boxes/local调用，包含decoder各层、pre的boxes及encoder的boxes；其own分类和DN匹配完全保留。
+  3) 继续使用原FGL .15、box L1 5、GIoU 2、DDF1.5及原num_boxes_go，不另加损失。首次构造self.fgl_targets即使用G*，其后各层共用，避免旧目标缓存。DN的fgl_targets_dn保持原支路。
+  4) DDF仍沿原query的final→aux分布蒸馏；两者物理坐标相同，不需要跨query搬teacher logits。matched query mask和数量不变，matched IoU权重依原实现按G*重算。不能宣称DDF数值完全不变。
+  5) pre/encoder回归不是有限FDR输出，但它们原本共享GO，修订同时传递G*以保持整条几何归属一致。这会改变pre/encoder未来参考框学习，是方法的一部分；不能说只影响末层。分类MAL输入匹配/target仍不变，但长期共享特征当然会受影响。
+
+若不愿改变pre/encoder监督而只想约束FDR，需要另命名为“分支分开定位归属”版本，不能在同一实验里偷偷替换。G首版以上述全GO传递为唯一实现。
+
+G的精确剩余变量：利用所有FDR层共享的可达集，在原跨层监督预算和GT重复度固定时，修复“哪个query轨迹承担哪个同类实例”的归属。它没有更大support、更多正例、teacher或表示维度；物理可达和当前预测质量可分离。这比“cost+λv”更具体，但不预先宣告有论文增量或训练收益。
+
+七、强简单对照与结论，不追加一串前提表
+
+最强直接控制就是G-IoU：相同Q_GO/J_GO/m_g/同类约束、相同全部GO传递，只最大化当前末层IoU总和；其余完全相同。另保留原频次GO。比较对象必须是实际几何GT归属，而非仅可达边数。若G-IoU已复制G的所有归属，物理变量在这批数据没有额外作用；不靠更名继续。
+ordinary own的182/183可以按已经审定的协议执行，它能直接筛掉B的基础作用面。其候选图不是G的需求图，故无论正负都不能代替G的数学解；也不能为了绕过182阴性立即追加GO版本筛查。若root决定继续G，方法本身已具体到输入、优化、loss位置与对照，不需要再设计泛化的风险资格表。
+
+本轮支持B继续现有无训练必要界，理由是物理可达变量与当前IoU不同且具体可实现，并非“新matching算法”。但不支持在未解决GO传递语义时把ordinary重配称为已修复FDR监督；也不支持在原文覆盖下把range awareness、有限support诊断或正例守恒单独写成创新。
+对照原文后仍可讨论的主张是：保留原FDR表示与全部既定监督预算，按整条轨迹可达性重新分配同类几何所有权。是否足够值得付训练算力，要看该变量相对同预算IoU分配是否实际产生所需的不同归属；无需先证明AP上涨，但物理oracle/局部统计不能冒充训练效果。
+
+已接收root回交：160的1024交换Hi=dsep全同、119正交换与四图选对被简单对照复制，172单边次峰upper51→52均停止。185不复活这些版本，也不改157条件域与边际监督阴性。173多类M保持暂存，D2身份仅为资产问题。
+
+AI-assisted research disclosure：由当前Codex代理亲读上述源码和原文提出；数学推导与实现设计未执行，未声称模型试验或他人共识。

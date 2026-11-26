@@ -1,0 +1,53 @@
+125：C0 注意力模板局部配准冻结首检（执行前协议）
+
+一、问题、范围与已知边界
+本次唯一候选是：以同一 query 末层真实 cross-attention 的采样位置和权重，在既有 C0 reduce(P2) 的共同特征空间形成模板，再用末框中心附近的局部特征差分，进行一次有界的中心配准。它改变推理末框的中心，不改变初始 reference、模型参数或梯度路由。112/114 的轴路由已失败，保持停止；本次不解释为其修正版。
+已有 121 在同四张开发图、C0 online、实际 query 容量 1 下：原 sub4 真类 IoU.5 为 51，末框 ±2px 几何上界为 89，尺寸 oracle 为 55，最佳常数平移为 51；IoU.75 为 10→40。这只是局部可作用面，不能预先证明注意力模板方向正确。
+Lucas–Kanade 的特征残差/Jacobian 配准、局部特征重采样与语义对齐已有先例。此首检不把 LK、求逆、双线性采样、有限步长称为创新；只检查“本 query 已有注意力内容作为局部中心纠偏模板”是否给出优于强简单对照的方向。先例核查、训练、AP 和跨 seed 推广均不由此检验代替。
+
+二、固定资产、资源和执行边界
+使用 104 指定的 C0 online model 权重、原 C 源码和 recipe，strict 加载 801 个 state tensors；不使用 EMA。复用 113.build，构建出的 criterion 不调用。输入为 77_all_count_frozen/00_all_count_inputs.pt 中 85_source_self_attention/00_selected.json 指定的四图，顺序不变，共 902 GT，其中原始 sub4 为 453；不得按本次结果换图、换 GT 或加置信度门控。
+恰好四次独立 batch=1、640×640、model.eval 前向；全程 no_grad、BN eval、MHA fastpath=False。零 VJP、零 backward、零 optimizer、零训练、零远端。CPU 2 threads / interop 1，below-normal priority，affinity [13,15]，每次模型前向前与离线计算前可用 RAM 必须 >8 GiB。资源或捕获条件不满足则停止，不能悄悄切后端。
+原 CP SHA256、模型完整 state（含 BN）与独立 BN state 的运行前后哈希必须相同。记录源码、脚本、协议、输入和 helper 哈希。125/126 是新增文件，不修改 112/113/114 或其他历史文件。
+
+三、只读捕获及原输出一致性
+1. reduce 模块 forward_hook 捕获其原生输出 f，形状 [16,160,160]；不取 restore 后特征，不增加 P2 前向。
+2. 在 model.decoder.decoder.layers[eval_idx].cross_attn.ms_deformable_attn_core 上包一层 passthrough。只记录实际传入的 sampling_locations [1,300,8,12,2]、attention_weights [1,300,8,12]、spatial_shapes 和 points_list；调用原 core 一次并原样返回其输出。若所选 CPU 后端绕过该 core，捕获次数为零，直接失败，不更改模型以绕过。
+3. 原 _select_topk 调用一次。以同 default encoder logits.max(-1).topk(300) 只读重建 selected_indices，并核 memory/anchors gather 与原函数返回逐元素一致；索引须 300 个唯一值。只 selected_indices<6400 的原 P3 槽允许修改末框；P4/P5 原样。
+4. model.decoder.decoder 的 forward_hook 保存返回 tuple 的 out[2][-1][0]（raw final corners）与 out[3][-1][0]（ref_points_initial），以及 out[0/1][-1][0] 供核对。该 hook 返回 None，不改输出；eval 原生 tuple 已包含这些值，不切 train、不增加前向。
+5. 每图对比 114/03_eval_predictions_and_queries.pt 的同一 event/input_sha256：记录 logits/boxes 最大绝对误差和是否逐元素相同；预定上限分别 1e-4 与 1e-6。selected_indices 与 sigmoid(class×query) natural top300 的完整 flat 排序必须相同，target boxes/labels 与 original_sub4 必须相同。原始八个计数必须逐图等于 114 缓存重算且汇总等于 121 原始计数。这里是资产/实现校验，不是新增效果门槛；失败不进行方法优劣判读，也不默认 exact parity。
+
+四、固定公式、单位及三臂
+对 query q，末层 H=8 个头、每头 K=12 个跨层采样点。原 softmax 权重 alpha_qhk 在每个头的 K 个点上和为 1（记录最大和误差，容许 2e-6）。不重新 softmax、不截断采样点、不排除异源或背景、不按有效像素重新归一化。
+所有位置均按 native normalized coordinates 使用 grid_sample：grid=2*x-1，bilinear，align_corners=False，padding_mode=zeros；所有原多尺度采样位置共同投影到同一 f=P2 reduce 图。越界位置按上述零填充采样，权重仍保留。该网格约定不等于已证明的真实感受野物理像素中心。
+用 float64 采样及计算，原 f/位置/alpha 先按原 dtype 缓存再转 double。模板 t_q=(1/H) sum_h sum_k alpha_qhk f(s_qhk)。原末框中心 c_q 使用 normalized cxcywh 的真实末框值，不使用 GT、oracle、初始 reference、source 标签或最近 GT。
+定义 m_q=f(c_q)，用输入像素坐标的 ±2 px 差分：
+J_x=[f(c_q+(2/W,0))-f(c_q-(2/W,0))]/4，
+J_y=[f(c_q+(0,2/H_image))-f(c_q-(0,2/H_image))]/4，
+J=[J_x,J_y] 为 16×2，单位是特征/输入像素。
+G=J^T J，lambda=1e-3*trace(G)/2+1e-6，A=G+lambda*I，b=J^T(t_q-m_q)。不学习、不调 lambda。
+四个报告臂（候选只有 GN）：
+O/original：原末框。
+GN：delta=clip(solve(A,b),-2,2)，按坐标分别截断。
+trace：同模板、同 J、同 A、同 b，仅 delta=clip(b/(trace(A)/2),-2,2)。该控制检验 2×2 局部方向结构是否超过各向同性特征下降。
+barycenter：原采样坐标的注意力重心 s_bar=(1/H)sum_hk alpha*s；delta=clip((s_bar-c_q)*(W,H_image),-2,2)。不重新归一化或截断原采样坐标。
+仅对 P3 槽，将 delta/(W,H_image) 加到实际原末框中心；宽高、logits、query 槽、P4/P5 一律不变。只截断 delta，不额外把最终中心/框裁到画布。GN 的事后分量 clip 不是严格盒约束最小二乘最优解，不作此宣称。不是改变 encoder initial-ref 的检验。
+
+五、检测计数与逐 GT 得失
+沿用 121/102：每图 pred_logits.sigmoid().flatten().topk(300) 是固定 class×query 预算。构造 allowed[300,10]；同一 query 即使有多个入选类别也只有一个物理匹配容量。真类边=IoU>=阈值且 allowed[q,GTclass]；几何边使用全部原 300 query，不附类别筛选。分别对 all GT 与原 original_sub4 组做最大一对一二分匹配，组间独立求最大数，不把分组数相加冒充全图匹配。
+完整报告八项：all_geo05、all_geo075、all_class05、all_class075、sub4_geo05、sub4_geo075、sub4_class05、sub4_class075；逐图与汇总均报告。不以分数另设阈值，不改原 sub4 定义。
+最大匹配的具体 GT 身份可任意重排，不能用一次 matching 的身份作保留/损失。另对每一 GT 保存“存在至少一个符合条件的 query 框”的布尔覆盖（geo/class × .5/.75），并对各臂相对 original 报 all/sub4 新覆盖、丢覆盖、保留及具体 GT 索引。这是存在性辅助结果，不能冒充容量 1 检测计数。辅助报告每臂 P3 delta 范数/截断率、模板采样越界权重、原权重归一误差；不用于新增筛选。
+
+六、唯一事前继续端点
+GN 在四图汇总的 sub4_class05 必须严格大于 original、trace、barycenter 三者各自计数，且 GN 的 all_class05 >= original。四条件全部通过才允许提出继续核查此变量；不要求冻结检验先证明 AP，也不据通过直接申请/启动训练。
+任一条件失败：停止本次固定模板、固定差分、固定 lambda 的精确版本；不得从三个方法臂选赢家替换候选，不调 lambda、不换 cohort、不加 confidence/source 门控、不降低条件救结果。此资源判据不等于统计显著性、新颖性、可学习性或训练迁移证明，也不否定所有相位/注意力机制。
+
+七、缓存 schema 与 B 的独立核查
+固定输出目录 127_C0_attention_template_registration；本脚本不得覆盖已存在目录。固定共享缓存 127_C0_attention_template_registration/01_cache.pt。
+顶层：records（顺序四条）、reg_max（int）、up（float）、reg_scale（float），另含 checkpoint_sha256、weight_key='model_online'、model_state_sha256/BN_state_sha256/mode/input_shape/coordinate_convention/protocol_sha256/script_sha256。
+每条 record：image_index、event、input_sha256；pred_boxes[300,4]（原 normalized cxcywh）、pred_logits[300,10]、selected_indices[300]、target（原 boxes normalized cxcywh 与 labels 等原字段）、original_sub4[NGT]；final_corners[300,132]（raw logits，非 PMF）、ref_points_initial[300,4]（原 native 输出）；reduced_p2[16,160,160]、sampling_locations[300,8,12,2]、attention_weights[300,8,12]、native_spatial_shapes、native_points_list；另含各臂 delta_pixels、boxes_by_arm、natural_top300_flat_indices、parity。
+公共 reg_max/up/reg_scale 来自原 model.decoder，逐元素核与内部 decoder 一致。corners/ref 只保存，不在本次做 PMF 改动或判读；B 的后续方案另有独立协议。该缓存新增不增加 forward/VJP，不混合两种方法。
+
+八、实现自检与局限
+根代理执行时先运行合成自检：query 容量 1、IoU、自身采样点的 align_corners=False 网格、越界零填充、仿射特征场的差分符号和像素单位、ridge 解与 trace 标量的区别、常量特征零步长、各坐标 ±2 截断、平均 head 的 alpha 加权模板/重心。自检只是实现检查，无模型前向/VJP。
+模型前向输出保持原样，后处理的四臂共享该一份输出。四张反复使用的开发图、单 C0 online seed，以及已有注意力并非专为细粒度内容模板训练，均限制外推。若梯度或未来训练版改变了模板/采样/损失路径，需要新协议，不能用本冻结结果代替。

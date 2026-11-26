@@ -1,0 +1,191 @@
+CARAFE: Content-Aware ReAssembly of FEatures
+Jiaqi Wang1 Kai Chen1 Rui Xu1 Ziwei Liu1 Chen Change Loy 2 Dahua Lin1
+1CUHK - SenseTime Joint Lab, The Chinese University of Hong Kong
+2Nanyang Technological University
+{wj017,ck015,xr018,dhlin}@ie.cuhk.edu.hk zwliu.hust@gmail.com ccloy@ntu.edu.sg
+Abstract
+Feature upsampling is a key operation in a number of
+modern convolutional network architectures, e.g. feature
+pyramids. Its design is critical for dense prediction tasks
+such as object detection and semantic/instance segmenta-
+tion. In this work, we propose Content-Aware ReAssembly
+of FEatures (CARAFE), a universal, lightweight and highly
+effective operator to fulﬁll this goal. CARAFE has several
+appealing properties: (1) Large ﬁeld of view. Unlike previ-
+ous works (e.g. bilinear interpolation) that only exploit sub-
+pixel neighborhood, CARAFE can aggregate contextual in-
+formation within a large receptive ﬁeld. (2) Content-aware
+handling. Instead of using a ﬁxed kernel for all samples
+(e.g. deconvolution), CARAFE enables instance-speciﬁc
+content-aware handling, which generates adaptive kernels
+on-the-ﬂy. (3) Lightweight and fast to compute. CARAFE
+introduces little computational overhead and can be read-
+ily integrated into modern network architectures. We con-
+duct comprehensive evaluations on standard benchmarks
+in object detection, instance/semantic segmentation and in-
+painting. CARAFE shows consistent and substantial gains
+across all the tasks (1.2% AP , 1.3% AP , 1.8% mIoU, 1.1dB
+respectively) with negligible computational overhead. It
+has great potential to serve as a strong building block for
+future research. Code and models are available at
+https:
+//github.com/open-mmlab/mmdetection.
+1. Introduction
+Feature upsampling is one of the most fundamental op-
+erations in deep neural networks. On the one hand, for
+the decoders in dense prediction tasks ( e.g. super resolu-
+tion [
+6, 17], inpainting [ 11, 29] and semantic segmenta-
+tion [ 39, 4]), the high-level/low-res feature map is upsam-
+pled to match the high-resolution supervision. On the other
+hand, feature upsampling is also involved in fusing a high-
+level/low-res feature map with a low-level/high-res feature
+map, which is widely adopted in many state-of-the-art ar-
+chitectures, e.g., Feature Pyramid Network [
+18], U-Net [31]
+Reassembly Center Reassembled Region Upsample
+Figure 1: Illustration of CARAFE working mechanism . Left:
+Multi-level FPN features from Mask R-CNN (left to dotted line)
+and Right: Mask R-CNN with CARAFE (right to dotted line). For
+sampled locations, this ﬁgure shows the accumulated reassembled
+regions in the top-down pathway of FPN. Information inside such
+a region is reassembled into the corresponding reassembly center.
+and Stacked Hourglass [
+26]. Therefore, designing effective
+feature upsampling operator becomes a critical issue.
+The most widely used feature upsampling operators
+are the nearest neighbor and bilinear interpolations, which
+adopt spatial distance between pixels to guide the upsam-
+pling process. However, nearest neighbor and bilinear in-
+terpolations only consider sub-pixel neighborhood, failing
+to capture the rich semantic information required by dense
+prediction tasks. Another route toward adaptive upsampling
+is deconvolution [
+27]. A deconvolution layer works as an
+inverse operator of a convolution layer, which learns a set
+of instance-agnostic upsampling kernels. However, it has
+two major drawbacks. Firstly, a deconvolution operator ap-
+plies the same kernel across the entire image, regardless of
+the underlying content. This restricts its capability of re-
+sponding to local variations. Second, it comes with a large
+3007
+
+
+---PAGE---
+
+number of parameters and thus heavy computational work-
+load when a large kernel size is used. This makes it difﬁcult
+to cover a larger region that goes beyond a small neighbor-
+hood, thus limiting its expressive power and performance.
+In this work, we move beyond these limitations, and seek
+a feature upsampling operator that is capable of 1) aggre-
+gating information within large receptive ﬁeld, 2) adapt-
+ing to instance-speciﬁc contents on-the-ﬂy, and 3) main-
+taining computation efﬁciency. To this end, we propose a
+lightweight yet highly effective operator, called Content-
+Aware ReAssembly of Features (CARAFE) . Speciﬁcally,
+CARAFE reassembles the features inside a predeﬁned re-
+gion centered at each location via a weighted combination,
+where the weights are generated in a content-aware manner.
+Furthermore, there are multiple groups of such upsampling
+weights for each location. Feature upsampling is then ac-
+complished by rearranging the generated features as a spa-
+tial block.
+Note that these spatially adaptive weights are not learned
+as network parameters. Instead, they are predicted on-the-
+ﬂy, using a lightweight fully-convolutional module with
+softmax activation. Figure
+1 reveals the working mecha-
+nism of CARAFE. After upsampled by CARAFE , a feature
+map can represent the shape of an object more accurately,
+so that the model can predict better instance segmentation
+results. Our CARAFE not only upsamples the feature map
+spatially, but also learns to enhance its discrimination.
+To demonstrate the universal effectiveness of CARAFE ,
+we conduct comprehensive evaluations across a wide range
+of dense prediction tasks, i.e., object detection, instance
+segmentation, semantic segmentation, image inpainting,
+with mainstream architectures. CARAFE can boost the
+performance of Faster RCNN [
+30] by 1.2% AP in ob-
+ject detection and Mask RCNN [ 8] by 1.3% AP in in-
+stance segmentation on MS COCO [ 19] test-dev 2018.
+CARAFE further improves UperNet [ 35] by 1.8% mIoU
+on ADE20k [ 43, 44] val in semantic segmentation, and
+improves Global&Local [ 11] by 1.1 dB of PSNR on
+Places [ 42] val in image inpainting. When upsampling an
+H × W feature map with 256 channels by a factor of two,
+the introduced computational overhead by CARAFE is only
+H ∗ W ∗ 199k FLOPs, vs., H ∗ W ∗ 1180k FLOPs of decon-
+volution. The substantial gains on all the tasks demonstrate
+that CARAFE is an effective and efﬁcient feature upsam-
+pling operator that has great potential to serve as a strong
+building block for future research.
+2. Related Work
+Upsampling Operators. The most commonly used upsam-
+pling methods are nearest neighbor and bilinear interpola-
+tions. These interpolations leverage distances to measure
+the correlations between pixels, and hand-crafted upsam-
+pling kernels are used in them. In deep learning era, sev-
+eral methods are proposed to upsample a feature map us-
+ing learnable operators. For example, deconvolution [
+27],
+which is an inverse operator of a convolution, is the most fa-
+mous among those learnable upsamplers. Pixel Shufﬂe [
+32]
+proposes a different upsampler which reshapes depth on the
+channel space into width and height on the spatial space.
+Recently, [
+23] proposed guided upsampling (GUM), which
+performs interpolation by sampling pixels with learnable
+offsets. However, these methods either exploit contextual
+information in a small neighborhood, or require expen-
+sive computation to perform adaptive interpolation. Within
+the realms of super-resolution and denoising, some other
+works [
+24, 14, 9] also explore using learnable kernels spa-
+tially in low-level vision. With a similar design spirit, here
+we demonstrate the effectiveness and working mechanism
+of content-aware feature reassembly for upsampling in sev-
+eral visual perception tasks, and provide a lightweight solu-
+tion.
+Dense Prediction Tasks. Object detection is the task of
+localizing objects with bounding-boxes, instance segmenta-
+tion further requires the prediction of instance-wise masks.
+Faster-RCNN [
+30] introduces Region Proposal Network
+(RPN) for end-to-end training, which is further improved
+by the guided anchoring scheme [
+34]. [ 18, 21, 15, 41, 28]
+exploits multi-scale feature pyramids to deal with objects at
+different scales. By adding extra mask prediction branches,
+Mask-RCNN [
+8] and its variants [ 1, 10] yield promising
+pixel-level results. Semantic segmentation [ 22, 16] requires
+pixel-wise semantic prediction for given images. PSP-
+Net [
+39] introduces spatial pooling at multiple grid scales.
+and UperNet [ 35] designs a more generalized framework
+based on PSPNet. Image or Video inpainting [ 38, 37, 36]
+is a classical problem to ﬁll in the missing regions of
+the input pictures. U-net [
+31] is popular among recent
+works [11, 33], and adopts multiple upsampling operators.
+Liu et al. [20] introduce partial convolution layer to alleviate
+the inﬂuence of missing regions on the convolution layers.
+Our CARAFE demonstrates universal effectiveness across
+a wide range of dense prediction tasks.
+3. Content-Aware ReAssembly of FEatures
+Feature upsampling is a key operator in many modern
+convolutional network architectures developed for tasks in-
+cluding object detection, instance segmentation, and scene
+parsing. In this work, we propose the content-aware re-
+assembly of features (CARAFE) to upsample a feature map.
+On each location, CARAFE can leverage the underlying
+content information to predict reassembly kernels and re-
+assemble the features inside a predeﬁned nearby region.
+Thanks to the content information, CARAFE can use an
+adaptive and optimized reassembly kernel in different loca-
+tions and achieve better performance than mainstream up-
+sampling operators, e.g. interpolations or deconvolution.
+3008

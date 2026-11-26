@@ -1,0 +1,17 @@
+A51现有指标保持冻结：COCO式AP/APs、maxDets300、原图裁剪GT面积和连续矩形class0 union过滤。所有原版/对照/候选采用同一口径。以下只是后续验证路线准备，未改变正在运行的评分、训练或门槛。
+
+已经核查的第一手资料
+官方数据仓库 https://github.com/VisDrone/VisDrone-Dataset 明确提供DET train/val及带标签test-dev；其DET toolkit链接指向VisDrone/VisDrone2018-DET-toolkit，README标题和代码说明该库用于VisDrone2019。
+已完整归档这个工具库commit005445782213e20cb91bc50a597db3dd949e749a的11个文件，保存原始ZIP与逐文件SHA。仅阅读README和evalDET.m、calcAccuracy.m、dropObjectsInIgr.m、VOCap.m；其余代码未完整审计，也没有执行Matlab或重跑模型。
+源码入口 https://github.com/VisDrone/VisDrone2018-DET-toolkit/tree/005445782213e20cb91bc50a597db3dd949e749a 。
+
+影响解释的具体差异
+官方所读入口输出maxDets500的整体AP/AP50/AP75和多档AR；AP调用VOCap进行精度包络积分。没有在这个入口看到small-area AP输出。当前COCO式APs不能直接标为官方VisDrone挑战分数。
+官方所读ignore预处理将框坐标round到像素，并用图像栅格积分图计算忽略占比。当前短验证用连续坐标矩形并集过滤；未证明两者逐框等价。
+当前evaluate.py在保存predictions.json前已经过滤部分预测。因此不能仅换评分函数，就把现有过滤后缓存称为完整的官方协议重评结果。
+ECDet当前原生输出为全图top300。官方评价允许500不等于模型会产生500个输出；后续官方协议复核也不据此修改query数/输出供给来挽救本候选。
+
+若固定12轮三项主门槛全部通过，下一步的可承担路线
+在同一批固定12轮权重上，为B/M/Q统一重新导出未做研究用ignore过滤的原图预测，同时保留当前COCO式结果；训练更新为0，分辨率/query/阈值/权重不变。可按现有batch4对val548导出，每模型至多137整模型前向，三组共411；届时先单独冻结推理预算和官方协议版本，并核查完整工具链与实现对应关系。
+官方整体指标与研究用APs分开报告；如果官方指标和当前研究用指标方向不同，解释这种差异，不替换原先固定12主结局。进一步的test-dev/第二数据集/重复seed均需另有证据和明确预算，不是现有监督器的后续队列。
+本文件不触发新推理、训练、评估或数据下载。若本轮候选未过固定门槛，不为它启动这项额外验证。

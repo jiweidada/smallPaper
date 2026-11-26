@@ -1,0 +1,14 @@
+2026-10-21 America/Los_Angeles。93使用现有91原始预测/选点索引、85 source图和原生anchor公式，零新前向。输出94，明确是事后必要作用面检查，不伪称事前统计门槛。
+
+重建P3/P4/P5原始grid anchors并做和原相同logit→sigmoid、有效域处理；source归属逐图分组数与85实际hook记录全部一致。GT来源沿真实occurrence标签。分类top300与纯几何分开，不将分类缺失当几何上界。
+固定4图、每模型902GT：
+模型1：异真实供体来源query与GT的final IoU>=.5边仅1条、涉及1GT；原生final Hungarian选中该类边0条；自然class×query top300的正确类该类GT为1。
+模型2：上述纯几何边0、涉及GT0、final Hungarian选中0、正确类top300也0。
+不包含source0填充来源，因为它没有实际原图身份，不能称另一供体。
+
+“union配对同时在final有正确跨源几何对应”必属于上述几何边集。因此至少模型2在当前面板没有这项具体作用面，不能拿它支撑两模型已观测的‘正确decoder跨源迁移回写’。本次没有encoder/pre/各aux输出或真正union，所以不能声称完整union没有来源冲突、encoder受益/受害、或所有GT/数据集没有此现象。唯一模型1外源几何边也没被其final Hungarian选中，但aux仍可能选择，不能按此推断union必为0。
+
+原生B补读D-FINE原文§4.2/§5.4.1及D-FINE、DEIM官方criterion后确认，跨层target gating与encoder纳入union是原设计，不是代码bug。候选若继续必须解释特定净伤害，不能把定位知识由深层传浅层本身叫错误回写。最强简单对照是只将encoder boxes由indices_go/num_boxes_go换成cached_indices_enc/num_boxes，保持decoder union、DN、forward不变。
+当前不追加同四图的完整union前向或虚拟更新：提出此具体来源现象的必要证据未在两个模型出现，且独立方法增量还不清楚。这不是两个失败后结束整个目标，也不否定真正不同的encoder监督问题；完整结果回交四位专家，继续从现有资产提出不同设计。
+
+本轮已完成的独立新证据：74零前向计数反例/尺度得失、77两次新冻结前向、85六次来源attention前向、91八次需求配额前向、94零前向作用面上界。全部CPU隔离、无累计优化/训练/远端/监测，原数据/权重/配置未修改。原文件都有独立结果与SHA；无模型任务仍在运行。总目标仍未完成且保持active，不硬凑已成立创新。

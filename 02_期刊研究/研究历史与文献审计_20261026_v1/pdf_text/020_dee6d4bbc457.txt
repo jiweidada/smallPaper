@@ -1,0 +1,262 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2025 1
+EFSI-DETR: Efficient Frequency-Semantic
+Integration for Real-Time Small Object Detection in
+UA V Imagery
+Yu Xia, Chang Liu, Tianqi, Xiang, Yang Cong,Senior Member, IEEE, Zhigang Tu,Senior Member, IEEE
+Abstract—Real-time small object detection in Unmanned
+Aerial Vehicle (UA V) imagery remains challenging due to limited
+feature representation and ineffective multi-scale fusion. Existing
+methods underutilize frequency information and rely on static
+convolutional operations, which constrain the capacity to obtain
+rich feature representations and hinder the effective exploitation
+of deep semantic features. To address these issues, we propose
+EFSI-DETR, a novel detection framework that integrates efficient
+semantic feature enhancement with dynamic frequency-spatial
+guidance. EFSI-DETR comprises two main components: (1) a
+Dynamic Frequency-Spatial Unified Synergy Network (DyFus-
+Net) that jointly exploits frequency and spatial cues for robust
+multi-scale feature fusion, (2) an Efficient Semantic Feature
+Concentrator (ESFC) that enables deep semantic extraction
+with minimal computational cost. Furthermore, a Fine-grained
+Feature Retention (FFR) strategy is adopted to incorporate
+spatially rich shallow features during fusion to preserve fine-
+grained details, crucial for small object detection in UA V imagery.
+Extensive experiments on VisDrone and CODrone benchmarks
+demonstrate that our EFSI-DETR achieves the state-of-the-art
+performance with real-time efficiency, yielding improvement of
+1.6% and 5.8% in AP and AP s on VisDrone, while obtaining
+188 FPS inference speed on a single RTX 4090 GPU.
+Index Terms—Real-time Object Detection, UA V Imagery,
+Frequency-spatial unified synergy, Semantic feature concentrator.
+I. INTRODUCTION
+U
+nmanned Aerial Vehicle (UA V) imagery, characterized
+by its diverse perspectives, flexible acquisition, and wide-
+area coverage, has attracted increasing research attention[1; 2;
+3; 4; 5; 6; 7; 8], particularly in the field of object detection.
+More broadly, recent video-centric datasets for safety-critical
+urban perception, such as falling-object detection around
+buildings, further highlight the demand for robust object-level
+understanding in complex outdoor scenes[9]. Despite its poten-
+tial, UA V imagery presents unique challenges for conventional
+object detection frameworks, primarily due to the prevalence
+of small objects with limited pixel representation as shown in
+Fig. 1(a). This insufficient pixel coverage severely restricts the
+ability of standard convolutional operations to extract discrim-
+inative features. Furthermore, the downsampling operations
+Yu Xia, Tianqi Xiang and Zhigang Tu are with the State Key Laboratory of
+Information Engineering in Surveying, Mapping and Remote Sensing, Wuhan
+University, Wuhan, China. Zhigang Tu is also with the Wuhan University
+Shenzhen Research Institute, Shenzhen, China.
+Chang Liu is with School of Computer Science, Wuhan University, China.
+Yang Cong is with the School of Automation Science and Engineering,
+South China University of Technology, Guangzhou, China.
+Yu Xia and Chang Liu contributed equally.
+Corresponding author: Zhigang Tu (Email: tuzhigang@whu.edu.cn).
+commonly employed in convolutional neural networks (CNNs)
+often lead to the loss of fine-grained details that are critical
+for accurate detection[10]. Meanwhile, many existing methods
+rely on static fusion strategies that struggle to capture deep
+semantic representations effectively and fail to exploit crucial
+information in the frequency domain to preserve fine structural
+and textural details of small objects, thus limiting the detection
+performance in complex UA V scenarios[11; 12; 13].
+While YOLO-series detectors achieved remarkable success
+in generic object detection scenarios[14; 15; 16], their per-
+formance tends to degrade significantly in UA V applications.
+A key limitation lies in their anchor-based design, which
+struggles to accommodate the extreme scale variations inherent
+in aerial imagery. Specifically, predefined anchor boxes often
+fail to cover the full range of object sizes, especially for
+small objects that occupy only a few pixels. Moreover, the
+single-stage detection paradigm adopted by YOLO prioritizes
+efficiency at the cost of representational flexibility. Direct
+regression from features to bounding boxes provides limited
+capacity to model complex spatial relationships and contextual
+cues, which are vital in cluttered aerial scenes.
+In contrast, the Real-Time Detection Transformer (RT-
+DETR) offers several architectural advantages that are well
+aligned with the unique demands of UA V imagery[11]. Its end-
+to-end, anchor-free design eliminates the need for hand-crafted
+anchors and post-processing steps such as Non-Maximum
+Suppression (NMS), resulting in more flexible object local-
+ization and reduced inference complexity. The transformer-
+based backbone further enhances performance by capturing
+long-range dependencies and global context through self-
+attention mechanisms[17], which are essential for identifying
+dispersed objects in aerial views. Additionally, the decoder
+structure supports complex feature interactions, enabling more
+nuanced modeling of spatial relationships. Nevertheless, RT-
+DETR is not without limitations. While it addresses many
+of the architectural constraints present in YOLO, it remains
+suboptimal for UA V imagery. In particular, it lacks effective
+utilization of frequency information and exhibits limitations in
+extracting rich semantic features efficiently.
+To address these issues, we proposeEFSI-DETR, a novel
+detection framework that integrates efficient semantic feature
+enhancement with dynamic frequency-spatial guidance, as
+illustrated in Fig.1(b). Built upon the RT-DETR architecture,
+EFSI-DETR boosts it with exploration of frequency-aware
+processing and semantic feature extraction mechanisms. The
+key contributions of this work are as follows:
+arXiv:2601.18597v2  [cs.CV]  25 May 2026
+
+---PAGE---
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2025 2
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+Width
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+Height
+0
+200
+400
+600
+800
+1000
+1200
+1400
+1600
+VisDrone
+Width-Height Density Distribution
+200
+400
+600
+800
+1000
+1200
+1400
+Density
+VisDrone
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+Width
+0.00
+0.02
+0.04
+0.06
+0.08
+0.10
+Height
+0
+500
+1000
+1500
+2000
+2500
+CODrone
+Width-Height Density Distribution
+500
+1000
+1500
+2000
+2500
+Density
+ CODrone
+(a)
+Feature IntegrationFeature
+Extraction Decoder
+Frequency-spatial
+Synergy
+Efficient Semantic
+Extraction
+Feature
+Extraction Decoder
+Previous Method
+Ours
+(b)
+Fig. 1: (a) 3D density distribution of object width and height
+in the VisDrone and CODrone datasets, illustrating that a
+significant portion of objects are small and cover only a limited
+pixel area within the images. (b) Compared with previous
+methods, our method aims to combine efficient semantic
+feature enhancement with dynamic frequency-spatial guidance
+during feature integration phase.
+•We introduceEFSI-DETR, an efficient detector designed
+for complex UA V scenarios, withFine-grained Feature
+Retention (FFR)strategy that supplements semantics
+with detailed spatial cues. Our framework achieves supe-
+rior accuracy while maintaining real-time performance.
+•We proposeDynamic Frequency-spatial Unified Syn-
+ergy Network (DyFusNet), a frequency-spatial fusion
+module, which decomposes features into multi-resolution
+spectral components in a simulated manner and adap-
+tively integrates them based on the input characteristics.
+•We exploit theEfficient Semantic Feature Concen-
+trator (ESFC), a lightweight and semantically-aware
+module, which enhances deep semantic feature extraction
+by leveraging content-adaptive convolution selection.
+•We conduct comprehensive evaluations on two chal-
+lenging UA V benchmarksi.e.VisDrone and CODrone.
+Our EFSI-DETR achieves notable improvement in both
+accuracy and efficiency, surpassing the state-of-the-arts
+by1.6% in AP and5.8% in AP s on the VisDrone dataset,
+meanwhile maintaining a high inference speed of188
+FPS on one RTX 4090 GPU.
+II. RELATEDWORK
+a) Real-time Object Detection:Real-time object detec-
+tion has been a cornerstone of computer vision applica-
+tions. Single-stage detectors such as the YOLO family[18]
+and FCOS[19] have achieved remarkable performance by
+balancing accuracy and efficiency. Recent advances include
+YOLO11, YOLOv12[20; 16], and RT-DETR[11], which have
+pushed the boundaries of real-time detection on standard
+benchmarks like COCO[21]. However, these methods primar-
+ily focus on natural images with moderate resolutions and
+struggle with UA V imagery captured at high altitudes where
+small objects are prevalent.
+b) Small Object Detection:Small object detection
+presents unique challenges due to limited pixel repre-
+sentation and susceptibility to background noise. Related
+dense prediction studies also indicate that improving inter-
+class feature separability can benefit fine-grained pixel-level
+discrimination[22], which is especially relevant when small
+targets provide weak visual evidence. Traditional approaches
+have focused on data augmentation[23] and multi-scale
+training[24] to improve small object recognition. More so-
+phisticated methods, like ClusDet[25], which employs cluster-
+based scale estimation, and DM-Net[26] which utilizes den-
+sity maps for spatial context modeling. Recent works have
+explored attention mechanisms and feature enhancement tech-
+niques: QueryDet[27] introduces query-based acceleration for
+pyramid features, and CEASC[28] applies context-enhanced
+sparse convolution for global information capture. Although
+these methods introduce lightweight and decoupled heads
+that provide certain acceleration benefits, achieving real-time
+object detection continues to pose a substantial challenge.
+c) Generative Priors for Visual Perception:Recent
+diffusion-based models have also shown promise as visual
+priors beyond image generation. For example, text-to-image
+diffusion models can provide semantic and appearance priors
+for unsupervised visual object tracking[29]. Although our
+work focuses on real-time detection rather than tracking or
+generation, these studies suggest that high-level semantic
+priors can complement local discriminative features, which
+is consistent with our goal of strengthening semantic feature
+concentration for UA V small-object detection.
+d) Multi-scale Feature Fusion:Due to limited pixel
+representation in feature maps, small objects often lack suf-
+ficient semantic and spatial cues. To alleviate this, multi-
+scale feature fusion has become a key strategy. Feature
+Pyramid Network (FPN)[10] established the foundation by
+combining semantically rich deep features with spatially de-
+tailed shallow features. PANet[30] introduced bidirectional
+fusion, while BiFPN[31] employed weighted aggregation for
+efficiency. PAFPN[30] added a bottom-up path, and NAS-
+FPN[32] leveraged neural architecture search for optimal
+fusion. Recent methods like FCOS[19] and YOLOF[33] at-
+tempted to simplify multi-scale detection, while maintaining

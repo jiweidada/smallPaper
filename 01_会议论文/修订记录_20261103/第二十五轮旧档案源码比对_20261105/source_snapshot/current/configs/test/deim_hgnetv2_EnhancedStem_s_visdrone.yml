@@ -1,0 +1,107 @@
+# Enhanced HGNetv2 Configuration for VisDrone2019
+# Three Innovations:
+# 1. Enhanced Stem Block for small object detection
+# 2. Hierarchical attention strategy (MSCA variants)
+# 3. SiLU activation function
+
+__include__: [
+  '../dfine/dfine_hgnetv2_s_custom.yml',
+  'visdrone2019.yml',
+  '../base/deim.yml',
+]
+
+print_freq: 400
+output_dir: ./outputs/deim_hgnetv2_s_MSCA_EnhancedStem_SiLU_320
+
+# ========== Model Configuration ==========
+DEIM:
+  backbone: HGNetv2_MSCA_EnhancedStem
+
+# ========== 🔥 Enhanced HGNetv2 with Three Innovations ==========
+HGNetv2_MSCA_EnhancedStem:
+  name: 'B0'                            # 选择模型规模
+  return_idx: [1, 2, 3]                    # 返回的特征层索引
+  freeze_at: -1                         # 不冻结任何层
+  freeze_norm: False                    # 不冻结BN层
+  use_lab: True                         # 使用LearnableAffineBlock
+  pretrained: False                     # Enhanced Stem需要从头训练
+  
+  # 🔥 创新点1：VD-LMS Stem Block
+#  stem_type: 'vd_ultralight'                     # VisDrone轻量级多尺度Stem
+#  stem_type: 'standard'                   # 标准HGNetv2 Stem
+  stem_type: 'enhanced'                   # 原Enhanced Stem
+#  stem_type: 'vd_lms'                     # VisDrone轻量级多尺度Stem
+  
+  # 🔥 创新点2：分层注意力策略
+  # Stage1-2: 轻量级注意力 (ese, simam)
+  # Stage3-4: 强大的多尺度注意力 (msca_lite, msca_dilated)
+  agg: ['ese', 'simam', 'msca_lite', 'msca_dilated']
+  
+  # 🔥 创新点3：激活函数优化
+  act_type: 'silu'                      # 使用SiLU代替ReLU
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*bn).*$'
+      lr: 0.0002
+    -
+      params: '^(?=.*(?:norm|bn)).*$'     # except bias
+      weight_decay: 0.
+
+  lr: 0.0004
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+# ========== Training Schedule ==========
+epoches: 320
+
+# 学习率调度
+flat_epoch: 164          # warmup: 4 + 320 // 2 = 164
+no_aug_epoch: 24         # 最后24轮不使用数据增强
+lr_gamma: 1.0
+
+# ========== Data Configuration ==========
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        # 训练阶段划分
+        epoch: [4, 156, 296]  # warmup, main, fine-tuning
+
+        # 针对小目标的特殊处理
+        RandomCrop:
+          size: [640, 640]    # 输入尺寸
+
+        # Mosaic增强（对小目标友好）
+        Mosaic:
+          prob: 0.5
+
+
+  collate_fn:
+    mixup_epochs: [4, 156]    # Mixup增强的轮数
+    stop_epoch: 296           # 停止增强的轮数
+    base_size_repeat: ~
+
+  total_batch_size: 4         # 根据GPU内存调整
+
+val_dataloader:
+  total_batch_size: 4
+
+# ========== 训练技巧和注意事项 ==========
+# Tips:
+# 1. Enhanced Stem初次使用建议：
+#    - 从头训练 (pretrained: False)
+#    - 或先用标准Stem预训练，再切换到Enhanced Stem微调
+#
+# 2. 小目标优化建议：
+#    - 使用更大的输入分辨率 (640x640 或 800x800)
+#    - 减小batch size以支持更大分辨率
+#    - 使用Copy-Paste等小目标增强技术
+#
+# 3. 监控训练：
+#    - 关注Enhanced Stem的梯度流
+#    - 监控小目标的检测性能
+#    - 可视化不同stage的特征图

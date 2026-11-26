@@ -1,0 +1,226 @@
+Balanced Hierarchical Contrastive Learning with Decoupled Queries for
+Fine-grained Object Detection in Remote Sensing Images
+Jingzhou Chen1*, Dexin Chen 1*, Fengchao Xiong 1†, Y untao Qian 2, Liang Xiao 1†
+1Nanjing University of Science and Technology 2Zhejiang University
+{jzchen, chendexin, fcxiong, xiaoliang }@njust.edu.cn, ytqian@zju.edu.cn
+Abstract
+Fine-grained remote sensing datasets often use hierarchi-
+cal label structures to differentiate objects in a coarse-to-
+ﬁne manner , with each object annotated across multiple lev-
+els. However , embedding this semantic hierarchy into the
+representation learning space to improve ﬁne-grained de-
+tection performance remains challenging. Previous stud-
+ies have applied supervised contrastive learning at differ-
+ent hierarchical levels to group objects under the same par-
+ent class while distinguishing sibling subcategories. Never-
+theless, they overlook two critical issues: (1) imbalanced
+data distribution across the label hierarchy causes high-
+frequency classes to dominate the learning process, and
+(2) learning semantic relationships among categories in-
+terferes with class-agnostic localization. To address these
+issues, we propose a balanced hierarchical contrastive loss
+combined with a decoupled learning strategy within the de-
+tection transformer (DETR) framework. The proposed loss
+introduces learnable class prototypes and equilibrates gra-
+dients contributed by different classes at each hierarchi-
+cal level, ensuring that each hierarchical class contributes
+equally to the loss computation in every mini-batch. The de-
+coupled strategy separates DETR’s object queries into clas-
+siﬁcation and localization sets, enabling task-speciﬁc fea-
+ture extraction and optimization. Experiments on three ﬁne-
+grained datasets with hierarchical annotations demonstrate
+that our method outperforms state-of-the-art approaches.
+1
+1. Introduction
+Fine-grained object detection aims to distinguish speciﬁc
+subcategories within broader categories. Existing ﬁne-
+grained detection datasets [ 11, 18, 23, 34] typically em-
+ploy hierarchical label structures to organize numerous ﬁne-
+grained categories in a coarse-to-ﬁne manner, with sibling
+*equal contribution, † corresponding author.
+1The code is available at: https://github.com/chncdx/BHCL
+Warship
+DestroyerDestroyer Aircraft CarrierAircraft Carrier
+AtagoAtago HyugaHyuga AsagiriAsagiri EnterpriseEnterprise MidwayMidway
+Relabel
+HatsuyukiHatsuyuki
+ Other
+Aircraft Carrier
+Other
+Aircraft Carrier
+Low Resolution
+Low Resolution
+Non-predefined 
+Category
+Non-predefined 
+Category
+Data Distribution across the Label Hierarchy
+WarshipWarship
+Enterprise
+Midway
+Aircraft Carrier
+Enterprise
+Midway
+Aircraft Carrier
+Atago
+Hyuga
+Asagiri
+Hatsuyuki
+Destroyer
+Atago
+Hyuga
+Asagiri
+Hatsuyuki
+Destroyer
+Warship
+Enterprise
+Midway
+Aircraft Carrier
+Atago
+Hyuga
+Asagiri
+Hatsuyuki
+Destroyer
+Other
+Figure 1. Illustration of the hierarchical label structure in remote
+sensing datasets. Categories are organized in a coarse-to-ﬁne man-
+ner, with leaf nodes representing ﬁne-grained categories. Embed-
+ding this structure into the representation learning process poses
+two primary challenges: (a) data imbalances across and within hi-
+erarchical levels, and (b) the conﬂict between semantically group-
+ing objects under the same parent class while preserving their dis-
+tinct spatial locations. Additionally, this structure enables ﬂexi-
+ble reassignment of ambiguous objects to appropriate parent cate-
+gories.
+classes grouped under a common parent and leaf nodes rep-
+resenting ﬁne-grained categories, as illustrated in Fig. 1.
+These hierarchical annotations mirror the recognition pro-
+cess of human experts, facilitating the discrimination of
+ﬁne-grained categories based on prior hierarchical taxon-
+omy. Notably, these datasets categorize ambiguous or un-
+certain objects into special “other” classes, such as “other
+aircraft carrier”. Previous studies [ 4, 10, 14, 14– 16, 20, 28]
+treat “other” classes as mutually exclusive categories, ig-
+noring their relationships to parent categories. In contrast,
+hierarchical label structures offer more ﬂexible reassign-
+ment of instances from “other” classes to corresponding
+coarse-grained categories, mitigating ﬁne-grained uncer-
+tainty while preserving semantic information at the coarse
+level. The enhanced discriminability and ﬂexibility offered
+by hierarchical label structures motivate their integration
+into the representation learning space of detectors.
+Recent studies in object detection [ 7, 31, 33] and ﬁne-
+grained classiﬁcation [ 3, 9, 32] highlight the use of hier-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+20619
+
+
+---PAGE---
+
+archical label structures for supervised discriminative rep-
+resentation learning. These methods leverage supervised
+contrastive learning (SCL) [ 12], which attracts instances
+from the same category and repels those from different cat-
+egories in the embedding space. When adapted to a class
+hierarchy, this mechanism imposes a dual objective: group-
+ing instances from the same parent class at the coarse-
+grained level and differentiating sibling subclasses at the
+ﬁne-grained level. However, hierarchical label trees are in-
+herently imbalanced. Higher-level nodes accumulate more
+samples than their descendants, and asymmetric branching
+leads to skewed distributions among sibling classes, as illus-
+trated in Fig. 1. Existing studies often overlook data imbal-
+ances across and within hierarchical levels, which hinders
+the model’s ability to learn discriminative features for rarer
+classes.
+Another critical challenge is modeling hierarchical se-
+mantics for object classiﬁcation without compromising
+class-agnostic bounding box regression. Existing detectors
+usually feed shared representations into task-speciﬁc pre-
+diction branches for classiﬁcation and localization. Nev-
+ertheless, this uniﬁed feature extraction limits the integra-
+tion of task-speciﬁc properties into representation learning
+without interfering with other tasks. In hierarchical se-
+mantic modeling, objects sharing the same parent label can
+be grouped at the coarse-grained level. Directly applying
+this grouping to shared representations may cause bounding
+boxes to cluster together, while they must remain distinct
+for accurate localization. In other words, objects belonging
+to the same parent class should exhibit semantic similarity,
+while preserving distinct spatial locations.
+To address the data imbalance, we propose a balanced hi-
+erarchical contrastive loss (BHCL) that ensures each class
+in the label hierarchy contributes equally to the loss compu-
+tation in every mini-batch. Achieving this objective requires
+two key components. First, all classes must appear in every
+mini-batch. However, stochastic mini-batch training does
+not guarantee the presence of instances from each class,
+particularly rare classes with few samples. To mitigate this,
+BHCL introduces a learnable prototype for each class in the
+label hierarchy as extra instances, enabling all class proto-
+types to participate in the loss computation for every train-
+ing batch. Second, each hierarchical class should contribute
+equally to optimization. The original SCL loss only nor-
+malizes the contributions of positive classes by averaging
+their instances in the numerator, resulting in biased contri-
+butions among negative classes in the denominator [ 39]. In
+contrast, when computed at each hierarchical level, BHCL
+modiﬁes the SCL loss by further equilibrating the gradients
+contributed by different negative classes.
+To resolve the conﬂict between grouping objects seman-
+tically and separating them spatially, we introduce a de-
+coupled learning strategy within the detection transformer
+(DETR) framework [ 1, 5, 30, 35, 40]. In standard DETR,
+learnable object queries serve as shared representations for
+generating both classiﬁcation and localization predictions,
+which can lead to interference between these tasks when
+modeling hierarchical semantics. Our decoupled strategy
+mitigates this by separating the queries into classiﬁcation
+and localization sets, each specialized for its respective task
+and fed into the corresponding prediction branch. These
+two types of queries are ﬁrst aligned with self-attention
+modules and then reﬁned by dedicated cross-attention mod-
+ules and feed-forward networks to extract task-speciﬁc fea-
+tures from the input images. Finally, the classiﬁcation
+queries are projected into the embedding space and super-
+vised by BHCL to effectively model hierarchical semantics.
+In conclusion, the main contributions of this paper can
+be summarized as follows:
+• To enhance ﬁne-grained object detection, we propose a
+method that integrates hierarchical label structures into
+DETR-based detectors. At the core of our approach is
+a novel balanced hierarchical contrastive loss, which ad-
+dresses data imbalance across the label hierarchy.
+• We introduce a simple yet effective decoupled strategy
+that resolves the optimization conﬂict between classiﬁca-
+tion and localization in hierarchical semantic modeling,
+thereby enabling the effective application of our BHCL.
+• We demonstrate the generality of our proposed contribu-
+tions by integrating them into two DETR-based architec-
+tures, where they deliver consistent performance gains.
+Our resulting models set new state-of-the-art benchmarks
+on three ﬁne-grained remote sensing (RS) datasets with
+hierarchical annotations.
+2. Related Work
+2.1. Label Hierarchy Encoding
+Existing studies on encoding label hierarchies can be
+broadly categorized into three paradigms: (1) loss function
+modiﬁcation [ 2, 37]; (2) adaptive prediction across hier-
+archical levels [ 8, 24]; and (3) hierarchical representation
+learning [ 3, 7, 9, 31– 33]. Notably, Zhang et al. [ 32] pi-
+oneered hierarchical contrastive learning for image classi-
+ﬁcation, a direction further developed by [ 3, 9] and sub-
+sequently adapted for object detection [ 7, 31, 33]. In this
+paper, we introduce class-balanced hierarchical contrastive
+learning into the DETR framework, further enhanced by a
+query decoupling strategy.
+Regarding object detection studies that leverage hier-
+archical label structures, Wu et al. [ 26] initially isolated
+potential target regions before performing object detection
+within these localized areas. Similarly, Shin et al. [ 22] em-
+ployed a generic detector to extract object proposals and
+subsequently fed them into a dedicated hierarchical classi-
+ﬁcation network. To address hierarchical few-shot object
+20620

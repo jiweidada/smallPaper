@@ -1,0 +1,34 @@
+285｜279真实像素结果复核与下一干预（只读审计，2026-10-21）
+
+一、结论与身份
+279 是9张自然开发图、64个GT、256个受控±2输入像素试次的固定读出实验，不是BASE24真实失败，不是两seed重复，也不是AP。图等权误差L/H/HD/zero = 2.120921594203532 / 2.057608559919609 / 2.126618027285287 / 2。H−L = −0.063313034283922，胜/平/负6/0/3；但H−zero = +0.057608559919610，H仅3/9图胜zero。不能说该单路读出已能纠框。
+00_manifest SHA256 a710910f9341999b220d768c83cd4162833194560df7925db5abf97780d7a1ba；01_results SHA256 e24a29b41cc1c8171909b9b6854bb07fa285d75a1d53c8e7e1139dcc8ba1c7b3。02_output_sha256列出的20项逐项匹配；manifest的8项source当前SHA匹配。只读JSON与文件hash，未重跑像素。
+counts确认9次解码、41次图像hash、1次plan/annotation读取，0 checkpoint/model/forward/backward/update/heldout。CPU线程2、interop1、affinity13/15、BelowNormal；NumPy1.26.4来自D:\Anaconda\Lib\site-packages，Python -s。278脚本SHA a393e5e822d1dd380f38edfb08690ad3497493ba62abb7da136a1ffd2072d88d。
+
+二、逐图复核（四方向先GT均值，再图均值；重新由JSON聚合与保存值完全一致）
+image｜GT｜L｜H｜HD｜H−L
+1｜11｜2.1181232093｜1.9901748556｜2.1196642221｜−0.1279483536
+2｜5｜2.1167830980｜2.1270701652｜2.1164976650｜+0.0102870672
+3｜10｜1.5506562008｜1.5681027608｜1.5511352922｜+0.0174465600
+7｜2｜1.9221008124｜1.7122964272｜1.9052313268｜−0.2098043851
+9｜3｜2.1716396594｜2.1723843882｜2.1679456581｜+0.0007447288
+10｜4｜2.0631455362｜2.0083020110｜2.0849043116｜−0.0548435252
+12｜9｜2.5711790811｜2.4287200111｜2.5852069223｜−0.1424590700
+13｜18｜2.1422354753｜2.0929294713｜2.1521500300｜−0.0493060041
+14｜2｜2.4324312752｜2.4184969488｜2.4568268174｜−0.0139343264
+固定前16开发图中113个合格GT按annotation_id取前64，形成以上9张参与图；不是依结果挑9张，也不能将余下7张解释成没有tiny。GT用于构造和评分，故279不验证真实模型的pre中心误差分布。260的40/25仍只为可修复且窗内可见的必要面；窗口条件与解析修复条件不独立，不能额外累计为两份证据。
+
+三、下一实质干预与本轮范围
+锁同一个旧边界背景对比重心φ：16²外圈60点RGB均值b，w_ij=||RGB_ij−b||²，c=Σw_ij x_ij/Σw_ij；零质量回退原中心。对每个真实pre框O4（原框四边各外扩4真实inputpx），H、L、HD同物理窗同网格。δ_HL=4 tanh((c_H−c_L)/4)，逐轴；H=L严格零。强控制δ_HDL=4 tanh((c_HD−c_L)/4)、旧单路H=clip(c_H−c_pre,±4)、zero。不能依据279改符号、倍率、核或窗。
+这个变量检验“新增高分观测相对同位置低分观测的差异，能否在真实pre任务提供有用中心方向”，不是再声称原图重读本身创新。既有crop/zoom先例仍有效；194所记Sensors2026 DOI10.3390/s26196157仅部分原文可读，未全读Eq2–12，不把未见精确差分当不存在证明。
+优先实现无修改自然collector与缓存读出：固定上述9图×两BASE24 raw权重18次，再每seed第一图1次被动hook identity复核，共20次。全部300query各自取O4，不用GT筛q或驱动输出。GT仅全部有效自然GT的native-final Hungarian own后验分组评分，不能把64GT子集重新匹配造成竞争变化。两个seed共享同一图集，分别报告模型差异，不伪装数据独立。
+固定PMF时平移pre参考框使解码框同量平移，等价于末层框平移；缓存结果不能说明pre插入比末层插入好。当前collector不会执行非零中心注入，也不声称重算attention/PMF。将来真实插入点为native TransformerDecoder.forward中pre_bboxes=sigmoid(...)之后、ref_points_initial=pre_bboxes.detach()之前；必须走原后续FDR与attention，并验证零分支所有输出字段parity，不能以leaf平移替代。
+
+四、已核原生接口与资产
+原生目录：英文小论文\code\local_candidates_20261004_v2\native；08 package_manifest记录的源文件hash作身份。baseline_recipes.json SHA46e5c21aa0308061ac3523871c3c9966309a0a26b4a0777245edff4c3997f4bf。
+两CP为data\00_实验计划与证据索引\本次24轮双基线模型下载_20261009_v1\seed{1,2}\run\last.pth，last_epoch23；seed1 SHA741d57a2d6ecb7439de17fedbc8462315ab05309da2ba35b9d38d2c3e2dd9d87，seed2 SHAbcf1d9a7a20115835d9e9df3e09a71419f41d1612c2e7b687c47ff3c41952cf0。选择checkpoint['model'] raw，明确不用EMA；本次只读元数据/旧collector源码，未加载CP。
+recipe验证输入PIL RGB→Resize([640,640])→float32/255，无letterbox。eval关闭DN、Mosaic和Mixup；trainmode旧缓存不能当自然eval等价。eval anchors/position embedding固定640，stride8/16/32共8400个位置取300；不能把16²或64²裁片直接喂原DEIM，64²只有84个位置且cached anchors不匹配。小裁片仅供像素读出。
+dfine_decoder.py forward内部decoder返回(bboxes,logits,corners,refs,pre_bboxes,pre_scores)六字段；eval公开输出仅pred_boxes/pred_logits。保持eval，用被动hook取得内部字段，不能为暴露pre切train。旧stage_trace.py finish硬编码EMA与全验证集要求，不能直接套作本次raw九图collector。新287/288将新建输出289；先合成和CPU库预检，由主控审核后执行真实前向。
+
+五、新回交的旧ROI12阴性（据root/C回交，290尚待完成，不冒称本轮亲读全源）
+旧成熟132轮seed1 EMA：raw/degraded各8轮refiner+4轮gate，正式548图accepted0，主AP与baseline全等；always_refine raw APs +0.016328pp，而degraded +0.024487pp，旧原RGB无优势。其冻结旧框类别/score/query，逐边位移≤oldwh20%，只绑定原真类IoU0.5–0.75成功GT，不允许Geo0出生。这是必须保留的真实阴性；当前BASE24 raw、pre中心每轴4px、允许原native pre IoU0的任务与其不同，故不能直接全面否定，也不能把范围不同自动当可立项。下一实验的Ddeg与zero对照正用于防止再次把重采样差或任意校正误读为原图新增信息。

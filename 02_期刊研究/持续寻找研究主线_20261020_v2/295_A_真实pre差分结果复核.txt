@@ -1,0 +1,44 @@
+295｜真实pre共享差分结果独立复核，2026-10-21
+
+结论：287预注册主组actual_sub4不通过继续真实插入的条件，结果mixed。本版固定边界对比重心差分停止；不改变符号、倍率、窗口、核或主群体，不增加新检查挽救，不因此申请薄小窗版本训练。selected279_64双负只保留为次组，不替换主组。这里的“停止”是本具体固定读出版本，不是证明任意可学习φ都无效。
+
+1．本轮只读审计范围与SHA
+读取289 manifest/results/18份逐图JSON、18份已保存NPZ及288源码；另只读290旧ROI盘点全文。哈希检查38个输出条目、84个source键、9张原图文件、2个CP均匹配，无一不一致。source键可能引用同一路径，不能称84份独立源。原图和CP仅按字节hash，未解码图像、未torch.load CP；NPZ只读取既有输出数组，不含图像像素。本轮无模型构建、前向、梯度、更新、训练、远程或heldout。
+289/00_manifest.json SHA256：9c2979ebd786b4a943c76cd0183cd0f983cee9695f5ecd9140ba5052fd443094
+289/01_results.json SHA256：3f5413808a729a8e277c6870462139efbaad490cf4397e758350c09affc2bdf4
+289/02_output_sha256.json SHA256：22e8be9bb1c1c3bc6cd523ec6b7980d92b76e929a420849fc286f9b652d76edf
+288脚本仍为d14717724bdb8aaee41f690982bd3eea0068ad3a5b1139042c6dc317b7c5cda2；287协议仍为7412c7af6ff28018c6ed3c40cdefe6e3eb391848c9449e3d422d014777434249。
+290盘点SHA256：3d179c56202dd4c346a2774827e107d93a0639923d6612c37251fb30db3317cf。
+
+2．20次预算和identity的准确范围
+运行complete，41.56300000002375秒，2个raw/model CP、2次构建、9次原图解码、20次forward、1次annotation读取；backward/optimizer/heldout全0。
+20 = 9图×2 raw seed的18次原生eval + 首图image1各seed一次被动hook identity。两个identity耗时0.188/0.172秒，均记录all_eight_fields_bitexact=true。并非20次独立identity测试，也不是每张图都做一次identity。
+亲读capture源码：首次hook只捕获并返回None；复核hook返回原tuple。所比8字段是decoder的boxes/logits/corners/refs/pre_boxes/pre_logits与公开pred_boxes/pred_logits。实际assert逐字段torch.equal，通过后才写identity记录；主输出与decoder末层另有逐字段相等断言。原生公开eval输出保持两字段，300query，无训练DN。CP选择['model'] raw，last_epoch23；未用EMA。
+两次额外identity数组未单独归档，因此此次是核验已归档成功断言、其源码和对应hash，不能声称离线重新逐位比较了第二次输出。model-state不变同理：运行末比较state_hash与初值后保存成功标志；此次不重新加载模型重算state。CP/源文件/原图则已重新hash核验。所有检查仍仅证明被动采集透明，不能冒充非零pre插入零分支parity。
+
+3．从NPZ独立重建分组与读出，全部精确一致
+18份缓存的own_q/own_g均唯一，GT数<300且全部分配，无未匹配GT；all_native_own每seed817。所有18记录均先取全300个O4，再以native-final全有效GT Hungarian后验评分，未用GT筛query/crop或驱动delta。
+逐缓存重算D=4*tanh((cH−cL)/4)、Ddeg=4*tanh((cHD−cL)/4)、Hsingle=clip(cH−cpre,±4)、zero，全300×4×2与保存deltas逐位相同。重算中心L2误差、各组mask/均值、每图等权聚合，与结果JSON精确相同，最大差0。没有核或系数改动，也没有新像素读出。
+9图顺序固定[1,2,3,7,9,10,12,13,14]。逐图native GT = [214,162,42,51,71,28,68,139,42]；actual_sub4 = [10,5,10,2,3,4,9,18,4]；selected279_64 = [11,5,10,2,3,4,9,18,2]。
+actual_sub4_pre_iou0按原生FP32 pre IoU严格0：seed1=[3,5,1,0,3,0,1,13,2]，合28个/7图；seed2=[4,5,0,0,2,0,0,14,1]，合26个/5图。
+65与64不是同一群体：image1 annotation108在279原JSON double换算宽3.999999999999981px，因此进入旧64；原生FP32 Resize/xyxy→cxcywh后宽恰4.0px，按287严格<4不在主组。image14 annotation979/980的原生宽分别3.6742401123046875/2.6720123291015625px，两者在当前9图完整GT中、但不在279按annotation_id截前64的名单。故65=64−1+2。该浮点边界与名单截断已由预注册主组定义决定，不能见结果后改epsilon或去掉image14。
+
+4．主结果与次组均完整保留（单位input px，负差为改善）
+主actual_sub4，每seed65 GT/9图，四臂图等权中心误差：
+seed1：D 19.225793723196，Ddeg 19.198758439517，Hsingle 19.794514901731，zero 19.193915049603。
+seed2：D 18.991472960007，Ddeg 18.997544856790，Hsingle 19.685536669865，zero 19.005557442428。
+seed1 D−zero +0.031878673593，D−Ddeg +0.027035283679；seed2 −0.014084482421、−0.006071896784。两seed各有5/0/4图D胜/平/负zero，且D对Ddeg也各5/0/4；胜图较多不能替代预先规定的图等权平均，seed1仍变差。
+
+组名｜seed1 D−zero / D−Ddeg｜seed2 D−zero / D−Ddeg
+actual_sub4 主组｜+0.031878673593 / +0.027035283679｜−0.014084482421 / −0.006071896784
+all_native_own（各817/9图）｜+0.039433650679 / +0.036821988295｜+0.028865340491 / +0.027100646683
+selected279_64（各64/9图）｜−0.016486823451 / −0.022792313151｜−0.038548757483 / −0.030657407304
+actual_sub4_pre_iou0（28/7图；26/5图）｜−0.068620337379 / −0.087010819647｜+0.098371102253 / +0.124318135429
+
+287原条件是D对zero与Ddeg在两个seed图等权均负，仅可支持继续核真实插入。本次seed1两项均正，故条件不满足。次组selected64双负不能救主组；preIoU0也mixed，all-own两seed均变差。Hsingle在主组两seed都差于zero，未显示把旧单路直接移植到真实pre任务即可纠框。两个seed共用同9张开发图，不是两批独立数据，不将这些微小差值叫显著有效或稳定无效。
+保存的fixed-PMF最终框平移副指标不等于AP，且数学上等价于末层同量平移；没有重新计算attention/PMF，不能据其阈值变化推断真实插入训练收益。260必要面40/25不是被该结果变成已救回目标；244 F4的主阴性也原样保留。
+
+5．旧ROI阴性的适用范围及本轮收口
+已完整亲读290盘点，未再打开548图或旧heldout。成熟132轮seed1 EMA的raw/degraded小CNN精修各8轮refiner+4轮gate完成，主accepted0、AP全等baseline；always-refine raw ΔAPs +0.016327713pp低于degraded +0.024486581pp。它已有RGB、query、类别条件和学习头，不能再把“加个可学习φ”本身称项目内未做变量。
+旧方法固定候选/类别/score/query，位移每边≤0.2 oldwh，几何正监督只绑定原真类IoU0.5–0.75成功GT；不是当前raw24 pre4px任务，也不覆盖自由产生Geo0实例。两份阴性分别保留作用域，不能合成“任何高分辨率或可学φ必然无效”，但当前并无继续薄小窗校正训练的依据。
+若继续不同设计，优先转向明确改变输出和正监督对象的固定窗内自由新实例槽（包括真实遗漏GT），同时保持同crop无条件补全、同额外监督和同融合预算控制；这不是本固定读出的小改版，也未由本报告授权执行或训练。

@@ -1,0 +1,186 @@
+Learning Where to Learn in Cross-View Self-Supervised Learning
+Lang Huang1, Shan You2*, Mingkai Zheng 3, Fei Wang2, Chen Qian2, Toshihiko Yamasaki1
+1The University of Tokyo; 2SenseTime Research; 3The University of Sydney
+{langhuang,yamasaki}@cvm.t.u-tokyo.ac.jp
+{youshan,wangfei,qianchen}@sensetime.com, mzhe4001@uni.sydney.edu.au
+Abstract
+Self-supervised learning (SSL) has made enormous
+progress and largely narrowed the gap with the supervised
+ones, where the representation learning is mainly guided by
+a projection into an embedding space. During the projec-
+tion, current methods simply adopt uniform aggregation of
+pixels for embedding; however, this risks involving object-
+irrelevant nuisances and spatial misalignment for differ-
+ent augmentations. In this paper, we present a new ap-
+proach, Learning Where to Learn (LEWEL), to adaptively
+aggregate spatial information of features, so that the pro-
+jected embeddings could be exactly aligned and thus guide
+the feature learning better. Concretely, we reinterpret the
+projection head in SSL as a per-pixel projection and pre-
+dict a set of spatial alignment maps from the original fea-
+tures by this weight-sharing projection head. A spectrum of
+aligned embeddings is thus obtained by aggregating the fea-
+tures with spatial weighting according to these alignment
+maps. As a result of this adaptive alignment, we observe
+substantial improvements on both image-level prediction
+and dense prediction at the same time: LEWEL improves
+MoCov2 [15] by 1.6%/1.3%/0.5%/0.4% points, improves
+BYOL [14] by 1.3%/1.3%/0.7%/0.6% points, on ImageNet
+linear/semi-supervised classification, Pascal VOC semantic
+segmentation, and object detection, respectively.†
+1. Introduction
+In recent years, self-supervised learning (SSL) [7,12,14,
+15, 29, 30, 42] has attained tremendous attention due to its
+impressive ability to learn good representations from large
+volume of unlabeled data. Among them, the state-of-the-
+art instance discrimination approaches [7,14,15,30,42] en-
+courage the representation learning with image-level invari-
+ance to a set of random data transformations, e.g., random
+cropping and color distortions. These methods even ex-
+hibit superior performance over their supervised counter-
+*Corresponding author. †Code: https://t.ly/ZI0A.
+parts for various downstream tasks, such as object detec-
+tion [11,25] and semantic segmentation [11]. There remain,
+however, several important issues unresolved. Two of them
+are mainly attributed to the rigorous invariance to random
+cropping because it would risk introducing more irrelevant
+nuisance ( e.g., background information) and spatial mis-
+alignment of objects for augmentations. Though, for SSL,
+random cropping might be the most effective data augmen-
+tation option [7] and a good degree of spatial misalignment
+is beneficial [38], it remains unclear how to choose the opti-
+mal degree of misalignment. Furthermore, the involved nui-
+sance will hinder the discrimination ability of image-level
+representations while the misalignment discards some im-
+portant spatial information of objects.
+Several recent literatures have dedicated to alleviating
+these issues by involving some localization priors of down-
+stream tasks in advance. For example, the works of [40,44]
+explored pixel-level consistency between two augmented
+views, while some other works proposed to match the rep-
+resentation of a set of pre-defined bounding-boxes [35, 43]
+or pre-computed masks [19] between the two views. De-
+spite the improved performance on dense prediction tasks,
+these methods still suffer from several drawbacks,e.g., they
+rely on the prior from a specific downstream task and fail to
+generalize to other tasks. Specifically, there is an undesir-
+able trend that these methods perform worse on the classifi-
+cation task than their instance discrimination counterparts,
+since they are delicatedly tailored for dense predictions and
+emphasis on the local feature learning.
+We argue that a good self-supervised representation
+learning algorithm should not leverage task-specific priors
+but learn local representations spontaneously. In this pa-
+per, we present a new self-supervised learning approach,
+Learning Where to Learn (LEWEL) in a pure end-to-end
+manner. We first regard the spatial aggregation for embed-
+dings of existing SSL methods, e.g., by the global aver-
+age pooling (GAP), as summations over all spatial pixels
+weighted by a set of alignment maps. This formulation sug-
+gests that we can explicitly control where to learn in SSL by
+manipulating the alignment maps. Moreover, in contrast to
+14451
+
+
+---PAGE---
+
+Alignmentmaps
+Global Semantic Vector𝑑
+a) Image-level Self-Supervised Learning. 
+b) Reinterpreting the projection head.
+𝑑
+Figure 1. An illustration of the alignment maps prediction .
+Based on the standard image-level self-supervised learning, we re-
+move the global average pooling (GAP) layer and reinterpret the
+global projection as a per-pixel projection, yielding a set of align-
+ment maps that automatically activate to a certain semantic.
+previous works manually specifying alignment maps based
+on downstream rules, our approach learns to just predict the
+alignment maps on-the-fly during training.
+Nevertheless, it is rather challenging to directly model
+the alignment maps without any supervised signal. There-
+fore, we propose a novel reinterpretation scheme to guide
+this process with the help of the global representation. As
+shown in Fig. 1b, rather than using additional parametriza-
+tion, we reinterpret the global projection head in SSL as
+a per-pixel projection to directly predict these alignment
+maps, which is inspired by the learning paradigm of se-
+mantic segmentation [26]. In this way, the global embed-
+dings and the semantic alignment maps are coupled with
+the weight-sharing projection head. This reinterpretation
+enables the models to automatically find semantically con-
+sistent alignment, yielding a set of spatial alignment maps
+to “supervise” the alignment process. Actually, the resul-
+tant coupled projection head in LEWEL has multiple ad-
+vantages. On the one hand, based on the generated align-
+ment maps, we can obtain a spectrum of aligned embed-
+dings. Implementing SSL with these embeddings is thus ex-
+pected to benefit the representation learning since irrelevant
+nuisances and spatial misalignment have been resolved to a
+great extent. On the other hand, learning with the aligned
+embeddings in return facilitates the global representation to
+extract more truly discriminative features. As a result of
+this adaptive alignment and coupled projection head, we ob-
+serve significantly improvements on both image-level and
+dense predictions simultaneously. Our main contributions
+are summarized as follows:
+1. We introduce a new self-supervised learning approach,
+Learning Where to Learn (LEWEL), which is a general
+end-to-end framework and does not involve any down-
+stream task prior for more adaptive and accurate repre-
+sentation learning.
+2. In LEWEL, we propose a novel reinterpretation scheme
+to generate alignment maps with coupled projection
+head, thus the aligned and global embeddings can be re-
+ciprocal to each other, and, as a result, boost the learned
+representations.
+3. LEWEL brings substantial improvements over prior arts
+on both image-level prediction and dense prediction. We
+perform extensive evaluation on linear/semi-supervised
+classification, semantic segmentation, and object detec-
+tion tasks, using ImageNet-1K [36], Pascal VOC [11],
+and MS-COCO [25] benchmarks. Experimental re-
+sults suggest that LEWEL is able to improve the strong
+baselines MoCov2 [15] and BYOL [14] under all set-
+tings. Specifically, LEWEL improves MoCov2 [15] by
+1.6%/1.3%/0.5%/0.4% points, improves BYOL [14] by
+1.3%/1.3%/0.7%/0.6% points, on ImageNet linear/semi-
+supervised classification, Pascal VOC semantic segmen-
+tation, and object detection, respectively.
+2. Related Works
+Learning good representations has long been one of
+the fundamental questions in computer vision. In recent
+years, self-supervised learning (SSL) emerged as a promis-
+ing learning paradigm for representation learning. In gen-
+eral, SSL approaches solve a proxy task to drive the train-
+ing, including recovering input using auto-encoder [32,39],
+generating pixels in the input space [13, 22], predicting ro-
+tation [12], and solving a jigsaw puzzle [29]. More recently,
+contrastive learning methods significantly advanced self-
+supervised representation learning. The core idea of these
+approaches is to learn representations invariant to a set of
+data transformations, e.g., random cropping, random color
+jittering, and random Gaussian blurring. A large number of
+contrastive learning approaches [7, 15, 30, 37, 42, 47, 48] are
+based the the instance discrimination framework, where the
+models learn to maximize the similarity between positive
+samples while minimize the similarity between the negative
+samples. Because instance discrimination relies on a large
+negative sample size to obtain good performance, some
+other works proposed to get rid of negative samples by,e.g.,
+incorporating clustering algorithms [1, 3, 4, 23], simply pre-
+dicting the representation of one augmented view from the
+other augmented view of the same image [9,14,20], feature
+decorrelation [46], or self-distillation [5]. However, most
+of the state-of-the-art contrastive learning approaches oper-
+ate on the global feature only, which risks involving object-
+irrelevant nuisances and spatial misalignment between dif-
+ferent augmented view. The proposed LEWEL framework
+falls into the category of contrastive learning, addressing the
+aforementioned drawbacks adaptively.
+There have been several researches that dedicated to alle-
+viating these problems. Most of them proposed to maintain
+the spatial resolution of backbone features and involve the
+priors of downstream tasks in the pre-training stage. For ex-
+ample, some works performed pixel-level contrastive learn-
+14452

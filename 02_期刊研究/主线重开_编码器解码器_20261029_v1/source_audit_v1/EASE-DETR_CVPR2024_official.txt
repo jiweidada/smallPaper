@@ -1,0 +1,594 @@
+                            This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+                                         Except for this watermark, it is identical to the accepted version;
+                                   the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+                EASE-DETR: Easing the Competition among Object Queries
+
+                   Yulu Gao1,2 Yifan Sun3 Xudong Ding1,2 Chuyang Zhao3 Si liu1,2†
+                            1
+                              Institute of Artificial Intelligence, Beihang University
+                      2
+                        Hangzhou Innovation Institute, Beihang University 3 Baidu VIS
+             {gyl97, zy2342107, liusi}@buaa.edu.cn                   {zhaochuyang,sunyifan01}@baidu.com
+
+
+
+                            Abstract                                     This paper views the non-duplicate detection ability of
+                                                                     DETR as the result of a competition among object queries.
+    This paper views the DETR’s non-duplicate detection              We explain this viewpoint through a revisit into the DETR
+ability as a competition result among object queries.                decoder. Before the first decoder layer, there are mul-
+Around each object, there are usually multiple queries,              tiple queries around each object, as shown in Figure 1.
+within which only a single one can win the chance to be-             Some queries become even closer after the first decoder,
+come the final detection. Such a competition is hard: while          because they are attracted by the same object through cross-
+some competing queries initially have very close predic-             attention. Such closeness regards not only the position,
+tion scores, their leading query has to dramatically enlarge         but also the predicted scores. Within these close queries,
+its score superiority after several decoder layers. To help          only a single one can win the chance of detecting the ob-
+the leading query stands out, this paper proposes EASE-              ject and makes high prediction score at the final decoder
+DETR, which eases the competition by introducing bias that           layer. All the other competing queries are suppressed as the
+favours the leading one. EASE-DETR is very simple: in ev-            background and make low prediction scores. Therefore, a
+ery intermediate decoder layer, we identify the “leading /           leading query (that usually has only subtle superiority at the
+trailing” relationship between any two queries, and encode           beginning) has to dramatically enlarge its score gap against
+this binary relationship into the following decoder layer            the trailing queries after several decoder layers.
+to amplify the superiority of the leading one. More con-                 We argue that helping the leading query to win the above
+cretely, the leading query is to be protected from mutual            competition easier can benefit the training efficiency and
+query suppression in the self-attention layer and encour-            improve the detection accuracy. To achieve this, we propose
+aged to absorb more object features in the cross-attention           EASE-DETR, which eases the competition by introducing
+layer, therefore accelerating to win. Experimental results           bias that favours the leading query. EASE-DETR is very
+show that EASE-DETR brings consistent and remarkable                 simple: given any two competing queries in the intermedi-
+improvement to various DETRs.                                        ate decoder layers, we identify their relationship of “leading
+                                                                     / trailing” and further amplify the superiority of the leading
+                                                                     query in the following layer. The superiority amplification
+1. Introduction                                                      can be conducted in both the following self-attention and
+                                                                     cross-attention layers.
+The non-duplicate detection ability is an important charac-
+                                                                         • The self-attention layer facilitates global interaction
+teristic shared by DEtection Transformer (DETR) [3] and
+                                                                     among all queries for suppressing duplicate detections [14,
+its variants [6, 18, 21, 26, 30, 34, 35, 38, 39, 42]. More con-
+                                                                     26]. However, any two queries in the self-attention are in
+cretely, DETR uses plenty of queries (e.g., 300 in DETR
+                                                                     symmetric position, and both receive suppression from each
+[3] and 900 in DINO [39]) in the decoder to search for the
+                                                                     other. We aim to decay the suppression upon the leading
+objects. Though the queries are redundant, the predictions
+                                                                     query while maintaining the suppression upon the trailing
+made by them are expected to be non-duplicate, i.e., only
+                                                                     queries, so as to enlarge their gap. Instead of hand-crafted
+one query predicts each ground-truth object. This charac-
+                                                                     decay, we encode the binary “leading / trailing” relationship
+teristic is known as being related to the one-to-one label as-
+                                                                     into a decay weight through a trainable projection (MLP, in
+signment, which sets up the training objective. In contrast,
+                                                                     practice). Empirically, we find the learned decay weights
+we are interested in the mechanism DETR employs to reach
+                                                                     protect the leading query from mutual suppression and thus
+this objective.
+                                                                     enlarge its superiority against the trailing one.
+  † Corresponding author.                                                • The cross-attention layer enables each query to absorb
+
+
+
+                                                                  17282
+          (a) ground truth                                  (b) before decoder                           (c) after first decoder layer
+
+Figure 1. DETR decoder has multiple queries competing for each ground-truth object. These competing queries have close position and
+similar prediction scores at their initial status. (a) the ground truth; (b) multiple queries are around the same object before input into the
+decoder; (c) after the first decoder, some queries are attracted by the object through cross-attention. Correspondingly, they become even
+closer and have close prediction scores.
+
+
+features. Particularly, the competing queries absorb object                  The contributions of our work are summarized as fol-
+features from the same object and thus tend to make du-                   lows: First, we conduct an in-depth investigation of the
+plicate predictions. To ease the competition in the cross-                DETR decoder, uncovering how attention weights influ-
+attention layer, we aim to decay the feature absorption of the            ence the suppression process of similar queries. Sec-
+trailing queries while maintaining that of the leading query.             ond, we introduce explicit relationships between queries
+We use another trainable projection to encode the binary re-              into the decoder, proposing the MSelf-attention layer and
+lationship into a decay weight, which enforce stronger de-                MCross-attention layers to enhance the suppression pro-
+cay upon the trailing queries. Consequently, the leading                  cess of queries. Third, through empirical experiments, we
+query increases its priority for learning object feature and              demonstrate that EASE-DETR achieves performance im-
+enlarges its superiority.                                                 provements across various popular DETR baselines and ul-
+                                                                          timately surpasses the state-of-the-art results.
+    In both the self-attention layer and cross-attention layer,
+the operation of EASE-DETR is very simple and similar,
+i.e., multiplying the original attention score with an addi-              2. Related Work
+tional decay weight projected from the binary “leading /
+trailing” relationship. It adds virtually no computational                2.1. DETR-base Detectors
+cost to training and inference. In practice, we develop an-
+                                                                          The landscape of object detection has been fundamentally
+other variant that combines the spatial relationship (i.e. the
+                                                                          altered with the advent of the original DEtection TRans-
+IoU) with the score relationship for generating the decay
+                                                                          former (DETR) [3]. Introduced as a pioneering approach,
+weight, because we want the impact of easing competi-
+                                                                          DETR offered an end-to-end framework that mitigated the
+tion is to be within local regions. This variant brings fur-
+                                                                          reliance on hand-crafted components prevalent in previ-
+ther improvement. No matter using IoU or not, there is
+                                                                          ous methodologies, such as Non-maximum Suppression
+no hand-crafted hyper-parameter. All additional projections
+                                                                          (NMS). While DETR set a new paradigm, it still suffers
+are learned in the end-to-end DETR training.
+                                                                          from its comparatively slow training convergence and sub-
+    We conduct extensive experiments with popular DETR                    optimal performance on detecting smaller objects. To solve
+baselines on MS-COCO [19] dataset. Experimental re-                       these problems, a series of innovative works have emerged.
+sults show that our EASE-DETR brings remarkable im-                       Deformable DETR [42] introduces multi-scale features and
+provement to DETRs. For example, on the Deformable++                      thus proposes a deformable attention module to detect small
+DETR [16] baseline (ResNet-50 [13] backbone), EASE-                       objects and speed up training. Further adaptations, such as
+DETR achieves 1.3 AP improvement under the 12-epoch                       the DAB-DETR [21], enhance the DETR’s performance by
+training scheme. Importantly, EASE-DETR, with focus                       integrating anchor boxes into queries explicitly and update
+on competition under the one-to-one supervision, manifest                 them continuously. DN-DETR [18] introduces denoising
+good cooperation with the one-to-many supervision strat-                  part to stabilize the bipartial matching, and DINO [39] and
+egy: the one-to-one branch uses the EASE-DETR attention                   its successor Stable DINO [22], offer refined optimization
+while the one-to-many branch uses the standard attention.                 techniques that stabilize the training process and enhance
+Such a simple combination achieves competitive accuracy,                  the convergence speed. The recent DAC-DETR [14] di-
+e.g., 50.8 AP on ResNet-50 [13] DINO [39] baseline and                    vides the cross-attention out from this contrary for better
+57.8 AP on Swin-Large [25] DINO [39].                                     conquering thus accelerates convergence and improves its
+
+
+
+                                                                      17283
+performance. In this paper, we introduce a plugin solution         in the decoder’s self-attention and cross-attention modules.
+to ease the query competition in DETR-based detectors, of-         We start by computing scores and bounding boxes for each
+fering enhanced compatibility with various detector archi-         query in the decoder, using these scores for calculate rela-
+tectures.                                                          tive ranking relation Rrank and the bounding boxes to cal-
+                                                                   culate spatial relation Rspt . And the information is then
+2.2. Modulated Attention                                           encoded into the MSelf-Attention mechanism, adjusting at-
+The transformer [33] revolutionizes deep learning by us-           tention weights to emphasize the leading query. Concur-
+ing attention mechanisms to efficiently blend queries and          rently, in the MCross-Attention mechanism, we assess and
+keys. And DETR [3] uses transformer structure on object            scale the attention based on the Rrank and Rspt . These
+detection, results an end-to-end paradigm on object detec-         enhancements are parallelized and minimally increase the
+tion. Deformable DETR [42] mudulates traditional atten-            number of parameters, ensuring EASE-DETR’s compatibil-
+tion with deformable attention for sampling efficiency and         ity with mainstream DETR detectors and enhancing perfor-
+speed. Conditional DETR [26] uses object query condi-              mance without adding computational overhead.
+tioning to hasten convergence. SMCA [10] proposes Spa-             3.2. Preparation
+tially Modulated Co-Attention mechanism which modu-
+lates co-attention emphasizing relevant image regions for          In the DETR, each intermediate transformer decoder layer
+quick training. DAB-DETR [21] modulates the queries with           predicts scores and boxes for auxiliary supervision. These
+dynamic anchor boxes to improve the query-to-feature sim-          outputs are precisely the inputs required by our EASE
+ilarity and eliminate the slow training convergence issue in       model. We predict the score and bounding box from the pre-
+DETR. DDQ [40] utilizes NMS to select query for both               ceding layer, utilizing a category-independent score. These
+training and inference. Some works [8, 9, 11, 15, 31, 37]          scores are employed to establish a ’leading/trailing’ rela-
+modify attention mechanisms in other fields. The afore-            tionship among pairs of queries. The formula for the rela-
+mentioned research modifies the traditional DETR model             tive ranking Rrank is as follows, where Si , Sj represents the
+to cater to specific issues, achieving notable performance         prediction score of the i-th query from the previous layer:
+improvements. Our focus lies in the relationships between                                        (
+each query. We encode these relationships into the self-                                           +1 Si ≥ Sj
+                                                                                 Rrank (i, j) =                   .           (1)
+attention and cross-attention of the decoder to further boost                                      −1 Si < Sj
+performance.
+                                                                   Our objective with the relative ranking relationship Rrank
+2.3. Non-duplicate Detection                                       is to ease the competition among similar queries. To further
+                                                                   strengthen the aspect of locality in our methodology, we in-
+The traditional detectors [1, 4, 12, 17, 20, 23, 28, 29, 32,
+                                                                   troduce the spatial relation Rspt between queries into our
+36] employ Non-Maximum Suppression (NMS) [27] to
+                                                                   later computations. The formula is as follows:
+eliminate redundant detections, ensuring unique and pre-
+cise detection results. Alternatively, CenterNet [41] ap-                          Rspt (i, j) = IOU (Bi , Bj ).             (2)
+proaches duplicate results problem through NMS Pooling,
+which centralizes on the object’s central point rather than        The relative ranking relation, denoted as Rrank , and the
+bounding boxes, pooling nearby detection responses, and            spatial relation, denoted as Rspt , will be utilized to mod-
+effectively managing dense object scenarios. Moreover,             ulate the subsequent self-attention and cross-attention mod-
+DETR [3] and its variants employ self-attention layers for         ule.The bounding boxes Bi , Bj are produced from the pre-
+information propagation, combined with a one-to-one label          vious layer.In the first layer, we bypass the use of the EASE
+assignment strategy to address the issue of duplicate detec-       module and adopt the same box initialization as the base-
+tion results. This paper proposes a method to ease query           line.
+competition, a challenge intrinsic to these models, aiming
+to achieve superior non-duplicate detection results.               3.3. Encourage Leading Query in Self-attention
+                                                                   In our analysis of the DETR framework, we emphasize the
+3. Methodology                                                     critical role of self-attention in facilitating non-duplicated
+                                                                   detection. And the interaction of self-attention mechanism
+3.1. Overview
+                                                                   introduce competition among queries. These interactions
+In our EASE-DETR development, we introduced a novel                occur as each query is projected and subsequently under-
+approach to ease query competition by introducing a bias           goes matrix multiplication to calculate attention scores. At
+towards the leading query, thereby enhancing model conver-         this stage, the presence of competing queries with very sim-
+gence and accuracy. Our architecture, depicted in Figure 2         ilar initial prediction scores necessitates extensive learning
+(A), refines the traditional DETR framework, particularly          for effective optimization. To address this, our method
+
+
+
+                                                                17284
+Figure 2. (A) EASE-DETR uses the relative ranking (“leading / trailing”) and IoU between every two queries to ease their competition.
+EASE-DETR is very simple and makes only slight modifications to the original self-attention and cross-attention layers. All the modifica-
+tions are highlighed in red. (B) In the modified self-attention layer (MSelf-Attention), the ranking and IoU are multiplied and then encoded
+through an MLP and sigmoid function. Through end-to-end training, it learns to decay the suppression upon the leading queries. (C) In the
+modified cross-attention layer (MCross-Attention), the ranking and IoU are multiplied and then encoded into another decay weight. This
+decay weight reduces the object feature absorbed into trailing queries. In a word, both the MSelf-Attention and MCross-Attention layers
+introduce bias that favours the leading query and thus help it to enlarge its superiority in the competition.
+
+
+involves binarizing the relative ranking Rrank , encoding                where W represent original attention weight before soft-
+them, and subsequently utilizing this encoded data to mod-               max, and A represents the final attention weight. In this for-
+ulate the attention weights.                                             mula, we modulate the attention scheme by multiplying the
+   A straightforward approach to modulate attention using                decay Ds with the respective attention weights. This mod-
+relative ranking involves directly utilizing Rrank as the sign           ulation either intensifies or diminishes the original attention
+bit for the attention weights after softmax operation. This              signals, thereby embedding explicit query relationships into
+method is notably simple, and we have corroborated its ef-               the model.
+fectiveness in our subsequent experiments, which encom-                     In our methodology, a single decay matrix Ds is shared
+pass both 2D and 3D detection tasks.                                     across all attention heads. To accommodate the multi-head
+   To strengthen the aspect of locality, we further integrate            attention architecture, we have refined the output layer of
+Rrank and Rspt in our approach. The Rrank , being binary,                the MLP, transitioning from a unidimensional output to an
+is denoted by +1 and −1. We directly multiply the Rspt                   N -dimensional output, where N stands for the number of
+values with Rrank and use MLP to binarize them.The MLP                   heads in the self-attention mechanism. With this modifica-
+below uses a single hidden layer with a dimension of 16.                 tion, each head is allocated a corresponding decay matrix
+The corresponding formula is as follows:                                 Ds , which is uniquely modulated to fine-tune the process-
+                                                                         ing capabilities of that particular head.
+           Ds = sigmoid(MLP(Rrank · Rspt )).                   (3)
+                                                                         3.4. Penalize Trailing Query in Cross-attention
+The resulting self attention decay Ds modulate the atten-
+tion in the self-attention mechanism, as illustrated by the              After modulating self-attention with Rrank and Rspt , we
+following equation:                                                      further explored their modulation effects on cross-attention.
+                                                                         Typically, cross-attention is considered a mechanism for ag-
+                         s
+                        Dij exp(Wij )                                    gregating object information. Our aim in the cross-attention
+                Aij = PN                 ,                     (4)
+                             s
+                       k=1 Dik exp(Wik )
+                                                                         phase is to encourage the leading query to assimilate more
+
+
+
+                                                                     17285
+               Method                     Backbone       #epochs         AP         AP50      AP75     APS     APM      APL
+          Deformable++ [16]                 R50            12           47.0        65.2      51.5     31.2    50.4     61.1
+          Deformable++ [16]                 R50            36           49.0        67.6      53.5     32.6    52.3     63.3
+          Deformable++ [16]                Swin-T          12           49.3         –         –       31.6    52.4     64.6
+       EASE-Deformable++ (ours)             R50            12        48.3 (+1.3)    67.0      52.3     31.5    51.3     62.8
+       EASE-Deformable++ (ours)*            R50            24        49.6 (+0.6)    68.4      54.1     32.8    52.8     64.2
+       EASE-Deformable++ (ours)            Swin-T          12        50.2 (+0.9)    69.4      54.8     32.5    53.6     65.3
+            H-DETR [16]                     R50            12           48.7        66.4      52.9     31.2    51.5     63.5
+            H-DETR [16]                    Swin-T          12           50.6         -         -       33.4    53.7     65.9
+         EASE-H-DETR (ours)                 R50            12        49.4 (+0.7)    67.7      53.8     33.6    52.7     63.6
+         EASE-H-DETR (ours)                Swin-T          12        51.7 (+1.1)    70.2      56.3     34.5    55.0     66.8
+             DINO [39]                      R50            12           49.0        66.6      53.5     32.0    52.3     63.0
+             DINO [39]                     Swin-T          12           51.3        69.0      56.0     34.4    54.4     66.1
+          EASE-DINO (ours)                  R50            12        49.7 (+0.7)    67.5      54.3     32.7    52.9     64.1
+          EASE-DINO (ours)                 Swin-T          12        51.8 (+0.5)    69.5      56.6     35.4    55.1     66.1
+
+Table 1. EASE-DETR brings consistent improvement over popular baselines. The term ’EASE-’ indicates the integration of our EASE
+module. We rigorously test its performance with different detectors, over various epochs, and using diverse backbones. The integration
+of our EASE module consistently results in performance enhancements. Notably, in the 12-epoch setting with ResNet-50 backbone,
+significant improvements are observed in the currently popular Deformable++ and DINO frameworks. Specifically, there is an increase of
+1.3 AP in Deformable++ [16] and a 0.7 AP increase in DINO [39].
+
+                 Method                 Backbone      #epochs          AP          AP50    AP75      APS      APM     APL
+          Baseline (DINO [39])            R50           12            49.0         66.6    53.5      32.0     52.3    63.0
+          Baseline (DINO [39])            R50           24            50.4         68.3    54.8      33.3     53.7    64.8
+              H-DETR [16]                 R50           12            48.7         66.4    52.9      31.2     51.5    63.5
+              H-DETR [16]                 R50           36            50.0         68.3    54.4      32.9     52.7    65.3
+             Group-DETR [5]               R50           12            49.8          -       -        32.4     53.0    64.2
+         Stable-DINO-4scale [22]          R50           12            50.4         67.4    55.0      32.9     54.0    65.5
+         Stable-DINO-4scale [22]          R50           24            51.5         68.5    56.3      35.2     54.7    66.5
+             DAC-DETR [14]                R50           12            50.0         67.6    54.7      32.9     53.1    64.2
+             DAC-DETR [14]                R50           24            51.2         68.9    56.0      34.0     54.6    65.4
+           EASE-DETR (ours)               R50           12         50.8 (+1.8)     68.9    55.3      34.1     54.2    65.1
+           EASE-DETR (ours)               R50           24         51.6 (+1.2)     69.9    56.2      34.0     54.6    66.0
+          Baseline (DINO [39])           Swin-L         12            56.8         75.6    62.0      40.0     60.5    73.2
+             Group-DETR [5]              Swin-L         36            58.4          -       -        41.0     62.5    73.9
+         Stable-DINO-4scale [22]         Swin-L         12            57.7         75.7    63.4      39.8     62.0    74.7
+         Stable-DINO-4scale [22]         Swin-L         24            58.6         76.7    64.1      41.8     63.0    74.7
+             DAC-DETR [14]               Swin-L         12            57.3         75.7    62.7      40.1     61.5    74.4
+           EASE-DETR (ours)              Swin-L         12         57.8 (+1.0)     76.7    63.3      40.7     61.9    73.7
+
+Table 2. Comparison to SOTA DETR. Compared to DINO [39], our EASE-DETR yields improvements of 1.8 and 1.2 AP in 12-epoch and
+24-epoch settings on the ResNet-50 [13] backbone, achieving 50.8 and 51.6 AP, respectively. The results surpasses methods like Stable-
+DINO [22], Align-DETR [2], and DAC-DETR [14]. Additionally, using the Swin-L backbone with EASE-DETR increases performance
+by 1.0 AP, reaching 57.8 AP and exceeding the latest SOTA, Stable-DINO.
+
+object features in the cross-attention layer, while diminish-         where the n index number of query. And the specific for-
+ing the ability of trailing queries to acquire target infor-          mula for cross attention decay Dc is as follows,
+mation. To achieve this, we adopted a straightforward ap-
+proach: we quantified the level of suppression L using the                            Dic = sigmoid(MLP(Li )).                    (6)
+product of −Rrank · Rspt , as illustrated by the following
+                                                                      For the i-th query, our methodology involves selecting
+equation:
+                                                                      queries that not only have a higher score than the current
+                  n−1                                                 query but also share an IoU with it. We then compute the
+           Li = max(−Rrank (i, j) · Rspt (i, j)),           (5)       cumulative attention weight of these queries in relation to
+                  j=0
+
+
+
+
+                                                                  17286
+the current query. This sum is subtracted from one to derive
+the cross-attention scale, denoted as Dic . We employ Dic
+to modulate the result of the current cross-attention directly
+by multiplying it with Dic . Similarly, drawing inspiration
+from the multi-head design inherent in self-attention mech-
+anisms, our model generates a multi-head scale Dic within
+the cross-attention.
+
+4. Experiments
+4.1. Setup and Implementation Details
+Dataset. We conduct experiments on the COCO [19] 2017
+validation dataset. And we report our results with the
+mean average precision (mAP) metric under different IoU
+thresholds. We report results with two different backbones:
+ResNet-50 [13] (pretrained on ImageNet-1k [7]) and Swin-            Figure 3. Comparison of the predicted score distribution of the
+L [25] (pretrained on ImageNet-22k [7]).                            competing queries in the last decoder layer. For each object, the
+                                                                    top-scored query wins the competition and becomes the final pre-
+Implementation details. We develop EASE-DETR using
+                                                                    diction, while the other queries are suppressed to be background
+Python 3.8.17, PyTorch 1.10.1, and CUDA 11.3. For 2D
+                                                                    and should have low scores. ‘First’, ‘Second’, ‘Third’ represent
+object detection training, we train all models with a batch         the queries with the 1st, 2nd and 3rd highest prediction score,
+size of 16, employing the AdamW optimizer. We initialized           respectively. It shows that our EASE-DETR increases/decreases
+the learning rate at 1e-4. In the setting with 12 epochs, we        prediction score for the 1st/2nd queries, therefore enlarging their
+reduced it by a factor of 0.1 at the 11th epoch. Similarly, in      gap and easing the query competition.
+the setting with 24 epochs, we decreased the learning rate by
+a factor of 0.1 at the 20th epoch. In our experiments on 3D         cased in Table 2. Remarkably, this integration yields im-
+object detection, we adhere to the established configurations       provements of 1.8 and 1.2 AP for the 12-epoch and 24-
+from PETR [24], adapting only the Rrank component for               epoch settings on the ResNet-50 [13] backbone, respec-
+the 3D detector.                                                    tively, achieving 50.8 AP and 51.6 AP. These results surpass
+                                                                    those of other leading methods such as Stable-DINO[22],
+4.2. Main Results                                                   Align-DETR[2], and DAC-DETR[14]. In a thorough eval-
+In our experiments conducted on the COCO 2017 valida-               uation, we experiment with EASE-DETR using the Swin-L
+tion set, we evaluate the effectiveness of our EASE module.         backbone, further boosting performance with an additional
+The results, as presented in Table 1, demonstrate the mod-          increase of 1.0 AP, reaching a new high of 57.8 AP, and
+ule’s performance across various detectors, epochs, and di-         surpassing the recent SOTA model, Stable-DINO[22].
+verse backbone architectures. The integration of our EASE               Furthermore, we compare the predicted score distribu-
+module consistently leads to enhancements in performance.           tion of the competing queries in the last decoder layer,
+Notably, when incorporated into the original attention ar-          illustrated in Figure 3. For each object, the top-scored
+chitecture, the module enables a significant improvement in         query wins the competition and becomes the final predic-
+Deformable++ models, achieving an increase of 1.3 AP and            tion, while the other queries are suppressed to be back-
+0.9 AP on the ResNet50 and Swin-T backbones, respec-                ground and should have low scores. On the val set, EASE-
+tively. Remarkably, our EASE-enhanced Deformable++                  DETR enlarges the gap between the wining query and the
+outperforms the standard Deformable++ by 0.6 AP in just             competitors, indicating eased competition.
+24 epochs, compared to the latter’s 36 epochs.
+                                                                    4.3. Ablation Studies
+   Furthermore, applying EASE to H-DETR [16] and
+DINO [39] models also yields substantial improvements,              Component analysis. We conduct experiments to ascer-
+signifying the module’s compatibility and efficacy in one-          tain the effectiveness of each module within our proposed
+to-many and denoise design paradigms. These results un-             framework. The detailed outcomes of these experiments are
+derscore the adaptability and effectiveness of our EASE             presented in Table 3. Our study commences with a baseline
+module in various frameworks and settings.                          model employing the Deformable DETR architecture. The
+   To compare with current SOTA DETR models, we uti-                model exhibits continuous improvements through the se-
+lize DINO [39] as our baseline, integrate our EASE mod-             quential addition of MSelf-attention and MCross-attention
+ule, and adopt the recent one-to-many strategy from DAC-            modules. This progression significantly highlights the con-
+DETR [14], a method we refer to as EASE-DETR, as show-              tribution of each module to enhancing the overall perfor-
+
+
+
+                                                                 17287
+Figure 4. Visualizing the relation between Rrank · Rspt and self attention decay Ds . The graph reveals that, across different layers and
+heads, the relationship between Rrank · Rspt and Ds generally displays a monotonic decrease, with the function being asymmetric, thus
+underscoring the importance of introducing Rrank .
+
+                                                                            mation compared to the later layers.
+                                                                            Comparison of different self-attention modulation
+                                                                            strategies. In our modulated self-attention study, we in-
+                                                                            troduced two variant approaches to ease query competi-
+                                                                            tion by favoring the leading query. In the first variant, we
+                                                                            solely incorporated relative ranking Rrank to modulate self-
+                                                                            attention. This method acts as a sign factor, altering at-
+                                                                            tention post-softmax, as shown in the 2nd row of Table 4.
+                                                                            Compared to the baseline, introducing only Rrank leads to
+                                                                            an improvement of 0.8 AP. The second variant aims to en-
+                                                                            hance locality by building upon Rrank with the addition of
+                                                                            Rspt . Considering that Rrank is binary and Rspt is a non-
+                                                                            negative number, we multiply the two as input. Through a
+Figure 5. Visualizing the relation between level of suppression L           MLP and sigmoid, we generated weights to adjust the self-
+and cross attention decay Dc . The illustration reveals that with           attention weights. We perform the modulation of our sec-
+an increasing value of L, the decay Dc diminishes, leading to a             ond method variant before the softmax function, correspond
+weaker absorption of target information. Furthermore, it is ob-             to the 3rd row. The results further improved by 0.3 AP on
+served that the initial layers exhibit a stronger absorption of object
+                                                                            top of the first variant, culminating in a total enhancement
+information compared to the later layers.
+                                                                            of 1.1 AP compared to the baseline.
+                                                                            Investigation MSelf-attention on two-stage Deformable
+mance of the model. Specifically, the integration of MSelf-                 DETR. In order to delve deeper into the MSelf-attention
+attention and MCross-attention modules leads to incremen-                   module, we conducted ablation studies on commonly used
+tal improvements of 1.1 AP and 0.2 AP, respectively. No-                    tricks, as demonstrated in Table 5. It is evident from the
+tably, our model achieves an impressive 48.3 AP on the De-                  results that our Mself-attention consistently enhances per-
+formable++ baseline, even without the implementation of a                   formance across these experiments, validating the effective-
+one-to-many approach.                                                       ness of our approach. Notably, integrating MQS (Mixed
+    We visualize the relation between Rrank · Rspt and self-                Query Selection) on top of our method yields a relatively
+attention decay Ds as shown in Figure 4, where each self-                   modest improvement (from 44.3 AP to 46.3 AP compared
+attention layer includes 8 heads. The graph reveals that,                   to 47.4 AP to 47.7 AP). This led us to revisit the MQS
+across different layers and heads, the relationship between                 method. The MQS approach selectively enhances posi-
+Rrank · Rspt and Ds generally displays a monotonic de-                      tional queries with the top-k selected features while main-
+crease, with the function being asymmetric, thus underscor-                 taining the learnability of content queries as before. We be-
+ing the importance of introducing Rrank . This observation                  lieve the primary reason for MQS’s superior performance
+is consistent with our analysis of attention modulation. Ad-                in baseline settings is its implicit incorporation of ranking
+ditionally, we visualize the relation between the level of                  information. This is an unintentional result of the specific
+suppression L and cross-attention decay Dc in Figure 5.                     code implementation of MQS. Specifically, by selecting the
+It is apparent that a higher L corresponds to a smaller de-                 top-k initial positional queries, a sorting process is inher-
+cay value, indicating that stronger suppression of the query                ently involved. In the implementation, the highest-scoring
+leads to less absorption of object information. Moreover,                   positional query is always matched with the first learnable
+the initial layers show a greater absorption of object infor-               content query, and the lowest-scoring with the last, allow-
+
+
+
+                                                                         17288
+      Method       Backbone #epochs AP AP50                                   DP0      MQS      LFT      MSELF            AP
+ Deformable++ [16]   R50      12    47.0 65.2
+  +MSelf-attention   R50      12    48.1 66.6                                                                             43.7
+ +MCross-attention   R50      12    48.3 67.0                                                                ✓         46.9 (+3.2)
+                                                                               ✓                                          44.3
+Table 3. Component analysis. Our MSelf-attention and MCross-                   ✓                             ✓         47.4 (+3.1)
+attention models are evaluated on a Deformable++ [16] baseline.                ✓         ✓                                46.3
+Incorporating the MSelf-attention model results in an improve-                 ✓         ✓                   ✓         47.7 (+1.4)
+ment of 1.1 AP. Further addition of the MCross-attention module                ✓         ✓         ✓                      47.0
+introduce an additional increase of 0.2 AP.                                    ✓         ✓         ✓         ✓         48.1 (+1.1)
+
+     Method       Backbone #epochs     AP      AP50                     Table 5. Analysis of MSelf-Attention combined with various tech-
+Deformable++ [16]   R50      12       47.0     65.2                     niques. DP0: implementing a 0 Dropout Rate within the Trans-
+    w/Rrank         R50      12    47.8 (+0.8) 66.3                     former. MQS: mixed query selection. LFT: look forward twice.
+ w/Rrank *Rspt      R50      12    48.1 (+1.1) 66.6                     MSELF: MSelf-attention.
+
+Table 4. Comparison of different self-attention adjustment strate-
+                                                                              Method            #queries       GFLOPs          Params
+gies for EASE-DETR. Incorporating Rrank straightforwardly into
+our self-attention mechanism yielded an improvement of 0.8 AP.           DAB-DETR [21]             300          90.4           43.67 M
+To further enhance locality, we multiply Rrank and Rspt to mod-            W/EASE                  300       90.5 (+0.1)       43.67 M
+ulate self-attention, achieving an additional performance boost.         DAB-DETR [21]             900          103.3          43.67 M
+                                                                           W/EASE                  900       104.0 (+0.7)      43.67 M
+ing the learnable content queries to implicitly embody a se-
+quence order through learning iterations.                               Table 6. Analysis of the efficiency. Utilizing DAB-DETR [21]
+Efficiency Analysis. In Table 6, we present an analysis of              as our baseline, our EASE model incurs only a minimal increase
+the computational costs introduced by our Mself-attention               of 0.1 GFLOPs and 0.7 GFLOPs for 300 and 900 queries respec-
+and Mcross-attention. We conducted comparative exper-                   tively, with virtually no increase in the number of parameters.
+iments with 300 and 900 queries respectively. At 300
+queries, Our model only adds 0.1 GFLOPs, introducing a                        Method         w/Rrank        NDS             mAP
+negligible amount of parameters, which is notably minimal.
+At 900 queries, due to the proportional relationship between                 PETR [24]                      42.6            37.8
+computation and the number of queries, there is a more sig-                  PETR [24]         ✓         44.2 (+1.6)     38.7 (+0.9)
+nificant increase compared to 300 queries. However, the to-
+tal increase of approximately 0.7 GFLOPs remains within                 Table 7. Results on multi-view 3D object detection. By simply
+acceptable limits.                                                      combining with Rrank , we achieve improvements of 1.6 NDS and
+                                                                        0.9 mAP on PETR [24], demonstrating its versatility across differ-
+Results on multi-view 3D object detection. Our approach
+                                                                        ent DETR-based frameworks.
+is highly adaptable to various DETR-based methods and is
+not confined to 2D detection tasks. To demonstrate its uni-
+versality, we apply our method to multi-view 3D detection               its ability to assimilate more object features in the cross-
+tasks, as shown in Table 7. The results show that EASE-                 attention layer. Consequently, this approach not only sim-
+DETR achieves non-trivial improvements, i.e., +1.6 NDS                  plifies the competition but also accelerates the winning pro-
+and +0.9 mAP on the PETR [24] baseline.                                 cess of the leading query. Our experimental results demon-
+                                                                        strate that EASE-DETR offers consistent and substantial
+5. Conclusion                                                           enhancements across various DETR models.
+In conclusion, the EASE-DETR approach introduced in this
+study significantly enhances the non-duplicate detection ca-            6. Acknowledgments
+pability of DETRs. By framing the detection process as a
+competition among object queries, where only one query                  This research is supported in part by National Key R&D
+emerges as the final detection, our method effectively man-             Program of China (2022ZD0115502), National Natural Sci-
+ages the inherent challenges. The strategy of identifying               ence Foundation of China (NO. 62122010, U23B2010),
+and biasing towards the leading query in each decoder layer             Zhejiang Provincial Natural Science Foundation of China
+proves to be a crucial element in this improvement. This                under Grant No. LDT23F02022F02, Key Research and
+is accomplished by protecting the leading query from mu-                Development Program of Zhejiang Province under Grant
+tual suppression in the self-attention layer and bolstering             2022C01082.
+
+
+
+                                                                     17289
+References                                                                   ings of the IEEE conference on computer vision and pattern
+                                                                             recognition, pages 770–778, 2016. 2, 5, 6
+ [1] Zhaowei Cai and Nuno Vasconcelos. Cascade r-cnn: Delv-             [14] Zhengdong Hu, Yifan Sun, Jingdong Wang, and Yi Yang.
+     ing into high quality object detection. In Proceedings of the           DAC-DETR: Divide the attention layers and conquer. In
+     IEEE conference on computer vision and pattern recogni-                 Thirty-seventh Conference on Neural Information Process-
+     tion, pages 6154–6162, 2018. 3                                          ing Systems, 2023. 1, 2, 5, 6
+ [2] Zhi Cai, Songtao Liu, Guodong Wang, Zheng Ge, Xiangyu              [15] Zhengdong Hu, Yifan Sun, and Yi Yang. Suppressing the
+     Zhang, and Di Huang. Align-detr: Improving detr with sim-               heterogeneity: A strong feature extractor for few-shot seg-
+     ple iou-aware bce loss. arXiv preprint arXiv:2304.07527,                mentation. In The Eleventh International Conference on
+     2023. 5, 6                                                              Learning Representations, 2023. 3
+ [3] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas         [16] Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu,
+     Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-              Weihong Lin, Lei Sun, Chao Zhang, and Han Hu. Detrs
+     end object detection with transformers. In European confer-             with hybrid matching. In Proceedings of the IEEE/CVF Con-
+     ence on computer vision, pages 213–229. Springer, 2020. 1,              ference on Computer Vision and Pattern Recognition, pages
+     2, 3                                                                    19702–19712, 2023. 2, 5, 6, 8
+ [4] Qiang Chen, Yingming Wang, Tong Yang, Xiangyu Zhang,               [17] Borui Jiang, Ruixuan Luo, Jiayuan Mao, Tete Xiao, and Yun-
+     Jian Cheng, and Jian Sun. You only look one-level feature.              ing Jiang. Acquisition of localization confidence for accurate
+     In Proceedings of the IEEE/CVF conference on computer vi-               object detection. In Proceedings of the European conference
+     sion and pattern recognition, pages 13039–13048, 2021. 3                on computer vision (ECCV), pages 784–799, 2018. 3
+ [5] Qiang Chen, Xiaokang Chen, Jian Wang, Shan Zhang, Kun              [18] Feng Li, Hao Zhang, Shilong Liu, Jian Guo, Lionel M Ni,
+     Yao, Haocheng Feng, Junyu Han, Errui Ding, Gang Zeng,                   and Lei Zhang. Dn-detr: Accelerate detr training by intro-
+     and Jingdong Wang. Group detr: Fast detr training with                  ducing query denoising. In Proceedings of the IEEE/CVF
+     group-wise one-to-many assignment. In Proceedings of the                Conference on Computer Vision and Pattern Recognition,
+     IEEE/CVF International Conference on Computer Vision,                   pages 13619–13627, 2022. 1, 2
+     pages 6633–6642, 2023. 5                                           [19] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+ [6] Xiyang Dai, Yinpeng Chen, Jianwei Yang, Pengchuan                       Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence
+     Zhang, Lu Yuan, and Lei Zhang. Dynamic detr: End-to-                    Zitnick. Microsoft coco: Common objects in context. In
+     end object detection with dynamic attention. In Proceedings             Computer Vision–ECCV 2014: 13th European Conference,
+     of the IEEE/CVF International Conference on Computer Vi-                Zurich, Switzerland, September 6-12, 2014, Proceedings,
+     sion, pages 2988–2997, 2021. 1                                          Part V 13, pages 740–755. Springer, 2014. 2, 6
+ [7] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li,             [20] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and
+     and Li Fei-Fei. Imagenet: A large-scale hierarchical image              Piotr Dollár. Focal loss for dense object detection. In Pro-
+     database. In 2009 IEEE conference on computer vision and                ceedings of the IEEE international conference on computer
+     pattern recognition, pages 248–255. Ieee, 2009. 6                       vision, pages 2980–2988, 2017. 3
+ [8] Jiahui Fu, Chen Gao, Zitian Wang, Lirong Yang, Xiaofei             [21] Shilong Liu, Feng Li, Hao Zhang, Xiao Yang, Xianbiao Qi,
+     Wang, Beipeng Mu, and Si Liu. Eliminating cross-modal                   Hang Su, Jun Zhu, and Lei Zhang. Dab-detr: Dynamic an-
+     conflicts in bev space for lidar-camera 3d object detection.            chor boxes are better queries for detr. In International Con-
+     arXiv preprint arXiv:2403.07372, 2024. 3                                ference on Learning Representations, 2021. 1, 2, 3, 8
+ [9] Chen Gao, Jinyu Chen, Si Liu, Luting Wang, Qiong Zhang,            [22] Shilong Liu, Tianhe Ren, Jiayu Chen, Zhaoyang Zeng, Hao
+     and Qi Wu. Room-and-object aware knowledge reasoning                    Zhang, Feng Li, Hongyang Li, Jun Huang, Hang Su, Jun
+     for remote embodied referring expression. In Proceedings of             Zhu, et al. Detection transformer with stable matching. 2023.
+     the IEEE/CVF Conference on Computer Vision and Pattern                  2, 5, 6
+     Recognition, pages 3064–3073, 2021. 3                              [23] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian
+[10] Peng Gao, Minghang Zheng, Xiaogang Wang, Jifeng Dai,                    Szegedy, Scott Reed, Cheng-Yang Fu, and Alexander C.
+     and Hongsheng Li. Fast convergence of detr with spatially               Berg. Ssd: Single shot multibox detector. In Computer
+     modulated co-attention. In Proceedings of the IEEE/CVF                  Vision – ECCV 2016, pages 21–37, Cham, 2016. Springer
+     international conference on computer vision, pages 3621–                International Publishing. 3
+     3630, 2021. 3                                                      [24] Yingfei Liu, Tiancai Wang, Xiangyu Zhang, and Jian Sun.
+[11] Yulu Gao, Chonghao Sima, Shaoshuai Shi, Shangzhe Di, Si                 Petr: Position embedding transformation for multi-view 3d
+     Liu, and Hongyang Li. Sparse dense fusion for 3d object                 object detection. In European Conference on Computer Vi-
+     detection. In 2023 IEEE/RSJ International Conference on                 sion, pages 531–548. Springer, 2022. 6, 8
+     Intelligent Robots and Systems (IROS), pages 10939–10946.          [25] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng
+     IEEE, 2023. 3                                                           Zhang, Stephen Lin, and Baining Guo. Swin transformer:
+[12] Ross Girshick. Fast r-cnn. In Proceedings of the IEEE In-               Hierarchical vision transformer using shifted windows. In
+     ternational Conference on Computer Vision (ICCV), 2015.                 Proceedings of the IEEE/CVF international conference on
+     3                                                                       computer vision, pages 10012–10022, 2021. 2, 6
+[13] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.             [26] Depu Meng, Xiaokang Chen, Zejia Fan, Gang Zeng,
+     Deep residual learning for image recognition. In Proceed-               Houqiang Li, Yuhui Yuan, Lei Sun, and Jingdong Wang.
+
+
+
+
+                                                                     17290
+     Conditional detr for fast training convergence. In Proceed-            improved denoising anchor boxes for end-to-end object de-
+     ings of the IEEE/CVF International Conference on Com-                  tection. In The Eleventh International Conference on Learn-
+     puter Vision, pages 3651–3660, 2021. 1, 3                              ing Representations, 2022. 1, 2, 5, 6
+[27] Alexander Neubeck and Luc Van Gool. Efficient non-                [40] Shilong Zhang, Xinjiang Wang, Jiaqi Wang, Jiangmiao
+     maximum suppression. In 18th international conference on               Pang, Chengqi Lyu, Wenwei Zhang, Ping Luo, and Kai
+     pattern recognition (ICPR’06), pages 850–855. IEEE, 2006.              Chen. Dense distinct query for end-to-end object detection.
+     3                                                                      In Proceedings of the IEEE/CVF Conference on Computer
+[28] Joseph Redmon, Santosh Divvala, Ross Girshick, and Ali                 Vision and Pattern Recognition (CVPR), pages 7329–7338,
+     Farhadi. You only look once: Unified, real-time object de-             2023. 3
+     tection. In Proceedings of the IEEE Conference on Computer        [41] Xingyi Zhou, Dequan Wang, and Philipp Krähenbühl. Ob-
+     Vision and Pattern Recognition (CVPR), 2016. 3                         jects as points, 2019. 3
+[29] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.            [42] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang,
+     Faster r-cnn: Towards real-time object detection with region           and Jifeng Dai. Deformable detr: Deformable transformers
+     proposal networks. In Advances in Neural Information Pro-              for end-to-end object detection. In International Conference
+     cessing Systems. Curran Associates, Inc., 2015. 3                      on Learning Representations, 2020. 1, 2, 3
+[30] Zhiqing Sun, Shengcao Cao, Yiming Yang, and Kris M Ki-
+     tani. Rethinking transformer-based set prediction for object
+     detection. In Proceedings of the IEEE/CVF international
+     conference on computer vision, pages 3611–3620, 2021. 1
+[31] Zongheng Tang, Yifan Sun, Si Liu, and Yi Yang. Detr with
+     additional global aggregation for cross-domain weakly su-
+     pervised object detection. In Proceedings of the IEEE/CVF
+     Conference on Computer Vision and Pattern Recognition,
+     pages 11422–11432, 2023. 3
+[32] Zhi Tian, Chunhua Shen, Hao Chen, and Tong He. Fcos:
+     Fully convolutional one-stage object detection. In Proceed-
+     ings of the IEEE/CVF international conference on computer
+     vision, pages 9627–9636, 2019. 3
+[33] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-
+     reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia
+     Polosukhin. Attention is all you need. Advances in neural
+     information processing systems, 30, 2017. 3
+[34] Tao Wang, Li Yuan, Yunpeng Chen, Jiashi Feng, and
+     Shuicheng Yan. Pnp-detr: Towards efficient visual analysis
+     with transformers. In Proceedings of the IEEE/CVF inter-
+     national conference on computer vision, pages 4661–4670,
+     2021. 1
+[35] Yingming Wang, Xiangyu Zhang, Tong Yang, and Jian Sun.
+     Anchor detr: Query design for transformer-based detector.
+     In Proceedings of the AAAI conference on artificial intelli-
+     gence, pages 2567–2575, 2022. 1
+[36] Yue Wu, Yinpeng Chen, Lu Yuan, Zicheng Liu, Lijuan
+     Wang, Hongzhi Li, and Yun Fu. Rethinking classification
+     and localization for object detection. In Proceedings of
+     the IEEE/CVF conference on computer vision and pattern
+     recognition, pages 10186–10195, 2020. 3
+[37] Zizheng Xun, Shangzhe Di, Yulu Gao, Zongheng Tang,
+     Gang Wang, Si Liu, and Bo Li. Linker: Learning long short-
+     term associations for robust visual tracking. IEEE Transac-
+     tions on Multimedia, 2024. 3
+[38] Gongjie Zhang, Zhipeng Luo, Yingchen Yu, Kaiwen Cui,
+     and Shijian Lu. Accelerating detr convergence via semantic-
+     aligned matching. In Proceedings of the IEEE/CVF confer-
+     ence on computer vision and pattern recognition, pages 949–
+     958, 2022. 1
+[39] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun
+     Zhu, Lionel Ni, and Heung-Yeung Shum. Dino: Detr with
+
+
+
+
+                                                                    17291
+

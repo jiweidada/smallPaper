@@ -1,0 +1,57 @@
+Published as a conference paper at ICLR 2025
+(3) Coarse Localization: Fixed distance ranges and uniform bin intervals can lead to coarse local-
+ization, especially for small objects, because each bin represents a wide range of possible values.
+Localization Distillation (LD) is a promising approach, demonstrating that transferring localiza-
+tion knowledge is more effective for detection tasks (Zheng et al., 2022). Built upon GFocal, it
+enhances student models by distilling valuable localization knowledge from teacher models, rather
+than simply mimicking classification logits or feature maps. Despite its advantages, the method still
+relies on anchor-based architectures and incurs additional training costs.
+4 M ETHOD
+We propose D-FINE, a powerful real-time object detector that excels in speed, size, computational
+cost, and accuracy. D-FINE addresses the shortcomings of existing bounding box regression ap-
+proaches by leveraging two key components: Fine-grained Distribution Refinement (FDR) and
+Global Optimal Localization Self-Distillation (GO-LSD), which work in tandem to significantly
+enhance performance with negligible additional parameters and training time cost.
+(1) FDR iteratively optimizes probability distributions that act as corrections to the bounding box
+predictions, providing a more fine-grained intermediate representation. This approach captures and
+optimizes the uncertainty of each edge independently. By leveraging the non-uniform weighting
+function, FDR allows for more precise and incremental adjustments at each decoder layer, improving
+localization accuracy and reducing prediction errors. FDR operates within an anchor-free, end-to-
+end framework, enabling a more flexible and robust optimization process.
+(2) GO-LSD distill localization knowledge from refined distributions into shallower layers. As
+training progresses, the final layer produces increasingly precise soft labels. Shallower layers align
+their predictions with these labels through GO-LSD, leading to more accurate predictions. As early-
+stage predictions improve, the subsequent layers can focus on refining smaller residuals. This mutual
+reinforcement creates a synergistic effect, leading to progressively more accurate localization.
+To further enhance the efficiency of D-FINE, we streamline computationally intensive modules and
+operations in existing real-time DETR architectures (Zhao et al., 2024), making D-FINE faster and
+more lightweight. Although these modifications typically result in some performance loss, FDR and
+GO-LSD effectively mitigate this degradation. The detailed modifications are listed in Table 4.
+4.1 F INE -GRAINED DISTRIBUTION REFINEMENT
+Fine-grained Distribution Refinement (FDR)iteratively optimizes a fine-grained distribution gen-
+erated by the decoder layers, as shown in Figure 2. In the first decoder layer, preliminary bounding
+boxes are predicted by a traditional bounding box regression head, while the D-FINE head gener-
+ates the initial probability distributions for the four edges (top, bottom, left, right). The preliminary
+bounding boxes serve as reference boxes, while subsequent layers focus on refining them by ad-
+justing distributions in a residual manner. The refined distributions are then applied to adjust the
+four edges of the corresponding initial bounding box, progressively improving its accuracy with
+each iteration. Mathematically, let b0 = {x, y, w, h} denote the initial bounding box prediction,
+where {x, y} represents the predicted center of the bounding box, and {w, h} represent the width
+and height of the box. We can then convert b0 into the center coordinates c0 = {x, y} and the edge
+distances d0 = {t, b, l, r}, which represent the distances from the center to the top, bottom, left, and
+right edges. For the l-th layer, the refined edge distances dl = {tl, bl, ll, rl} are computed as:
+dl = d0 + {h, h, w, w} ·
+NX
+n=0
+W (n)Prl(n), l ∈ {1, 2, . . . , L}, (2)
+where Prl(n) = {Prl
+t(n), Prl
+b(n), Prl
+l(n), Prl
+r(n)} represents four separate distributions, one for
+each edge. Each distribution predicts the likelihood of candidate offset values for the corresponding
+edge. These candidates are determined by the weighting function W (n), where n indexes the dis-
+crete bins out of N, with each bin corresponding to a potential edge offset. The weighted sum of the
+distributions produces the edge offsets. These edge offsets are then scaled by the heighth and width
+w of the initial bounding box, ensuring the adjustments are proportional to the box size.
+4

@@ -1,0 +1,89 @@
+3 Approach
+Above all, we revisit the overall pipeline of the modern DETR-based methods [22, 61] in Section 3.1.
+The detailed design of the proposed method, including the rank-oriented architecture design and
+optimization design, is subsequently illustrated in Section 3.2 and Section 3.3. Eventually, we discuss
+the connections and differences between our approach and related works in Section 3.4.
+3.1 Preliminary
+Pipeline. Detection Transformers (DETRs) process an input image I by first passing it through a
+backbone network and a Transformer encoder to obtain a sequence of enhanced pixel embeddings
+X = {x1, x2, · · · , xN}. The enhanced pixel embeddings, along with a default set of object query em-
+beddings Q0 = {q0
+1, q0
+2, · · · , q0
+n}, are then fed into the Transformer decoder. After each Transformer
+decoder layer, task-specific prediction heads are applied to the updated object query embeddings to
+generate a set of classification predictions P l = {pl
+1, pl
+2, · · · , pl
+n} and bounding box predictions
+Bl = {bl
+1, bl
+2, · · · , bl
+n}, respectively, where l ∈ {1, 2, · · · , L} denotes the layer index of the Trans-
+former decoder. Finally, DETR performs one-to-one bipartite matching between the predictions and
+the ground-truth bounding boxes and labels G = {g1, g2, · · · , gm} by associating each ground truth
+with the prediction that has the minimal matching cost and applying the corresponding supervision.
+Object Query. To update the object query Q0 after each Transformer decoder layer, typically, DE-
+TRs form a total ofL subsets, i.e., {Q1, Q2, · · · , QL}, for L Transformer decoder layers. For both the
+initial object query Q0 and the updated ones after each layer, each Ql is formed by adding two parts:
+content queries Ql
+c = {ql
+c,1, ql
+c,2, · · · , ql
+c,n} and position queries Ql
+p = {ql
+p,1, ql
+p,2, · · · , ql
+p,n}.
+The content queries capture semantic category information, while the position queries encode prior
+positional information such as the distribution of bounding box centers and sizes.
+Ranking in DETR. Rank-oriented design plays a crucial role in modern object detectors, par-
+ticularly in achieving superior average precision (AP) scores under high Intersection over Union
+(IoU) thresholds. The success of state-of-the-art detectors, such as H-DETR and DINO-DETR, relies
+on using simple rank-oriented designs, specifically a two-stage scheme and mixed query selection.
+These detectors generate the initial positional query Q0
+p by ranking the dense coarse bounding box
+predictions output by the Transformer encoder feature maps and selecting the top ∼300 confident
+ones. During evaluation, they gather n × K bounding box predictions based on the object query
+embedding QL produced by the final Transformer decoder layer (each query within QL generates
+K predictions associated with each category), sort them by their classification confidence scores in
+descending order, and only return the top ∼100 most confident predictions.
+In this work, we focus on further extracting the benefits brought by the ranking-oriented designs
+and introduces a set of improved designs to push the envelope of high-quality object detection
+performance. The subsequent discussion provides further elaboration on these details.
+3.2 Rank-oriented Architecture Design: ensure lower FP and FN
+While the original rank-oriented design only incorporates rank information into the initial positional
+query Q0
+p, we propose an enhanced approach that leverages the benefits of sorting throughout the
+entire Transformer decoder process. Specifically, we introduce a rank-adaptive classification head
+after each Transformer decoder layer, and a query rank layer before each of the lastL − 1 Transformer
+decoder layers. This novel design is intended to boost the detection of true positives while suppressing
+false positives and correcting false negatives, leading to lower false positive rates and false negative
+rates. Figure 1 illustrates the detailed pipeline of our rank-oriented architecture designs.
+Rank-adaptive Classification Head. We modify the original classification head by adding a set of
+learnable logit bias vectors S l = {sl
+1, sl
+2, · · · , sl
+n} to the classification scores T l = {tl
+1, tl
+2, · · · , tl
+n}
+(before Sigmoid(·) function) associated with each object query independently. The classification
+predictions of the l-th decoder layer P l = {pl
+1, pl
+2, · · · , pl
+n} can be formulated as:
+pl
+i = Sigmoid(tl
+i+sl
+i), tl
+i = MLPcls(ql
+i), (1)
+where Ql = {ql
+1, ql
+2, · · · , ql
+n} represents the output embedding after the l-th Transformer decoder
+layer. The hidden dimensions of both tl
+i and sl
+i are the number of categories, i.e., K. The overall
+3

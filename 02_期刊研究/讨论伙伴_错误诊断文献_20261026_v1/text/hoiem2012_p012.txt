@@ -1,0 +1,34 @@
+12 Diagnosing Error in Object Detectors
+Right 
+ Wrong 
+Dog Model 
+Right Wrong 
+Incorrect Localization 
+Challenges of Confusion with Similar Categories 
+Fig. 8. Challenging False Positives: In the top row, we show examples of dog detections that
+are considered correct or incorrect, according to the VOC localization criteria. On the right, we
+cropped out the rest of the image; it is not possible to determine correctness from within the win-
+dow alone. On the bottom, we show several conﬁdent dog detections, some of which correspond
+to objects from other similar categories. The robust HOG template detector (right), though good
+for sorting through many background patches quickly, may be too robust for more ﬁne differen-
+tiations.
+trained at different resolutions. Other possibilities include using scene layout to predict
+viewpoint of nearby objects, including features that take advantage of texture and small
+parts that are visible for close objects, and occlusion reasoning for distant objects.
+Improving Localization: Difﬁculty with localization and identiﬁcation of duplicate
+detections has a large impact on recognition performance for many categories. In part,
+the problem is that an template-based detectors cannot accommodate ﬂexible objects.
+For example, the FGMR (v4) detector works very well for localizing cat heads, but not
+cat bodies [25]. Additionally, an object part, such as a head, could be considered correct
+if the body is occluded, or incorrect otherwise; it is impossible to tell from within the
+window alone (Fig. 8). Template detectors should play a major role in ﬁnding likely
+object positions, but specialized processes are required for segmenting out the objects.
+In some applications, precise localization is unimportant; even so, the ability to identify
+occluding and interior object contours would also be useful for category veriﬁcation,
+attribute recognition, or pose estimation. Current approaches to segment objects from
+known categories (e.g., [8, 25]) tend to combine simple shape and/or color priors with
+more generic segmentation techniques, such as graph cuts. There is an excellent oppor-
+tunity for a more careful exploration of the interaction of material, object shape, pose,
+and object category, through contour and texture-based inference. We encourage such
+work to evaluate speciﬁcally in terms of improved localization of objects and to avoid
+conﬂating detection and localization performance.

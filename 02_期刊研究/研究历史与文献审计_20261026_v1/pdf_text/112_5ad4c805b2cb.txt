@@ -1,0 +1,177 @@
+High-Frequency Semantics and Geometric Priors for End-to-End
+Detection Transformers in Challenging UA V Imagery
+Hongxing Peng †1,2, Lide Chen †1, Hui Zhu 3, Yan Chen 1*
+1College of Mathematics and Informatics, South China Agricultural University, Guangzhou, 510642,
+China.
+2Key Laboratory of Smart Agricultural Technology in Tropical South China, Ministry of
+Agriculture and Rural Affairs, Guangzhou, 510642, China.
+3School of Economics and Trade, Guangdong Mechanical &Electrical Polytechnic, Guangzhou,
+510545, China.
+*Corresponding author(s). E-mail(s): cheny@scau.edu.cn;
+Contributing authors: xyphx@scau.edu.cn; 20243170009@stu.scau.edu.cn; zhuhui@gdmec.edu.cn;
+Abstract
+Object detection in Unmanned Aerial Vehicle (UAV) imagery is fundamentally challenged by a prevalence of
+small, densely packed, and occluded objects within cluttered backgrounds. Conventional detectors struggle with
+this domain, as they rely on hand-crafted components like pre-defined anchors and heuristic-based Non-Maximum
+Suppression (NMS), creating a well-known performance bottleneck in dense scenes. Even recent end-to-end frame-
+works have not been purpose-built to overcome these specific aerial challenges, resulting in a persistent performance
+gap. To bridge this gap, we introduce HEDS-DETR, a holistically enhanced real-time Detection Transformer tai-
+lored for aerial scenes. Our framework features three key innovations. First, we propose a novel High-Frequency
+Enhanced Semantics Network (HFESNet) backbone, which yields highly discriminative features by preserving crit-
+ical high-frequency details alongside robust semantic context. Second, our Efficient Small Object Pyramid (ESOP)
+counteracts information loss by efficiently fusing high-resolution features, significantly boosting small object detec-
+tion. Finally, we enhance decoder stability and localization precision with two synergistic components: Selective
+Query Recollection (SQR) and Geometry-Aware Positional Encoding (GAPE), which stabilize optimization and
+provide explicit spatial priors for dense object arrangements. On the VisDrone dataset, HEDS-DETR achieves a
++3.8% AP and +5.1% AP 50 gain over its baseline while reducing parameters by 4M and maintaining real-time
+speeds. This demonstrates a highly competitive accuracy-efficiency balance, especially for detecting dense and small
+objects in aerial scenes.
+Keywords:Unmanned Aerial Vehicle , High-Frequency Feature Enhancement , Positional Prior Encoding , Real-time
+Detection , Dense Scene Understanding
+1 Introduction
+Real-time object detection on Unmanned Aerial
+Vehicles (UAVs) has emerged as a cornerstone tech-
+nology, underpinning a multitude of critical applica-
+tions ranging from precision agriculture [1] and highway
+surveillance [2] to urban environmental assessment [3].
+However, the unique vantage point of aerial imagery
+presents a confluence of complex challenges that push
+the performance of existing detection models to their
+limits. Models must contend with high-density scenes
+populated with numerous small objects and frequent
+occlusions caused by cluttered backgrounds, all while
+operating under the stringent constraints of limited
+on-board computational resources and the demand for
+real-time processing [4].
+†These authors contributed equally: Hongxing Peng and Lide Chen.
+Prevailing UAV object detection models [5–12] rely
+on predefined anchor boxes and Non-Maximum Sup-
+pression (NMS), which introduce inherent limitations.
+Anchor box parameters require meticulous tuning for
+specific datasets and lack generalization capability.
+Meanwhile, NMS is sensitive to its threshold, potentially
+leading to the erroneous suppression of highly over-
+lapping or adjacent objects or thEe failure to remove
+redundant detections. These issues create significant
+processing bottlenecks, particularly in the dense-object
+scenarios common in UAV footage.
+The advent of the Detection Transformer (DETR)
+[13] marked a paradigm shift towards truly end-to-end,
+NMS-free detection, though its substantial computa-
+tional overhead initially rendered it impractical for
+real-time applications. A major breakthrough arrived
+with RT-DETR [14], the first end-to-end framework to
+surpass state-of-the-art YOLO models under real-time
+conditions. Its advantage is credited to an innovative
+1
+arXiv:2507.00825v3  [cs.CV]  10 Nov 2025
+
+---PAGE---
+
+Fig. 1: Challenges in UAV Object Detection: dense
+small objects and cluttered backgrounds
+hybrid encoder design that decouples intra-scale feature
+interaction from cross-scale feature fusion.
+Despite RT-DETR’s impressive performance on
+general-purpose benchmarks such as COCO [15], its
+architecture is not inherently optimized for the dis-
+tinct challenges of aerial imagery—namely, small target
+sizes, high object density, and frequent occlusions, as
+illustrated in fig. 1. Its feature extractor and decoder
+were not purpose-built to address these core prob-
+lems endemic to the aerial domain. Consequently, while
+RT-DETR provides a powerful baseline, unlocking its
+full potential for aerial object detection necessitates a
+targeted redesign of its core components.
+To address these gaps, we propose HEDS-DETR,
+a novel framework that systematically enhances RT-
+DETR for aerial scenes. First, to remedy inadequate
+feature representation, we replace the standard back-
+bone with a High-Frequency Enhanced Semantics Net-
+work (HFESNet). This network is engineered to preserve
+fine-grained details crucial for distinguishing small, over-
+lapping objects, while still capturing robust semantic
+context. Second, to combat information loss from aggres-
+sive downsampling, we introduce an Efficient Small
+Object Pyramid (ESOP). This novel feature pyramid
+efficiently integrates high-resolution S2 features, sig-
+nificantly boosting small object detection. Finally, we
+bolster the decoder’s localization capabilities with a two-
+pronged strategy: a Selective Query Recollection (SQR)
+training mechanism mitigates cascading errors for more
+stable optimization, while a Geometry-aware Position
+Encoding (GAPE) provides explicit spatial priors to
+guide the precise localization of tightly clustered targets.
+Our main contributions are summarized as follows:
+1) We propose the HFESNet, a novel backbone that
+yields more discriminative features for dense aerial
+scenes by optimally balancing the preservation of
+high-frequency spatial details and the extraction of
+high-level semantics.
+2) We introduce the ESOP, a multi-scale fusion neck
+that strategically integrates high-resolution (S2)
+features via a lightweight pre-fusion module, sig-
+nificantly enhancing small-object detection with
+minimal computational overhead.
+3) We stabilize the decoder and improve its localiza-
+tion accuracy via two synergistic innovations: SQR,
+a training strategy that mitigates error accumula-
+tion for stable bounding box refinement, and GAPE,
+a module that injects rich spatial priors to markedly
+improve precision for dense objects.
+4) Our integrated model, HEDS-DETR, significantly
+outperforms its baseline on the VisDrone dataset
+[16]. While maintaining real-time performance, it
+achieves a +5.1% AP 50 and +3.8% AP increase,
+with 17% fewer parameters, thereby validating the
+efficacy of our targeted architectural redesign.
+2 Related Work
+2.1 Real-time and Aerial Object
+Detection
+Real-time object detection on Unmanned Aerial
+Vehicles (UAV-OD) is a challenging domain charac-
+terized by dense small objects, occlusions, and strin-
+gent computational constraints [4]. The YOLO series
+of models has long set a high standard for balancing
+speed and accuracy [5–12]. However, their reliance on
+hand-crafted Non-Maximum Suppression (NMS) intro-
+duces processing latency and hyperparameter sensitivity,
+which becomes a bottleneck in the dense-object scenarios
+typical of aerial views.
+The advent of the Detection Transformer (DETR)
+[13] introduced an end-to-end, NMS-free paradigm, but
+its high computational cost initially limited its real-
+time applicability. RT-DETR [14] marked a significant
+breakthrough, becoming the first real-time end-to-end
+detector to surpass leading YOLO models. Its efficiency
+stems from a hybrid encoder that decouples intra-scale
+interaction from cross-scale fusion. Despite its strong
+performance on general datasets like COCO [15], RT-
+DETR’s architecture is not inherently optimized for the
+distinct challenges of aerial imagery, such as pervasive
+small targets and high object density. This necessitates
+targeted adaptations to its core components to unlock
+its full potential for UAV-OD.
+2.2 Architectural Enhancements for
+Aerial Detection
+Optimizing detectors for aerial scenes requires tar-
+geted modifications to both feature representation and
+decoder design to enhance the handling of small, dense,
+and occluded objects.
+Feature Representation and Fusion: Effective dis-
+crimination in aerial scenes requires features that are
+both semantically rich and spatially precise. While some
+modules aim to enhance semantics, such as FGE [17]
+for small objects or CSP-COT [18] for global con-
+text, they risk suppressing the high-frequency details
+(e.g., edges, textures) vital for distinguishing overlap-
+ping objects. Concurrently, standard multi-scale fusion
+strategies, from FPN [19] to its successors like PANet
+[20] and BiFPN [21], often discard the highest-resolution
+feature maps for computational efficiency. RT-DETR fol-
+lows this trend by omitting the S2 feature stage, leading
+to an irreversible loss of fine-grained spatial information
+critical for detecting minute objects. Our work addresses
+these dual challenges by developing a backbone (HFES-
+Net) that explicitly fuses high-frequency details with
+2

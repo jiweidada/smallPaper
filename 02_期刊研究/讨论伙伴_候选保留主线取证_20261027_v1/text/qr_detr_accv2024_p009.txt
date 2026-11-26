@@ -1,0 +1,42 @@
+QR-DETR: Query Routing for Detection Transformer 9
+contains the indices of queries that pass through the current layer, andσp con-
+tains the indices of queries that bypass it. These values are pivotal for effectively
+routing the queries through the decoder layer.
+Optimizing Router Layer. To address gradient flow inhibition caused by the max
+operation in the Router layer, we implement exit-heads [21,34] similar to the fi-
+nal prediction heads. These exit-heads project score values and receive supervi-
+sion through the same loss function used for prediction heads, enabling targeted
+training of this layer.
+In the following, we denoteQs and Qp as the queries to be sent and bypassed
+through the layer.
+b. Gather layer, denoted asGth(.), collects the selected queries based on the
+routing scores and feeds them through the subsequent transformer layers.
+Qs = Gth(Q, σs) = Q({σs})
+= (qσs(0), . . . , qσs(Nqs )) ∈ RNs×d (7)
+where Ns << N q represents the number of queries selected to be sent through
+the specific layer. Conversely, theQp queries will bypass this layer.
+c. Scatter layer, denoted asSct(.), redistributes the processed queries back to
+their original positions, thereby preserving the positional information encoded
+in the object query positional embeddings.
+Q = Sct(Qs,Qp)
+= (qσs(0), . . . , qσs(Nqs )) ∈ RNs×d (8)
+This modular approach allows the model to focus on the most informative ob-
+ject queries while preserving the spatial relationships learned by the positional
+embeddings. This ensures the spatial disposition of the queries is maintained,
+eliminating the need for additional alignment in the decoder layer.
+4.2 Three Variants of EEQR Modules
+Building on the three previously presented layers, we developed three distinct
+EEQR modules, each incorporating our Gather-and-Scatter strategy to bypass
+specific blocks within each decoder layer. We will now present the three modules
+in more detail, as illustrated in Fig. 3. For clarity, we omit the superscriptl
+indicating the stack index for the object queriesQ, as all elements discussed
+here belong to the same decoder stack.
+a. EEQRSA. SA layers facilitate query communication and duplicate prediction
+removalbutalsoresultinredundantinformationsharing.Toaddressthis,wefirst
+propose a routing module that bypasses the SA layer then passes through the CA
+layer, as illustrated in Fig. 3a. This approach allows updating the object queries
+directly from the feature maps without sharing information across queries from
+different levels. Specifically, the computations are performed in the following
+sequence:
+QSA = SA(Gth(Q, σs)), QCA = Sct(QSA,QP ), Q = FFN(QCA) (9)
+362

@@ -1,0 +1,51 @@
+Material Passport
+Origin: academic-research-suite / experiment-agent；root汇总147、150原始结果
+Date: 2026-10-21 America/Los_Angeles
+Scope: C0 online best_stg2、127固定四个开发输入；902 GT、453个原sub4；不是两个模型seed、不是正式val/test-dev结果
+Verification: 147/00_results.json及150/02_LOO_results.json、04_execution.json均实际读取；B/C分别审查，无足以推翻阴性的实现错误。原始结果优先于本文。
+
+一、145/146→147，条件展开可达族核查：完整阴性
+原生33节点、up=.5、R=4，框族原始⊂conditional⊂rectangle⊂range2。计算单query矩形合法域内联合最优IoU，再作真类top300资格下的最大容量1匹配；分母和GT组不换。
+预定主比较joint conditional−joint original：sub4真类IoU.5需净增≥10且≥2图净正。
+实际分图[0,1,2,0]，净增3，2图正；gate=false。
+
+模式                     all真类.5 / sub4真类.5 / sub4真类.75
+实际预测                         324 / 51 / 10
+joint original                   472 /135 /129
+joint conditional                479 /138 /131
+joint rectangle                  480 /138 /131
+joint range2                     515 /168 /162
+fixed-wh original                430 /114 /56
+fixed-wh conditional             434 /115 /57
+fixed-wh rectangle               434 /115 /57
+fixed-wh range2                  468 /137 /75
+
+嵌套/原框域/阈值敏感性自检通过，sub4真类.5无接近阈值边。1e-8仅嵌套容差，不是全局最优误差证书。算法的实数域最优论证与FP64实施精度分开表述。
+停止此固定conditional版本，不追加rho门槛、不换cohort、不改q(s)挽救。原始域135与实际51的差只说明存在作用面，不识别其来自分类、优化、编码器或特定监督，更不是预期AP。
+
+二、148/149→150，配对边际监督共享bias核查：完整阴性
+缓存127 eval logits/boxes＋114固定原train union；匹配和求和分母均保留，跨eval/train的小预测差异已披露。仅参数decoder.dec_bbox_head.2.layers.2.bias[132]的局部偏导，不是完整网络、分类/LQE或真实优化器步。
+O：原生FGL .15*sg(IoU)*四边CE。
+M：原边缘PMF的独立外积，经t=(r-l)/2、s=(r+l)/2推到原33节点上的四个t/s边际CE。没有学边间协方差，也不是完整联合分布。
+C：同t/s单位的连续L1强简单控制；不是原生绝对框L1。
+目标G：原5*L1(cxcywh)+2*GIoU。四图留一，三图方向均值→一图目标梯度内积；同132维参数空间配平到O方向范数。正gain表示一阶预测下降，不是更新后AP。
+
+组别                 O                  M                  C
+allordinary    2.185474678e-5     1.531588672e-5    -1.818813250e-5
+allsub4       -2.150023856e-6    -4.436050792e-6    -4.948683065e-6
+hard_sub4      1.472796923e-6     1.026018319e-6    -5.193663518e-6
+other          2.038194985e-5     1.428986840e-5    -1.299446898e-5
+
+M主组为正且胜C，但不胜O，仅1/4图胜O；全普通组也低于O，原gate=false。四图均有正权重hard配对，方向均非零。原FGL数值误差1.11e-16、梯度相对误差1.88e-16；native框回读误差约5.68e-8至6.68e-8。
+停止本精确M版本，不放大到整头、改权重/节点以救此结果。不把局部阴性推成所有分布监督都无效。
+
+三、执行边界与后续
+147与150均零模型前向、零模型反传、零模型/优化器更新。150仅缓存与合成小张量autograd；旧checkpoint未加载、未写。输入、源码SHA前后一致；2CPU线程、interop1、Below Normal、亲和13/15，可用RAM>8GiB，无远端或监测操作。
+这两个精确版本停止，不代表持续寻找目标完成。153/154圆桌已提出不同的预算交换排序候选；下一步先做缓存标签前提表158/159，待检查真实排序/原MAL/固定匹配/分别增删后，再决定是否值得新的共享参数无训练核查。
+当前127包含完整C0末层pred_logits[300,10]及框，缺分类头hidden；不能再说完整分数缺失。它并非BASE24当前两seed，也不能沿用1886/1923为当前规模。
+
+四、确切原生分类与截断口径（已读source_snapshot/common.yml和native源码）
+PostProcessor：sigmoid后flatten跨类top300，同query可出多个类别候选。
+Criterion gamma=1.5、alpha=.75、mal_alpha未设→None；MAL匹配真类软目标IoU^1.5，未匹配目标0；负权重sg(sigmoid)^1.5，正权重1。
+Matcher自身gamma=2、alpha=.25，class/bbox/giou权重2/5/2，不要混成MAL gamma=2。
+原生MAL普通末层自己的Hungarian与union几何索引不是同一件事。缓存核查须重新运行eval末层matcher，不冒用114 train union为该索引。缓存局部MAL方向也不代表aux/DN/全网络总方向。

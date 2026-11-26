@@ -1,0 +1,83 @@
+TIDE: A General Toolbox for Identifying Object
+Detection Errors
+Daniel Bolya, Sean Foley, James Hays, and Judy Hoffman
+Georgia Institute of Technology
+Abstract. We introduce TIDE, a framework and associated toolbox1 for analyzing
+the sources of error in object detection and instance segmentation algorithms.
+Importantly, our framework is applicable across datasets and can be applied
+directly to output prediction ﬁles without required knowledge of the underlying
+prediction system. Thus, our framework can be used as a drop-in replacement
+for the standard mAP computation while providing a comprehensive analysis of
+each model’s strengths and weaknesses. We segment errors into six types and,
+crucially, are the ﬁrst to introduce a technique for measuring the contribution of
+each error in a way that isolates its effect on overall performance. We show that
+such a representation is critical for drawing accurate, comprehensive conclusions
+through in-depth analysis across 4 datasets and 7 recognition models.
+Keywords: Error Diagnosis, Object Detection, Instance Segmentation
+1 Introduction
+Object detection and instance segmentation are fundamental tasks in computer vision,
+with applications ranging from self-driving cars [6] to tumor detection [9]. Recently, the
+ﬁeld of object detection has rapidly progressed, thanks in part to competition on challeng-
+ing benchmarks, such as CalTech Pedestrians [8], Pascal [10], COCO [20], Cityscapes
+[6], and LVIS [12]. Typically, performance on these benchmarks is summarized by one
+number: mean Average Precision (mAP ).
+However,mAP suffers from several shortcomings, not the least of which is its
+complexity. It is deﬁned as the area under the precision-recall curve for detections at
+a speciﬁc intersection-over-union (IoU) threshold with a correctly classiﬁed ground
+truth (GT), averaged over all classes. Starting with COCO [20], it became standard to
+averagemAP over 10 IoU thresholds (interval of 0.05) to get a ﬁnalmAP 0.5:0.95. The
+complexity of this metric poses a particular challenge when we wish to analyze errors in
+our detectors, as error types become intertwined, making it difﬁcult to gauge how much
+each error type affectsmAP .
+Moreover, by optimizing formAP alone, we may be inadvertently leaving out the
+relative importance of error types that can vary between applications. For instance, in
+tumor detection, correct classiﬁcation arguably matters more than box localization; the
+existence of the tumor is essential, but the precise location may be manually corrected.
+In contrast, precise localization may be critical for robotic grasping where even slight
+1 https://dbolya.github.io/tide/
+
+---PAGE---
+
+2 D. Bolya et al.
+Table 1: Comparison to Other Toolkits. We compare our desired features between
+existing toolkits and ours.  indicates a toolkit has the feature, , indicates that it
+partially does, and  indicates that it doesn’t.
+Feature Hoiem [14] COCO [1] UAP [4] TIDE (Ours)
+Compact Summary of Error Types ,   
+Isolates Error Contribution ,   
+Dataset Agnostic    
+Uses All Detections    
+Allows for deeper analysis    
+mislocalizations can lead to faulty manipulation. Understanding how these sources of
+error relate to overallmAP is crucial to designing new models and choosing the proper
+model for a given task.
+Thus we introduce TIDE, a general Toolkit for Identifying Detection and segmenta-
+tion Errors, in order to address these concerns. We argue that a complete toolkit should:
+1.) compactly summarize error types, so comparisons can be made at a glance; 2.) fully
+isolate the contribution of each error type, such that there are no confounding variables
+that can affect conclusions; 3.) not require dataset-speciﬁc annotations, to allow for com-
+parisons across datasets; 4.) incorporate all the predictions of a model, since considering
+only a subset hides information; 5.) allow for ﬁner analysis as desired, so that the sources
+of errors can be isolated.
+Why we need a new analysis toolkit. Many works exist to analyze the errors in object
+detection and instance segmentation [15,24,7,17,22], but only a few provide a useful
+summary of all the errors in a model [14,1,4], and none have all the desirable properties
+listed above.
+Hoiem et al. introduced the foundational work for summarizing errors in object
+detection [14], however their summary only explains false positives (with false negatives
+requiring separate analysis), and it depends on a hyperparameterN to control how many
+errors to consider, thus not fulﬁlling (4). Moreover, to use this summary effectively, this
+N needs to be swept over which creates 2d plots that are difﬁcult to interpret (see error
+analysis in [11,21]), and thus in practice only partially addresses (1). Their approach
+also doesn’t fulﬁll (3) because their error types require manually deﬁned superclasses
+which are not only subjective, but difﬁcult to meaningfully deﬁne for datasets like LVIS
+[12] with over 1200 classes. Finally, it only partially fulﬁlls (2) since the classiﬁcation
+errors are deﬁned such that if the detection is both mislocalized and misclassiﬁed it will
+be considered as misclassiﬁed, limiting the effectiveness of conclusions drawn from
+classiﬁcation and localization error.
+The COCO evaluation toolkit [ 1] attempts to update Hoiem et al.’s work by rep-
+resenting errors in terms of their effect on the precision-recall curve (thus tying them
+closer tomAP ). This allows them to use all detections at once (4), since the precision
+recall curve implicitly weights each error based on its conﬁdence. However, the COCO
+toolkit generates 372 2d plots, each with 7 precision-recall curves, which requires a
+signiﬁcant amount of time to digest and thus makes it difﬁcult to compactly compare

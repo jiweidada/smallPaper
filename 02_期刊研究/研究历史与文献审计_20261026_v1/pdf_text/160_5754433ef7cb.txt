@@ -1,0 +1,220 @@
+Whitening Transformation inspired Self-Attention
+for Powerline Element Detection
+Emmanouil Patsiouras
+Department of Informatics
+Aristotle University of Thessaloniki
+Thessaloniki, Greece
+emmanoup@csd.auth.gr
+Vasileios Mygdalis
+Department of Informatics
+Aristotle University of Thessaloniki
+Thessaloniki, Greece
+mygdalisv@csd.auth.gr
+Ioannis Pitas
+Department of Informatics
+Aristotle University of Thessaloniki
+Thessaloniki, Greece
+pitas@csd.auth.gr
+Abstract—Powerline inspection operations involve capturing
+and inspecting visual footage of powerline elements from elevated
+positions above and around the powerline and are currently
+performed with the help of helicopters and/or Unmanned Aerial
+Vehicles (UA Vs). Current technological advances in the areas of
+robotics and machine learning are towards enabling fully au-
+tonomous operations. To this end, one of the tasks to be addressed
+is the robust, precise and fast powerline object detection problem.
+Recently introduced Transformer-based object detection methods
+demonstrate time and accuracy advances with respect to previous
+works. In this work, we present an enhanced Transformer-
+based architecture that further improves the state-of-the-art by
+incorporating a content-speciﬁc object query generator and by
+substituting the original attention operation with a whitening-
+inspired transformation at certain stages of the architecture. We
+evaluate our method in a recently captured powerline detection
+dataset and we show that our novel contributions offer a
+signiﬁcant boost regarding detection accuracy.
+Keywords—deep learning, object detection, attention mod-
+els, powerline inspection
+I. I NTRODUCTION
+Powerline inspection operations involve gathering detailed
+video footage from elevated positions close and around pow-
+erline elements [1]. To this end, we turn our focus on the
+object detection task, where the goal is to visually localize,
+identify and monitor speciﬁc elements and components in
+high-voltage transmission lines, such as towers, insulators
+and dumpers. This task, however, poses challenges that may
+not be present in standard benchmark datasets such as MS-
+COCO [2]. More speciﬁcally, the successful detection of
+powerline elements requires high precision in both small and
+big powerline elements appearing on the same image frame
+(e.g. towers and insulators), robustness in difﬁcult illumination
+conditions (sometimes even against the sun), and the ability
+to discriminate visually similar and small elements on the
+powerline against an indistinguishable background.
+To tackle the aforementioned task we examine employing a
+state-of-the-art object detection method, namely the Detection
+with Transformers (DETR) [3] detector. DETR’s major beneﬁt
+is attributed to the attention [4] mechanism encountered in the
+Transformers [5] architecture. Given N input data sequences
+(e.g. image patches), attention mechanisms aggregate infor-
+mation from the entire sequence (i.e., the whole image) to
+each sequence element. This aggregated information explicitly
+models all pairwise interactions between all elements in the
+sequences thus being able to use the whole sequence as
+context.
+DETR, however, despite its fascinating design and
+formidable performance comes with its own shortcomings.
+One such is its rather poor ability to detect small objects such
+as in our experimental application scenario, mainly attributed
+to the fact that it ends up utilizing low-resolution feature maps,
+hence small depicted objects in the original image become in-
+distinguishable in the intermediate representation stages. This
+issue could be addressed by utilizing higher resolution feature
+maps but simultaneously leading to unacceptable computa-
+tional complexities imposed by the attention operation when
+dealing with large sequences [6]. Another possible drawback
+could derive from the fact that DETR uses an arbitrary number
+of randomly initialized learnable object queries (explained in
+following sections). This random initialization could possibly
+tamper with the framework’s performance as much of the
+network’s domain knowledge is stored in these object queries.
+In this paper we propose two novel contributions in order
+to address the aforementioned problems and offer a boost in
+detection performance. Firstly, we propose a content-speciﬁc
+object query generator, in the form of a very shallow convolu-
+tional neural network (CNN) which produces object queries
+that hold information related to the images in the dataset.
+Secondly, we present a whitening transformation-inspired [7]
+self-attention deﬁnition and we use this re-formulation to
+substitute the original attention deﬁnition only at certain stages
+of the whole framework. This has the attribute of regularizing
+illumination change variations and at the same time, allowing
+the model to capture semantic dependencies between the
+image depicted objects.
+The rest of the paper is structured as follows. Section II
+overviews the object detection task and reviews the key points
+of attention and whitening transformation. In Section III we
+introduce and analyze our novel contributions. In Section IV
+we present and discuss the experiments conducted on our
+powerline element dataset. Finally, Section V concludes and
+summarizes our work.
+2022 26th International Conference on Pattern Recognition (ICPR)
+August 21-25, 2022, Montréal, Québec, Canada
+978-1-6654-9062-7/22/$31.00 ©2022 IEEE 4844
+2022 26th International Conference on Pattern Recognition (ICPR) | 978-1-6654-9062-7/22/$31.00 ©2022 IEEE | DOI: 10.1109/ICPR56361.2022.9956307
+Authorized licensed use limited to: Universidad de Sevilla. Downloaded on October 13,2023 at 10:00:25 UTC from IEEE Xplore.  Restrictions apply. 
+
+---PAGE---
+
+II. R EVISITING OBJECT DETECTION AND ATTENTION
+The task of object detection [8] consists of classifying
+and localizing every object of interest depicted in an image
+frame, in the form of rectangular Regions of Interest (ROI).
+In this work, we focus on the application scenario of linear
+infrastructure inspection, which requires the precise localiza-
+tion of powerline elements and components on the power
+transmission lines. The most common way of representing
+these objects is through predicting a set of bounding boxes
+associated with category labels. Most of the popular Deep
+Learning (DL) Convolutional Neural Network (CNN)-based
+object detectors [9] treat this task as a combination of classiﬁ-
+cation and bounding box regression and depending on whether
+or not they rely on region proposals they fall into one of
+two categories, namely two-stage [10], [11] or single-stage
+detectors [12], [13], respectively. Finally, a Non-Maximum
+Suppression (NMS) step is performed to eliminate multiple
+detections of the same object in overlapping regions.
+However, DETR addresses the object detection as a direct
+set prediction problem and completely eliminates the need of
+any geometric priors resulting in the ﬁrst fully differentiable
+end-to-end object detector. One major novelty introduced
+in DETR was the incorporation of Transformer [5] neural
+network blocks in conjunction with a CNN model, in an object
+detection pipeline. Transformer’s dominance over a range of
+different tasks [14], [15], [16] derives from the attention
+operation and in the following subsections we review in details
+this mechanism.
+A. Attention
+In general, Transformers constitute an attention mechanism
+that receive two sequence of elements as inputs (e.g. texts or
+image feature maps), and updates the elements of one of them
+by aggregating information from every element of the other.
+Let X∈ RN×n and Y ∈ RM×n be two input matrices
+consisting of N andM elements respectively of n dimension
+each. Based on X, Y the following three matrices can be
+created: i) a query matrix Q = XWQ + 1N×1bQ, ii) a
+key matrix K = YWK + 1M×1bK, and iii) a value matrix
+V = YWV + 1M×1bV . WQ∈ Rn×nq, WK∈ Rn×nk and
+WV ∈ Rn×nv are linear transformation matrices applied on
+the input matrices and bQ ∈ Rnq, bK ∈ Rnk, bV ∈ Rnv
+are their respective biases. For simplicity we can consider
+nq = nk = nv = n. Based on the above, the operation of
+attention is now deﬁned as:
+A =
+S
+  
+σ(QKT
+√n )V, (1)
+where σ(·) is the softmax operator applied on every row of
+the matrix QKT
+√n . This type of attention is also called cross-
+attention. Self-attention is deﬁned when Y coinsides with X
+(i.e. Y = X) or vice versa. Self-attention is the basic building
+block of a Transformer model and allows it to associate each
+element in an input sequence to every other element in the
+same sequence.
+The above deﬁnition describes a naive attention computa-
+tion. In practice, however, Transformers usually leverage a
+multi-headed attention mechanism. In this case we have Nh
+number of attention heads and we split the WQ, WK, WV
+matrices into Nh matrices of dimensions n× n
+Nh
+(n should
+be divisible by Nh). The attention for every single head,
+Ah,h = 1,...,N h is deﬁned as:
+Ah =
+Sh
+  
+σ(QhKT
+h√n )Vh, (2)
+where Qh = XWQh, Kh = YWKh, and Vh = YWVh
+(biases are omitted for simplicity) for h = 1,...,N h. The
+overall attention is the concatenation of the attention of every
+single head and is deﬁned as:
+A = (A1⊕ A2⊕···⊕ Ah)WO, (3)
+where ⊕ represents the concatenation of two 2D matrices
+along the horizontal dimension and WO∈ Rn×no is a linear
+projection matrix. Again we can consider no =n.
+B. Whitening transformation
+Given a data matrix X ∈ RN×n consisting of N
+n−dimensional elements the goal is to apply a linear transfor-
+mation in order to decorrelate the data dimensions from one
+another. This can be achieved by using a linear transformation
+matrix W∈ RN×N which will transform the data matrix X
+such as Xw = WX.
+In order for W to be a decorrelating matrix it should satisfy
+the condition WWT = Σ−1, where Σ is the covariance
+matrix of X.
+III. P ROPOSED METHOD
+As already stated, we employ DETR [3] as a testbed for
+implementation and performance comparison. DETR consists
+of a CNN backbone for extracting feature representations from
+input images and an encoder-decoder Transformer module.
+The CNN follows a standard procedure by receiving an input
+image x∈ RH0×W0×3, whereH0,W 0 are the height and width
+of the input image, and produce lower-resolution feature maps
+f ∈ RH×W×C, where C is the number of output channels.
+The Transformer encoder receives these unrolled feature maps
+z ∈ RHW×C and calculates self-attention as described by
+equations (2) and (3). The rest of encoder follows a standard
+architecture as described in [5]. The decoder is of similar
+structure, however, its input includes both the output of the
+encoder and Nq in number n−dimensional object queries
+represented by learnable and random initialized query embed-
+dings o∈ RNq×n. Decoder calculates self-attention between
+the object queries and subsequently performs cross-attention
+between the transformed object queries and the transformed
+feature maps from the encoder. Finally, DETR passes the ﬁnal
+output of the decoder, i.e. the transformed object queries, to
+4845
+Authorized licensed use limited to: Universidad de Sevilla. Downloaded on October 13,2023 at 10:00:25 UTC from IEEE Xplore.  Restrictions apply. 

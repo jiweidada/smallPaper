@@ -1,0 +1,171 @@
+Appendices
+A. Implemenation Details of Our Baseline
+In this section, we delve into the unique challenges associ-
+ated with introducing rotation capabilities to DETR models
+and detail our specific implementation strategies.
+Angle Prediction by Simple Extended Box Regressor. In
+the DETRs, the coordinates of objects are handled as nor-
+malized ranges [0, 1] (relative to the image size) in the
+training stage. The normalized predicted coordinates from
+the sigmoid function are recovered to the original range
+by multiplying the width and height of the input image.
+One straightforward method to equip DETRs with the ca-
+pability to predict an object’s orientation is by extending
+the output of the regression head to b ∈ [0, 1]5, where
+b = [bx, by, bw, bh, bθ] represents the normalized center co-
+ordinates, box width and height, and the angle in radians,
+respectively. Similar to the center coordinates and width
+and height, the angle should also be normalized. To facil-
+itate this, we adopt the Long Edge Definition (θ ∈ [0, π))
+and normalize angle values to lie within the [0, 1] range by
+dividing the ground truth angles by π. During the training
+phase, the rotated DETR is trained to predict these normal-
+ized coordinates. At the inference time, the predictions are
+converted back to their original scale by multiplying the
+output b with [Iw, Ih, Iw, Ih, π], where Iw and Ih denote
+the width and height of the image, respectively. By treating
+angles the same way as other coordinate values, rather than
+introducing a dedicated angle prediction branch, the model
+can easily incorporate other developed components related
+to coordinates, such as iterative bounding box refinement,
+handling queries as anchor boxes, and proposing queries
+from the feature map of the encoder.
+Replacement of GIoU Loss. The standard costs and losses
+used in DETRs are Focal loss, L1 loss, and GIoU loss. How-
+ever, calculating overlaps between two rotated objects is com-
+monly known to be indifferentiable [11, 12, 34]. Therefore,
+we need to consider alternative options to replace GIoU loss
+for rotated objects. Two representative substitutes for repre-
+senting the error between predictions and ground truth for ro-
+tated objects are Gaussian Wasserstein Distance (GWD) [12]
+and Kullback-Leibler Divergence (KLD) [11]. The center
+distance term in GWD and KLD also works as the penalty
+term for non-overlapping bounding boxes, similar to GIoU
+loss. We adopt KLD as our baseline to replace the GIoU
+cost and loss since previous work has shown that KLD out-
+performs GWD in oriented object detection. Additionally,
+we set the weight for the IoU term from 2 to 5 based on the
+comparison experiment, which is shown in Table 8a. This
+weight is applied to all our experiments except the experi-
+ments conducted on the patch validation set.
+Rotated Deformable Attention. In order to address the
+slow convergence and high computational memory complex-
+ity associated with the multi-head attention module in the
+(a) ARS-DETR
+(b) DAB-DETR
+(c) Ours
+Figure 5. Comparison of attention layers in different models. (a)
+ARS-DETR, based on Deformable DETR, predicts reference boxes
+from learnable queries but does not fully integrate angle information
+into the objects’ spatial information. (b) DAB-DETR, which our
+model builds upon, defines learnable queries as horizontal anchors.
+(c) Our model extends this approach by defining anchors as rotated
+boxes, leveraging methods such as iterative refinement and two-
+stage proposals from DINO, resulting in improved integration of
+angle information.
+
+---PAGE---
+
+original DETR, Zhu et al. [19] proposed a deformable atten-
+tion module. This module takes an input feature map and
+either 2D reference points p2 = ( px, py) or 4D reference
+boxes p4 = (px, py, pw, ph), where (px, py) represents a se-
+ries of center coordinates and (pw, ph) represents a series of
+widths and heights for the reference boxes, to determine the
+sampling location. The sampling locations for 2D reference
+points are obtained by adding the predicted sampling offsets
+to the given reference points. In the case of 4D reference
+boxes, the predicted sampling offsets are first added to the
+center coordinates of reference boxes. Then, the resulting
+values are multiplied by half of the widths and heights of
+the reference boxes to determine the final 2D coordinates for
+the sampling locations. Using these 4D reference boxes en-
+hances performance through iterative refinement and query
+proposal from the encoder.
+As Zhu et al. [28] pointed out, using {bx, by, bw, bh} as
+reference boxes from 5D reference boxes by dropping brad
+leads to feature misalignment, especially in deformable atten-
+tion modules. We apply a similar way to ARS-DETR [28] to
+rotate the center coordinates from the reference boxes. The
+predicted normalized angles are recovered by multiplying
+the normalized factor π, and the next steps follow the case
+of 4D reference boxes as described previously. In contrast
+to the approach proposed by Zeng et al. [ 28], we update
+5D reference boxes including angles during the iterative re-
+finement step. To update the 5D reference boxes, we apply
+the inverse sigmoid function to the reference points and add
+the resulting values to the logit of the regression head in
+logit space. We then normalize the updated values using the
+sigmoid function, which maps them to the range of [0, 1].
+The same update logic is also applied to the predicted re-
+gression in the head part. A visualization of our deformable
+attention is illustrated in Figure 5. Building on the princi-
+ples of DAB-DETR [20], which defines learnable queries
+as dynamic anchor boxes, our model integrates angles into
+oriented reference boxes in a natural way.
+Extension to DINO. By straightforwardly extending the
+regression head with 5D rotated boxes, the model is able
+to naturally adopt the developed mechanisms such as
+queries as dynamic anchor boxes proposed by successive
+works [20, 21, 39]. Here, we just brief some implemen-
+tation details to note. The two-stage scheme introduced
+by Deformable-DETR [19], requires generating grid pro-
+posals from the encoded features , and predicting query
+proposals by running the regression head to the encoded
+features. In our implementation, We use zero-angle grids to
+generate grid proposals from the encoded features and run
+the regression head on the flattened feature vectors. This
+allows the regression output to be added directly to the pro-
+posals. For denoising training [21, 39], we add noises only
+to {bx, by, bw, bh} for simplicity. We exclude the angle for
+the decoder positional queries which are related to mixed
+query selection in DINO [21]. Finally, we experiment with
+models using 900 queries and set the maximum number
+of predictions to 500 to handle densely packed objects in
+remote sensing images.
+B. Implementation Details of RHINO
+We implement our models on MMRotate [52] v1.0.0rc1.
+Most of our experiments were conducted on 2 NVIDIA
+V100 or A100 GPUs, with a total batch size of 8. Two
+backbones: ResNet-50 [53] and Swin-Tiny [54] are used in
+our experiments, both of which are pre-trained on ImageNet-
+1k [55]. We use the AdamW [56, 57] optimizer with an initial
+learning rate of 1 × 10−4. We use a step decay learning rate
+schedule where the learning rate is multiplied by 0.1 at the
+11th epoch during the 12 epoch training and multiplied by
+0.1 again at the 27th and 33rd epochs during the 36 epoch
+training. For DOTA-v1.0/v1.5/v2.0, we crop each image in
+the data sets to 1024 × 1024 pixels with a 200-pixel overlap.
+The input size of experiments on DIOR-R is set to800 × 800.
+We use only horizontal, vertical, and diagonal flips without
+additional augmentations.
+C. More Ablation Studies on Model Components.
+Effect of the number of points for the Hausdorff dis-
+tance. In our approach, we approximate the Hausdorff dis-
+tance between two rotated boxes using points along the box
+edges. As illustrated in Figure 6, increasing the number of
+points improves the precision of matching, as reflected in the
+IoU. To assess the effect of point count, we evaluated differ-
+ent configurations, with the results summarized in Table 8b.
+The 4-point configuration achieved the highest performance
+in AP50, with a score of 78.68. However, the 32-point con-
+figuration yielded the best result in AP75, achieving 51.84.
+Since AP75 uses a stricter IoU threshold of 0.75 compared
+to 0.5 in AP 50, this indicates that increasing the number
+of points improves performance in more precise matching
+evaluations. Nevertheless, for simplicity and efficiency, we
+use 4 points to compute the Hausdorff distance in all other
+experiments.
+Updating angles in logit space. Table 8c presents the
+importance of updating angles in DETR components. IR
+and Two-Stage represent iterative bounding box refinement
+and a two-stage approach, respectively, as introduced by
+Deformable DETR, but without incorporating the angle pa-
+rameter. 5D RP refers to the updating angles of 5D reference
+points in Decoder layers, while 5D Head refers to the up-
+dating angles of predictions using reference points in the
+head module. No checkmark in 5D RP or 5D Head columns
+indicates that only the coordinates {bx, by, bw, bh} of the ref-
+erence points or predictions are updated. This finding illus-
+trates that treating oriented object detection as a regression
+problem benefits from adopting the latest query-as-bounding-

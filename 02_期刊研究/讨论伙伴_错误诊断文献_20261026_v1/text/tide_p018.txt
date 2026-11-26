@@ -1,0 +1,22 @@
+18 D. Bolya et al.
+(a) Main Error Types
+(b) Special Error Types
+Fig. 8: Errors over thresholds. The values for these plots are reproduced in Tab. 3. This
+is using Mask R-CNN detections on COCO.
+First, we could set the score to some ﬁxed value. Two obvious choices are 1 (to put
+all the new detections at beginning of the sorted list) and−∞ (to put all new detections
+at the end of the list). As evident in Fig. 9, setting the score to 1 produces very high
+values for the missing GT and likely overweights their contribution. In effect, setting the
+score to 1 assumes that whatever predictions the model add to catch this missed GT will
+be perfectly calibrated. Since the predictions for the other error types aren’t perfectly
+calibrated, this results in the relative weight for missed GT being too high.
+On the other hand, setting the score to−∞ essentially uses the lowest score output
+by the model. This doesn’t just assume the model will have poor calibration for this GT,
+but it also depends heavily on how many low scoring detections the model produced. In
+order to boostAP , many detectors (HTC, FCOS, TridentNet, RetinaNet) produce a lot
+of low-scoring detections (since COCO allows 100 detections per image). This results in
+this version of missed GT being disproportionately small for these models as compared
+to the rest.
+Another, and perhaps more reasonable, method for determining the score samples
+from the existing predictions’ scores. In Fig. 9 we test setting the score to the mean of the
+predicted scores and setting the score to that of an existing prediction sampled uniformly

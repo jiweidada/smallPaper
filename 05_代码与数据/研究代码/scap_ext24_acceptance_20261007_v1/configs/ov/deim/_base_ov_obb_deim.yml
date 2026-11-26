@@ -1,0 +1,23 @@
+model: OVDEIM
+text_cache_file: text_embedding/tips_v2_uavrob_text_cache.pth
+
+OVDEIM:
+  backbone: HGNetv2
+  encoder: HybridEncoder
+  decoder: OVOBBDFINETransformer
+  text_dim: 768
+  text_adapter_layers: 1
+
+train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - {type: OBBMosaic, output_size: [320, 320], probability: 1.0, fill_value: 0, use_cache: false, max_cached_images: 50, random_pop: true}
+        - {type: OBBRandomHorizontalFlip, p: 0.5}
+        - {type: OBBRandomRotate, angle_range: 180, p: 0.5, fill: 0}
+        - {type: OBBResize, size: [640, 640]}
+        - {type: OBBSanitize, min_area: 1.0}
+        - {type: ConvertPILImage, dtype: float32, scale: true}
+        - {type: ConvertOBBBoxes, normalize: true, angle_factor: 3.141592653589793}
+        - {type: RandomLoadTexts, num_classes: 1}
+        - {type: LookupTextFeats}

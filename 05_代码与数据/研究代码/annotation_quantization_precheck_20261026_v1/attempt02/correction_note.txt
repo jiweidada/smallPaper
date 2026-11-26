@@ -1,0 +1,6 @@
+输入校验修正，发生在任何量化目标或效应结果计算之前。
+attempt01 在读取 seed2 缓存时被“所有300个query都必须正宽高”的断言停止。原失败日志、代码、frozen_protocol.sha256、failure.json全部保留在父目录。
+独立扫描328800个query：无非有限值；seed2 image174有query52/63/109/160/230共5个负高度框，image306 query287和image542 query55各1个，共7个。
+独立核查这三张图全部37个GT：7个无效query的IoU均为0，没有一个被原始argmax选中。未产生量化目标结果。
+修正仅将全query有效断言改为：记录无效query；要求其对本图全部GT的IoU严格为0且不被选中；所有实际配对的query仍严格正宽高。未删除query，未修改框坐标、GT样本、配对规则、目标或判据。
+attempt02使用与attempt01字节相同的protocol.json，代码修正后重新执行。两次尝试都封存，不覆盖失败记录。

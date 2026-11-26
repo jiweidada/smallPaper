@@ -1,0 +1,173 @@
+239 A：物理标度候选值得训练与否——最低证据与原文边界
+日期：2026-10-21。状态：只读源码、既有材料和公开原文后的设计判断；未执行缓存脚本、模型、autograd、优化或训练；未改历史代码、配置、协议、结果。本文未读取新 floor 数值结果，不宣告 229 已通过。本轮仅新建本文件。
+
+判断先行
+
+我支持把 F4 作为一次有固定预算、包含 N/E4/F4 强对照的有限训练申请候选。它值得支付这一级算力的理由，应当是一个具体、可失败的学习问题：当 FDR 的 pre reference 已很窄、但仍需要有限像素量的边界修正时，把残差单位完全绑定在 reference 宽高上，是否造成不合适的内部物理标度；保留 base box、给该单位设置 4 个真实输入像素的下限，能否在与 E4 相同的物理支持规则下更有效地学会定位？
+
+这不是“有一个 support 被救到，所以有创新”，也不是“所有小框没有梯度”。所读原文已有分布期望、回归归一化、非均匀节点、最小候选尺度及尺度范围的调节。可辩护的剩余问题是这个具体 FDR 参数化的学习后果，以及它能否超过匹配支持域的端点控制。这个问题需要有限训练回答；不能把答案先变成无训练立项条件。
+
+在本项目中，提交该申请仍沿用 229 已锁定的必要 screen 和来源自检。它们尚未给出本文件可引用的 floor 结果。我不再添加“至少若干十个”“达到旧 T2 一半”“冻结 AP 必须增长”或“全模型梯度必须对齐”等新门槛。满足原先必要前提且实现可用后，下面的机制和强对照已足够支持申请；不必再循环制造一批无训练资格检查。申请不是执行授权，也不是论文主线已成立。
+
+一、锁定的对象和真实证据，不借旧失败改写事实
+
+当前冻结代码：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/dn_pre_frozen_diagnostic_20261020_v1/native/engine/deim/
+其中 dfine_utils.py 的 distance2bbox/bbox2distance，dfine_decoder.py 的 LQE、pre_bboxes、ref_points_initial 和逐层解码，deim_criterion.py 的 loss_boxes/loss_local/loss_labels_mal，均在本轮重新只读核过。
+实际 recipe：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/相位机制论文_20261018/data/source_snapshot/common.yml
+当前回归为 normalized cxcywh L1、GIoU；权重 bbox=5、giou=2、fgl=.15。reg_max=32、R=reg_scale=4、up=.5。本文讨论这条冻结 native 路径，不外推所有 D-FINE 分支。
+
+既有事实的适用范围：
+1. 16 的 BASE12 资产：普通最终 union、短边 <4 的 1970/2079 曝光中，IoU0 为 1094/1240，own 固定支持外为 1077/1223。它们说明真实失败与相对 reference 的闭支持问题同时存在；不是当前 BASE24 floor 的新统计。
+2. 07 的 BASE24：6291/6351 union 曝光，IoU0 且 own 支持外 2335/2149；一次固定节点重锚仅新增 5/3，已停止该精确重锚版本。改变中心/重锚与给 residual unit 下限不是同一干预。
+3. 217 已追到旧 Range×2 的实际代码和训练包：仅 W_0/W_32 从 ±4 变成 ±8，内部 31 节点不变；确实扩大物理支持。两 seed 固定 12 轮 ΔAPs=+.2128868578/−.3735241770 pp，mixed 的旧结论保留。不能说旧版本只是 R 翻倍无作用，也不能说它把所有内部节点普遍粗化而导致负面。F4 既不是该全局 T2，也不因其不同就自动成功。
+4. 235 的已存 GO 与当前 CPU 择解差异是最高票并列身份问题；root 回交为全部 566 个差异 query 都属于此情形。其 JSON 明确仅审 branch match 记录、0 forward/0 tensor cache load/0 optimizer step。此事实不能算 F4 阳性、阴性或 matching 创新；保留 saved G0，按兼容证书修复身份核验即可。
+
+对应既有材料均在：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/持续寻找研究主线_20261020_v2/
+16_补答核心资产摘要.txt；217_A_旧range2配置与真实物理支持审查.txt；226_A_FDR固定物理步长_设计与原文边界.txt；228_BASE24开发输入shape_只读元数据.json；229_绝对位移标度_缓存诊断事前协议.txt；235_GO前置CPU并列复现_只读JSON审计.json。
+
+二、三个训练臂到底改变什么
+
+记输入实际尺寸 H×W，pre reference r=(cx,cy,w,h)，其初始几何在 FDR 解码路径 detach。w,h 是相对输入的归一化宽高。每条边的 logits z、p=softmax(z)，原 33 节点 W_j 的端点 ±4，μ=Σ_j p_j W_j。左右边的 base 为 b_L^0=cx−w/2、b_R^0=cx+w/2。
+
+N（原生）：
+ x_L=b_L^0−(w/R)μ_L，x_R=b_R^0+(w/R)μ_R。
+F_k（主 k=4；k=8 仅按 229 作开发敏感性）：
+ s_x=max(w,k/W)，s_y=max(h,k/H)，
+ x_L=b_L^0−(s_x/R)μ_L，x_R=b_R^0+(s_x/R)μ_R；纵向同式。
+ 坐标原点仍是原 base 边，不把 w/2 换成 s_x/2。μ=0 时返回原 pre box。
+ d_L,F*=R(b_L^0−g_L)/s_x，d_R,F*=R(g_R−b_R^0)/s_x；纵向同式。
+ 对相同 base，d_F*=d_N*/α，α=s_x/w；不是只换原 inverse 分母却继续减 R/2。
+E_k（同支持强简单控制）：
+ 保留原 w/R 解码，仅把每条边 W_0、W_32 乘 α，内部 j=1…31 不动。纵向用 α_y=s_y/h。等价地，直接构造物理节点：两个端点为 base 边 ±s_x，内部节点为 base 边 ±(w/R)W_j。E 的 target 必须按它自己的节点插值，不能借用 F 的 target。
+
+对每一个相同 reference，F_k 与 E_k 的四条边的闭物理支持完全相同；GT 可精确表示的支持图、any-query 闭支持及相同容量约束下的必要上界相同。这是等价自检，绝不作为 F 胜 E 的目标。各臂都保留 33 logits/边、300 ordinary queries、原 GT、原 matching/GO 规则与原损失系数。
+
+但相同 PMF 下的均值不同。以右边为例，R=4：
+ x_R,F=b_R^0+(w/R)αμ；
+ x_R,E=b_R^0+(w/R)[μ+4(α−1)(p_32−p_0)]；
+ x_R,F−x_R,E=(w/R)(α−1)[μ−4(p_32−p_0)]。
+F 放大整个内部物理网格；E 把额外范围集中在两个尾区间。FGL 的邻接 bin/插值系数也随之不同。已有支持内的真实目标同样可能受影响，因此新增支持槽数不是 F4 全部作用面的上界。
+
+这个区别不是输出有了“最小 4 像素量化步长”。softmax 期望和两 bin 插值能连续表示区间内部坐标；F 的物理节点间距增大，并不强制预测只能落在节点上。可以研究概率到物理位移的灵敏度与监督编码，不应宣称出现不可避免的整数像素定位误差。
+
+三、小 reference 的 Jacobian：成立的部分与不能偷换的部分
+
+把单边写作 b=b^0+σ a μ，其中 σ∈{−1,+1}，N 的 a=w/R 或 h/R，F 的 a=s_x/R 或 s_y/R。固定 detached reference 时，精确导数为：
+ J_j=∂b/∂z_j=σ a p_j(W_j−μ)。
+在同一 PMF 下，F 相对 N 的这一直接几何 Jacobian 恰好乘 α。按真实输入像素计，水平单位由 w_px/R 变成 max(w_px,k)/R。这个变化不依赖新 forward 或梯度实验才成立。
+
+3.1 原生 L1 的明确问题
+native L1 比较 normalized cxcywh，而不是直接比较 raw residual。横向有 cx=(x_L+x_R)/2、w_pred=x_R−x_L。对一对 GT，L1 对单边的导数为：
+ ∂L1/∂x_L=.5 sign(cx−cx_GT)−sign(w_pred−w_GT)，
+ ∂L1/∂x_R=.5 sign(cx−cx_GT)+sign(w_pred−w_GT)，
+因此绝对值 ≤1.5（拐点取次梯度亦然）。W 有界，故 N 的直接 L1→z 梯度上界随 reference 的 w 线性缩小；含权重 5 和普通 GO 分母 M 时，单项绝对值 ≤15 w p_j/M。纵向同理。
+F 将这个上界中的 w 换成 s_x，移除了“即使需要有限像素修正，也只能通过趋零 reference 单位传递位移”的一个因素。这不是梯度非零保证：p 饱和、p_j≈0、上游 L1 组合抵消等仍可使梯度小。
+
+3.2 不能把 GIoU 一概说成同样消失
+当预测框、GT、位移与所有几何尺度一起按 ε 缩放时，GIoU 在非退化区域具有尺度不变性；其坐标导数可为 O(1/ε)，抵消 decode 中 O(ε) 的尺度。小框但同比例定位误差，并不自动导致 GIoU→z 变弱。
+相反，若 GT/绝对误差保持有限、交并/外接框的相关分母远离退化，坐标梯度有界，乘上 reference 的 w/R 就确实减弱。
+一个解析例子（不是数据统计）：预测横区间 [0,w]，GT=[D,D+g]，D>w、D,g 固定，两框纵区间相同且正高。IoU=0，GIoU=(w+g)/(D+g)−1。对预测右边的 loss 导数为 −1/(D+g)，并不为零；再乘 N 的直接 Jacobian 后仍是 O(w)。若把 D,g 也按 w 同比缩小，则不能沿用这个“固定有限误差”结论。
+因此应研究“很窄 reference 与所需绝对修正不相称”的真实子群，不能仅凭 tiny GT 标签或 IoU0 标签断言所有定位梯度消失。floor 是有针对性的参数化假设，不是对 GIoU 的普遍修复。
+
+3.3 E4 可以有梯度；不能把它贬成只有空范围
+E 的精确 Jacobian仍为 p_j(v_j,E−E_p[v_E])，其中 v_j,E 是对应物理节点。只要端点概率存在，端点也能提供按 s 缩放的导数；尾部概率不平衡还会通过期望项影响内部 logits。
+当 reference 很窄且 PMF 主要集中于内部、两尾概率又小且近乎平衡时，E 的多数内部物理节点仍聚在 base 附近；F 的内部节点则维持像素级尺度。在这个具体条件下，二者的学习灵敏度可能显著不同。不能不看 PMF 就声称 E 的全部 Jacobian 仍按 w 消失，也不能提前断言 F 较大的 Jacobian必然更好。
+
+3.4 FGL、pre 与共享参数的真实边界
+令 t 是按实际节点得到的两 bin 分布，q=stopgrad(IoU(b,g))。单边 native FGL 对 logits 的导数为：
+ ∂L_FGL/∂z_j=(.15/M) q (p_j−t_j)。
+它没有上述 decode Jacobian 的显式 w 乘子；raw target 的逆尺度影响的是离散 target，而 target 在 no_grad 下生成。原 IoU=0 时这一路确为零。F/E 改变解码后 q 可能改变，必须重算；支持变内不自动意味着当前 PMF 有正 IoU，也不自动恢复 FGL。
+pre_bboxes 本身可学习，且当前 use_uni_set=True 时 pre 的 boxes/local 几何监督也使用 GO g，own 仅用于 MAL。不存在“pre 被 L1/GIoU 拉向另一个 own GT a”的那一对假想冲突，不能据此加 hinge 立项。
+L1/GIoU 仍作用于最终/辅助层，pre 另受几何监督；DN 仍有几何与局部损失。LQE 的 softmax/top-k 概率统计没有 detach，scores=classification_score+quality_score，所以 MAL 可经 LQE 进入 corner logits，虽其 IoU target 已 detach。DDF 的匹配位置权重也受 IoU 影响。query 特征、backbone 等参数共享，逐层 corner logits residual 没有 detach。
+因此“某个槽的 FGL 为零”不等于“这个 GT/参数不受任何梯度”，更不等于“局部导数增大后全模型一步必定变好”。这些边界已经由源码给出，不需要先用一次虚拟 Adam 的符号裁决是否允许训练。
+
+四、亲读原文已经做到哪里
+
+1. D-FINE，ICLR 2025，最直接前驱。
+本地原文：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/105_D_FINE_ICLR2025_Publisher.txt
+公开原文：https://arxiv.org/html/2410.13842v1
+§4.1 Eq2 用初始宽高乘有符号分布期望；Eq3 累加 residual logits；Eq4 以 a,c 调端点与非均匀曲率；Eq5 对逆尺度 residual 作 IoU 加权分布监督。native 的 W/R 对应论文物理归一化节点，不能把论文 W 与源码 raw W 混用。
+附录 A.3–A.4 已测试 a,c、可学习 a,c、近似等距节点、bin 数和温度，明确讨论精细程度与灵活性的取舍。因此“节点内部标度影响优化/精度”“非均匀分布残差”“调整范围与曲率”都不是本候选的新发现。
+本文所读 Eq2–5 和附录仍把单位与初始框宽高成比例，未给出保持 base box、对 residual unit 独立设真实像素下限的式子。剩余差别是这个条件参数化和它在窄 reference 失败群体中的可验证学习后果，而非新发明 FDR。
+
+2. GFL，NeurIPS 2020。
+本地原文：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/07_GFL_2020_qualified-and-distributed-boxes__arXiv-2006.04388.txt
+原文：https://papers.nips.cc/paper_files/paper/2020/file/f0bda020d2470f2e74990a07a607ebd9-Paper.pdf
+§3 的有限节点期望 ŷ=Σ_j p_j y_j 与 Eq6 邻近两 bin 监督，已经给出连续标签可由插值精确重建的机制。任意有限物理网格、期望解码、一致 inverse/插值不是新贡献。所读公式不是对一个可趋零 pre box 的有符号 residual unit 设 max-floor。此前及本次尝试的作者仓库 gfl_head.py 路径未取得文件，不能伪称已核该仓库所有实现。
+
+3. FCOS，ICCV 2019，原文 §3.1–3.2 本次重读。
+https://arxiv.org/html/1904.01355v5
+Eq1 直接回归特征位置到真实四边的距离，输出用 exp；FPN 按尺度范围分配。它已说明回归可以不以预测框宽高为物理单位。分配 range 不是同义的硬预测域；也没有 FDR 的“原 base 加有限有符号 PMF residual”结构。故不能声称首次使用绝对距离，也不能只因 scale/range 同名就认定 exact formula 被覆盖。
+
+4. YOLO26，作者 2026-06-02 arXiv v1，本次重读 §3.2.2、§3.3.3。
+https://arxiv.org/html/2606.03748v1
+Eq1 为 d=Σ_i i softmax(z)_i，物理端点受 (K−1)stride 限制；文中选择去掉 DFL。STAL 的 Eq4–6 对小于最小 stride 的 GT 维度，只在候选 mask 阶段替换成参考 stride 尺寸，匹配评分和回归仍用真实 GT。这直接覆盖“用最小物理尺度处理极小目标，但不膨胀真实回归 GT”的动机，作用位置不同于当前 residual unit。本文不接受其对 D-FINE bin 数/范围的概括替代已核 native 公式。
+
+5. SABL，ECCV 2020，亲读 §3.2。
+本地原文：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/78_SABL_ECCV2020_ECVA.txt
+proposal 候选区域按 σ>1 放大，水平 bucket 宽度 l_x=σ w_proposal/(2k)，然后分类选 bucket、以 l_x 归一化精回归。边界回归另设候选域及局部归一化已有；此式仍正比于 proposal 宽度，所读段落无绝对像素 max-floor，也不是一个有界 PMF 的期望 residual。
+
+6. minimum proposal size 与 bbox coder：补核作者实现，避免只凭术语比较。
+Faster R-CNN 作者代码：
+https://raw.githubusercontent.com/rbgirshick/py-faster-rcnn/master/lib/rpn/proposal_layer.py
+在 decode、clip 后用 keep=(w≥min_size·image_scale) AND (h≥...) 删除小 proposal。它不保持同一框并给 residual 单位下限。
+作者 bbox coder：
+https://raw.githubusercontent.com/rbgirshick/py-faster-rcnn/master/lib/fast_rcnn/bbox_transform.py
+t_x=(g_cx−b_cx)/w_b，decode c_x=b_cx+w_b t_x、w_pred=w_b exp(t_w)。其中 w_b=x2−x1+1 是旧 inclusive pixel 坐标约定，确有一像素项；不能把所有绝对尺度稳定化说成前人从未考虑。但这不等于在现代连续 base 四边不变的条件下，把有符号 distribution residual 的单位改为 max(w,k/W)。
+
+阅读边界结论：这六项足以否决“绝对尺度、最小尺度、期望与插值是首次”的宽泛表述，却没有在亲读公式中直接复现本候选的完整参数化。本轮额外做了针对 residual/minimum scale/min proposal 的 primary 搜索，未找到可核的 exact-floor 先例；这不是穷尽检索或新颖性证明。若以后发现相同公式，应按原文重新定位为经验机制/适用条件研究，不能靠名称保新。
+
+五、最低冻结证据到哪里就够，不把训练题提前做成资格题
+
+唯一数据范围仍是已有 BASE24 A/B 的 development 00–07；各 32 输入曝光，不称 64 独立新图。
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3/{A,B}/frozen_predictions/development/batchXX_predictions.pt
+输入真实 H/W 由 228 锁定：batch03=512²、batch05=544²，其余 640²。k=4 不是固定 4/640；每次均用 4/W、4/H。GT 的 actual_input_sub4 与 reference 是否激活是两个分组变量，不能互换。
+
+229 已足够承担本轮必要诊断：
+— 原生 N 解码复现、saved G0 身份兼容、shape/seal 等来源检查通过；F/E 正逆与闭支持相等，ordinary/DN 使用各自 refs 和正确插值；这些是实现证书。
+— 主集合为原 final GO 中 actual_input_sub4、原 FP32 IoU 恰为 0 且 N 支持外。按事前约定，两 seed F4 各有至少一个 outside→inside 才通过本项目必要 screen；仅一 seed 为 mixed，k8 不救 k4。这个非零只是作用面，不是最小效应或检测收益。
+— 对同一 PMF、同一 reference，F/E 的真实均值和 target 插值有独立变化，并完整报告 old-good、全部尺寸、DN/aux 与非法框；不要求变化方向先有利。若真实缓存框和 targets 均完全复制，就不能用这份缓存声称观察到了独立内部标度作用。
+
+在以上结果存在、原参数化可按原损失有限计算的前提下，具体机制、实现范围与 N/E/F 强对照已构成有限训练申请的最低理由。不要再附加“局部梯度方向正”“跨批虚拟 Adam 正”“冻结 PMF 的 AP 净涨”“大量 oracle TP”等项目。旧 PMF 是在原单位下学的，强行换单位的冻结几何恶化本来就可能发生；它有助于估计扰动与实施问题，不能代替候选重新学习后的答案。
+
+新生非法框是具体实现/参数化事实，应原样列出。native 自身也允许相反边发生交叉，不能见到一个候选非法框就发明新的数量阈值，也不能暗中 clamp、排序或删框后报改善。若按原 loss 无法有限运行，需要先提出明确修订，停止宣称“该精确式可直接开训”；如果只是已有权重下的有限交叉和几何退化，则报告其规模及 native 对照，由训练申请评估扰动，不把它当 AP 预判。
+
+229 的资源 screen 是本次事先约定，不是数学定理：即使无新增支持，内部网格对原支持内目标仍可能不同。但若该 screen 阴性，本轮不得事后改主群体或把 k8 提为主版本挽救。这里保持历史约束，同时拒绝追加不可能在冻结缓存中回答的条件。
+
+六、有限训练究竟区分什么：只推荐一个三臂申请
+
+建议申请 N、E4、F4 三臂 ×原两 seed ×固定 12 个训练 epoch，共 6 次短程、72 model-epochs；不附带 k8/T2/C4 训练，不做超参搜索。理由是旧 BASE12 已有该机制作用面，而旧 T2 出现两 seed 相反结果，单 seed 很容易重演选择偏差。12 轮只是固定的阶段性算力上限，不冒作完整收敛或投稿结果。
+
+三臂必须从每 seed 相同初始权重与优化器起点开始；当代 N 必须同跑，不能拿旧 T2 的 N 或最终 BASE24 数字充数。为避免随意拼一条新调度，建议采用当前 common.yml 的完整 24-epoch schedule 定义，只执行其前 12 个 epoch 作为短程 screen；不因提前停下就把 scheduler 总长压成 12，不改原 warmup/augmentation/EMA/clip 设置。共同初始化实际文件/SHA、最终12轮保存点和 evaluator 由提交训练申请时写入新 manifest，本文件没有运行或生成这些文件。若执行端选择沿用另一条已有 fixed12 recipe，需在运行前一次锁定并重跑同配方 N；不可跨 recipe 合并三个臂。
+
+唯一模型干预为第二节的解码与同步 target 编码，覆盖 ordinary、aux、DN；同一 initial ref 下各层单位一致，DDF 的同 query 跨层 bin 含义同步。不更改 pre 几何监督、匹配代价、GO 多重数、query 数、GT 或 loss gains。不冻结全模型来换取漂亮机制，因为共享参数与后层 attention 的适应正是必须由训练回答的部分。
+
+预先解释三个比较：
+ A. E4−N：按相同规则扩展条件物理支持、把新增范围放在尾部，是否已经足够。它也改变尾部 Jacobian/target，不能严格叫“纯域因果效应”。
+ B. F4−E4：相同 reference 下闭支持规则完全相同，把单位下限用于内部节点，是否提供学习增量。这是本研究的核心比较。
+ C. F4−N：候选是否对最终任务有净价值，不能只比一个被削弱的 E4。
+
+“同支持”是给定相同 reference 时的算子性质。端到端训练后各臂的 pre boxes、query features、匹配和注意力路径会分化，各模型自己的最终支持图未必逐项相同。F−E 的收益可归为内部参数化及其学习反馈，不能声称通过三臂已经独立证明“只有 Jacobian 倍率起作用”。FGL targets、IoU 权重、LQE 校准和迭代读取都可能参与。如果将来想写纯梯度条件改善的强因果结论，还需另外区分这些路径；这不是本次申请的先决条件。
+
+最低训练读数：固定第 12 轮 EMA、原完整验证器的 AP/APs/small AP75、全部尺度代价与运行有限性，逐 seed 给 F−E、F−N、E−N，不挑 best epoch。既有开发 fixture 可以在固定训练端点作机制观察：reference 激活率、原问题 GT 的实际 IoU/支持情况、内部与尾部概率/目标分布。保留真实当前 matching 和固定原 GO 观察的区别；新匹配不能冒作同一身份迁移。这些机制读数解释结果，不替代 AP。
+
+结果的事前解释，不新增一个任意 pp 数字：
+— F 稳定优于 E 且优于 N，定位指标与所述子群的学习变化一致：支持继续投入更长验证，但两个 seed 的正差仍不叫统计显著或通用结论。
+— E 与 F 都胜 N、F 没有可重复的额外优势：支持“这个条件域设置可能有用”，未支持“内部标度是所需的实质增量”；不能靠给 F 新名字继续宣称已成立。
+— F 只比 E 好、仍不如 N，或双 seed 方向混杂：有限试验结束后按原样回交，未得到可重复任务收益；不切 k8、不挑 epoch 来救结果。短程未分出并不证明所有绝对标度无效，但没有自动增加训练预算的依据。
+— 三臂均有限运行、F 表现负面：该精确 k4 方案的学习假设失败；记录作用变量后转向实质不同方案，不用冻结支持阳性抵销训练阴性。
+
+这里没有把 F4 的可达非零、同支持下公式差异或导数较大当作胜出。它们使有限训练成为一个能产生清晰答案的试验，而不是一个必须已知答案才准开始的试验。
+
+七、实施边界与最后的主张范围
+
+226 已列完整调用链，此处只强调本问题必需的闭环：DEIM.forward 传实际 input_hw；DFINE decoder 对 ordinary 和 DN 的 initial refs 计算各自单位；distance2bbox 保留 base；bbox2distance/translate_gt 按 F 或 E 的实际网格生成标签；final/aux/DN 输出携带同一配对单位并正确 split。pre/encoder 没有 corners 的输出不伪造 FDR loss。E 的每 query/每轴端点不能靠修改一个全局 W 蒙混过关。部署分支也须同一物理公式。
+
+保留大 reference 的局部算式不变，不等于 large GT 无影响，更不等于整个网络的大目标表现不变；预测框变化会改变 IoU、FGL/DDF 权重、MAL target 和后层 attention。固定旧权重或冻结旧 attention 的缓存只能描述局部反事实，不是新模型表现。
+
+推荐主张的准确版本是：“检验在极窄预测 reference 的 FDR 中，将 base geometry 与最小像素残差单位解耦，能否在相同条件支持规则下改善定位学习。”目前可以把它列为值得有限训练回答的具体问题。不能写成首次提出绝对尺度、全体 tiny query 梯度被恢复、large GT 无损、已提升 AP，或已由 oracle 证明新主线。
+
+本轮没有新增实验结果，没有申请执行训练。239 的作用是停止无止境提高冻结证据门槛，同时把申请后真正需要支付算力的问题及最强简单对照写清楚。

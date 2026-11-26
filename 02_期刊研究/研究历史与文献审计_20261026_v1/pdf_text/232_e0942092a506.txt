@@ -1,0 +1,192 @@
+RT-DETRv3: Real-time End-to-End Object Detection with Hierarchical Dense
+Positive Supervision
+Shuo Wang* Chunlong Xia∗ Feng Lv Yifeng Shi †
+Baidu Inc.
+{wangshuo36, xiachunlong, lvfeng02, shiyifeng }@baidu.com
+Abstract
+RT-DETR is the first real-time end-to-end transformer-
+based object detector. Its efficiency comes from the frame-
+work design and the Hungarian matching. However, com-
+pared to dense supervision detectors like the YOLO se-
+ries, the Hungarian matching provides much sparser su-
+pervision, leading to insufficient model training and diffi-
+cult to achieve optimal results. To address these issues, we
+proposed a hierarchical dense positive supervision method
+based on RT-DETR, named RT-DETRv3. Firstly, we in-
+troduce a CNN-based auxiliary branch that provides dense
+supervision that collaborates with the original decoder to
+enhance the encoder’s feature representation. Secondly, to
+address insufficient decoder training, we propose a novel
+learning strategy involving self-attention perturbation. This
+strategy diversifies label assignment for positive samples
+across multiple query groups, thereby enriching positive su-
+pervisions. Additionally, we introduce a shared-weight de-
+coder branch for dense positive supervision to ensure more
+high-quality queries matching each ground truth. Notably,
+all aforementioned modules are training-only. We con-
+duct extensive experiments to demonstrate the effectiveness
+of our approach on COCO val2017. RT-DETRv3 signif-
+icantly outperforms existing real-time detectors, including
+the RT-DETR series and the YOLO series. For example,
+RT-DETRv3-R18 achieves 48.1% AP (+1.6%/+1.4%) com-
+pared to RT-DETR-R18/RT-DETRv2-R18, while maintain-
+ing the same latency. Meanwhile, it requires only half of
+epochs to attain a comparable performance. Furthermore,
+RT-DETRv3-R101 can attain an impressive 54.6% AP out-
+performing YOLOv10-X. Code will be released soon.
+1. Introduction
+Object detection is an important fundamental problem
+in computer vision, which mainly focuses on obtaining the
+*Equal Contribution.
+†Corresponding Author.
+4 8 12 16 20
+Latency T4 TensorRT FP16(ms)
+42
+44
+46
+48
+50
+52
+54
+56COCO AP(%)
+R18
+R50
+R50
+R101
+Scaled
+MS COCO Object Detection
+YOLOV6-3.0
+YOLOv8
+YOLOv9
+Gold-YOLO
+PP-YOLOE
+RT-DETR
+RT-DETRv3(ours)
+RT-DETRv3(ours)*
+Figure 1. Compared to other real-time object detectors. Our
+method has better performance in the trade-off between speed and
+accuracy.
+position and category information of objects in the image.
+Real-time object detection has higher requirements for al-
+gorithm performance, such as inference speed greater than
+30 FPS. It has enormous value in practical applications such
+as autonomous driving, video surveillance, and object track-
+ing. In recent years, real-time object detections have gar-
+nered significant attention from both researchers and indus-
+try professionals due to its efficient inference speed and su-
+perior detection accuracy. Among these, the most popular
+are single-stage real-time object detectors based on CNNs,
+such as the YOLO series ( [1, 11–13, 22, 24, 26]). They all
+adopted a one-to-many label assignment strategy, designed
+an efficient inference framework, and used non-maximum
+suppression (NMS) to filter redundant prediction results.
+Although this strategy introduced additional latency, they
+achieved a trade-off between accuracy and speed.
+1
+arXiv:2409.08475v1  [cs.CV]  13 Sep 2024
+
+---PAGE---
+
+DETR [2] is the first transformer-based end-to-end ob-
+ject detection algorithm. It employs set prediction and is
+optimized through the Hungarian matching strategy, elimi-
+nating the need for NMS post-processing and thereby sim-
+plifying the object detection process. Subsequent DETRs
+(such as DAB-DETR [16], DINO [29], and DN-DETR [14],
+etc.) further introduce iterative refinement schemes and de-
+noising training, which effectively accelerating the conver-
+gence speed of the model and improving its performance.
+However, its high computational complexity significantly
+limits its practical applications.
+RT-DETR [32] is the first real-time end-to-end
+transformer-based object detection algorithm. It designed
+an efficient hybrid encoder and IoU-aware query selection
+module, and a scalable decoder layer, achieving better re-
+sults than other real-time detectors. However, the Hungar-
+ian matching strategy provides sparse supervision during
+training, leading to insufficient training of both the encoder
+and decoder, which limits the optimal performance of the
+approach. RT-DETRv2 [19] further enhances the flexibility
+and practicality of RT-DETR [32] by optimizing the training
+strategy to improve performance without sacrificing speed,
+although requires longer training time. To effectively ad-
+dress the issue of sparse supervision in object detection, we
+propose a hierarchical dense positive supervision method,
+which effectively accelerates model convergence and en-
+hances model performance by introducing multiple auxil-
+iary branches during training. Our main contributions are
+as follows:
+• We introduce a one-to-many label assignment auxil-
+iary head based on CNN, which collaborates with the
+original detection branch for optimization, further en-
+hancing the representational capability of the encoder.
+• We propose a learning strategy with self-attention per-
+turbations aimed at enhancing the supervision of the
+decoder by diversifying label assignments across mul-
+tiple query groups. Additionally, we introduced a
+shared-weight decoder branch for dense positive su-
+pervision to ensure more high-quality queries match-
+ing each ground truth. These approaches significantly
+improve the model’s performance and accelerate con-
+vergence without additional inference latency.
+• Extensive experiments conducted on the COCO
+dataset have thoroughly validated the effectiveness of
+our proposed approach. As shown in Figure 1, RT-
+DETRv3 significantly outperforms other real-time de-
+tectors, including the RT-DETR series and YOLO se-
+ries. For instance, RT-DETRv3-R18 achieves 48.1%
+AP (+1.6%) compared to RT-DETR-R18, while main-
+taining the same latency. Additionally, RT-DETRv3-
+R50 outperforms YOLOv9-C by 0.9% AP, even with a
+latency reduction of 1.3ms.
+2. Related Work
+2.1. CNN-based real-time object detection.
+The current CNN-based real-time object detectors are
+mainly the YOLO series. YOLOv4 [1] and YOLOv5 [12]
+optimized the network architecture (e.g., by adopting CSP-
+Net [25] and PAN [17]), while also utilizing Mosaic data
+augmentation. YOLOv6 [13] further optimized the struc-
+ture, including the RepVGG [6] backbone, decoupled
+head, SimSPPF, and more effective training strategy (e.g.,
+SimOTA [7], etc.). YOLOv7 [24] introduces the E-ELAN
+attention module to better integrate features from differ-
+ent levels and adopts the adaptive anchor mechanism to
+improve small object detection. YOLOv8 [11] proposed
+a C2f module for effective feature extraction and fusion.
+YOLOv9 [26] proposed a new GELAN architecture and
+designed a PGI to enhance the training process. The PP-
+YOLO series [10,18] is a real-time object detection solution
+based on the PaddlePaddle framework proposed by Baidu.
+This series of algorithms has been optimized and improved
+on the basis of the YOLO series, aiming to improve de-
+tection accuracy and speed to meet the needs of practical
+application scenarios.
+2.2. Transformer-based real-time object detection.
+RT-DETR [32] is the first real-time end-to-end object
+detector. This approach designs an efficient hybrid en-
+coder that effectively processes multi-scale features by de-
+coupling intra-scale interactions and cross-scale fusion and
+proposes IoU-aware query selection to further improve per-
+formance by providing higher-quality initial object queries
+to the decoder. Its accuracy and speed are superior to
+the YOLO series of the same period, and it has received
+widespread attention. RT-DETRv2 [19] further optimized
+the training strategy, including dynamic data augmentation
+and optimized sampling operators for easy deployment, re-
+sulting in further improvement of its model performance.
+However, due to their one-to-one sparse supervision, the
+convergence speed and final effect are limited. Therefore,
+introducing a one-to-many label assignment strategy can
+further improve the model’s performance.
+2.3. Auxiliary training strategy.
+Co-DETR [33] proposed multiple parallel one-to-many
+label assignment auxiliary head training strategies (e.g.,
+ATSS [30] and Faster RCNN [20]), which can easily en-
+hance the learning ability of the encoder in end-to-end de-
+tectors. For example, the integration of ViT-CoMer [27]
+with Co-DETR [33] has achieved state-of-the-art perfor-
+mance on the COCO detection task. DAC-DETR [9], MS-
+DETR [31], and GroupDETR [4] mainly accelerate the con-
+vergence of the model by adding one-to-many supervised
+information to the decoder of the model. The above ap-
+2

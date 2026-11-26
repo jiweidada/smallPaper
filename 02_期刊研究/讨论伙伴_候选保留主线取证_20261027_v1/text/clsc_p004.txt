@@ -1,0 +1,106 @@
+Table 3. Comparison of score calibration strategies.
+StrategyAP AP 50 AP75
+Fixed exponent (η= 0.5) 34.8 57.2 35.4
+Linear fusion (ω= 0.65) 34.8 57.3 35.4
+Ours 35.2 57.9 35.9
+Table 4. Sensitivity analysis of key hyperparameters in
+CLSC-DETR. Only the specified parameter is varied in each
+group, while all other settings remain fixed.
+Parameter Value AP AP 50 AP75
+K
+1 35.1 57.536.1
+235.2 57.935.9
+4 35.0 57.3 35.9
+8 34.8 57.0 35.6
+α
+0.5 34.9 57.0 35.6
+1.035.2 57.935.9
+2.0 34.9 57.636.0
+3.0 34.8 57.7 35.5
+β
+0.10 35.058.135.6
+0.2035.257.9 35.9
+0.30 35.1 57.536.0
+0.50 34.8 56.4 35.9
+γ
+0.8 35.1 57.536.0
+1.235.2 57.935.9
+4.0 34.8 57.3 35.5
+8.0 34.5 57.0 35.0
+and gradients are clipped with a maximum norm of 0.1. We
+report the standard COCO metrics, including AP, AP50, AP75,
+and APS.
+3.1. Comparison with State-of-the-art Methods
+As shown in Table 1, CLSC-DETR achieves the best overall
+performance on both datasets. Compared with MI-DETR,
+it improves AP/AP 50/AP75/APS by 1.5%/1.5%/2.0%/1.1%
+on VisDrone and 3.0%/3.8%/3.8%/3.9% on UA VDT. These
+results validate the effectiveness of cross-layer geometric
+support and consistency calibration in improving localization
+quality estimation and candidate ranking. The larger gains on
+UA VDT may stem from its vehicle-dominated, concentrated
+category distribution and dense, scale-varying objects, which
+make candidate ranking more sensitive to localization quality.
+3.2. Ablation Studies and Analysis
+Component Effectiveness.Table 2 shows that CLS-Module
+and CLC-Module are effective and complementary. CLS-
+Module improves AP and AP 75 by 1.0% and 1.6%, while
+CLC-Module improves AP and AP 50 by 0.9% and 1.4%;
+combining them increases AP and AP 75 by 1.5% and 2.0%,
+respectively. These gains arise because CLS-Module sta-
+bilizes localization quality estimation, while CLC-Module
+improves classification–localization consistency.
+Calibration Strategies.As shown in Table 3, we compare
+the adaptive calibration strategy with fixed-exponent fusion,
+1 100 300 500 700 900
+Per-image ranking budget K
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Mean IoU@K
+Before calibration
+After calibration
+Fig. 3. Mean class-agnostic maximum IoU of the Top-K
+queries before and after calibration.Kdenotes the per-image
+ranking budget.
+Sfix
+i,c =p i,c(Qgeo
+i )η, and linear fusion,S lin
+i,c =p i,c[(1−ω) +
+ωQgeo
+i ]. Our method improves AP by 0.4% over both alter-
+natives. This advantage stems from adaptively adjusting the
+contribution of geometric quality according to classification
+reliability, thereby avoiding the limitation of applying a glob-
+ally fixed coefficient to all candidates.
+Hyperparameter Sensitivity.Table 4 shows that CLSC-
+DETR remains stable across the tested parameter ranges. The
+best performance is obtained withK= 2,α= 1.0,β= 0.20,
+andγ= 1.2. Aggregating excessive candidates or applying
+overly strong calibration may introduce noise and disturb the
+classification and localization balance.
+Visualization.As shown in Fig. 3, the calibrated rank-
+ing achieves a higher Mean IoU@Kacross most ranking
+budgets, indicating that better-localized queries are ranked
+higher. These results demonstrate that the proposed calibra-
+tion strategy improves localization-quality-aware candidate
+ranking without changing the candidate set.
+4. CONCLUSION
+This paper proposes CLSC-DETR, a Cross-Layer Local Sup-
+port and Consistency Calibration framework for UA V small-
+object detection. By integrating the CLS and CLC modules,
+CLSC-DETR alleviates localization quality estimation bias
+and candidate-ranking instability caused by insufficient geo-
+metric information. CLS improves small-object localization
+quality estimation through cross-layer geometric support,
+while CLC mitigates classification–localization inconsistency
+through classification-reliability-aware calibration. Com-
+pared with MI-DETR, CLSC-DETR improves AP/AP 75 by
+1.5%/2.0% on VisDrone and 3.0%/3.8% on UA VDT. The cur-
+rent fixed local search and Top-Kaggregation may not fully
+adapt to object-scale variations. Future work will explore
+learnable neighborhoods and adaptive cross-layer aggrega-
+tion to further improve representation and generalization.

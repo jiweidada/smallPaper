@@ -1,0 +1,25 @@
+Appendix 19
+module for AI-TOD-V2, we estimate the counting numberN, i.e., the number
+of instances per image, by a classification head and categorize them into four
+levels, which are N ≤ 10, 10 < N ≤ 100, 100 < N ≤ 500, and N > 500.
+It is worth noting that the hyperparameters 10, 100, and 500 are tailored for
+AI-TOD-V2. For other datasets, we recommend adjusting the hyperparameters
+used in the CCM through a logical process that considers the mean and variance
+of the objects per image in the dataset. This approach can reduce the need to
+manually design the CCM for different datasets.
+Algorithm 1Pseudo Code for Categorical Counting Module
+1: function Categorical-Counting(f eatures)
+2: mean ← Mean(dataset)
+3: var ← Variance(dataset)
+4: GT ← Predict(f eatures)
+5: class1 ← {GT < mean − var}
+6: class2 ← {mean − var ≤ GT < mean }
+7: class3 ← {mean ≤ GT < mean + var}
+8: class4 ← {GT ≥ mean + var}
+9: end function
+(a) (b)
+(c) (d)
+Deformable DETR DQ-DETR (Ours)
+DenseSparse
+Fig. B1: Visualization of detection results and feature maps. The green, red, and blue
+boxes represent TP, FP, and FN, respectively.

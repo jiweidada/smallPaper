@@ -1,0 +1,169 @@
+ElasticFormer: Detecting Objects in HRW Shots via Elastic Computing Vision
+Transformer
+Wenxi Li‡*,Jingchen Huang §,¶*,Chenyang Lyu ∥,Moran Liu §,¶,#,
+Haozhe Lin§,Guiguang Ding §,⋆†,Yuchen Guo §†
+§Beijing National Research Center for Information Science and Technology,
+Tsinghua University, Beijing, China
+¶Department of Automation, Tsinghua University, Beijing, China
+‡KLATASDS-MOE, School of Statistics, East China Normal University, Shanghai, China
+⋆School of Software, Tsinghua University, Beijing, China
+#Zhuoxi Lab, Hangzhou, China
+∥AI Business, Alibaba International Digital Commerce, Hangzhou, China
+wxli@sfs.ecnu.edu.cn, huang-jc23@mails.tsinghua.edu.cn,{linhz, dinggg}@tsinghua.edu.cn,
+liumoreran@gmail.com, lyuchenyang.dcu@gmail.com, yuchen.w.guo@gmail.com
+Abstract
+Recent advances in gigapixel-level imaging have brought
+High-Resolution Wide shots to the forefront of research.
+However, these images present significant challenges: ex-
+treme sparsity of foreground, gigapixel-level resolutions
+and diverse target counts. This makes traditional close-
+up detectors inaccurate and slow as they are overwhelmed
+by the background. Although previous research has ex-
+plored sparse backbones, their fixed sparsity patterns lack
+the adaptability required to handle diverse target numbers.
+To address this, we introduce ElasticFormer, a sparse back-
+bone that dynamically allocates computational resources
+based on foreground proportion. After scoring windows
+based on variance, proposed ElasticSelector module will
+predict the foreground proportion for top-k selection. The
+mechanism guides the model to select target-containing
+windows, scaling resources in areas where objects are clus-
+tered. We introduce a novel loss function combined with the
+3-phase training strategy for ElasticSelector, allowing it to
+function properly when bounding box annotations are miss-
+ing. A WSOD study is carried on PASCAL VOC 2007 to
+evaluate its extensibility. Further, ElasticNet is created to
+verify its backbone-agnostic nature. In experiments on the
+PANDA gigapixel benchmark, ElasticFormer reduces back-
+bone FLOPs by 80% while achieving a significant improve-
+ment in AP50 when compared to fixed-ratio sparse methods.
+*Equal contribution
+†Corresponding author
+1. Introduction
+Object detection is a core task in computer vision that
+involves both locating and identifying objects of inter-
+est in an image. It typically produces, for each detected
+instance, a category label and a spatial extent (usually
+an axis-aligned bounding box). Models such as Fast R-
+CNN [18] have demonstrated strong performance on MS
+COCO [25]. However, with the development of nonde-
+structive high-resolution imaging systems, High-Resolution
+Wide (HRW) shots detection has drawn increasing attention
+[6, 16], which refers to object detection in imagery charac-
+terized by extremely high spatial resolution and a wide field
+of view, such as images captured by gigapixel-scale drone
+[33], satellite [12, 13, 37], or panoramic camera [4].
+Firstly, in HRW scenarios, foreground density is much
+lower than that in conventional detection images. While
+typical datasets have foregrounds covering over 50% of
+the image, HRW images often contain less than 15% [22],
+with large background regions such as sky or vegetation.
+Given such extreme sparsity, cutting-edge detectors, includ-
+ing DINO [40], Deformable DETR [43], RMT [17], among
+others, still struggle with overwhelming background.
+Secondly, limited computational resources pose another
+challenge. HRW detection scenarios (e.g., UA V-based in-
+spection [14] and medical detection [24]) often require real-
+time responsiveness. As resolution scales from millions of
+pixels in COCO [25] to billions in PANDA [36], the cost of
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+32735
+
+
+---PAGE---
+
+(a) Origin Images (b) SparseFormer
+(fixed ratio = 0.5)
+(c) ElasticFormer
+(adaptive ratio)
+Figure 1.Comparison of inference region selection between
+different backbones.(b) SparseFormer selects a fixed ratio of
+regions for processing, regardless of input variability. (c) Elastic-
+Former adaptively selects a dynamic ratio of informative regions
+based on the input image content, enabling more flexible and effi-
+cient inference.
+conventional detectors grows polynomially with input size,
+leading to inference up to two orders of magnitude slower.
+Thirdly, HRW scenarios show extreme variation in tar-
+get counts, ranging from a few to dozens, as shown in Fig-
+ure 1(a). Thus models must remain effective across both
+sparse and dense cases. However, existing approaches such
+as SaccadeDet [23] and SparseFormer [22] overlook this is-
+sue, as they rely on fixed sparsity rates that fail to adapt to
+fluctuations in target quantity. Consequently, their effective-
+ness is significantly reduced when confronted with highly
+variable target distributions, illustrated in Figure 1(b).
+Inspired by human cognitive efficiency and recent ad-
+vances [1, 7, 19, 32, 41], we propose ElasticFormer, a de-
+tection framework that introduces elasticity into backbone
+design. Unlike fixed-ratio methods that waste computation
+in HRW scenes with highly variable foreground proportion,
+ElasticFormer dynamically allocates resources by adap-
+tively selecting image patches according to the predicted
+foreground proportion. A lightweight module, ElasticSe-
+lector, guides patch selection independently at each stage
+in backbone, enabling fine-grained perception while scal-
+ing cost with foreground proportion rather than overall im-
+age size. It is noteworthy that ElasticSelector is backbone-
+agnostic, motivating the creation of ElasticNet for verifica-
+tion. Experiments show that ElasticFormer reduces compu-
+tation by up to 80% while improving accuracy compared
+with SparseFormer [22], ElasticNet also achieves a 87%
+computational saving compared with ResNet-50 [20].
+A further challenge in weakly supervised object detec-
+tion (WSOD) is the absence of bounding-box annotations,
+making foreground proportion hard to compute. To ad-
+dress this, we design a new loss function for ElasticSelector,
+which uses either ground truth or pseudo labels as supervi-
+sion. Validation on the PASCAL VOC 2007 dataset [15]
+demonstrates that this extension reduces FLOPs by at least
+50% while improving both mAP and CorLoc.
+To summarize, our key contributions are:
+•We propose ElasticFormer, a novel sparse Vision
+Transformer-based backbone that not only addresses the
+extremely sparse target distribution and redundant back-
+ground in HRW images, but also dynamically adapts to
+varying numbers of targets across diverse scenes.
+•We further introduce a lightweight component, ElasticS-
+elector, which dynamically predicts the foreground pro-
+portion during the forward inference process based on
+intermediate features, providing efficient guidance with
+negligible additional computational overhead.
+•We design a label-free loss function that minimizes the
+gap between the predicted and actual foreground propor-
+tions, enabling self-supervised optimization of ElasticS-
+elector without the need for extra annotations.
+•We validate the proposed backbone on PANDA [36] and
+PASCAL VOC 2007 [15] datasets, and further extend our
+backbone-agnostic design to CNN-based architectures,
+consistently demonstrating its effectiveness and general-
+ity across model families.
+2. Related Work
+Object Detection in High-Resolution Wide Shots.HRW
+detection addresses the critical challenge of locating sparse
+objects in gigapixel-scale imagery, where target coverage
+is often below 15% and background is highly diverse [36],
+different from ImageNet [11]. While general-purpose de-
+tectors like Faster R-CNN [18] and Deformable Convolu-
+tional Networks [9] achieve strong performance on dense
+scenes, their cost scales prohibitively with input resolution,
+causing severe latency. Shufflenet [42] reduces complexity
+via grouped convolutions, yet lacks adaptive computation.
+DynamicDet [27] routes images by predicted difficulty, but
+its binary partitioning is ill-suited to HRW shots and main-
+taining dual branches is cumbersome. While DGE [31] has
+been applied to enhance vision transformer, it lacks the flex-
+ibility required to effectively handle HRW scenarios.
+Vision Transformers for Detection.Transformers have
+revolutionized NLP, and Vision Transformers (ViTs) ex-
+tend this success to detection by modeling long-range de-
+pendencies. However, conventional ViTs process all image
+tokens equally, incurring quadratic complexity with input
+size. To reduce cost, methods such as window-based atten-
+tion [28, 44], multi-layer self-attention [35], and low-rank
+projection [2] have been proposed. Yet these approaches
+still face a trade-off between efficiency and accuracy, limit-
+ing their effectiveness in HRW detection.
+32736

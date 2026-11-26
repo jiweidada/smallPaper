@@ -1,0 +1,40 @@
+14 Y. Huang et al.
+Table 8:Ablation of using regression or classification in categorical counting module.
+Method AP AP vt APt APs APm
+Baseline 25.9 12.7 25.3 32.0 39.7
+Regression 14.9 5.2 16.3 19.9 14.3
+Classification 30.2 15.3 30.5 36.5 44.6
+Table 8 compares our DQ-DETR’s performance of using classification or
+regression in the categorical counting module. The traditional crowd-counting
+methods usually regress the predicted counting number to a specific value. How-
+ever, in our study, we use a classification head instead. This experiment demon-
+strates our DQ-DETR performance with these two methods. For the classifi-
+cation task, we classify the images into 4 classes and apply different numbers
+of queries in the transformer decoder, as we mentioned in the previous section.
+For the regression task, we regress an integer directly to predict the number of
+objects in the image and select the object queries corresponding to the predicted
+result.
+The results demonstrate that using regression as a counting method performs
+extremely poorly. We impute the drastic performance drop for the following
+reasons: (1) It is challenging to regress an accurate number since the number
+of instances per image may vary significantly from 1 to 2267 in the AI-TOD-
+V2 dataset. (2) Unstable regression results significantly affect the number of
+queries used in the transformer decoder, making it difficult for the DETR model
+to converge. Owing to the above reasons, we believe that classifying how many
+objects exist in the image into different levels is a simpler way in contrast to
+regression. Thus, classification instead of regression is preferred as a method in
+our proposed categorical counting module.
+5 Conclusion
+In this paper, we analyze that the fixed number and position of queries in
+previous DETR-like methods are unsuitable for detecting tiny objects in aerial
+datasets and propose a new end-to-end transformer detector DQ-DETR with
+a categorical counting module, counting-guided feature enhancement, and dy-
+namic query selection. Our DQ-DETR dynamically adjusts the number of object
+queries used for detection to solve the imbalance of instances between different
+aerial images. Also, we improve the positional information of queries, making it
+easier for the decoder to localize the tiny object. DQ-DETR is the first DETR-
+like model focusing on tiny object detection and achieves 30.2%AP, which is the
+state-of-the-art of AI-TOD-V2. The result shows that our proposed DQ-DETR
+improves the performance of detecting tiny objects, outperforming all previous
+CNN-based detectors and DETR-like methods on the AI-TOD-V2 dataset with
+ResNet50 as the backbone.

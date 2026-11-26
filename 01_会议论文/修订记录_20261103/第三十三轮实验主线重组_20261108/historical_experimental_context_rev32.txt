@@ -1,0 +1,113 @@
+Experimental context preserved from revision 32
+Source SHA-256: f8c5739e2394375160a7f606aec3aa47d632d1dab5376d90f14f148db3914c79
+
+4.1 Dataset and Implementation Details
+
+The experiments use the VisDrone2019 detection data [2], with 6,471 training images and 548 validation images covering ten categories. Validation results are reported separately from test-dev results. Figure 6 shows two identified validation images. The local configurations load COCO-format annotations and resize inputs to 640 × 640, with 300 postprocessor predictions per image across categories. We report COCO-style average precision (AP) and average recall (AR) [12]. The retained evaluator files specify ten intersection-over-union (IoU) thresholds from 0.50 to 0.95 in steps of 0.05, 101 recall thresholds, ten categories, class-aware matching (useCats=1) and maxDets=[1, 10, 100] per image and category.
+
+The retained annotation files contain 343,205 training boxes and 38,759 validation boxes. All have iscrowd=0 and no ignore field. The original validation annotations additionally contain 1,378 ignored-region entries and 32 entries labelled others, which are absent from the converted file. The official toolkit filters detections using ignored regions and reports AP with a limit of 500 detections [13]. Thus, deleting those entries alone does not reproduce the official protocol. The retained current data also contain two byte-identical training-image pairs and one byte-identical validation-image pair with differing box annotations. Both validation entries were included in the CPU checks of Section 4.5; their impact on AP is unknown. Local metrics are kept separate from challenge rankings, and historical data identity remains unverified.
+
+ 
+
+Fig. 6. VisDrone2019 validation inputs [2]: 0000001_02999_d_0000005.jpg (left) and 0000280_02201_d_0000623.jpg (right). These are dataset examples, without detection overlays.
+
+The six recorded runs use seed 0 and contain 320 logged validation epochs, indexed 0–319. Their configurations disable pretrained-backbone loading and tuning; the nominal SiLU variant also records a resume path to its own last checkpoint. AdamW has betas (0.9, 0.999), default decay 10⁻⁴ and name-based exemptions. The n rates are 4 × 10⁻⁴ for backbone names and 8 × 10⁻⁴ otherwise. In the inspected code, s uses 2 × 10⁻⁴ for backbone names without bn and 4 × 10⁻⁴ for other names; some BatchNorm parameters consequently receive the lower rate and default decay. The saved configurations disable AMP and set gradient-norm clipping to 0.1. They select flat-cosine scheduling with 2,000 warm-up iterations and lr_gamma=1.0; in the inspected implementation it has no post-warm-up decay, and a separate 500-step LinearWarmup is initialized. Historical source identity remains unverified. Most importantly, the historical n baseline uses training and validation batches of 16, whereas the other runs use batches of 4. Equal epoch counts therefore do not imply an equal number of optimizer updates.
+
+The saved augmentation policy has boundaries [4, 156, 296], using zero-based epoch indices. In the inspected implementation, the Mosaic selector and batch MixUp each have probability 0.5 only at epochs 4–155. Photometric distortion, zoom-out and IoU cropping are eligible at epochs 4–295; Mosaic-selected samples skip zoom-out and IoU cropping. These strong augmentations are off from epoch 296; horizontal flipping and 640 × 640 resizing remain. Batch multi-scale resizing is disabled. The saved exponential moving average (EMA) configuration specifies decay=0.9999 and warmups=1,000; in the inspected code the latter is an exponential-ramp time constant. Tables 2 and 3 retain each run’s complete highest-AP log row. AP averages ten IoU thresholds; AP50 and AP75 use 0.50 and 0.75. APs uses original-image area [0, 1024] square pixels; AR@100 denotes recall at maxDets=100 in this class-aware evaluation. These validation-selected, single-seed results provide no independent test estimate or uncertainty across runs.
+
+4.2 Configuration Comparisons and Attribution Limits
+
+Table 1 identifies the five n configurations using explicit run identifiers. N0 uses the original two-convolution aggregation path (the code labels this path se). N1 and N3 instead use a full-width projection followed by ESE in every stage. N2 and N4 use the hierarchical attention arrangement of Section 3.3. Hence the labels MPS-only, MSCA-only and SiLU-only would conceal additional changes and are not used here.
+
+Table 1. Recorded n configurations and training parameter counts. SE-path denotes the code-specific two-convolution aggregation path; it is not a claim that this path is the canonical SE attention module.
+
+ID	Stem	Stage aggregation / gates	Activation	Batch	Params/M
+N0	Standard	SE-path at all stages	ReLU	16	3.7376
+N1	MPS	ESE at all stages	ReLU	4	5.3404
+N2	Standard	ESE / SimAM / Lite / Dilated	ReLU	4	7.5356
+N3	Standard	ESE at all stages	SiLU	4	5.3350
+N4	MPS	ESE / SimAM / Lite / Dilated	SiLU*	4	7.5409
+
+*SiLU applies to configurable backbone blocks; MSCA-Dilated retains internal ReLU. Parameter counts are from training logs, not deployment counts.
+
+The checkpoint tensors explain the parameter discrepancy between N0 and N3. Their stem, encoder and decoder tensor shapes agree, while the four backbone-stage parameter totals increase by 4,094, 53,246, 557,052 and 983,038, respectively, for a total of 1,597,430. This matches the difference in the training logs and is consistent with replacing the aggregation path by ESE-based aggregation. An activation replacement alone would not account for this increase. N1 versus N3 also changes both the stem and activation; the available rows therefore do not isolate either factor.
+
+Table 2. Best-AP log rows for the n configurations. Metrics are fractions on [0,1]; epoch is zero-based. This table is not a single-factor ablation.
+
+ID	Epoch	AP	AP50	AP75	APs	AR@100
+N0	315	0.1895	0.3351	0.1844	0.1251	0.3401
+N1	306	0.2182	0.3808	0.2134	0.1439	0.3670
+N2	300	0.2078	0.3606	0.2048	0.1293	0.3552
+N3	301	0.2117	0.3702	0.2054	0.1333	0.3572
+N4	306	0.2270	0.3941	0.2231	0.1518	0.3809
+
+Table 2 reports the highest-AP log row for each configuration. The historical N0 baseline used a batch size of 16, whereas N1-N4 used a batch size of 4, and the variants also differ in their aggregation paths. Consequently, these records do not provide a matched baseline comparison or isolate the effects of MPS, MSCA or SiLU. A controlled factorial design would be needed to examine interactions among these factors.
+
+4.3 Results for the n and s Configurations
+
+Table 3 reports the complete n and s configurations on the validation split. Both use HGNetv2-B0, but the s configuration adds a stride-8 encoder input, increases the encoder and decoder width from 128 to 256, changes the decoder sampling-point allocation from [6, 6] to [3, 6, 3], and uses a different learning-rate configuration. Its higher AP therefore describes this combined scale-and-training change, rather than an isolated benefit of the proposed backbone modules.
+
+Table 3. Validation results for the complete configurations. AP is selected within each single training run. Training parameters differ from deployed parameter counts in Table 4.
+
+Scale	Epoch	AP	AP50	AP75	APs	Train params/M
+n	306	0.2270	0.3941	0.2231	0.1518	7.5409
+s	302	0.2876	0.4744	0.2962	0.2123	14.0353
+
+The s configuration reaches AP 0.2876 and APs 0.2123. A baseline trained under the same s protocol is needed to quantify its algorithmic gain. External test-dev results are excluded from these validation tables: differences in data split, initialization and evaluation prevent a controlled accuracy ranking. No comparison of parameter efficiency against those external accuracy values is inferred.
+
+4.4 Complexity and Inference Efficiency
+
+Table 4 reports archived 640 × 640, batch-one deployment-complexity measurements from a local legacy code tree. The floating-point operation (FLOP) counts are expressed in billions (GFLOPs). The archive summary names get_info.py but does not record the profiler version or operator coverage; the GFLOPs are therefore tool-dependent estimates. The separate GPU timing in Table 5 comes from a server package. Tables 1 and 3 instead report parameter counts from the historical training logs. Conversion to a deployment model changes which parameters remain in the model.
+
+Table 4. Archived complexity of the deployed s structures at 640 × 640.
+
+Model	GFLOPs	Deployed params/M
+DEIM-D-FINE-S	24.86	10.18
+MPSMA-DEIM (s)	29.63	13.99
+
+The reported deployed parameter count increases from 10.18 M to 13.99 M, and the operation count from 24.86 to 29.63 GFLOPs. A separately archived module breakdown assigns approximately 3.84 M parameters to the single MSCA-Dilated module. MSCA-Lite and SimAM have no learned parameters; the stem increases from 6,474 to 11,799 parameters. These numbers identify where the additional capacity lies, but do not prove that this capacity is more effective than a matched alternative. The archive also reports 25.37 and 30.14 GFLOPs for the same model labels from the server package. The source of the difference between code trees has not been isolated, so those figures are not substituted for the local-tree values in Table 4.
+
+Table 5 reports the archived FP32 benchmark on an NVIDIA RTX 3090 using 640 × 640 input, batch size one, 50 warm-up iterations and 200 timed iterations. The script uses CUDA events with synchronization and cudnn.benchmark=False. Its input is a synthetic tensor already on the GPU. The combined timing covers the network and configured postprocessor; it excludes image decoding, preprocessing, host-to-device transfer and application overhead.
+
+Table 5. Archived RTX 3090 FP32 latency. Combined denotes network plus post-processing, not a complete image-to-result pipeline.
+
+Model	Network/ms	Combined/ms	Combined FPS
+DEIM-D-FINE-S	18.154	19.011	52.60
+MPSMA-DEIM (s)	22.196	22.572	44.30
+
+The reported combined latency is 22.572 ms (44.30 frames/s) for MPSMA-DEIM (s) and 19.011 ms (52.60 frames/s) for the benchmark baseline, an 18.7% increase. The baseline record specifies no checkpoint, whereas the MPSMA record specifies a checkpoint path. Because the script converts to deployment form before loading with strict=False and does not retain missing/unexpected-key counts in the JSON result, the checkpoint path alone does not establish an exact trained-model load. These are bounded structural timing measurements, not proof of onboard real-time performance or a trained-model accuracy-speed advantage. Differences between separate mean timings are not treated as direct postprocessor measurements.
+
+4.5 Re-evaluation of Retained Checkpoints
+
+We re-evaluated the retained N0, N4 and S1 EMA checkpoints once on all 548 validation images using the archived current implementation. The checks used FP32 on an AMD Ryzen 7 9700X CPU, PyTorch 2.6.0, TorchVision 0.21.0 and faster-coco-eval 1.6.5. The original validation batch sizes were retained (16 for N0 and 4 for N4/S1), together with the 640 × 640 transforms, postprocessor and local COCO-style settings of Section 4.1. Each checkpoint and postprocessor loaded with strict key and shape checks; no missing or unexpected keys were found. The models were evaluated without deployment conversion. The verification records bind the predictions and metrics to SHA-256 hashes of the weights, configuration, current source, annotations and validation images. The historical runtime versions remain unverified.
+
+Table 6. Historical best-log rows and separate CPU re-evaluations of retained EMA checkpoints. AP and APs are fractions; Δ is CPU minus log in percentage points (pp).
+
+ID	Log AP	CPU AP	Δ AP / pp	Log APs	CPU APs	Δ APs / pp
+N0	0.189489	0.189496	+0.000707	0.125139	0.125182	+0.004243
+N4	0.226957	0.226957	+0.000008	0.151750	0.151745	-0.000511
+S1	0.287587	0.287602	+0.001466	0.212269	0.212219	-0.005065
+
+Table 6 is kept separate from the historical configuration comparisons in Tables 2 and 3. The maximum absolute AP difference is 0.00147 pp. The complete 12-metric vectors are not numerically identical: the largest absolute discrepancy is 0.08462 pp for N0 large-object recall. No equivalence tolerance was specified before these checks, and the causes of the differences have not been isolated. The results establish a current evaluation record for these retained weights; they do not certify the exact historical training implementation or resolve the training-condition confounds. N1, N2 and N3 were not re-evaluated.
+
+4.6 Comparison of the n Configuration
+
+BASE is the original n baseline and FULL is the complete n model. Both use the frozen 6,471-image training split and 548-image validation split, seed 0, FP32 and batch size 4 for 320 epochs, with 1,617 optimizer update attempts per retained epoch. Both runs use one RTX 3090 GPU, PyTorch 2.5.1+cu124, CUDA 12.4 and faster-coco-eval 1.8.0. A predefined set of 554 shared tensors has identical initial values. The optimizer, augmentation, loss, EMA and evaluator follow the common frozen recipe. The primary endpoint is the EMA evaluated at actual loop index 319 before any validation-dependent rollback. The secondary endpoint is each run's highest-AP row, with the earliest round selected on ties. APs and the other metrics use the same checkpoint as AP. Table 7 reports completed rounds using one-based numbering.
+
+Table 7. Fixed-budget primary endpoints and validation-selected secondary endpoints for the n configuration. AP and recall values are fractions. Rounds are one-based.
+
+Endpoint	Model	Round	AP	AP50	AP75	APs	AR@100
+Primary	BASE	320	0.1902	0.3321	0.1852	0.1215	0.3404
+Primary	FULL	320	0.2255	0.3883	0.2246	0.1539	0.3743
+Secondary	BASE	303	0.1922	0.3351	0.1869	0.1227	0.3435
+Secondary	FULL	305	0.2307	0.3960	0.2290	0.1569	0.3805
+
+At the prespecified primary endpoint, FULL exceeds BASE by 3.53 percentage points in AP and 3.23 in APs. The highest-AP secondary endpoints occur at completed rounds 303 and 305, respectively. FULL has 7,540,942 trainable parameters, compared with 3,737,611 for BASE. This measures the entire changed backbone configuration, including its additional capacity and aggregation and activation settings. Component-removal experiments are in progress.
+
+4.7 Evidence Limits
+
+All metrics use the validation set. The primary row is fixed at 320 completed rounds, and the native training policy includes validation-dependent restoration. The secondary endpoints select the highest AP within one run. One seed provides no independent test estimate or uncertainty across training runs.
+
+All 48 archived periodic or latest evaluation arrays match their corresponding 12-metric log rows. Only N2 has an archived array for its selected best row, and none of the 48 arrays contains a checkpoint hash. Checkpoint indices and the inspected restoration logic cannot establish historical weight-to-metric identity when the training implementation is unverified. Section 4.5 supplies separate current evaluations of retained N0, N4 and S1 weights. Historical runtime identity and training-condition differences remain limitations.
+
+BASE and FULL initially resumed after 214 and one completed round, respectively, without saved main-process random states, which were reinitialized with seed 0. BASE resumed again after round 308 with its recorded random states, rerunning the interrupted partial round 309. The FULL per-batch learning-rate record starts at round 2. These observed continuations and their retained endpoints have been verified together.

@@ -1,0 +1,31 @@
+204 真实GO固定输出的完整原生损失回放（执行前冻结）
+2026-10-21。C仅编写205，不运行。root静审后调度。默认新206_C0_cached_GO_loss_replay；不覆盖旧目录、不读heldout、不读取checkpoint或实例化检测模型。
+
+1. 输入和作用变量
+固定188/01_cache.pt SHA 8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9；193/00_results.json SHA 660884b5412275dccdf16e91ddb979346ad869b1153c11a5642f2ed680c9b4bc；193/02_true_GO_assignments_and_certificates.json SHA cfc41cbb0409c46041b003a0b7b805e3a41b26ebb3672e364a2b3eb17934509e；193/03_pairwise_graphs.npz SHA f21a2a9fed59153e55b147c535a01c8832091ca07dd8e5fa1b6dcf9a7c9673ad。四图902GT/453原sub4、GO172/290/300/70，共832槽。
+只用193 physical64主域的G0/G/I/R/C实际映射，I/R/C分别为final_IoU_face/ref_IoU_face/native_cost_face。不重新优化或挑域。按188原GO query顺序查各臂实际g，固定相同q集合、每GT次数和每q目标类别；这仅统一浮点reduce顺序，不改变193任何q→g。普通分类own与DN索引仍由原生criterion流程得到，不用GO class替换MAL标签。
+
+2. 原生完整criterion及输出空间梯度
+按原recipe实例化DEIMCriterion和HungarianMatcher；criterion原state_dict为空，strict加载空state，记录state hash。调用原forward(epoch94,step0,epoch_step1,global_stepNone)，仅_get_go_indices的返回值替换为对应固定arm；原方法先被调用以核实际G0。原matcher各stage own必须逐项等于188。每arm独立clone完整输出树，final/aux/pre/encoder/DN的pred_boxes、pred_logits、pred_corners分别为独立可导叶子；ref、GT、up/reg_scale与teacher保持detach。每arm清空原生临时cache。
+不重写boxes/FGL/DDF/MAL，也不只改末层：所有原本用GO的final/aux/pre/encoder boxes和local均接收新GO。DN保留原配对、分母和预测，原生DDF内部逻辑照常执行。各loss实际索引、分母、原始返回值与最终加权字典全存。
+这些叶子切断了真实distance2bbox、LQE、decoder层间及共享参数路径。输出梯度只能描述固定输出上的原生监督信号，不能称原模型共享参数梯度、训练步或AP预测；refs不随arm更新。
+
+3. 基线与不变项的实现准入
+每图先G0。全部37个加权loss键/FP32值必须逐项bitexact等于188，所有own和G0有序索引、各loss分母也必须exact。否则保存差异并failclosed，标记基线精度/接口问题，不使用差异作方法效果、不追加前向修复。
+其余arm的ordinary MAL与全部DN每项值必须exact等于G0；相应聚合loss对全部输出叶子的梯度（含无依赖的零梯度）也必须exact相同。原生DN DDF使用的普通正/负计数随固定q集合保持不变，但不凭假设省略实际检查。不变性失败属于实现/作用域问题。
+
+4. FGL真实目标与梯度分解
+native unimodal_distribution_focal_loss将全部query×4边CE直接求和/num_go，weight_dict再乘0.15；没有额外的边均值1/4。
+对q的每条边，p=softmax(final pred_corners)，t取原criterion实际fgl_targets的左右bin及weight_left/right构成的33维两点目标，w=原生FP32 box_iou(final_box_q,GT_g)，detach。coef=0.15/num_go。
+原生末层加权FGL的输出梯度应为coef*w*(p−t)。对同一q、固定p：
+Delta = coef*[w1*(p−t1)−w0*(p−t0)]
+       = coef*(w1−w0)*(p−t0) + coef*w1*(t0−t1)。
+第一项是权重变化，第二项是目标转移。两者分别保存完整tensor、范数及夹角/抵消情况，逐q另表。只有“新支持”而w1=0时，该新配对的FGL梯度仍为0；不能把支持改善自动说成非零监督。
+手算单臂梯度与autograd、两项之和与autograd差值均核对；只允许FP32代数重排舍入容差atol=5e-9、rtol=5e-5，误差绝对值/范数完整报告，容差不是效果判据。用native实际targets，不自行修正clip、eps或插值权重。已匹配每边目标质量必须在FP32误差1e-7内为1，零IoU对应零FGL梯度核查。unmatched q保持零梯度。
+先合成再读188/193内容：native FGL系数/无1/4、两bin链式梯度、零IoU、固定目标仅重加权、固定权重仅目标转移，手算与native autograd一致。合成预计6次自动梯度；真实4图×5臂各4次=80次缓存输出自动梯度，逐次计数。0检测模型前向/模型VJP/optimizer/update，criterion loss forward单独计20。
+
+5. 描述输出及解释边界
+每臂报告全部raw/weighted loss、总loss及相对G0差，ordinary MAL/DN不变性，final/aux/pre/encoder的bbox/GIoU、FGL/DDF变化，完整总loss输出梯度摘要。193缓存图只用于辨认支持内外与IoU：分别列出changed-owner且new-supported、old-unsupported→new-supported，以及其中new-IoU=0的全部q/原GT/新GT。逐pair保存w0/w1、目标差、两梯度项与总差范数；original_sub4仍取188历史曝光标记。
+四图pooled损失采用图平均，另外保留每图与原分母，不将所有槽拼成新训练分母。完整tensor记录用于复核，不新增优化步、中心修正或重分配。
+本次没有新的AP、60%/30%、梯度幅度或损失下降准入阈值。193的非复制必要条件不等于有益监督；本次只回答其是否带来真实非零目标信号，以及当前native损失的代价。正负事实全部报告，不据结果换节点、权重或目标。
+资源沿既定CPU2/interop1、affinity13/15、BelowNormal、RAM>8GiB、MKL SEQUENTIAL。缓存、manifest、脚本、recipe及实际native源码前后SHA锁定；所有历史结果不改。

@@ -1,0 +1,29 @@
+--- 344_validate_1466.py
++++ 344_validate_1466_v2.py
+@@ -12,9 +12,9 @@
+ 
+ def png(e,pixels,ref,keep,bad):
+     a=Image.new('RGB',(1560,606),'white');d=ImageDraw.Draw(a)
+-    a.paste(Image.fromarray(pixels).resize((512,512),Image.Resampling.BILINEAR),(4,60))
++    a.paste(Image.fromarray(pixels).resize((512,512),Image.BILINEAR),(4,60))
+     for off,arr in ((524,e['crop128'].numpy()),(1044,ref)):
+-        a.paste(Image.fromarray((arr.transpose(1,2,0).clip(0,1)*255).round().astype('uint8')).resize((512,512),Image.Resampling.NEAREST),(off,60))
++        a.paste(Image.fromarray((arr.transpose(1,2,0).clip(0,1)*255).round().astype('uint8')).resize((512,512),Image.NEAREST),(off,60))
+     full=torch.tensor([0.,0.,640.,640.]);w=e['window_xyxy_640']
+     wb=G.win_norm_to_window_pixels(G.win_norm_xyxy(w[None],full),full,(512,512))[0].numpy()
+     d.rectangle(tuple(wb+[4,60,4,60]),outline='#00ff00',width=3)
+@@ -113,12 +113,12 @@
+                 'raw_geometry_max_abs_diff':rawdiff,'local_geometry_max_abs_diff':locdiff,'cost_FP64_max_abs_diff':costdiff,
+                 'K_g_max_abs_diff':kgdiff,'crop_max_abs_diff':cropdiff,'exact_certificate':cert,'file_sha256':row['file_sha256']})
+         assert len(pngs)==6
+-        C.write('344_result_1466独立验收与6PNG.json',{'status':'已验证（独立实现及反向测试）；PNG待本轮目视记录',
++        C.write('344_result_1466独立验收与6PNG_v2.json',{'status':'已验证（独立实现及反向测试）；PNG待本轮目视记录',
+             'per_case':result,'negative_controls':reverse,'png_paths':pngs,'已执行':COUNT,'wall_seconds':time.perf_counter()-start,
+             '未执行':['真实训练','GPU','阶段5'],'未核':['PNG本轮目视（另记）','主控独立复核'],'source_sha256':C.sources()})
+         print(json.dumps({'status':'PASS','counts':COUNT,'png_paths':pngs},ensure_ascii=False),flush=True)
+     except Exception as ex:
+-        C.write('344_result_1466独立验收_实现失败.json',{'status':'实现失败','exception':repr(ex),'traceback':traceback.format_exc(),
++        C.write('344_result_1466独立验收_实现失败_v2.json',{'status':'实现失败','exception':repr(ex),'traceback':traceback.format_exc(),
+             '已执行':COUNT,'未执行':['真实训练','GPU','阶段5'],'未核':['1466独立验收'],'source_sha256':C.sources()});raise
+ 
+ if __name__=='__main__':main()

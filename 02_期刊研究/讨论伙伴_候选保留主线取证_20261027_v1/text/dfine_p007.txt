@@ -1,0 +1,60 @@
+Published as a conference paper at ICLR 2025
+Table 1: Performance comparison of various real-time object detectors on COCO val2017.
+Model #Params. GFLOPs Latency (ms) APval APval50 APval75 APvalS APvalM APvalL
+Non-end-to-end Real-time Object Detectors
+YOLOv6-L 59M 150 9.04 52.8 70.3 57.7 34.4 58.1 70.1
+YOLOv7-L 36M 104 16.81 51.2 69.7 55.5 35.2 55.9 66.7
+YOLOv7-X 71M 189 21.57 52.9 71.1 57.4 36.9 57.7 68.6
+YOLOv8-L 43M 165 12.31 52.9 69.8 57.5 35.3 58.3 69.8
+YOLOv8-X 68M 257 16.59 53.9 71.0 58.7 35.7 59.3 70.7
+YOLOv9-C 25M 102 10.66 53.0 70.2 57.8 36.2 58.5 69.3
+YOLOv9-E 57M 189 20.53 55.6 72.8 60.6 40.2 61.0 71.4
+Gold-YOLO-L 75M 152 9.21 53.3 70.9 - 33.8 58.9 69.9
+RTMDet-L 52M 80 14.23 51.3 68.9 55.9 33.0 55.9 68.4
+RTMDet-X 95M 142 21.59 52.8 70.4 57.2 35.9 57.3 69.1
+YOLO11-L 25M 87 10.28 53.4 70.1 58.2 35.6 59.1 69.2
+YOLO11-X 57M 195 14.39 54.7 71.6 59.5 37.7 59.7 70.2
+YOLO11-L⋆ 25M 87 6.31 52.9 69.4 57.7 35.2 58.7 68.8
+YOLO11-X⋆ 57M 195 10.52 54.1 70.8 58.9 37.0 59.2 69.7
+End-to-end Real-time Object Detectors
+YOLOv10-L 24M 120 7.66 53.2 70.1 58.1 35.8 58.5 69.4
+YOLOv10-X 30M 160 10.74 54.4 71.3 59.3 37.0 59.8 70.9
+RT-DETR-R50 42M 136 9.12 53.1 71.3 57.7 34.8 58.0 70.0
+RT-DETR-R101 76M 259 13.61 54.3 72.7 58.6 36.0 58.8 72.1
+RT-DETR-HG-L 32M 107 9.25 53.0 71.7 57.3 34.6 57.4 71.2
+RT-DETR-HG-X 67M 234 14.01 54.8 73.1 59.4 35.7 59.6 72.9
+RT-DETRv2-L 42M 136 9.15 53.4 71.6 57.4 36.1 57.9 70.8
+RT-DETRv2-X 76M 259 13.66 54.3 72.8 58.8 35.8 58.8 72.1
+RT-DETRv3-L 42M 136 9.12 53.4 71.7 - - - -
+RT-DETRv3-X 76M 259 13.61 54.6 73.1 - - - -
+LW-DETR-L 47M 72 8.21 49.5 - - - - -
+LW-DETR-X 118M 174 16.06 53.0 - - - - -
+D-FINE-L(Ours) 31M 91 8.07 54.0 71.6 58.4 36.5 58.0 71.9
+D-FINE-X(Ours) 62M 202 12.89 55.8 73.7 60.2 37.3 60.5 73.4
+End-to-end Real-time Object Detectors (Pretrained on Objects365)
+YOLOv10-L 24M 120 7.66 54.0 71.0 58.9 36.5 59.2 70.5
+YOLOv10-X 30M 160 10.74 54.9 71.9 59.8 37.6 60.2 71.7
+RT-DETR-R50 42M 136 9.12 55.3 73.4 60.1 37.9 59.9 71.8
+RT-DETR-R101 76M 259 13.61 56.2 74.6 61.3 38.3 60.5 73.5
+LW-DETR-L 47M 72 8.21 56.1 74.6 60.9 37.2 60.4 73.0
+LW-DETR-X 118M 174 16.06 58.3 76.9 63.3 40.9 63.3 74.8
+D-FINE-L(Ours) 31M 91 8.07 57.1 74.7 62.0 40.0 61.5 74.2
+D-FINE-X(Ours) 62M 202 12.89 59.3 76.8 64.6 42.3 64.2 76.4
+⋆ : NMS is tuned with a confidence threshold of 0.01.
+5.2 C OMPARISON WITH REAL -T IME DETECTORS
+Table 1 provides a comprehensive comparison between D-FINE and various real-time object detec-
+tors on COCO val2017. D-FINE achieves an excellent balance between efficiency and accuracy
+across multiple metrics. Specifically, D-FINE-L attains an AP of 54.0% with 31M parameters and
+91 GFLOPs, maintaining a low latency of 8.07 ms. Additionally, D-FINE-X achieves an AP of
+55.8% with 62M parameters and 202 GFLOPs, operating with a latency of 12.89 ms. As depicted in
+Figure 1, which shows scatter plots of latency vs. AP, parameter count vs. AP, and FLOPs vs. AP,
+D-FINE consistently outperforms other state-of-the-art models across all key dimensions. D-FINE-
+L achieves a higher AP (54.0%) compared to YOLOv10-L (53.2%), RT-DETR-R50 (53.1%), and
+LW-DETR-X (53.0%), while requiring fewer computational resources (91 GFLOPs vs. 120, 136,
+and 174). Similarly, D-FINE-X surpasses YOLOv10-X and RT-DETR-R101 by achieving superior
+performance (55.8% AP vs. 54.4% and 54.3%) and demonstrating greater efficiency in terms of
+lower parameter count, GFLOPs, and latency.
+We further pretrain D-FINE and YOLOv10 on the Objects365 dataset (Shao et al., 2019), before
+finetuning them on COCO. After pretraining, both D-FINE-L and D-FINE-X exhibit significant
+performance improvements, achieving AP of 57.1% and 59.3%, respectively. These enhancements
+7

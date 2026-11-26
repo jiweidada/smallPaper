@@ -1,0 +1,74 @@
+253 C：物理标度缓存结果独立复核
+复核对象：229/242/243及244完整输出；2026-10-21。
+
+结论：现有存证未发现阻断结果解释的实现或汇总错误。接受k=4主必要screen为mixed、不通过：A主组1170槽新增2槽，B主组1066槽新增0槽。本精确k4“修复该失败组物理支持”的双seed依据未建立，不能据此申请训练。k8的11/11是原定敏感性，不能升格为主检或挽救k4。此次243只是230的容量函数模块接线修复，并非另一个实验方法；231失败记录保持原样。
+
+一、复核范围与来源链
+本次仅用PowerShell只读文本/JSON、SHA256和小型汇总，没有torch、PT反序列化、NPZ数组解码、匹配/flow重算、模型、forward、梯度或训练。NPZ检查的是文件身份与manifest链接，不冒称独立重算了其每个张量。新增文件仅本253。
+244/00记录的70个来源文件逐个重新计算SHA，全部匹配；其中包含固定16个prediction PT、analysis、source/recipe/输入shape元数据、229、230、242、243、237及旧失败记录。244/02列出的34个输出文件全部重新计算SHA并匹配，包含16个batch JSON、16个NPZ、00及01；01的32个artifact SHA均与02对应条目相同。NPZ共1,762,312,620字节。02按既有写法不含自身哈希，本报告另列其身份。
+231/FAILED.json仍为首个A batch00调用P.B.matching_count失败；没有完成batch结果，不构成方法阴性。243将其改接P.A.matching_count，并加入空图/已知匹配六例和模块身份检查；数据、公式、尺度、容差和gate未改。244的合成检查及saved-GO portability检查均报告通过。
+
+244记录complete，耗时41.234秒；16次预测缓存读取、16次native matcher调用；model build/CP load/forward/backward/VJP/autograd/update/heldout均0。资源为CPU torch2.5.1，threads2、interop1、affinity[13,15]、BelowNormal、记录可用RAM23.699GiB。运行前后70项source unchanged均true，且本次再次核验其当前SHA。
+16个batch各4输入，A/B各32输入曝光、各6629 GT、各2707 actual_input_sub4 GT；是相同development输入上的两个模型结果，不是64张独立新图。batch03为512²、05为544²，其余640²，逐批记录一致。原始original_sub4布尔标记在64个final记录均不可用，不能用当前actual_input_sub4冒充。每图均有final/aux_0/aux_1/dn_0/dn_1/dn_2，DN_num_group均1。
+
+二、主计数与汇总一致性
+从16个batch JSON重新汇总，96项预定主计数与01逐项一致；各臂final GO的n、invalid、inside及IoU/几何损失sum亦一致（浮点核对容差1e-10）。A的两个k4新增槽分别位于batch00/image3和batch03/image0；B无新增。
+
+量                                              A              B
+final GO总槽                                    6291           6351
+actual_input_sub4 GO槽                          2235           2247
+原N tiny GO inside                              1029           1093
+主组：actual tiny且原native IoU=0且N outside      1170           1066
+F4主组新增槽/新增唯一GT曝光                       2/2            0/0
+F4全GO新增支持/丢失支持                           2/0            0/0
+F4 all300无类别原不可达tiny→可达                   2              0
+N→F4 tiny精确GT支持图query容量1                  1232→1234      1340→1340
+F8主组新增槽（仅敏感性）                          11             11
+F8 all300原不可达tiny→可达（仅敏感性）             46             21
+
+这里“支持内”是四条GT边恰可表示，容量是该图最大匹配；既不是IoU.5/.75检测上界，也不是AP、分类正确覆盖或真实训练后可达性。本表固定原GO多重配对，新增槽与跨输入GT曝光均不能当独立样本。
+
+三、k4作用少的直接证据与缺失项
+F4只对pre ref至少一轴小于4真实像素的query生效；tiny GT本身小于4，并不意味着与它配对的pre ref也小于4。JSON中可直接读出的final计数如下：
+
+量                                              A              B
+所有query曝光                                   9600           9600
+ref至少一轴激活k4                               285(2.969%)    233(2.427%)
+ref至少一轴激活k8（仅描述）                       2819           2279
+GO内激活k4槽                                    253            211
+tiny GO内激活k4槽                               223/2235       183/2247
+上述激活tiny槽中原N已inside                       162/223        135/183
+上述激活tiny槽中原N outside                       61             48
+
+激活tiny槽的原inside比例为72.646%/73.770%；多数被该尺度操作触及的tiny配对已在原支持域内，因此不能通过“扩大域”再修一次。全部tiny GO原inside比例为46.040%/48.643%，与激活子组并不相同。
+主组与refactive4的精确交集未在JSON中单列；x/y分轴激活计数也未显式保存于JSON。本次不读取PT或解码NPZ补算，不把223/183冒充主组激活数。可由已有集合计数给出严谨界：A的tiny outside为2235−1029=1206，其中main1170，故非main outside为36；激活outside为61，所以main∩active介于25和61。B为2247−1093=1154，非main outside88，激活outside48，所以交集介于0和48。即主组至少1109/1170=94.786%、1018/1066=95.497%的槽根本不激活k4，公式在这些槽上代数不变。
+这说明小作用面首先来自干预变量与预定失败组的有限重合；在少量可能生效的原outside槽上，四边共同支持仍只新增2/0。数据不支持进一步把原因硬归为某层kernel、attention、分类或梯度，也不证明所有绝对物理尺度方法无效。上述解释不改变原主集合、阈值或去留结论。
+
+四、F/E、精度及非法框
+在全部stage/配对/预定组上，9216项F/E inside及outside-edge汇总检查相同；final两类class口径×两cohort×两尺度的512项支持图汇总逐项相同，包括query容量1、可达GT及边界计数。运行源码还逐项断言了F/E编码inside数组、all300支持图相等及N包含于F。此次未解码NPZ再计算图，但其身份全部锁定；不能把同支持对照视为F的优势。
+独立端点公式最大差1.735e−18 normalized；native FP32重解码对缓存最大误差A/B均1.1920929e−7；共同FP64最大差A8.5075771e−8、B8.8960766e−8，覆盖384个image-stage记录，均低于原定1e−6，未放宽容差。F/E内部节点确实不同：final GO的F4/E4 exact_same_boxes仅A8/32、B6/32图为true，exact_same_targets各8/32；差异存在不代表优越或新颖。
+
+冻结PMF下final GO平均变化（相对共同FP64 N，几何为5L1+2(1−GIoU)，负数较低）：
+                   A IoU变化       A几何变化          B IoU变化       B几何变化
+F4                 +8.49909e−6     −3.60965e−5        −6.07871e−5     +1.70415e−4
+E4                 +1.17157e−6     −3.05073e−5        −9.69309e−6     +1.37638e−5
+固定tiny GO的.5跨阈值：F4 A上0/下2、B上0/下0；E4 A上0/下1、B上0/下0。它们是固定配对几何变化，没有加入类别和检测重匹配，不能称tiny AP或训练结果。
+
+普通final/aux_0/aux_1的固定GO及own中，N/F4/E4/C4/F8/E8/C8均无非法框；T2在final GO产生A1+B4个新非法框，final own合计3个。这些配对有重叠，不能相加成独立query或GT。
+DN不能省略：跨A/B、每层13258个DN正槽，F4在dn_1/dn_2新非法框分别4/3；F8分别392/399。dn_0无此问题；对应E4/E8未出现非法框。72个stage×pair-kind×arm汇总组均无nonfinite配对预测框；出现的非法框被保留，IoU记0、GIoU/组合loss记NA并保留分母，没有静默clamp。这里也不能跨层求和后声称同样数量的独立失败目标。此现象说明同步ordinary/DN改公式时需正视合法框副作用；它是原定次要描述，不另设结果后gate。
+
+五、按事前协议收束
+接受01中的necessary_screen_both=false、screen_status=mixed。停止本精确k4针对预定失败组的双seed支持修复主张，不因k8、T2或更换cohort而追认通过。T2仍是原有强对照，其旧训练mixed不被本次支持计数覆盖。F/E同支持和其冻结均值差，只说明支持与内部节点是两个不同作用变量，未建立内部标度优于同支持端点控制的训练证据。
+当前结果供圆桌继续修订；不授权新训练，不推断AP，不否定全部物理标度、FDR或query设计。若未来提出不同变量，须作为新方案另行事前定义，而不能修改本次已失败主尺度的记录。
+
+关键SHA256
+244/00_inputs_and_synthetic.json
+626ce41b80efcb07ae7d400312b41c153ff8591f7d4ba8a716db765c8340c56d
+244/01_results.json
+9dfbf71fc5ea60820b529c4e1e0fb0c0412fd96af034a40f439a3e98618160b9
+244/02_output_sha256.json
+1fb64644422ac499eb3bc5b5afa22f1d5e7856409514c4fcfd2266f38d0f4233
+243_BASE24_cached_displacement_floor_probe_fixed.py
+0840b94e8528a461902456b7d0985060216386b795abd954062a4848bc93db0e
+231/FAILED.json
+094ce4611ea2efcb15d88aae29b48783f456c41b4cd38cdd5eeea28b1546e1b1

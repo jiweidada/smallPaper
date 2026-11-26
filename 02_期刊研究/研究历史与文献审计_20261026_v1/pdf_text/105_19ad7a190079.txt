@@ -1,0 +1,175 @@
+Citation: Dang, J.; Tang, X.; Li, S.
+HA-FPN: Hierarchical Attention
+Feature Pyramid Network for Object
+Detection. Sensors 2023, 23, 4508.
+https://doi.org/10.3390/s23094508
+Academic Editor: Ruben Pauwels
+Received: 15 March 2023
+Revised: 26 April 2023
+Accepted: 27 April 2023
+Published: 5 May 2023
+Copyright: © 2023 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+sensors
+Article
+HA-FPN: Hierarchical Attention Feature Pyramid Network for
+Object Detection
+Jin Dang, Xiaofen Tang *
+ and Shuai Li
+School of Information Engineering, Ningxia University, Yinchuan 750021, China;
+12021131688@stu.nxu.edu.cn (J.D.)
+* Correspondence: tang_xf@nxu.edu.cn
+Abstract: The goals of object detection are to accurately detect and locate objects of various sizes in
+digital images. Multi-scale processing technology can improve the detection accuracy of the detector.
+Feature pyramid networks (FPNs) have been proven to be effective in extracting multi-scaled features.
+However, most existing object detection methods recognize objects in isolation, without consider-
+ing contextual information between objects. Moreover, for the sake of computational efﬁciency, a
+signiﬁcant reduction in the channel dimension may lead to the loss of semantic information. This
+study explores the utilization of attention mechanisms to augment the representational power and
+efﬁciency of features, ultimately improving the accuracy and efﬁciency of object detection. The study
+proposed a novel hierarchical attention feature pyramid network (HA-FPN), which comprises two
+key components: transformer feature pyramid networks (TFPNs) and channel attention modules
+(CAMs). In TFPNs, multi-scaled convolutional features are embedded as tokens and self-attention is
+applied to across both the intra- and inter-scales to capture contextual information between the tokens.
+CAMs are employed to select the channels with rich channel information to alleviate massive channel
+information losses. By introducing contextual information and attention mechanisms, the HA-FPN
+signiﬁcantly improves the accuracy of bounding box detection, leading to more precise identiﬁcation
+and localization of target objects. Extensive experiments conducted on the challenging MS COCO
+dataset demonstrate that the proposed HA-FPN outperforms existing multi-object detection models,
+while incurring minimal computational overhead.
+Keywords: transformer; feature pyramid networks; object detection; attention modules
+1. Introduction
+At present, it is challenging for object detectors to detect and locate multiple objects
+at different scales. As each layer of a convolutional neural network (CNN) [1] has a ﬁxed
+receptive ﬁeld, Regional CNNs (R-CNNs) encounter speciﬁc issues [2]. For instance, there
+tend to be discrepancies between the ﬁxed receptive ﬁelds and the objects in the natural
+images at different scales. In many current object detectors, pyramid feature representation
+is used to alleviate those problems [3]. As shown in Figure 1a, top-down architecture was
+used in this study to produce more semantic feature maps at all scales [ 4]. Speciﬁcally,
+it integrates low-resolution and semantically strong features with high-resolution and
+semantically weak features through lateral connections. In recent years, many studies
+have been conducted to improve the performance of FPNs. To increase the representation
+of low-level information in deep layers, Path Aggregation Networks (PANs) [ 5] based
+on feature pyramid networks (FPNs) have been proposed to add bottom-up pathways.
+Along with pathway augmentation, Neural Architecture Search FPN (NAS-FPN) [6] was
+proposed for a more effective fusion of all cross-scale connections. Additionally, augmented
+FPN (AugFPN) [7] has been proposed in recent research, which utilizes residual feature
+augmentation to gain ratio-invariant contextual information. However, the aforementioned
+methods consider each object independently and, therefore, do not take into account the
+Sensors 2023, 23, 4508. https://doi.org/10.3390/s23094508 https://www.mdpi.com/journal/sensors
+
+---PAGE---
+
+Sensors 2023, 23, 4508 2 of 18
+relationships between objects or between objects and their surroundings. As a result, the
+accuracy of object detection has certain limitations. In this study, it is believed that these
+approaches neglect the information provided at other scales, and uniformly scaled feature
+maps representing non-local interactions are insufﬁcient to capture contextual information.
+Sensors 2023, 23, x FOR PEER REVIEW 2 of 19 
+ 
+ 
+utilizes residual feature augmentation to gain ratio-invariant contextual information. 
+However, the aforementioned methods consider each object independently and, 
+therefore, do not take into account the relationships between objects or between objects 
+and their surroundings. As a result, the accuracy of object detection has certain limitations. 
+In this study, it is believed that these approaches neglect the information provided at other 
+scales, and uniformly scaled feature maps representing non-local interactions are 
+insuﬃcient to capture contextual information.  
+  
+(a) Feature pyramid network  ( b) Contextual semantic information 
+Figure 1. (a) This ﬁgure shows that other levels of ignored features may provide useful information 
+for the ﬁnal prediction; reducing many channel dimensions has led to signi ﬁcant losses in channel 
+information. (b) Global scene contextual information is transmitted to each level. 
+Figure 2 provides an illustration of the ignored features that could potentially yield 
+crucial prediction information. In some cases, it is challenging for humans to recognize 
+objects or their respective locations, as depict ed in Figure 2a. Nevertheless, as illustrated 
+in Figure 2b, the presence of a cup and a sofa in a home se tting aids in the identi ﬁcation 
+of the target object as a table. Coexisting objects provide strong cues for detecting speciﬁc 
+objects, as exempliﬁed in Figure 2c, where the points surrounding the cup and sofa tend 
+to identify the table. Additionally, global  scene clues can prevent objects from being 
+wrongly detected in unsuitable surroundings. For instance, a cup is more likely to be 
+located on a table than on a road, and a desk is more likely to be situated in front of a sofa 
+than a car. Therefore, this study posits that  contextual information for object detection 
+consists of multiple levels. 
+Contextual information has been demonstrated to play a vital role in semantic 
+segmentation and object detection processes [8]. For the extraction of context across 
+multiple scales, the Deeplab-v2 [9] pyrami d pooling has been implemented in pyramid 
+scene parsing networks to obtain a hierarchical global context, signiﬁcantly enhancing the 
+semantic segmentation quality of extraction context across multiple scales. Incorporating 
+contextual information can also enhance the ﬁnal detection and classi ﬁcation results by 
+facilitating the localization of region prop osals. Additionally, the use of contextual 
+information in salient object detection (SOD) has been introduced in several recent 
+studies. For example, a novel cross-level a ttention mechanism in the SOD network was 
+proposed in the cross-level attention and supervision of salient object detection (CLASS) 
+[10] by modeling the channel-wise and position-wise dependency trends between features 
+at diﬀerent levels.  
+The method of eﬀectively integrating context information exchange at diﬀerent scales 
+using a transformer is worth studying. The transformer [11] is an architecture that does 
+not use convolutional operators and solely relies on a ttention mechanisms. The vision 
+transformer is based on learning a ttentive interaction between distinct patch tokens and 
+has recently received considerable interest in many vision tasks. In addition, the vision 
+transformer (ViT) [12] and data-e ﬃcient image transformer (DeiT) [13] methods can 
+partition images into patch embedding sequences, then input them into conventional 
+Figure 1. (a) This ﬁgure shows that other levels of ignored features may provide useful information
+for the ﬁnal prediction; reducing many channel dimensions has led to signiﬁcant losses in channel
+information. (b) Global scene contextual information is transmitted to each level.
+Figure 2 provides an illustration of the ignored features that could potentially yield
+crucial prediction information. In some cases, it is challenging for humans to recognize
+objects or their respective locations, as depicted in Figure 2a. Nevertheless, as illustrated in
+Figure 2b, the presence of a cup and a sofa in a home setting aids in the identiﬁcation of the
+target object as a table. Coexisting objects provide strong cues for detecting speciﬁc objects,
+as exempliﬁed in Figure 2c, where the points surrounding the cup and sofa tend to identify
+the table. In Figure 2d, when the surrounding environment information is given, we can
+then recognize the table easily. Additionally, global scene clues can prevent objects from
+being wrongly detected in unsuitable surroundings. For instance, a cup is more likely to
+be located on a table than on a road, and a desk is more likely to be situated in front of a
+sofa than a car. Therefore, this study posits that contextual information for object detection
+consists of multiple levels.
+Sensors 2023, 23, x FOR PEER REVIEW 3 of 19 
+ 
+ 
+transformers in image classi ﬁcation challenges. Recently introduced methods make 
+targeted adjustments to ViT which eﬀectively enhance image categorization performance. 
+Additionally, the Cross-attention Multi-scale Vision Transformer (CrossViT) [14] employs 
+a dual-branch transformer to process picture patches of varying sizes, while the Twins [15] 
+approach blends local and global attention techniques to improve feature representation. 
+The results of the above-mentioned studies have shown that transformer-based models 
+outperform other types of networks. In this study, a transformer module was introduced 
+to model multi-scale global scene contexts. As illustrated in Figure 1b, compared to 
+methods based on convolutional neural networks, the proposed transformer can capture 
+long-range dependencies between  pixels and global contexts of models. As depicted in 
+Figure 3a, we randomly sampled cups (Patch A in yellow) to analyze patch interactions 
+between the table (Patch B in blue) and the sofa (Patch C in red). Further, we performed 
+analysis of the similarity of a ttention scores across diﬀerent layers (Figure 3b), and upon 
+adding the proposed HA-FPN model, attention score similarities of diﬀerent levels of the 
+table, cup, and sofa signiﬁcantly improved. 
+ 
+Figure 2. This ﬁgure shows an example of the ignored fe atures which could potentially provide 
+important prediction information. When an object (table) is shown independently, it is di ﬃcult to 
+recognize. However, with the availability of information concerning the surrounding environment, 
+the table in the illustration can be promptly identiﬁed. 
+In order to improve computational e ﬃciency, an FPN reduces the channel 
+dimensionality, which results in signiﬁcant loss of channel information as shown in Figure 
+1a. The channel dimensions are reduced from 2048, 1024, and 512 to 256. In an a ttention 
+mechanism, more resources will be invested  in the most important feature maps by 
+determining the di ﬀerences in the importance of ea ch feature map. In squeeze-and-
+excitation networks (SE-Nets) [16], each channel is assigned a weight to assist the 
+networks to learn important features. More e ﬃcient channel a ttention networks (ECA-
+Nets) [17] improve the SE-Net blocks by obtaining more accurate a ttention information 
+via one-dimensional convolution layers for consolidating cross-channel information. 
+Then, with the introduction of selective kernel networks (SK-Nets) [18], the adaptive 
+receptive ﬁeld sizes of the neurons were achieved through the nonlinear integration of 
+information from multiple kernels. The convolutional block a ttention module (CBAM) 
+[19] collects spatial and channel a ttention information by constructing two submodules. 
+Then, it integrates the inform ation, thereby yielding more  comprehensive and reliable 
+attention information. Therefore, inspired by the above-mentioned methods, this study 
+Figure 2. This ﬁgure shows an example of the ignored features which could potentially provide
+important prediction information. When an object (table) is shown independently, it is difﬁcult to
+recognize. However, with the availability of information concerning the surrounding environment,
+the table in the illustration can be promptly identiﬁed.

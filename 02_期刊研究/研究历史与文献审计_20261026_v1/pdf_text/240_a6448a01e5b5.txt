@@ -1,0 +1,228 @@
+DETRs with Hybrid Matching
+Ding Jia1† Yuhui Yuan4†‡ Haodi He2† Xiaopei Wu3
+Haojun Yu1 Weihong Lin4 Lei Sun4 Chao Zhang1 Han Hu4
+1Peking University 2Stanford University 3Zhejiang University
+4Microsoft Research Asia
+Abstract
+One-to-one set matching is a key design for DETR to
+establish its end-to-end capability, so that object detection
+does not require a hand-crafted NMS (non-maximum sup-
+pression) to remove duplicate detections. This end-to-end
+signature is important for the versatility of DETR, and it
+has been generalized to broader vision tasks. However, we
+note that there are few queries assigned as positive sam-
+ples and the one-to-one set matching signiﬁcantly reduces
+the training efﬁcacy of positive samples. We propose a sim-
+ple yet effective method based on a hybrid matching scheme
+that combines the original one-to-one matching branch with
+an auxiliary one-to-many matching branch during training.
+Our hybrid strategy has been shown to signiﬁcantly im-
+prove accuracy. In inference, only the original one-to-one
+match branch is used, thus maintaining the end-to-end merit
+and the same inference efﬁciency of DETR. The method is
+namedH-DETR, and it shows that a wide range of rep-
+resentative DETR methods can be consistently improved
+across a wide range of visual tasks, including Deformable-
+DETR, PETRv2, PETR, and TransTrack, among others.
+Code is available at: https://github.com/HDETR.
+1. Introduction
+Since the success of pioneering work DEtection TRans-
+former (DETR) [5] on object detection tasks, DETR-based
+approaches have achieved signiﬁcant progress on various
+fundamental vision recognition tasks such as object detec-
+tion [50, 58, 82, 89], instance segmentation [13, 14, 25, 78],
+panoptic segmentation [9, 31, 64, 75, 79], referring expres-
+sion segmentation [69, 74], video instance segmentation [8,
+65, 70], pose estimation [26, 59, 60], multi-object track-
+ing [7, 49, 61], monocular depth estimation [18, 29], text
+detection & layout analysis [46, 55, 56, 85], line segment
+detection [71], 3D object detection based on point clouds
+†Core contribution.
+‡Corresponding author
+or multi-view images [1,30,52,67], visual question answer-
+ing [22, 47], and so on.
+Many follow-up efforts have improved DETR from var-
+ious aspects, including redesigning more advanced trans-
+former encoder [15, 89] or transformer decoder architec-
+tures [4,16,50,81,89] or query formulations [24,37,68,82].
+Different from most of these previous efforts, we focus on
+the training efﬁcacy issues caused by one-to-one matching,
+which only assigns one query to each ground truth. For ex-
+ample, Deformable-DETR typically only selects less than
+30 queries from a pool of 300 queries to match with the
+ground truth for each image, as nearly 99% of the COCO
+images consist of less than 30 bounding boxes annotations,
+while the remaining more than 270 queries will be assigned
+as ∅ and are supervised with only classiﬁcation loss, thus
+suffering from very limited localization supervision.
+To overcome the drawbacks of one-to-one matching and
+unleash the beneﬁts of exploring more positive queries,
+we present a very simple yet effective hybrid match-
+ing scheme, which introduces an additional one-to-many
+matching branch that assigns multiple queries to each pos-
+itive sample. In inference, we only use the original one-to-
+one decoder branch supervised with the one-to-one match-
+ing loss. We ﬁnd that this simple approach can substan-
+tially improve the training efﬁcacy, especially regarding the
+ﬁtting of positive queries. Since only the original one-to-
+one matching branch is used in inference, the merits of the
+original DETR framework are almost all maintained, for ex-
+ample, avoiding NMS. Our approach also has no additional
+computation overhead compared to the original version.
+We dub the hybrid matching approach asH-DETR, and
+extensively verify its effectiveness using a variety of vision
+tasks that adopt DETR methods or the variants, as well
+as different model sizes ranging from ResNet-50/Swin-T
+to Swin-L. The visual tasks and the corresponding DETR-
+based approaches include Deformable-DETR [89] for im-
+age object detection, PETRv 2 [40] for 3D object detection
+from multi-view images, PETR [59] for multi-person pose
+estimation, and TransTrack [61] for multi-object tracking.
+TheH-DETR achieves consistent gains over all of them, as
+arXiv:2207.13080v3  [cs.CV]  16 May 2023
+
+---PAGE---
+
+COCO Object Detection
+30
+40
+50
+60
+47 48.7
+AP (%)
+Deformable-DETR
+H-Deformable-DETR
+L VIS Object Detection
+20
+25
+30
+35
+40
+32.4 33.5
+AP (%)
+Deformable-DETR
+H-Deformable-DETR
+COCO Panoptic Segmentation
+40
+45
+50
+55
+47
+48.5
+PQ (%)
+Mask-Deformable-DETR
+H-Mask-Deformable-DETR
+COCO Pose Estimation
+60
+65
+70
+75
+80
+69.3
+70.9
+AP (%)
+PETR
+H-PETR
+nuScenes 3D Object Detection
+40
+45
+50
+55
+60
+50.68
+52.38
+NDS (%)
+PETRv2
+H-PETRv2
+MOT17 Multi-Object Tracking
+50
+60
+70
+80
+67.1 68.7
+MOTA (%)
+TransTrack
+H-TransTrack
+Figure 1. Illustrating the improvements of our hybrid matching scheme across ﬁve challenging vision tasks including2D object detection,
+2D panoptic segmentation, 2D pose estimation, 3D object detection, and multi-object tracking (from left to right). Our hybrid matching
+scheme gains +1.7%, +1.1%, +1.5%, +1.6%, +1.7%, and +1.6% over various DETR-based approaches on 6× benchmarks respectively.
+All the improvements are obtained under the same training epochs and do not require any additional computation cost during evaluation.
+We choose V oVNetV2 [23]/ResNet50 for PETRv2/all other methods as the backbone following their original settings.
+shown in Figure 1. Speciﬁcally, our approach can improve
+the Deformable DETR framework (R50) on COCO object
+detection by + 1.7% mAP ( 48.7% v.s. 47.0%), the PETR
+framework (R50) on COCO pose estimation by + 1.6%
+mAP (70.9% v.s. 69.3%). In particular, we achieve 59.4%
+mAP on COCO object detection, which is the highest accu-
+racy on COCO object detection among DETR-based meth-
+ods that use the Swin-L model. We achieve 52.38% on
+nuScenes val, which is +1.7% higher than a very recent
+state-of-the-art approach of PETRv2.
+2. Related work
+DETR for object detection. With the pioneering work
+DETR [5] introducing transformers [63] to 2D object de-
+tection, more and more follow-up works [11, 15, 50, 68]
+have built various advanced extensions based on DETR be-
+cause it removes the need for many hand-designed compo-
+nents like non-maximum suppression [53] or initial anchor
+boxes generation [17, 35, 38, 57]. Deformable-DETR [89]
+introduced the multi-scale deformable self/cross-attention
+scheme, which attends to only a small set of key sam-
+pling points around a reference and achieves better per-
+formance than DETR (especially on small objects). DAB-
+DETR [37] further veriﬁed that a different novel query for-
+mulation can also improve the performance. The follow-
+up DINO-DETR [24, 82] has established the new SOTA re-
+sults on object detection tasks and demonstrated the advan-
+tages of DETR design by introducing a novel query denois-
+ing scheme. Different from these works, we focus on the
+matching mechanism design of DETR and propose a very
+simple strategy to improve the training efﬁcacy while still
+avoiding NMS, which also differentiates our efforts from
+the very recent DE-DETR [66] that requires NMS.
+DETR for other vision tasks. Inspired by the great suc-
+cess of DETR in object detection, many recent efforts have
+constructed various DETR-based approaches for segmen-
+tation tasks [8, 9, 25, 31, 76, 77] that aim for more accu-
+rate pixel localization and recognition, 3D object detec-
+tion tasks [1, 20, 21, 30, 34, 39, 39, 40, 44, 45, 52, 67] based
+on point-cloud or multi-view-images that target to iden-
+tify and localize objects in 3D scenes, pose estimation
+tasks [2,26,28,48,59,60,83] with the objective of localizing
+the key points of the presented persons in a given image, ob-
+ject tracking tasks [49,61,72,80,86] that aim at locating the
+objects across both spatial and temporal positions within a
+given video without any prior knowledge about the appear-
+ance, and so on. To verify the generalization ability of our
+approach, we ﬁrst construct a baseline approach, i.e., Mask-
+Deformable-DETR, for segmentation tasks, and then com-
+bine our hybrid matching scheme with Mask-Deformable-
+DETR to deliver strong panoptic segmentation results on
+the COCO benchmark. For 3D object detection, pose es-
+timation, and object tracking, we directly choose the re-
+cent approaches including PETRv 2 [39, 40], PETR [59],
+TransTrack [61] as our baseline and veriﬁes that our hybrid
+matching consistently improves their performance.
+Label assignment. We can categorize the existing label
+assignment approaches, following the previous work [65,
+88], into two different paths: (i) one-to-many label assign-
+ment, i.e., assigning multiple predictions as positive sam-
+ples for each ground-truth box [57, 62, 84], and (ii) one-to-
+one label assignment, i.e., assigning only one prediction as
+a positive sample for each ground-truth box. POTO [65]
+propose to assign the anchor with either the maximum
+IoU or closest to the object center as the positive sample,
+which is modiﬁed from the strategies of RetinaNet [35] or
+FCOS [62]. DETR [5] and its followups [4,24,37,50,68,89]
+apply the Hungarian matching to compute one-to-one pos-
+itive assignments based on the global minimum matching
+cost values between all predictions and the ground-truth
+boxes. Different from the most related work POTO [65] that
+only uses one-to-many assignment, based on ATSS [84], to
+help the classiﬁcation branch, our approach chooses Hun-
+garian matching to perform both one-to-one matching and
+one-to-many matching following DETR and generalizes to
+various DETR-based approaches across vision tasks.
+Relationship to DN-DETR and DINO-DETR:Our approach
+is also related to recent approaches that introduce noisy
+augmentations of ground-truth objects as auxiliary queries,

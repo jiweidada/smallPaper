@@ -1,0 +1,40 @@
+QR-DETR: Query Routing for Detection Transformer 11
+models are trained on 8 Nvidia V100 GPUs, with a batch size of 8 for training.
+The models are trained for 12 epochs, with a learning rate decay of10−1 at the
+11th epoch.
+Evaluations.We use standard object detection metrics on the COCO dataset, re-
+portingmAPasthemainperformancemetric,averagingboundingboxAPacross
+multiple IoU thresholds. We also assess our models’ computational complexity
+in terms of Multiply-ACcumulate operations (MACs) to evaluate efficiency.
+5.2 Main Results
+To demonstrate the advantage of our algorithm, namely a plug-in method de-
+signed for seamless integration with DETR-based approaches, we evaluated the
+performance of EEQR in conjunction with three standard DETR variants, de-
+formable DETR, conditional DETR, and DAB DETR.
+Methods Epoch w/QR AP AP0.50 AP0.75 APS APM APL
+Faster RCNN-FPN [35] 108 42.0 62.5 45.9 25.2 45.6 54.6
+DETR [2] 500 42.0 62.4 44.2 20.5 45.8 61.1
+Deformable-DETR [52] 50 39.4 59.6 42.3 20.6 43.0 55.5
+SAM-DETR [47] 50 39.8 61.8 41.6 20.5 43.4 59.6
+Align-DETR [1] 50 46.0 64.9 49.5 25.2 50.5 64.7
+AdaMixer [13] 12 44.1 63.1 47.8 29.5 47.0 58.8
+SQR-DETR [3] 12 39.9 58.4 43.7 23.8 43.2 53.3
+StageInteractor [41] 12 46.3 64.3 50.6 29.8 49.6 60.8
+Deformable-DETR [52] 12 38.3 58.0 41.3 23.6 41.7 51.4
+QR-Deformable-DETR 12 ✓ 43.1 (+4.8) 62.2 46.4 26.5 46.4 56.9
+Conditional-DETR [30] 12 36.6 57.3 40.1 19.9 39.4 53.4
+QR-Conditional-DETR 12 ✓ 39.9 (+3.3) 60.9 41.4 20.3 45.2 56.2
+DAB-DETR [25] 12 42.2 63.1 45.7 21.6 45.2 60.3
+QR-DAB-DETR 12 ✓ 43.7 (+1.5) 63.2 47.3 27.7 46.9 57.1
+Table 1: Performance on COCO 2017. We showcase the performance of our pipeline on
+various DETR models comprising Deformable, Conditional and DAB withNq = 300.
+Comparison with SOTA. Table 1 compares the performance of Deformable,
+Conditional and DAB-DETR models in conjunction our EEQR wrapper to
+the baselines. Our method outperforms many existing baseline methods, prov-
+ing its integrability and consistently improving the mAP across various DETR
+variants. Under same training conditions, our proposed plug-and-play training
+scheme consistently improves performance, achieving up to +4.8 AP gain over
+Deformable-DETRand+3.3APgainoverConditional-DETR.Wealsonotethat
+our proposed methods, trained for only 12 epochs, surpass the performance of
+existing approaches such as SAM-DETR and Deformable-DETR, which require
+364

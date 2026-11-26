@@ -1,0 +1,182 @@
+LocNet: Improving Localization Accuracy for Object Detection
+Spyros Gidaris
+Universite Paris Est, Ecole des Ponts ParisTech
+gidariss@imagine.enpc.fr
+Nikos Komodakis
+Universite Paris Est, Ecole des Ponts ParisTech
+nikos.komodakis@enpc.fr
+Abstract
+We propose a novel object localization methodology with
+the purpose of boosting the localization accuracy of state-
+of-the-art object detection systems. Our model, given a
+search region, aims at returning the bounding box of an ob-
+ject of interest inside this region. To accomplish its goal,
+it relies on assigning conditional probabilities to each row
+and column of this region, where these probabilities provide
+useful information regarding the location of the boundaries
+of the object inside the search region and allow the accu-
+rate inference of the object bounding box under a simple
+probabilistic framework.
+F or implementing our localization model, we make use of
+a convolutional neural network architecture that is properly
+adapted for this task, called LocNet. We show experimen-
+tally that LocNet achieves a very signiﬁcant improvement on
+the mAP for high IoU thresholds on PASCAL VOC2007 test
+set and that it can be very easily coupled with recent state-
+of-the-art object detection systems, helping them to boost
+their performance. Finally, we demonstrate that our de-
+tection approach can achieve high detection accuracy even
+when it is given as input a set of sliding windows, thus prov-
+ing that it is independent of box proposal methods.
+1. Introduction
+Object detection is a computer vision problem that has
+attracted an immense amount of attention over the last
+years. The localization accuracy by which a detection sys-
+tem is able to predict the bounding boxes of the objects of
+interest is typically judged based on the Intersection over
+Union (IoU) between the predicted and the ground truth
+bounding box. Although in challenges such as PASCAL
+VOC an IoU detection threshold of 0.5 is used for deciding
+whether an object has been successfully detected, in real
+life applications a higher localization accuracy (e.g. IoU
+⩾ 0.7) is normally required ( e.g., consider the task of a
+This work was supported by the ANR SEMAPOLIS project. Code
+and trained models are available on:
+https://github.com/gidariss/LocNet
+Figure 1: Illustration of the basic work-ﬂow of our localization
+module. Left column: our model given a candidate box B (yellow
+box) it ”looks” on a search region R (red box), which is obtained
+by enlarging box B by a constant factor, in order to localize the
+bounding box of an object of interest. Right column: To localize
+a bounding box the model assigns one or more probabilities on
+each row and independently on each column of region R. Those
+probabilities can be either the probability of an element (row or
+column) to be one of the four object borders (see top-right image),
+or the probability for being on the inside of an objects bounding
+box (see bottom-right image). In either case the predicted bound-
+ing box is drawn with blue color.
+robotic arm that must grasp an object). Such a need is
+also reﬂected in the very recently introduced COCO detec-
+tion challenge [23], which uses as evaluation metric the tra-
+ditional average precision (AP) measurement but averaged
+over multiple IoU thresholds between 0.5 (loosely localized
+object) and 1.0 (perfectly localized object) so as to reward
+detectors that exhibit good localization accuracy.
+Therefore, proposing detectors that exhibit highly accu-
+rate (and not loose) localization of the ground truth objects
+should be one of the major future challenges in object detec-
+tion. The aim of this work is to take a further step towards
+addressing this challenge. In practical terms, our goal is to
+boost the bounding box detection AP performance across a
+wide range of IoU thresholds ( i.e., not just for IoU thresh-
+789
+
+
+---PAGE---
+
+old of 0.5 but also for values well above that). To that end,
+a main technical contribution of this work is to propose a
+novel object localization model that, given a loosely local-
+ized search region inside an image, aims to return the accu-
+rate location of an object in this region (see Figure 1).
+A crucial component of this new model is that it does
+not rely on the commonly used bounding box regression
+paradigm, which uses a regression function to directly pre-
+dict the object bounding box coordinates. Indeed, the moti-
+vation behind our work stems from the belief that trying to
+directly regress to the target bounding box coordinates, con-
+stitutes a difﬁcult learning task that cannot yield accurate
+enough bounding boxes. We argue that it is far more effec-
+tive to attempt to localize a bounding box by ﬁrst assigning
+a probability to each row and independently to each column
+of the search region for being the left, right, top, or bottom
+borders of the bounding box (see Fig. 1 top) or for being on
+the inside of an object’s bounding box (see Fig. 1 bottom).
+In addition, this type of probabilities can provide a measure
+of conﬁdence for placing the bounding box on each location
+and they can also handle instances that exhibit multi-modal
+distributions for the border locations. They thus yield far
+more detailed and useful information than the regression
+models that just predict 4 real values that correspond to es-
+timations of the bounding box coordinates. Furthermore, as
+a result of this, we argue that the task of learning to predict
+these probabilities is an easier one to accomplish.
+To implement the proposed localization model, we rely
+on a convolutional neural network model, which we call
+LocNet, whose architecture is properly adapted such that
+the amount of parameters needed on the top fully connected
+layers is signiﬁcantly reduced, thus making our LocNet
+model scalable with respect to the number of object cate-
+gories.
+Importantly, such a localization module can be easily in-
+corporated into many of the current state-of-the-art object
+detection systems [9, 11, 28], helping them to signiﬁcantly
+improve their localization performance. Here we use it in
+an iterative manner as part of a detection pipeline that uti-
+lizes a recognition model for scoring candidate bounding
+boxes provided by the aforementioned localization module,
+and show that such an approach signiﬁcantly boosts AP per-
+formance across a broad range of IoU thresholds.
+Related work. Most of the recent literature on ob-
+ject detection, treats the object localization problem at pre-
+recognition level by incorporating category-agnostic object
+proposal algorithms [35, 40, 26, 1, 18, 19, 2, 34, 33] that
+given an image, try to generate candidate boxes with high
+recall of the ground truth objects that they cover. Those pro-
+posals are later classiﬁed from a category-speciﬁc recogni-
+tion model in order to create the ﬁnal list of detections [12].
+Instead, in our work we focus on boosting the localization
+accuracy at post-recognition time, at which the improve-
+ments can be complementary to those obtained by improv-
+ing the pre-recognition localization. Till now, the work
+on this level has been limited to the bounding box regres-
+sion paradigm that was ﬁrst introduced from Felzenszwalb
+et al . [8] and ever-since it has been used with success on
+most of the recent detection systems [12, 11, 28, 30, 15,
+37, 39, 29, 24]. A regression model, given an initial candi-
+date box that is loosely localized around an object, it tries
+to predict the coordinates of its ground truth bounding box.
+Lately this model is enhanced by high capacity convolu-
+tional neural networks to further improve its localization
+capability [9, 11, 30, 28].
+Contributions. In summary, we make the following
+contributions: (1) We cast the problem of localizing an ob-
+ject’s bounding box as that of assigning probabilities on
+each row and column of a search region. Those probabil-
+ities represent either the likelihood of each element (row or
+column) to belong on the inside of the bounding box or the
+likelihood to be one of the four borders of the object. Both
+of those cases is studied and compared with the bounding
+box regression model. (2) To implement the above model,
+we propose a properly adapted convolutional neural net-
+work architecture that has a reduced number of parame-
+ters and results in an efﬁcient and accurate object localiza-
+tion network (LocNet). (3) We extensively evaluate our ap-
+proach on VOC2007 [5] and we show that it achieves a very
+signiﬁcant improvement over the bounding box regression
+with respect to the mAP for IoU threshold of 0.7 and the
+COCO style of measuring the mAP . It also offers an im-
+provement with respect to the traditional way of measuring
+the mAP ( i.e., for IoU ⩾ 0.5), achieving in this case 78.4%
+and 74.78% mAP on VOC2007 [5] and VOC2012 [6] test
+sets, which are the state-of-the-art at the time of writing this
+paper. Given those results we believe that our localization
+approach could very well replace the existing bounding box
+regression paradigm in future object detection systems. (4)
+Finally we demonstrate that the detection accuracy of our
+system remains high even when it is given as input a set
+of sliding windows , which proves that it is independent of
+bounding box proposal methods if the extra computational
+cost is ignored.
+The remainder of the paper is structured as follows:
+We describe our object detection methodology in §2. We
+present our localization model in §3. We show experimen-
+tal results in §4 and conclude in §5.
+2. Object Detection Methodology
+Our detection pipeline includes two basic components,
+the recognition and the localization models, integrated into
+an iterative scheme (see algorithm 1). This scheme starts
+from an initial set of candidate boxes B1 (which could
+be, e.g., either dense sliding windows [30, 25, 27, 22] or
+category-agnostic bounding box proposals [40, 35, 28]) and
+790

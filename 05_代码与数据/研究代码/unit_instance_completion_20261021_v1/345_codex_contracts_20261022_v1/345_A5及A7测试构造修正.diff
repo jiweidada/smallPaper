@@ -1,0 +1,163 @@
+--- 345_contracts_A.py
++++ 345_contracts_A_v2.py
+@@ -178,29 +178,80 @@
+     return {'method':'Controlled empty P targets and real batches; six-GT synthetic overflow checked against direct native matcher and denominator6, with wrong-denominator4 control.','rows':rows}
+ 
+ def variants(b):
+-    P={k:b[k] for k in ('P_boxes','P_cls','P_scores','P_valid')};n=P['P_valid'].shape[1]
+-    out=[]
+-    for key,value in [('boxes',P['P_boxes'].flip(1)),('classes',(P['P_cls']+3)%10),('scores',1-P['P_scores'])]:
+-        a=dict(b);a['P_'+({'boxes':'boxes','classes':'cls','scores':'scores'}[key])]=value;out.append((key,a))
+-    for kind in ('reverse','duplicate','empty','padding'):
+-        a=dict(b)
+-        for key,x in P.items():
+-            a[key]=x.flip(1) if kind=='reverse' else torch.cat((x,x),1) if kind=='duplicate' else x[:,:0] if kind=='empty' else x
+-        if kind=='padding':a['P_valid']=torch.zeros_like(P['P_valid'])
+-        out.append((kind,a))
++    keys=('P_boxes','P_cls','P_scores','P_valid');valid=b['P_valid'];out=[]
++    translated=b['P_boxes'].clone()
++    # All coordinate changes use existing geom342 transforms. A shifted 64px
++    # reference window implements a width/height-preserving local translation.
++    zero=torch.tensor([0.,0.,64.,64.]);shift=torch.tensor([1.,2.,65.,66.])
++    translated[valid]=G.win_norm_xyxy(G.win_norm_to_window_pixels(b['P_boxes'][valid],zero),shift)
++    a=dict(b);a['P_boxes']=translated;out.append(('boxes_valid_translation',a))
++    a=dict(b);a['P_cls']=torch.where(valid,(b['P_cls']+3)%10,b['P_cls']);out.append(('classes_valid_only',a))
++    a=dict(b);a['P_scores']=torch.where(valid,1-b['P_scores'],b['P_scores']);out.append(('scores_valid_only',a))
++    perm=dict(b)
++    for key in keys:perm[key]=b[key].clone()
++    for row in range(len(valid)):
++        ix=valid[row].nonzero().flatten()
++        for key in keys:perm[key][row,ix]=b[key][row,ix.flip(0)]
++    out.append(('joint_valid_permutation',perm))
++    for kind in ('duplicate','delete_alternate'):
++        indices=[]
++        for row in range(len(valid)):
++            ix=valid[row].nonzero().flatten()
++            indices.append(torch.cat((ix,ix)) if kind=='duplicate' else ix[::2])
++        maxn=max((len(ix) for ix in indices),default=0);a=dict(b)
++        for key in keys:
++            shape=(len(valid),maxn)+tuple(b[key].shape[2:]);a[key]=torch.zeros(shape,dtype=b[key].dtype)
++            for row,ix in enumerate(indices):a[key][row,:len(ix)]=b[key][row,ix]
++        out.append((kind+'_joint_fields',a))
++    a=dict(b)
++    for key in keys:a[key]=b[key][:,:0]
++    out.append(('empty_joint_fields',a))
++    a=dict(b);a['P_valid']=torch.zeros_like(valid);out.append(('all_padding_joint_supply',a))
+     return out
+ 
+ def A5():
+-    rows=[]
++    rows=[];reverse=[]
+     for name,b in SETS:
+         m=model('N',active=True)
+         with torch.no_grad():base=forward(m,b)
+         for kind,v in variants(b):
++            # Independently validate fixture slots before subject execution.
++            tokens,safe,classes,counts=core.candidate_inputs(v['P_boxes'],v['P_cls'],v['P_scores'],v['P_valid'])
++            assert torch.isfinite(tokens).all()
++            if kind in ('boxes_valid_translation','classes_valid_only','scores_valid_only','joint_valid_permutation'):
++                for key in ('P_boxes','P_cls','P_scores','P_valid'):strict(v[key][~b['P_valid']],b[key][~b['P_valid']])
+             with torch.no_grad():out=forward(m,v)
+             for field in ('pred_boxes','pred_logits','query_states'):strict(base[field],out[field])
+-            rows.append({'input':name,'perturbation':kind,'all_output_bytes_identical':True})
++            aux_changed=base['plan']['z'].shape!=out['plan']['z'].shape or not bits(base['plan']['z'],out['plan']['z'])
++            rows.append({'input':name,'perturbation':kind,'all_output_bytes_identical':True,'max_abs_diff':0.,
++                         'valid_candidates_before':int(b['P_valid'].sum()),'valid_candidates_after':int(v['P_valid'].sum()),'aux_z_changed':aux_changed})
++        # Deliberately reproduce the rejected old fixture. Add one zero pad to
++        # the synthetic all-valid batch so the negative control is applicable.
++        pad=dict(b)
++        for key in ('P_boxes','P_cls','P_scores','P_valid'):
++            shape=(b[key].shape[0],1)+tuple(b[key].shape[2:])
++            pad[key]=torch.cat((b[key],torch.zeros(shape,dtype=b[key].dtype)),dim=1)
++        wrong=dict(pad);wrong['P_boxes']=pad['P_boxes'].flip(1)
++        rb=wrong['P_boxes'][wrong['P_valid']]
++        invalid_count=int((~(rb[:,2:]>rb[:,:2]).all(-1)).sum());assert invalid_count>0
++        try:
++            with torch.no_grad():forward(m,wrong)
++        except AssertionError:
++            COUNT['negative_controls']+=1;reverse.append({'input':name,'expected_failure':'boxes-only flip with unchanged validity',
++                'rejected':True,'active_nonpositive_boxes':invalid_count,'extra_padding_columns_for_test':1})
++        else:raise AssertionError('malformed boxes-only flip was accepted')
++        if name!='synthetic':
++            # Exact old real-batch construction, with no added test padding.
++            legacy=dict(b);legacy['P_boxes']=b['P_boxes'].flip(1)
++            rb=legacy['P_boxes'][legacy['P_valid']];legacy_invalid=int((~(rb[:,2:]>rb[:,:2]).all(-1)).sum())
++            if legacy_invalid:
++                try:
++                    with torch.no_grad():forward(m,legacy)
++                except AssertionError:COUNT['negative_controls']+=1;reverse.append({'input':name,'expected_failure':'exact old real fixture','rejected':True,'active_nonpositive_boxes':legacy_invalid,'extra_padding_columns_for_test':0})
++                else:raise AssertionError('old invalid real fixture accepted')
+         bad=base['query_states']+1.;assert not bits(base['query_states'],bad);COUNT['negative_controls']+=1
+-    return {'method':'Nonzero readout fixture, separate changes to coordinates/classes/scores/count/order/mask; exact tensor bytes, with corrupted-output control.','applicability':{'N':'tested','S':'not applicable: P is intended generator input','G':'not applicable: P is intended generator input','R':'not applicable: P is intended generator input'},'rows':rows}
++    return {'method':'345b: only valid slots are translated/changed; all four fields move together for valid-slot permutation and count changes. Nonzero N readout, exact output bytes, malformed boxes-only flip is an expected rejected control.',
++            'applicability':{'N':'tested','S':'not applicable: intended P generation path','G':'not applicable: intended P generation path','R':'not applicable: intended P generation path'},'rows':rows,'negative_tests':reverse}
+ 
+ def A6():
+     rows=[]
+@@ -235,7 +286,7 @@
+                 for j in range(b['P_valid'].shape[1]):
+                     if b['P_valid'][i,j]:expected[i,int(b['P_cls'][i,j])]+=1
+             close(a['counts'],expected,0);close(calls[0],np.log1p(expected),1e-6);strict(calls[0],calls[1])
+-            changed=dict(b);changed['P_boxes']=b['P_boxes'].flip(1);changed['P_scores']=1-b['P_scores']
++            changed=variants(b)[0][1];changed['P_scores']=torch.where(b['P_valid'],1-b['P_scores'],b['P_scores'])
+             with torch.no_grad():forward(m,changed)
+             strict(calls[0],calls[-1])
+             invalid=dict(b);invalid['P_valid']=torch.zeros_like(b['P_valid']);entered=[]
+@@ -362,35 +413,40 @@
+         'seed2_scope':'not constructed;345 expressly requests one global construction/one bounded batch, both seed head tests use their own SHA-bound caches.'}
+ 
+ def main():
+-    C.write('345_A_预定验收口径.json',{'ordered_contracts':list(range(1,13)),
+-        'exact_cases':'A1 original/current shared-state tensors; A5 N invariance; A8 G/R initial all hidden; A9 G isolation; A10 mass replacement N. Tensor bytes include dtype, shape and signed-zero bits.',
+-        'numeric_tolerances_fixed_before_execution':{'NumPy_plan_float64_absolute':2e-12,'NumPy_plan_float32_absolute':1e-5,'independent_geometry_absolute':1e-5,'S_permutation_FP32_absolute':2e-5,'wrong_coordinates_distinct_absolute':1e-4},
+-        'anti_vacuity':'Nonzero fixture readout and S count/token projections for information-path tests; never optimized or saved as training inputs.',
+-        'inputs':'one controlled RGB/targets fixture plus both seed development first32 through train344 SHA-verified loader, two16 batches each.',
+-        'failure_gate':'Any actual contract failure stops this process; B must not be created or executed. No threshold/recipe/model changes.',
+-        '已执行':{'protocol_writes':1,'model_forwards':0,'optimizer_steps':0},'未执行':['A contracts','B','真实训练'],'未核':['A outcomes'],'source_sha256':C.sources()})
+     start=time.perf_counter();current=0
++    auth=C.SPEC/'345b_补充裁定_A5测试构造修正.txt'
++    C.write('345_A5修正预定口径_v2.json',{'authorization_path':str(auth),'authorization_sha256':C.sha(auth),
++        'legal_changes':'valid-only geometric translation/class/score; all four fields jointly permuted, duplicated, deleted or emptied; padding values stay padding.',
++        'negative_control':'boxes-only flip must be rejected; report exact old real-batch count separately from extra-pad synthetic control.',
++        'A1_A4':'inherit verified originals after source SHA checks, no rerun; corrected A5 plus A7 fixture only.',
++        'thresholds':'unchanged from345_A_预定验收口径.json','已执行':{'protocol_writes':1,'model_forwards':0,'optimizer_steps':0},
++        '未执行':['A5 through A12','FLOPs','B','真实训练'],'未核':['resumed outcomes'],'source_sha256':C.sources()})
+     try:
++        oldfailure=C.read(C.HERE/'345_result_A实现失败_停止.json')
++        for path,h in oldfailure['source_sha256'].items():assert C.sha(path)==h,path
++        RESULTS.extend(C.read(C.HERE/f'345_result_A{i:02d}.json') for i in range(1,5))
+         ids=importlib.import_module('344_context').development_ids()[:32]
+         SETS.append(('synthetic',synthetic()))
+         for seed in (1,2):
+             entries=[T.load_entry(seed,i) for i in ids];COUNT['cache_loads']+=32;REAL[seed]=entries
+             for j in range(2):SETS.append((f'seed{seed}_real16_batch{j}',T.collate(entries[j*16:j*16+16])))
+-        for current,test in enumerate((A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12),1):
++        for current,test in enumerate((A5,A6,A7,A8,A9,A10,A11,A12),5):
+             before=dict(COUNT);t0=time.perf_counter();details=test()
+             row={'contract':current,'status':'已验证','independent_or_negative_method':details.pop('method'),
+-                 'details':details,'call_counts':{k:COUNT[k]-before[k] for k in COUNT},'wall_seconds':time.perf_counter()-t0,'source_sha256':C.sources()}
++                'details':details,'call_counts':{k:COUNT[k]-before[k] for k in COUNT},'wall_seconds':time.perf_counter()-t0,'source_sha256':C.sources(),
++                'authorization_sha256':C.sha(auth)}
+             RESULTS.append(row)
+-            C.write(f'345_result_A{current:02d}.json',{**row,'已执行':row['call_counts'],'未执行':['B','真实训练','GPU'],'未核':['主控独立复核']})
+-            print(f'A{current:02d} PASS head={COUNT["head_completions"]} grad={COUNT["autograd_calls"]} time={time.perf_counter()-start:.1f}s',flush=True)
+-        C.write('345_result_A合同总表.json',{'status':'12项合同已验证；FLOPs尚未执行，B尚未执行','contracts':RESULTS,
+-            '已执行':COUNT,'wall_seconds':time.perf_counter()-start,'未执行':['FLOPs补足','B正式入口','真实训练','GPU','SSH','队列'],
+-            '未核':['4PNG本轮目视','主控独立复核'],'source_sha256':C.sources()})
++            C.write(f'345_result_A{current:02d}_v2.json',{**row,'已执行':row['call_counts'],'未执行':['B','真实训练','GPU'],'未核':['主控独立复核']})
++            print(f'A{current:02d} v2 PASS head={COUNT["head_completions"]} grad={COUNT["autograd_calls"]} time={time.perf_counter()-start:.1f}s',flush=True)
++        C.write('345_result_A合同总表_v2.json',{'status':'12项合同已验证；FLOPs和B未执行','contracts':RESULTS,
++            'scope':'A1..A4 original pass; A5..A12 resumed under345b','已执行_本次':COUNT,'已执行':COUNT,
++            'wall_seconds':time.perf_counter()-start,'未执行':['FLOPs补足','B正式入口','真实训练','GPU','SSH','队列'],
++            '未核':['4PNG本轮目视','主控独立复核'],'source_sha256':C.sources(),'authorization_sha256':C.sha(auth)})
+     except Exception as ex:
+         failure={'contract':current,'status':'实现失败','exception':repr(ex),'traceback':traceback.format_exc()}
+-        C.write('345_result_A实现失败_停止.json',{'status':'实现失败；按345停下，B未执行','passed_contracts':RESULTS,'failed':failure,
+-            'remaining_contracts':[{'contract':i,'status':'未验证','reason':'未执行；前项失败后停止'} for i in range(current+1,13)],
++        C.write('345_result_A实现失败_停止_v2.json',{'status':'实现失败；按345b停下，B未执行','passed_contracts':RESULTS,'failed':failure,
++            'remaining_contracts':[{'contract':i,'status':'未验证','reason':'未执行；前项失败后停止'} for i in range(max(current+1,5),13)],
+             '已执行':COUNT,'wall_seconds':time.perf_counter()-start,'未执行':['B正式入口实现与验收','剩余A合同','FLOPs补足','真实训练','GPU','SSH','队列'],
+-            '未核':['失败原因的主控裁定'],'source_sha256':C.sources()});print(failure['traceback'],flush=True);raise SystemExit(1)
++            '未核':['失败原因的主控裁定'],'source_sha256':C.sources(),'authorization_sha256':C.sha(auth)});print(failure['traceback'],flush=True);raise SystemExit(1)
+ 
+ if __name__=='__main__':main()

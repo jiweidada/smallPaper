@@ -1,0 +1,37 @@
+TIDE: A General Toolbox for Identifying Object
+Detection Errors
+Daniel Bolya, Sean Foley, James Hays, and Judy Hoffman
+Georgia Institute of Technology
+Abstract. We introduce TIDE, a framework and associated toolbox1 for analyzing
+the sources of error in object detection and instance segmentation algorithms.
+Importantly, our framework is applicable across datasets and can be applied
+directly to output prediction ﬁles without required knowledge of the underlying
+prediction system. Thus, our framework can be used as a drop-in replacement
+for the standard mAP computation while providing a comprehensive analysis of
+each model’s strengths and weaknesses. We segment errors into six types and,
+crucially, are the ﬁrst to introduce a technique for measuring the contribution of
+each error in a way that isolates its effect on overall performance. We show that
+such a representation is critical for drawing accurate, comprehensive conclusions
+through in-depth analysis across 4 datasets and 7 recognition models.
+Keywords: Error Diagnosis, Object Detection, Instance Segmentation
+1 Introduction
+Object detection and instance segmentation are fundamental tasks in computer vision,
+with applications ranging from self-driving cars [6] to tumor detection [9]. Recently, the
+ﬁeld of object detection has rapidly progressed, thanks in part to competition on challeng-
+ing benchmarks, such as CalTech Pedestrians [8], Pascal [10], COCO [20], Cityscapes
+[6], and LVIS [12]. Typically, performance on these benchmarks is summarized by one
+number: mean Average Precision (mAP ).
+However,mAP suffers from several shortcomings, not the least of which is its
+complexity. It is deﬁned as the area under the precision-recall curve for detections at
+a speciﬁc intersection-over-union (IoU) threshold with a correctly classiﬁed ground
+truth (GT), averaged over all classes. Starting with COCO [20], it became standard to
+averagemAP over 10 IoU thresholds (interval of 0.05) to get a ﬁnalmAP 0.5:0.95. The
+complexity of this metric poses a particular challenge when we wish to analyze errors in
+our detectors, as error types become intertwined, making it difﬁcult to gauge how much
+each error type affectsmAP .
+Moreover, by optimizing formAP alone, we may be inadvertently leaving out the
+relative importance of error types that can vary between applications. For instance, in
+tumor detection, correct classiﬁcation arguably matters more than box localization; the
+existence of the tumor is essential, but the precise location may be manually corrected.
+In contrast, precise localization may be critical for robotic grasping where even slight
+1 https://dbolya.github.io/tide/

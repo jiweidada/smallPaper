@@ -1,0 +1,100 @@
+"""Export only accepted new-run rows; preserve the historical four-arm tables."""
+from pathlib import Path
+import csv
+import datetime as dt
+import hashlib
+import importlib.util
+import io
+import json
+import math
+
+HERE=Path(__file__).resolve().parent
+ROOT=HERE.parents[1]
+BACKUPS=Path('D:/MPSMA_DEIM_experiment_backups/BASE_FULL_FRESH_20261112_v1')
+OUT=ROOT/'实验数据汇总_20261108/fresh_pair_20261112'
+METRICS=['AP','AP50','AP75','APs','APm','APl','AR1','AR10','AR100','ARs','ARm','ARl']
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+read=lambda p:json.loads(p.read_text(encoding='utf-8-sig'))
+rows=[];counts={};sources=[]
+for arm in ['BASE_FRESH','FULL_FRESH']:
+    control=BACKUPS/arm
+    spec=importlib.util.spec_from_file_location('protocol_'+arm,control/'backup_protocol.py')
+    protocol=importlib.util.module_from_spec(spec);spec.loader.exec_module(protocol)
+    accepted=[]
+    for stage in sorted((control/'backups/epochs').glob('epoch[0-9][0-9][0-9][0-9]')):
+        if not (stage/'accepted.json').is_file():continue
+        index=int(stage.name[5:]);assert 0<=index<320
+        data=(stage/'manifest.json').read_bytes();manifest=protocol.parse_manifest(data,arm,index)
+        assert (stage/'ack.json').read_bytes()==protocol.ack_bytes(data,manifest)
+        assert (stage/'accepted.json').read_bytes()==protocol.accepted_bytes(data,manifest)
+        protocol.check_metric_files(manifest,lambda name:protocol.local_metadata(stage/name))
+        validation=read(stage/'payload_validation.json')
+        assert validation['status']=='CHECKPOINT_PAYLOADS_VERIFIED_CPU_ONLY'
+        assert validation['manifest_sha256']==hashlib.sha256(data).hexdigest()
+        assert validation['protocol_sha256']==protocol.PROTOCOL
+        assert validation['validator_sha256']==sha(control/'checkpoint_validator.py')
+        assert validation['model_forwards']==validation['evaluator_runs']==validation['optimizer_updates']==0
+        assert any(x.get('complete_state_and_rng_fields_verified') for x in validation['checked_payloads'])
+        source=stage/'epoch.metrics.json';row=read(source)
+        assert row['epoch']==index and row['optimizer_step_attempts']==(index+1)*1617
+        assert set(row['metrics'])==set(METRICS) and all(math.isfinite(row['metrics'][m]) for m in METRICS)
+        item={'arm':arm,'series_status':'in_progress_accepted_rows','round_1based':index+1,'actual_epoch_index_0based':index,
+              'seed':0,'batch_size':4,'precision':'FP32','optimizer_step_attempts':row['optimizer_step_attempts'],'ema_updates':row['ema_updates'],
+              **row['metrics'],'train_loss_mean':row['train_loss_mean'],'evaluated_ema_tensor_sha256':row['ema_tensor_sha256'],
+              'evaluated_checkpoint_sha256':row['evaluated_checkpoint_sha256'],'next_state_checkpoint_sha256':manifest['rolling_sha256'],
+              'prediction_sha256':row['prediction_sha256'],'evaluation_arrays_sha256':row['evaluation_arrays_sha256'],
+              'protocol_sha256':row['protocol_sha256'],'configuration_sha256':row['config_sha256'],'created_remote_utc':row['created_utc'],
+              'source_path':str(source),'source_sha256':sha(source),'backup_manifest_sha256':sha(stage/'manifest.json'),
+              'local_payload_validation_sha256':sha(stage/'payload_validation.json'),'remote_acceptance_sha256':sha(stage/'accepted.json')}
+        rows.append(item);accepted.append(index)
+        sources.append({'arm':arm,'round':index+1,'file':str(source),'sha256':sha(source),'manifest':str(stage/'manifest.json'),'manifest_sha256':sha(stage/'manifest.json')})
+    assert accepted==list(range(len(accepted))),'Accepted prefix is not contiguous'
+    counts[arm]=len(accepted)
+assert all(counts[a]>=1 for a in counts),'First complete backed-up round is not yet available in both arms'
+OUT.mkdir(exist_ok=True)
+csv_path=OUT/'逐轮指标_FRESH.csv'
+report_path=OUT/'逐轮导出核对_FRESH.json'
+index_path=OUT/'run_index.json'
+stream=io.StringIO(newline='');writer=csv.DictWriter(stream,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+payload=stream.getvalue().encode('utf-8-sig')
+if all(path.is_file() for path in (csv_path, report_path, index_path)) and csv_path.read_bytes()==payload:
+    previous_report, previous_index = read(report_path), read(index_path)
+    if (previous_report['csv']['sha256'] == hashlib.sha256(payload).hexdigest()
+            and previous_report['accepted_rounds'] == previous_index['accepted_rounds'] == counts
+            and previous_report['sources'] == sources):
+        print(json.dumps({k:previous_report[k] for k in ['status','accepted_rounds','csv','primary_endpoints_ready']},ensure_ascii=False))
+        raise SystemExit(0)
+if csv_path.exists():
+    existing=list(csv.DictReader(io.StringIO(csv_path.read_text(encoding='utf-8-sig'))))
+    old={(r['arm'],int(r['round_1based'])):r for r in existing}
+    for row in rows:
+        key=(row['arm'],row['round_1based'])
+        if key in old:assert old[key]=={k:str(v) for k,v in row.items()},'Previously exported scientific row changed'
+csv_path.write_bytes(payload)
+now=dt.datetime.now(dt.timezone.utc).isoformat()
+report={'observed_local_utc':now,'status':'IN_PROGRESS_ACCEPTED_ROWS_ONLY','accepted_rounds':counts,'target_rounds_per_arm':320,
+        'csv':{'file':str(csv_path),'sha256':sha(csv_path),'rows':len(rows)},'sources':sources,
+        'primary_endpoints_ready':all(v==320 for v in counts.values()),'replace_manuscript_results':False,
+        'scope':'Only native rows with local CPU full-state verification, matching manifest/ACK and remote acceptance. No model/evaluator run; historical four-arm data untouched.',
+        'remote_clock_note':'Order by actual epoch counters; remote/local timestamps are retained separately.'}
+report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+index = {'status': report['status'], 'accepted_rounds': counts, 'target_rounds_per_arm': 320,
+         'running_manifest': str(HERE/'running_pair_manifest.json'),
+         'latest_row_export': str(report_path),
+         'separate_from_completed_four_arm_snapshot': True, 'final_endpoint_rows': 0}
+if index_path.is_file() and counts['FULL_FRESH'] == 320:
+    prior_index = read(index_path)
+    full_proof = prior_index.get('full_terminal_audit')
+    if full_proof is not None:
+        proof_path = Path(full_proof['file'])
+        assert sha(proof_path) == full_proof['sha256']
+        proof = next(x for x in read(proof_path)['arms'] if x['arm'] == 'FULL_FRESH')
+        assert proof['completed_run_evidence'] and proof['accepted_rounds'] == 320
+        terminal = next(x for x in reversed(sources) if x['arm'] == 'FULL_FRESH')
+        assert terminal['manifest_sha256'] == proof['last_manifest']['sha256']
+        index.update(status='FULL_COMPLETED_VERIFIED_BASE_PENDING' if counts['BASE_FRESH'] < 320
+                     else 'ACCEPTED_PAIR_AWAITING_TERMINAL_AUDIT',
+                     completed_arms={'FULL_FRESH':proof['endpoints']},
+                     full_terminal_audit=full_proof,final_endpoint_rows=1)
+index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+print(json.dumps({k:report[k] for k in ['status','accepted_rounds','csv','primary_endpoints_ready']},ensure_ascii=False))

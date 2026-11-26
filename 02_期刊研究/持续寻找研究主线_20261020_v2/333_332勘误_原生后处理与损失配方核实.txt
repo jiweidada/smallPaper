@@ -1,0 +1,26 @@
+333｜对332的勘误与补充（2026-10-21）。332原文不改，本文覆盖其(a)(c)(e)中不准确处。只列本会话实际读过的文件；未读的标“未核”。
+
+一、后处理（改332(a)）
+已读：
+- C:\Users\jiwei\Desktop\DEIM\engine\deim\postprocessor.py：只有 sigmoid→flatten(1)→topk(num_top_queries)→类别=index%C、框=index//C→cxcywh转xyxy乘orig_size。无 score>0.001，无逐类max100。
+- engine\data\dataset\coco_eval.py 的 prepare_for_coco_detection(L90-112)：逐框转COCO，不按score过滤。
+- engine\solver\det_engine.py L218/226：postprocessor输出直接进 coco_evaluator.update，中间无阈值步。
+- 配方快照 相位机制论文_20261018\data\source_snapshot\common.yml：evaluator.max_dets: 100 (L8)；PostProcessor.num_top_queries: 300 (L233)；顶层 score_threshold: 0.0 (L258)。
+未核（Codex必须先查清再做第3项parity）：
+- 在 DEIM\engine 与 DEIM\train.py 内搜索 score_threshold、max_dets、maxDets 均无引用。即：这两个键由谁消费、是否真的生效，本地源码里没看到。“max_dets由faster_coco_eval消费”“score_threshold是评估键”都是推测，不得当事实写进实现。
+- 317要求的“score严格>0.001、逐类max100”因此不能说成“复现原生步骤”。须按317文字自建，并单独说明：它与BASE24实际评估口径（该配方score_threshold为0.0，COCOeval的maxDets语义）是否一致，由Codex在该评估库源码里确认后写入result。
+- 若自建口径与原评估口径不同，第3项parity对照对象应分两个：①无new4时与 PostProcessor 逐项一致（top300）；②与原评估库对同一预测的AP一致，用来证明自建后处理未改变baseline指标。
+
+二、损失配方（改332(c)）
+已读 common.yml L234-256：DEIMCriterion alpha 0.75、gamma 1.5，未设 mal_alpha（构造默认None）；matcher cost_class2/cost_bbox5/cost_giou2，matcher alpha .25/gamma 2.0；losses含 mal/boxes/local，weight_dict loss_mal 1/bbox 5/giou 2。
+- 317写的 MAL γ=1.5 与此一致。MAL内 γ(1.5) 与 matcher γ(2.0) 是两个参数，别混。
+- 配置不用 configs\base\deim_losschange.yml（其 mal_alpha=0.25）。
+- 未核：这份快照是否就是BASE24两个checkpoint训练时实际用的配方。依据是旧文档说法，本会话未读那些文档。Codex应对照checkpoint内保存的配置（若有）或训练日志确认，写入result。
+
+三、分母（改332(e)）
+已读 deim_criterion.py：num_boxes=整批GT数，clamp(min=1)；boxes/local在有aux时用 indices_go 的 num_boxes_go；forward里 'aux_outputs' 缺失会断言失败。317要求 |U_W| 完整进分母、overflow单列、匹配min(4,|U_W|)。故新写 compute_losses：复用 loss_labels_mal / loss_boxes 函数体，分母由外部传入 max(1,|U_W|)，不调用原 forward。分母按batch合计还是按图，317未写明，Codex实现前须按317第5节原文确认，不自行决定。
+
+四、对第2、3项的影响
+- 第2项parity对照：原类用common.yml配方的 alpha/gamma 构造；容差记录入result。
+- 第3项：见一。其余规格不变。
+- 本文未执行任何代码，没有可启动命令。

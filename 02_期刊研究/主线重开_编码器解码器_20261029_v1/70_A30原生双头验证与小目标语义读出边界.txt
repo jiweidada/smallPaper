@@ -1,0 +1,84 @@
+A30 原生双头验证与小目标语义读出边界
+记录时间：2026-10-31T01:37:52.141066+00:00
+Material Passport：academic-research-suite / experiment-agent；定向原文/源码核查＋冻结权重推理诊断；验证状态为源码、字节、运行身份、8组AP/固定FP及缓存属性核验通过，不是新算法或主线有效证明。版本A30。
+
+当前结论：尚未找到可正式定题的小论文主线。A30排除了一个必要混淆：低分可定位小目标现象并非只存在于此前one2many评价中。两个原生分支在同误报预算下接近，而可定位低分候选大多在终态TAL中已有有效正样本。因此不能把“换one2one头”“补正样本数量”“交换分类分数/回归框”包装成新贡献，也不能由此归因编码器已经丢失语义。新的编码器、交互和解码器选择继续开放，P仍降级。
+
+1. 检索策略与记录
+本阶段一批4条定向检索，查询YOLO26/STAL/featurealignment与tinyobject/anchorpoint对齐；另打开官方文档与第三方概述摘要，再沿官网链接核实原作者报告。完整查询/返回见literature_discovery_raw.json。第三方论文与索引对STAL的描述不作为本次固定版本行为依据，研究不是系统综述或排他性查重。
+原作者文献是Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models，arXiv2606.03748v1（2026-06-02）；它区别于Hidayatullah/Tubagus的第三方概述2602.14582。新增原始PDF一篇及逐节阅读记录，矩阵97增至98条。8个源码blob与公开Git tree核对，其中7个来自既有固定源码、1个NMS文件新取；不是8个新算法。
+
+2. 核心文献与版本核查
+作者报告已提出双头一致任务分配、直接框回归、ProgressiveLoss、STAL与MuSGD，且表5/6已有权重日程和STAL参考尺寸消融，表7已经分别报告NMS与E2E路径。因此“对比两头”“改变扩展尺寸”“更多正样本”不是本轮的首创。
+本次实际版本固定Ultralytics8.4.191，commit2004cba021c68a46429be460e26954ab171b2862。YAML的end2endTrue只是该冻结配置默认值；当前官网文档描述one2many+NMS为精度默认路径、one2one为可选nmsFalse路径。前面口头“默认one2one”已经收窄为版本限定，报告始终明确分支，没有升级或改动冻结代码。
+另一个明确版本差异：作者报告式5按边长<s_min触发候选扩展；本次固定源码按边长<中间stride16触发并扩至16。不能将论文的较早触发规则、COCO/MuSGD配方与本研究D0/AdamW100轮配方视为相同复现。
+阅读范围：SelectedSec3.2.1,Sec3.3.2-3.3.3,selected4.1/4.3.3-4.3.4/4.4 andTables5-7. Eq2-5 visually checkedPDFpage7;Tables5/6 andheadtradeoff visually checkedPDFpage13. Not full31-page paper,supplementary,MuSGD experiments or COCO reproduction.。没有声称读完31页或复现作者COCO训练。原始PDF与SHA详见new_core_records.json及公共文献库sidecar。
+
+3. 最近机制源码对照与受控验证
+[源码] DetectionModel实际选择E2ELoss，不是相邻的旧E2EDetectLoss。M头topk10；O头先topk7再topk2=1。两头分类均为对归一化任务对齐软目标的BCE，而非忽视定位质量的硬标签分类。任务分数使用p^0.5*非负CIoU^6，随后有候选筛选、冲突消解、二次topk与软目标归一化。候选区域放大不等于每个GT最终必有有效监督。
+[源码] 两头共用同一backbone/neck；训练中的O头特征入口detach，eval不detach。end2end选择输出路径，不关闭双头训练。框decode的xywh/xyxy也随标志变化，本实验统一xyxy再后处理，防止格式混淆。
+[已执行] 本地冻结协议后上传，单次隔离任务PID14461/start100988919执行100张旧开发集原图，每图一次前向取双头，第101次重放第1图核对完整O原生路径。4张先行和全部100张旧M高分预测一致性通过；最大框坐标差5.74448529420124e-05输入像素、最大分数差0.0。O完整路径与缓存重构逐位一致，state_dict及源文件/权重哈希未变。
+固定框头M/O×分数头M/O×后处理NMS/TOPK，共8组，所有组完整报告。GT仅用于评价与独立终态分配诊断，没有用于部署评分或修改网络。Mbox_Mscore_NMS与Obox_Oscore_TOPK是两个原生端点，其余是解释机制的反事实组合，不是训练出的新方法。
+8组内部COCO结果：
+  Mbox_Mscore_NMS: inputsmallAP=24.423921%,APall=27.522185%,FP1200时smallTP=2412
+  Mbox_Mscore_TOPK: inputsmallAP=8.622937%,APall=8.860977%,FP1200时smallTP=113
+  Mbox_Oscore_NMS: inputsmallAP=24.102881%,APall=26.984438%,FP1200时smallTP=2450
+  Mbox_Oscore_TOPK: inputsmallAP=23.997038%,APall=26.835637%,FP1200时smallTP=2383
+  Obox_Mscore_NMS: inputsmallAP=14.257497%,APall=18.554490%,FP1200时smallTP=881
+  Obox_Mscore_TOPK: inputsmallAP=8.270963%,APall=8.586737%,FP1200时smallTP=112
+  Obox_Oscore_NMS: inputsmallAP=24.612984%,APall=27.513542%,FP1200时smallTP=2460
+  Obox_Oscore_TOPK: inputsmallAP=24.529855%,APall=27.374667%,FP1200时smallTP=2415
+两个原生端点的inputsmallAP差O−M=0.105934pp，1000次成对图像bootstrap95%区间[-0.626265,0.887465]pp，区间跨0。这不证明两头完全等价，也不支持稳定的新算法收益。该区间仅条件于单checkpoint和当前100图，相关视频帧和训练seed不在区间中。
+同误报预算：
+  FP预算300: M=1740个smallTP（实际FP300）,O=1760个smallTP（实际FP300）
+  FP预算1200: M=2412个smallTP（实际FP1200）,O=2415个smallTP（实际FP1200）
+  FP预算3000: M=2746个smallTP（实际FP3000）,O=2773个smallTP（实际FP3000）
+必须区分同阈值与同误报：conf0.25时M为2411smallTP/1718smallFN/1200FP，O为2297smallTP/1832smallFN/920FP。直接按同阈值比较漏检会混入分数尺度与精度取舍；FP1200时则是2412对2415个smallTP。
+M分数直接用于TOPK会因其稠密多预测语义造成大量重复；跨头换框/分数也没有获得可晋级的独立贡献。这符合已有双头职责差异，不能将反事实最高分一组挑出后当作新算法。
+
+4. 原图小目标失败证据、推断与尚未回答的问题
+[新观测] 4491个有效GT中，4129个为输入面积<32²小目标。检查NMS/TOPK之前的全部8400位置，M有3401个小目标存在IoU>=0.5原始预测框，O有3496个。原始支持是GT分析用的存在性统计，不是可恢复召回上界；同一框可以覆盖多个GT。
+M的1718个同阈值漏检中，939个有位置合格但GT类分数<0.25的原始候选；O的1832个漏检中对应1162个。这将此前“保存框里有低分定位证据”的观察扩展到原生O头，但没有证明分数不校准或语义缺失。
+[新观测] 在终态模型重新调用原生TAL，M/O全部小目标分别有322/252个没有有效正目标。更关键的是，上述位置合格但低分的漏检中仅29/23个属于零有效正目标；O为23/1162。因此“当前没有正目标”不是该子群的占多数解释。
+这里明确只检验最终checkpoint的匹配状态，不是训练轨迹；不能排除早期训练监督不足、过拟合、困难样本、遮挡或类别歧义。
+[新观测] O的3877个有效小目标正位置中，有1115个位于原始GT框外，但有效位置都在扩展候选区域内。510个O漏检的最佳定位支持位置位于原始框外。它只提示检查局部语义读取位置的必要性，尚未控制大小、相位、类别和定位质量，不能称原因或新研究空白。
+[我的推断] 当前更应区分“有定位证据”“有足够可分的类别证据”与“单次预测的去重/排他约束”。仅见好框低分，不能推出换新编码器、增加正样本或套用DeepSeek机制就有收益。
+[待验证假设] 基于预测几何的局部语义重新读取是否能在保持实例排他性、相同框/候选/FP预算时改善小目标；该操作是否已被TOOD、质量评分或NMS-free方法覆盖。它是下一项诊断问题，尚未获准为候选算法或主线。
+
+5. 算法增量、可行性与风险
+本阶段没有新增被确认的新算法。仅换分支、交叉换分数/框、额外NMS、STAL尺寸调整或普通质量分支均不足以支持独立创新。P校准继续降级，O单向查询隔离不晋级，N未验证。
+已证实宿主能运行：本轮101次FP32单图前向、200次原生TAL，优化器更新0；总分析约299.01秒，含归档约306.25秒。GPU allocated/reserved峰值约0.1387/0.1758GiB。这是推理资源，不能替代新架构的24GB训练预检查。更早D0的100轮训练可作为已存在对照，未重跑。
+主要风险：已反复使用的100图是开发数据；单seed；内部COCOcrowd口径并非官方VisDrone忽略区口径；分数低可能符合质量软目标或普通泛化难度；反事实交换破坏原配对语义；终态TAL不能证明训练因果。上述风险限制本轮定题力度，不能用微小AP差或原始支持数量越过。
+
+6. 最小下一步（草案，当前新增调用分配0）
+先读最接近的TOOD空间对齐、NMS-free双分配等完整方法/源码，确认基于预测框中心重新读取分数或特征是否只是现成方法的等价实现。同步沿已核对的官方VisDrone忽略区规则规范后续指标，避免内部crowd结果被当成榜单或投稿对比。
+若仍有具体算子差异，再冻结缓存控制：保持框和候选数不变，以原生零偏移与GT-free预测中心读取作对照，同时测重复匹配、固定FP召回和AP；若收益只来自阈值、NMS、更多候选或GT位置，则不晋级。只有存在可纠正、可复验的语义/实例交互缺陷后，才选择编码器、交互或解码器增量及新的训练协议。
+详见next_semantic_readout_question_DRAFT.json。当前实验已正常完成且原PID缺失，无自动队列；不重启A22、旧DEIM或压缩/恢复分支。图像使用清单审计、独立确认集、完整验证和额外seed仍是后续条件。整体寻找可投稿主线的目标保持active。
+
+7. 参考、链接与核验
+原作者报告：https://arxiv.org/abs/2606.03748v1
+官方当前文档：https://docs.ultralytics.com/models/yolo26/
+固定源码：
+  ultralytics/nn/modules/head.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/nn/modules/head.py
+  ultralytics/utils/loss.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/loss.py
+  ultralytics/utils/tal.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/tal.py
+  ultralytics/nn/tasks.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/nn/tasks.py
+  ultralytics/engine/trainer.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/engine/trainer.py
+  ultralytics/cfg/models/26/yolo26.yaml
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/cfg/models/26/yolo26.yaml
+  ultralytics/utils/ops.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/ops.py
+  ultralytics/utils/nms.py
+    https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/nms.py
+下一步需完整核查的TOOD（本阶段仅沿用此前官方摘要范围，不称完整方法已读）：
+  https://openaccess.thecvf.com/content/ICCV2021/html/Feng_TOOD_Task-Aligned_One-Stage_Object_Detection_ICCV_2021_paper.html
+GFL/GFLv2已在既有核心矩阵，用于限定一般性质量评分的创新范围。
+
+核验：144490777字节证据包SHA26103ddbaa06c6a4dd07074c041e5bd3b1a3933728e6e7df773e1c710920081c，119个归档文件逐项匹配；冻结协议/runner字节一致，远端exit0且PID已缺失；独立NumPy实现重算8组AP与24条固定FP，最大AP误差5.551115123125783e-17；核对1000次bootstrap抽样seed/量化区间并独立重算3次AP抽样；8982条GT×分支正目标计数与16条分层标量IoU支持记录另行核对。
+架构分支累计整模型前向2466，训练更新仍528，完整DETRdecoder-only仍48；更早D0/DA训练单列不混入。本轮的新预算101已用完并关闭，旧39092上限保持关闭，没有可转移的未用额度。
+这份报告不是主线完成声明，没有把任何未验证假设写成已找到的创新。

@@ -1,0 +1,72 @@
+Table 5. Results on COCO Dataset. For DW, the * means we have retrained it with the same augmentation(480-800) as other methods
+using official implementation.
+Method Backbone Val/Test Epochs AP AP50 AP75 APs APm APl
+Aug:DETR
+Cascade R-CNN [1] ResNet-50 val 36 44.3 62.4 48 26.6 47.7 57.7
+DAB DETR [19] ResNet-50 val 50 42.6 63.2 45.6 21.8 46.2 61.1
+DN-DETR [14] ResNet-50 val 50 44.1 64.4 46.7 22.9 48.0 63.4
+Deformable DETR [38] ResNet-50 val 50 46.2 65.2 50.0 28.8 49.2 61.7
+Efficient DETR [32] ResNet-50 val 36 44.2 62.2 48.0 28.4 47.5 56.6
+Sparse R-CNN [26] ResNet-50 val 36 45.0 63.4 48.2 26.9 47.2 59.5
+DINO4scales[33] ResNet-50 val 36 50.9 69.0 55.3 34.6 54.1 64.6
+DINO5scales[33] ResNet-50 val 36 51.2 69.0 55.8 35.0 54.3 65.3
+DDQ FCN ResNet-50 val 36 44.8 64.1 49.4 29.9 47.8 56.0
+DDQ R-CNN ResNet-50 val 36 48.1 66.6 53.0 32.3 51.2 60.7
+DDQ R-CNNwith encoder ResNet-50 val 36 51.0 69.0 56.0 34.0 54.4 64.6
+DDQ DETR4scales ResNet-50 val 24 52.0 69.5 57.2 35.2 54.9 65.9
+DDQ DETR5scales ResNet-50 val 24 52.8 69.9 58.1 37.4 55.7 66.0
+Sparse R-CNN ResNeXt-64x4d-101 test-dev 36 46.9 66.3 51.2 28.6 49.2 58.7
+Deformable DETR ResNeXt-64x4d-101 test-dev 50 49 68.5 53.2 29.7 51.7 62.8
+DDQ FCN ResNeXt-64x4d-101 test-dev 36 47.7 67.0 52.6 30.4 49.9 58.3
+DDQ R-CNN ResNeXt-64x4d-101 test-dev 36 49.9 68.8 54.8 31.8 52.2 61.7
+Sparse R-CNN [26] Swin-B val 36 50.8 70.4 55.6 33.9 53.7 65.9
+DDQ R-CNN Swin-B val 36 52.8 72.2 57.9 37.6 56.2 66.9
+H-DeformableDETR4scales Swin-L val 36 57.6 76.5 63.2 41.4 61.7 73.9
+DINO4scales Swin-L val 36 58.0 76.1 64.0 40.1 62.2 74.3
+DDQ DETR4scales Swin-L val 30 58.7 76.8 64.5 41.6 62.9 74.3
+DDQ DETR4scales Swin-L test-dev 30 58.8 77.0 64.6 39.4 62.1 74.0
+Aug:Multi-Scale
+ATSS [34] ResNet-101 test-dev 24 43.6 62.1 47.4 26.1 47.0 53.6
+PAA [12] ResNet-101 test-dev 24 44.8 63.3 48.7 26.5 48.8 56.3
+OTA [9] ResNet-101 test-dev 24 45.3 63.5 49.3 26.9 48.8 56.1
+DW* [15] ResNet-101 test-dev 24 45.8 64.6 49.6 27.3 48.9 57.0
+DDQ FCN ResNet-101 test-dev 24 45.9 65.1 50.7 28.3 48.6 55.6
+Table 6. Recall improvement of dense distinct queries. Q means
+queries and DQS stands for the distinct queries selection. L stands
+for the latency of the model.
+Method AR100 AR200 AR300 L(ms)
+Sparse R-CNN 78.4 83.4 85.5 31.0
+7000 Q & DQS 88.6 92.3 93.6 135.0
+DDQ R-CNN 88.5 91.8 93.2 31.3
+can find even though CDN training in [33] has been adopted
+in DDQ DETR, distinctness still improves the performance.
+By the way, we also report the performance of ATSS [34] at
+different post-processing NMS IoU thresholds and show its
+sensitivity to this hyperparameter, in contrast to the robust
+behavior of DDQ in which a class-agnostic NMS is adopted
+in both training and inference to filter out distinct queries.
+7. Acknowledgement
+This project is supported by the National Key R&D Pro-
+gram of China No.2022ZD0161600, No.2022ZD0161000
+and the General Research Fund of HK No.17200622.
+Table 7. Performance of DDQ on COCO when DQS adopts differ-
+ent IoU thresholds. Results of ATSS adopting different IoU thresh-
+olds in post-processing are also reported. None means we remove
+DQS or post-processing from the inference pipeline.* means the
+results are not stable and we report the average performance
+COCO 0.5 0.6 0.7 0.8 0.9 None
+DDQ FCN 40.8 41.4 41.5 41.4 40.5 39.5*
+DDQ R-CNN 44.0 44.5 44.6 44.4 43.8 42.7*
+DDQ DETR 50.1 50.7 50.9 51.3 51.0 50.7*
+ATSS 39.3 39.5 39.3 38.7 36.7 19.6
+8. Conclusions
+This paper reveals that both sparse and dense queries in
+end-to-end detection are problematic. We propose that the
+expected queries should be both dense and distinct. Such
+a paradigm significantly improves the performance of var-
+ious detectors including FCN, R-CNN, and DETRs. This
+proves the paradigm blends advantages from the traditional
+detectors and the recent end-to-end detectors. We hope it
+can inspire researchers to consider the complementarity be-
+tween traditional methods and end-to-end detectors.
+8

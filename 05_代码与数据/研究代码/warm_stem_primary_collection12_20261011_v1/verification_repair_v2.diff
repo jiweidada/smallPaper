@@ -1,0 +1,41 @@
+--- 英文小论文\code\warm_stem_primary_collection12_20261011_v1\verify_primary.py
++++ 英文小论文\code\warm_stem_primary_collection12_20261011_v1\verify_primary_v2.py
+@@ -48,14 +48,21 @@
+         assert manifest['completed_epochs']==12 and manifest['evaluated_weights']=='EMA' and manifest['epoch_zero_based']==11
+         assert not manifest['saved_EMA_independent_replay_included'] and manifest['stage_images']==548
+         assert manifest['native_stats']==meta['native_stats'] and manifest['collector_sha256']==meta['collector_sha256']
+-        destination.mkdir(exist_ok=False)
+-        for n in names:
+-            target=destination/n;assert target.resolve().is_relative_to(destination.resolve());target.parent.mkdir(parents=True,exist_ok=True)
+-            h=hashlib.sha256();length=0
+-            with z.open(n) as r,target.open('xb') as w:
+-                for b in iter(lambda:r.read(8*1024**2),b''):w.write(b);h.update(b);length+=len(b)
+-            if n=='primary_manifest.json':assert h.hexdigest()==meta['manifest_sha256']
+-            else:assert length==manifest['files'][n]['bytes'] and h.hexdigest()==manifest['files'][n]['sha256'],n
++        if destination.exists():
++            assert {p.relative_to(destination).as_posix() for p in destination.rglob('*') if p.is_file()}==set(names)
++            assert z.testzip() is None
++            assert sha(destination/'primary_manifest.json')==meta['manifest_sha256']
++            for n,item in manifest['files'].items():
++                assert (destination/n).stat().st_size==item['bytes'] and sha(destination/n)==item['sha256'],n
++        else:
++            destination.mkdir(exist_ok=False)
++            for n in names:
++                target=destination/n;assert target.resolve().is_relative_to(destination.resolve());target.parent.mkdir(parents=True,exist_ok=True)
++                h=hashlib.sha256();length=0
++                with z.open(n) as r,target.open('xb') as w:
++                    for b in iter(lambda:r.read(8*1024**2),b''):w.write(b);h.update(b);length+=len(b)
++                if n=='primary_manifest.json':assert h.hexdigest()==meta['manifest_sha256']
++                else:assert length==manifest['files'][n]['bytes'] and h.hexdigest()==manifest['files'][n]['sha256'],n
+     run=destination/'run';done=read(run/'training_completion.json')
+     assert sha(run/'training_completion.json')==manifest['source_training_completion_sha256']
+     assert done['status']=='NATIVE_FIT_FINISHED_EXACT12' and done['completed_epochs']==12 and done['entered_epochs']==list(range(12))
+@@ -72,7 +79,7 @@
+     assert identity['native_parameter_count']==10231997 and identity['added_parameter_count']==11815
+     assert identity['common_init_sha256']=='85497586487a507923404da886d52c1054999111ce6be1df92532b4998956f91'
+     runtime=module('warm_primary_native_config',ROOT/'英文小论文/code/warm_stem12_20261011_v1/runtime.py')
+-    cfg=runtime.resolved_config(plan,{k:Path(v) for k,v in receipt['paths'].items()})
++    cfg=runtime.resolved_config(plan,{k:PurePosixPath(v) for k,v in receipt['paths'].items()})
+     assert read(destination/'bundle/resolved.yml')==cfg and read(run/'args.json')['yaml_cfg']==cfg
+     start=read(run/'runtime_start.json')
+     assert start['identity']==identity and start['optimizer_coverage']['all_parameters_exactly_once']

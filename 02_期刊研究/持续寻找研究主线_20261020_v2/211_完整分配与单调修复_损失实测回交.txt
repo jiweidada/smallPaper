@@ -1,0 +1,48 @@
+211：完整分配、单调修复及原生损失回放——完整实测回交
+2026-10-21。只使用单C0 online和四张既有development增强输入。不是两模型、独立验证、正式AP、优化步或训练结果。持续研究目标未完成；本文件不授权训练。
+
+一、192→193：已经实际完成，不再重复请求该检查
+来源191/192冻结后由root审查执行，state=complete、exit0，5.656秒；0模型forward/backward/VJP/update。Python整数lex运输及独立逐边对偶/primal=dual证书通过。所有源与缓存SHA前后不变，资源沿CPU2/interop1/affinity13,15/BelowNormal/RAM>8GiB。
+ordinary固定784槽的184原差额[1,6,3,0]，精确IoU最优face内最大支持后为[1,6,2,0]，10中只有1被并列裁决消掉。不得改184原判据，也不能拿ordinary替GO。
+真实GO固定832槽/749个GT多重预算，G0/G/I/R/C支持558/566/557/557/558；I/R/C分别为final-IoU最优face、initial-ref-IoU最优face、native-cost最优face。G0/G当前IoU总和约330.91/311.17，nativecost466.36/530.63。G改250个owner=40/116/94/0，支持净增8。至少97次改动位于支持总数不增的类块，不能据此把全部250都归因于v。非复制必要screen通过，优化目标占优不是有效监督。
+
+二、204/205→206：全部原生loss与FGL输出梯度已实际回放
+先synthetic-only成功，再完整exit0；20 criterion、80缓存输出autograd、6微型合成autograd；0模型构建/CP读取/新forward/模型VJP/optimizer。G0的全部raw/weighted loss及各stage own/GO路由、分母逐项exact等于188；所有臂ordinary MAL和DN的值、各独立输出叶子梯度exact不变。全部manual/autograd FGL及梯度差分解一致，源SHA不变。
+mean-image total loss：G0=25.7720198631287；G=25.9837350845337；I=25.9465003013611；R=25.8384995460510；C=25.7729339599609。
+final weighted FGL：G0=.759389996528625；G=.734654799103737；I=.760237738490105；R=.760153308510780；C=.759244948625565。
+G有98个query非零目标转移梯度；其原outside→newinside边没有new-IoU=0，不能再预写这些修复全都被FGL零权重吞掉。反过来，FGL值下降也不能自动说监督变好，它同时改变IoU权重及GT目标。全部损失和分解见206。
+系数=.15/N_go，不再除4；Δg拆为coef*(w1-w0)*(p-t0)和coef*w1*(t0-t1)。本回放切断distance2bbox/LQE/decoder/共享参数链路，只是独立输出空间信号，不是完整模型梯度或AP预测。
+
+三、208/209→210：单调可达修复已实际完成
+新约束E(q,g)=[g为原owner] OR [g在q的真实FDR闭支持内]；固定原GO query、类别、每GT次数m_g，lex(支持外,改owner数,nativecost)。没有继续优化v。G0总可行；不能把新支持单调性质解释成IoU/AP单调。
+209审后执行complete、exit0，1.516秒，0模型/反传/更新；精确证书及合成检查通过，源不变。
+顺序G0/G/U_cost/U_change/G_repair：支持558/566/566/566/563，改owner0/250/66/22/12。
+U_cost=无限边lex(支持外,nativecost,改owner)；U_change=无限边lex(支持外,改owner,nativecost)。repair不在U_change同精确最优face，U_cost/U_change各有35/3条不满足E的新边；208预定必要screen通过，不是训练许可。
+repair实际修复5条原outside，0原inside丢失、0outside→outside换目标。它用12次改动完成5条修复，并非G的49条修复减41条原inside丢失的净8。G另有111条outside→outside迁移。所有逐query/GT记录见210，不能只看净数。
+repair当前IoU总和约328.47（G0 330.91），nativecost约472.50（G0 466.36）；不是冻结预测精度改善，forward根本未变。
+5条修复中只有1条原original_sub4：图2类别0、q291、GT237→238；其余4条非该组。5条新target IoU约.0577/.0261/.3749/.0913/.1356，均低于.5。另有原高IoU query换目标后IoU降低；这是target-IoU变化，不能说预测TP真的丢失。
+
+四、213/214→215：repair和两项U控制的loss已实际回放
+先synthetic-only再full均exit0、complete；16 criterion/64缓存输出autograd/6合成，0模型/CP/新forward/模型VJP/update。基线raw/weighted及routing/denominator exact；MAL/DN值和输出叶子梯度exact不变；源SHA不变。
+mean-image total loss：G0=25.7720198631287；U_cost=25.7980499267578；U_change=25.7981209754944；repair=25.7881116867065。
+final weighted FGL：G0=.759389996528625；U_cost=.753890380263329；U_change=.753774031996727；repair=.756183892488480。
+非零FGL目标转移query：U_cost31、U_change19、repair12。repair5条新支持边全部有正IoU，且保存其完整t0/t1、w0/w1及重加权/转移/总差；不能按常规两位小数表格显示为0.00就说梯度为0。558个原inside query及每GT支持槽均逐对验证不下降。
+这些数据支持“有限表示可达性约束确实改变了有权回归监督，而且不是两个无限边优先级控制的同face择解”；不支持“已经提升检测”“极小目标稳定受益”或“主线创新已成立”。作用面只有5条、其中极小1条，不能靠必要screen为完整训练背书。
+
+五、198的DN基础数已完成，不重复首轮前向
+同188缓存零新forward：902GT，original_sub4历史标记453，当前target短边*640<4为407。每图DN组数均1。
+original_sub4：DN pre IoU.5/.75=218/29，末层271/51，分母453；current_sub4：198/26→243/44，分母407。ordinary final-own原组346正槽中62/11，当前组302中45/4；不是部署AP，不与127 score/top300 maxmatching混比。
+DN有GT噪声类别内容、扰动框和不同mask，不能用60%/30%或单个重建率划出生/信息瓶颈。若再做干预，需说明它改变哪个变量；不能假装DN输出还不存在。
+
+六、圆桌218必须纠正的源码事实
+218前三位已完成回复，Codex C调用失败；原文完整保留。模型调用失败不是研究阴性，也不是四人共识。
+UI B把pre的“原生几何目标”假定为pre own GT a，再与GO几何g作可达集合交集；在本配置这是错误前提。use_uni_set=True时，pre boxes/local本来就使用GO g，own只用于pre MAL。206/215已逐原生调用验证。若讨论MAL own和GO几何的不同，那是分类软目标与回归归属的问题，不是两个L1/GIoU目标冲突。不要为这个不存在的pre-own bbox冲突写新实验。
+support hinge会重复部分原pre L1/GIoU监督；简单去掉ref.detach也有DINO look-forward-twice先例。可提出具体残差/停止区间修订，但必须面对等强归一化pre监督和full-ref-gradient控制，不能仅凭公式不同或梯度非零称新。
+
+七、217旧range2的原始干预边界
+native A追到两seed实际训练包、运行身份和EMA重载回执：reg_scale4/up.5保持，只把端点±4改±8，内部31点不变，预测和普通/DN FGL标签同步；548图重载数组exact。它确实扩大物理范围，原12轮ΔAPs +.212887/-.373524的mixed结果有效。
+单独翻倍reg_scale确实不扩物理端点，但那不是旧干预。不能用这条代数纠正否定旧真实扩域实验，或把up×2冒充未试过的全新主线。
+
+八、下一步可用资产与取舍
+216 native B静态核到data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3/{A,B}/frozen_predictions/development/batch00–07_predictions.pt共16文件、每侧32输入；有真实train refs/corners/aux/pre/enc/DN，同输出的CPU native GO重建记录。可以零新forward检查修复是否只是C0四图个例。不得读取heldout，不冒称GPU criterion现场GO、独立验证或checkpoint单变量因果。
+222/223正在按固定全部development缓存准备两BASE24 seed检查，尚未执行。是否值得申请训练，至少应结合该已有资产检查、原文增量和明确强对照来决定；不要求冻结先证明AP，亦不能将这一页局部必要通过当作目标已完成。若该线薄或失败，继续真正不同设计，不以两个失败结束整个目标。

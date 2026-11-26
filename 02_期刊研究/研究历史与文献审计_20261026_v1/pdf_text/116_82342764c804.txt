@@ -1,0 +1,200 @@
+SA-Matching DETR: A Lightweight Transformer Detector
+with Enhanced Scale Adaptive Matching
+Chengshan Yang
+Harbin Institute of Technology
+yangchengshan606@gmail.com
+Pengnian Zhang
+Dalian University of Technology
+zhangpengnian1216@gmail.com
+Jinjing Zhao*
+The University of Sydney
+jzha0100@uni.sydney.edu.au
+Abstract
+Transformer has been widely adopted in computer vision,
+yet Vision Transformer-based detectors often suffer from
+high computational costs. Furthermore, mainstream object
+detectors face a dilemma in label assignment: the Hun-
+garian matching used in DETR-based models often yields
+false negatives, particularly for large objects, while the In-
+tersection over Union-based matching in R-CNN models is
+prone to false positives with small objects. To address these
+challenges, we propose SA-Matching DETR, a lightweight
+and efficient detection framework. First, we introduce Par-
+tial ViT, a backbone that applies self-attention to partial
+channels via channel decomposition, significantly reducing
+parameters and computation while preserving rich feature
+representations. Second, we propose the Scale Adaptive
+Matching algorithm, which adaptively expands the set of
+ground-truth boxes based on object scale. This approach
+increases positive samples to mitigate false negatives with-
+out the risk of mis-assignment common in other strate-
+gies. On ImageNet-1K dataset, Partial ViT achieves 85.2%
+Top-1 accuracy with only 66.7M parameters, outperform-
+ing existing large-scale models. On the COCO dataset, SA-
+Matching DETR achieves the state-of-the-art 54.8% mAP
+with 84M parameters; notably, our encoder-only variant
+reaches 53.5% mAP , which surpasses several multi-stage
+detectors and demonstrates the framework’s high efficiency.
+1. Introduction
+Transformer architecture has achieved remarkable success
+in Natural Language Processing (NLP) [45] and has rapidly
+become a cornerstone of modern computer vision. In
+object detection, DETR [4] marked a paradigm shift by
+introducing an end-to-end, anchor-free framework. Al-
+though subsequent work like Deformable DETR [57] ad-
+dressed critical initial challenges such as slow convergence
+*Corresponding author.
+/uni00000013/uni00000015/uni00000018/uni00000018/uni00000013/uni0000001a/uni00000018/uni00000014/uni00000013/uni00000013
+/uni00000033/uni00000044/uni00000055/uni00000044/uni00000050/uni00000048/uni00000057/uni00000048/uni00000055/uni00000056/uni00000003/uni0000000b/uni00000030/uni0000000c
+/uni0000001a/uni00000013
+/uni0000001a/uni00000018
+/uni0000001b/uni00000013
+/uni0000001b/uni00000018/uni00000037/uni00000052/uni00000053/uni00000010/uni00000014/uni00000003/uni00000024/uni00000046/uni00000046/uni00000058/uni00000055/uni00000044/uni00000046/uni0000005c/uni00000003/uni0000000b/uni00000008/uni0000000c
+/uni00000033/uni00000044/uni00000055/uni00000057/uni0000004c/uni00000044/uni0000004f/uni00000003/uni00000039/uni0000004c/uni00000037
+/uni00000027/uni00000048/uni0000004c/uni00000037
+/uni00000036/uni0000005a/uni0000004c/uni00000051
+/uni00000033/uni00000039/uni00000037/uni00000059/uni00000015
+/uni00000037/uni0000005a/uni0000004c/uni00000051/uni00000056/uni00000010/uni00000036/uni00000039/uni00000037
+/uni00000036/uni0000002b/uni00000039/uni0000004c/uni00000037
+/uni00000031/uni00000048/uni00000056/uni00000037
+/uni00000030/uni00000044/uni0000005b/uni00000039/uni0000004c/uni00000037
+/uni00000030/uni00000044/uni00000050/uni00000045/uni00000044/uni00000032/uni00000058/uni00000057
+/uni00000035/uni00000027/uni00000031/uni00000048/uni00000057
+Figure 1. Comparison of Top-1 accuracy versus model size (in
+millions of parameters) on the ImageNet-1K dataset. Partial ViT
+achieves a superior accuracy-efficiency trade-off, consistently out-
+performing other leading Vision Transformer architectures.
+and reliance on single-scale features that limited small ob-
+ject detection, the performance of these modern frame-
+works is fundamentally determined by their feature back-
+bone. The natural successors to traditional convolutional
+backbones [5, 17, 20, 32, 41, 49] are Vision Transformers
+(ViTs) [13, 26, 31, 34, 35, 38, 42, 48], yet their integration
+into detection pipelines is not seamless.
+The primary obstacle is theprohibitive computational
+and parameter overheadof the ViT architecture, espe-
+cially in high-resolution scenarios. This overhead is a di-
+rect consequence of the global self-attention mechanism,
+whose cost scales quadratically with the number of input
+tokens. Prevailing solutions attempt to mitigate this cost
+through various strategies, each with inherent trade-offs.
+Approaches like local window attention [31] or token prun-
+ing [38] directly target the quadratic term by reducing the
+number of tokens in the attention operation, but risk limiting
+crucial long-range dependencies or discarding fine-grained
+This CVPR Findings paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+6695
+
+
+---PAGE---
+
+/uni00000018/uni00000013/uni00000014/uni00000013/uni00000013/uni00000014/uni00000018/uni00000013
+/uni00000033/uni00000044/uni00000055/uni00000044/uni00000050/uni00000048/uni00000057/uni00000048/uni00000055/uni00000056/uni00000003/uni0000000b/uni00000030/uni0000000c
+/uni00000017/uni00000013/uni00000011/uni00000013
+/uni00000017/uni00000015/uni00000011/uni00000018
+/uni00000017/uni00000018/uni00000011/uni00000013
+/uni00000017/uni0000001a/uni00000011/uni00000018
+/uni00000018/uni00000013/uni00000011/uni00000013
+/uni00000018/uni00000015/uni00000011/uni00000018/uni00000050/uni00000024/uni00000033/uni00000003/uni0000000b/uni00000008/uni0000000c
+/uni00000036/uni00000024/uni00000010/uni00000030/uni00000044/uni00000057/uni00000046/uni0000004b/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000027/uni00000028/uni00000037/uni00000035
+/uni00000027/uni00000048/uni00000049/uni00000052/uni00000055/uni00000050/uni00000011/uni00000003/uni00000027/uni00000028/uni00000037/uni00000035
+/uni00000027/uni0000002c/uni00000031/uni00000032
+/uni00000027/uni00000031/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035
+/uni00000027/uni00000031/uni00000010/uni00000027/uni00000048/uni00000049/uni00000052/uni00000055/uni00000050/uni00000011/uni00000003/uni00000027/uni00000028/uni00000037/uni00000035
+/uni00000052/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035
+/uni00000036/uni00000032/uni0000002f/uni00000032/uni00000059/uni00000015
+/uni00000039/uni0000004c/uni00000037/uni00000027/uni00000048/uni00000057
+/uni00000037/uni00000055/uni00000053/uni00000039/uni0000004c/uni00000037/uni00000010/uni00000030/uni00000044/uni00000056/uni0000004e/uni00000003/uni00000035/uni00000010/uni00000026/uni00000031/uni00000031
+/uni0000003c/uni00000032/uni0000002f/uni00000032/uni0000003b
+/uni00000036/uni00000046/uni00000052/uni00000053/uni00000048/uni00000039/uni0000004c/uni00000037/uni00000010/uni00000035/uni00000048/uni00000057/uni0000004c/uni00000051/uni00000044/uni00000031/uni00000048/uni00000057
+Figure 2. Comparison of mean Average Precision (mAP) against
+the number of parameters of various object detectors on the COCO
+dataset. The curve for our SA-Matching DETR consistently re-
+sides in the upper-left region of the plot, indicating a new state-of-
+the-art balance between detection accuracy and model complexity.
+features. Other methods, such as quantization [8, 50] and
+low-rank decomposition [16], reduce the cost of the matrix
+operations within attention but may introduce feature dis-
+tortion that compromises representational capacity.
+To mitigate the efficiency limitations of ViT backbones,
+we introduce the Partial Vision Transformer (Partial ViT).
+This lightweight architecture employs a channel-selective
+attention mechanism inspired by Partial Convolution [5].
+Specifically, it partitions the feature channels for each to-
+ken, applying the computationally intensive self-attention
+operation to only one subset while the other is passed
+through unmodified. This strategy yields significant reduc-
+tions in parameter count and computational overhead with-
+out altering the original set of tokens. By preserving the
+complete token sequence, Partial ViT avoids the informa-
+tion loss common in pruning-based methods, thus maintain-
+ing high feature integrity. This results in a superior trade-off
+between model efficiency and performance, which, as illus-
+trated in Fig. 1, shows that our Partial ViT models consis-
+tently achieve higher Top-1 accuracy than competing archi-
+tectures at comparable parameter counts.
+Beyond backbone efficiency, a more subtle but equally
+critical challenge lies in thelabel assignment dilemma
+during training. DETR-based detectors [4, 6, 10, 30, 53, 57]
+typically employ Hungarian matching [24] to establish a
+globally optimal, one-to-one correspondence between pre-
+dictions and ground-truth boxes. However, this strict con-
+straint severely limits the number of positive samples, lead-
+ing to sparse supervision and a high rate of false nega-
+tives (FNs), particularly for large objects. Conversely, tradi-
+tional Intersection over Union (IoU)-based matching strate-
+gies [2, 3, 18, 33, 39, 40] are prone to generating false pos-
+itives (FPs) for small objects, where a significant geometric
+misalignment can still produce a high IoU score. This cre-
+ates a persistent trade-off that fundamentally limits detector
+performance.
+To resolve this dilemma, we propose the Scale Adap-
+tive Matching (SA-Matching) algorithm, a dynamic as-
+signment strategy designed to enhance training supervi-
+sion. Instead of altering the matching algorithm itself, SA-
+Matching adaptively expands the set of ground-truth targets
+based on object scale before performing the optimal one-to-
+one assignment. This approach enriches the gradient signals
+for larger objects to mitigate FNs while preserving high-
+precision assignments for small ones.
+By synergistically integrating our lightweight backbone
+and advanced matching algorithm, we present SA-Matching
+DETR, an efficient yet powerful object detection frame-
+work. Our extensive experiments validate this approach. As
+illustrated in Fig. 2, the complete framework establishes a
+new state-of-the-art efficiency frontier on the COCO [28]
+object detection benchmark, consistently outperforming
+prior methods at comparable parameter budgets. The main
+contributions of this work are summarized as follows:
+• We introducePartial ViT, a lightweight vision trans-
+former that reduces computational cost via channel de-
+composition. It achieves a superior accuracy-efficiency
+trade-off on image classification, attaining 85.2% Top-1
+accuracy on ImageNet-1K with only 66.7M parameters.
+• We proposeSA-Matching, a label assignment strategy
+that resolves the false negative/positive dilemma in object
+detection. By adaptively creating ground-truth replicas
+based on object scale, it significantly enhances the density
+and quality of positive samples during training.
+• We present the integratedSA-Matching DETRframe-
+work, which combines Partial ViT with SA-Matching and
+achieves a new state-of-the-art in efficient object detec-
+tion. Our model achieves 54.8% mAP on the COCO
+benchmark with 84M parameters, outperforming existing
+models with comparable parameter budgets.
+2. Related Work
+Lightweight Vision Transformers.Lightweight vision
+transformers aim to reduce computational cost while main-
+taining strong feature representation. Common strategies
+include architectural fusion, multi-scale feature modeling,
+token compression, and attention simplification. Hybrid
+architectures merge CNNs’ local feature extraction with
+transformers’ global modeling. For example, Mobile-
+ViT [34] enhances local perception using lightweight con-
+volutions, making it well-suited for resource-limited sce-
+narios. For multi-scale feature modeling, Swin Trans-
+former [31] improves object-scale perception through
+sliding-window self-attention and a hierarchical pyramid
+6696

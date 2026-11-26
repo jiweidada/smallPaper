@@ -1,0 +1,118 @@
+A43 execution handoff (not a new experiment request)
+
+Current explicit user request: set a goal, run native B / regional distillation M / instance-query supervision Q each12epochs, retire unsupported claim promptly and continue selecting a mainline.
+New tool goal ACTIVE. A42 goal completed and localization-only hypothesis retired; do NOT resume A42 or old compression/A22/DEIM.
+Latest saved live observation is goal_live_latest.json (source is the plain SSH receipt log, not this text).
+
+Local run D:
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/主线重开_编码器解码器_20261029_v1/A43_ECDet三组蒸馏最小验证_20261031_v1
+Remote R:
+/root/c10_region_restore_20261029_v1/architecture_probe_v1/a43_ecdet_distill_three_arm_20261031_v1
+Remote Python:
+/root/c10_region_restore_20261029_v1/venv/bin/python
+Local Python: D:/Anaconda/python.exe -X utf8 (no local torch).
+
+Live SSH bridge session74390, credential retained only in its RAM. JSON line requests MUST end in carriage return \r.
+tools.write_stdin({session_id:74390, chars:JSON.stringify({id:"unique",action:"exec",command:...,timeout:15,output_limit:4500})+"\r",yield_time_ms:1000,...}).
+Empty chars polls completion (usually5seconds). Serialize bridge operations. On socket10054, next request auto-reconnects; inspect real process/result, never restart training because observation disconnected.
+Transfers use action upload/download with local and remote paths. Read plain receipts for hashes, not ANSI-wrapped tool text.
+Plain log:
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/前期调研_码率受限航拍小目标_20261028_v1/远端验证_20261029_v1/ssh_operation_receipts.jsonl
+
+functions.store keys: A43_context {root,py,local,bridge_session}; A43_goal_monitor_cmd (stdlib process identity+progress+GPU+terminal query); A43_terminal_helper_meta.
+Next monitor id after A43_goal_r01_04 can be A43_goal_r01_05. Do not confuse with old A42_goal_monitor_cmd.
+Supervisor21467/start_ticks105744454; B worker21562/start_ticks105744796. M/Q child identities created only when scheduled. Check /proc identity, not files alone.
+Latest noted B progress: epoch4 micro301/809, updates2728, finite loss/grad; stored authoritative raw id A43_goal_r01_04. Snapshot only; always refresh.
+record_observation.py --receipt-id EXACT_SUCCESSFUL_MONITOR_ID updates goal_live_latest.json and appends verified-wait journal; no training action or canonical mutation.
+
+Already DONE:
+- Read root academic-research-suite and settled experiment-agent/run workflow; root agent.md single assistant, no subagents. User explicit run authorization overrides generic commands-only/confirmation skill guidance. No extra permission needed.
+- Native source pinned d8752b75c9beaecfcdd0e5cd207bae3b6946ae23 from local official archive. Native decoder byte-identical; only ECVit Python3.9 annotation compatibility, optional unused TensorBoard import, and nonfinite raw-loss fail-fast patches.
+- Local package stage_code_source.zip 819657bytes SHA3fae7fb6d8fef3b7644f911178245a095b32267aea56e80f5fe27fd5e4cac394,86members transferred/verified. Already uploaded/downloaded prior weights copied within server after checking SHA, old files unchanged.
+- Common10class init SHA2c6e0f9c6765fc7ba069c2292e0884bb86924d2232a952499fcd251cc57b47e6.
+- Teacher = A42 B fixed12EMA in teacher_B_epoch12.pth SHA bbd5712fe42bc7b11e3b01d46e930f7baa3992dd76832a913b367a58626a6ad6. Same file already local in A42/completed_results/B/arm_B/epoch12.pth. No large teacher training.
+- CPU interface validationPASS,0forwards/updates/noCUDA. B9803112params, M/Q9812520, auxiliary9408, M/Qinitialproj same.
+- One fixed dense batch8 capacityPASS, no batch search/fallback. GTcounts902/512/462/431/370/351/348/346. Peaks B16707167232bytes, M/Q16799327232(~15.65GiB),<22GiB.
+- Capacity exactly student8forwards,teacher4forwards,optimizer5updates (B1 M2 Q2),aux-gradient-probes2. Zero prediction effect bitwise, auxgrad reachesstem, teacher frozen, M/Qactual teacher stream identical, trained native exportstrictload. All capacity weights discarded.
+- Frozen protocol SHA cb82214e481387ecf3510f6f7ff76d2161e5828136ba1571b81d5b4dc1365280;91frozen files checked against local sources, startup9members downloaded/verified.
+- Formal launch id A43_freeze_and_launch_B_M_Q_once, actual B progress observed. DO NOT rerun prepare_local/package_stage/bootstrap/capacity/freeze/launch or remove locks.
+
+Frozen method:
+Native ECDet-S student. M/Q training-only existing stride4(48x160x160) GT3x3 ROIAlign mean ->Linear48to192 ->L2norm eps1e-6. Fixed1-cosine mean loss, weight1.
+Teacher eval/no_grad/frozen, BF16 forward BEFORE student. Same input/teacher/final native Hungarian matched GT instances for M/Q; all real matched instances, no confidence or size filtering.
+Mtarget: normalized teacher hybrid encoder output[1](192x40x40) corresponding GT3x3ROImean.
+Qtarget: normalized final classLinear input (300x192) at teacher matched query.
+Both compute BOTH target types for full rolling paired verification. Dense >300GT per image remains unmatched and counted; do not increase queries.
+Student auxiliary module and hooks physically removed for validation and latency. Checkpoint model/ema.module contain native keys only; auxiliary raw/EMA separately under training_auxiliary. No GT inference.
+
+Frozen recipe:
+seed20261101, fresh native common init (not A42 student continuation), each12epochs, batch8accum1,6471train/548val,640stretch+ImageNetnorm+deterministic flip, no strongaug.
+AdamW backbone2.5e-5 other/proj5e-4,wd1e-4 exceptnorm/bn/bias0,500warmup,12epochcosinefloor.1,clip.1 BF16forward/FP32loss, noGradScaler.
+Native loss MAL/BBox/GIoU/FGL/DDF weights1/5/2/.15/1.5. EMA.9999*(1-exp(-updates/1000)).
+Eval4/8/12, primary fixed12EMA. Native eager3090 latency batch1 BF16 warm10 repeat30, no auxiliary graph, no onboard/TensorRT claim.
+COCO-style original clippedGTarea small<=1024,maxDet300,class0unionIoA>=.5 filtersGT/pred,others11unscored. NOT officialVisDrone score.
+Gates ALL: Q-B APs>=+.5pp, Q-M APs>=+.3pp, Q-B overallAP>=-.2pp. APs75/latency also report, not extra posthoc gates.
+No weight/layer/teacher/threshold rescue sweep, no other-direction training queued. Hard20h/arm, no autoretry. Failure stops remaining queue.
+
+Expected formal counters only if all complete normally:
+Each9708updates,10159studentforwards. Teacher B0,M9708,Q9708. Formal total29124updates,30477student+19416teacherforwards.
+A43 including capacity:29129updates,30485student+19420teacher=49905totalforwards.
+Architecture prior:34010forwards,29664updates including14capacity,29650formalupdates. Final if no other detector calls:83915totalforwards,58793updates incl19capacity,58774formalupdates. Each arm12; epochs sums across arms only.
+CPU/NumPy postverification must have0newmodel calls/updates. Log actual role counts, do not infer extra calls from elapsed time.
+
+Post-completion helpers already local AND remote (not frozen training inputs), manifest terminal_helpers_manifest.json, transfer id A43_unpack_terminal_helpers:
+- verify_completed_checkpoint_cpu.py --arm B/M/Q, CPUonly, only after completed12+exit0; verifies native raw/EMA export, auxstate+optimizer9708, initialprojector digest, teacherfreeze,0newcalls.
+- collect_completed_arm.py --arm B/M/Q, immutable completed_arm_X_bundle.zip + receipt. Excludes redundant commoninit/teacher weights but pins hashes. Includes actual frozen source and arm checkpoint/prediction/metrics/logs. No training action.
+Download completed_arm_X_bundle.zip into D. Run local extract_completed_bundle.py --arm X --receipt-id EXACT_PACKAGE_EXEC_ID. It reads plain receipt for archiveSHA/membercount/checkpointSHA and extracts D/completed_results/X/.
+Download remote independent_checkpoint_X.json to D/result_verification_v1/X_epoch12_checkpoint_cpu_verification.json; if SSH drops inspect persisted receipt/process first, no training retry. Exact-byte receipt recovery only with matching remoteSHA if needed.
+
+Independent NumPy metric helpers copied unchanged from A42 into D/result_verification_v1 (no torch/pycoco import in independent_bbox_metrics.py):
+--gt completed_results/X/arm_X/epoch12_EMA_GT.json --predictions ...epoch12_EMA_predictions.json --reference-metrics ...epoch12_EMA_metrics.json --reference-matrix ...epoch12_EMA_precision_recall.npz --output result_verification_v1/X_epoch12_independent_metrics.json
+GT helper verify_gt_and_ignore.py --annotations [A42]/result_verification_v1/baseline4_inputs/raw_val_annotations --manifest completed_results/X/val_data_manifest.json --gt ...GT.json --predictions ...predictions.json --output result_verification_v1/X_epoch12_independent_GT_ignore.json
+Independent arrays40400precisioncells+400recall atmaxDet300 expected exact; scalars tolerance1e-10pp. Raw548annotations and retained-pred ignore checks; no regeneration of excluded/raw predictions.
+verify_completed_controls.py --arms B [M Q] verifies completed arms only, commoninit/protocol, native export, all12sampler+first8actualinputs, full M/Qteacher stream if bothcomplete,finite sampled logs,30latency samples. NeedsCPU/download/metric/GT receipts PASS for selected arms. Prepared, not executed yet.
+
+Still to prepare/do (do not rerun training to get them):
+- Actual completed endpoint collections/recomputations as arms finish.
+- Final small aggregate/CPU/process archive: can adapt A42 collect_terminal_summary.py and extract_terminal_summary.py B/S/L->B/M/Q; all job PID/start_ticks absent, GPUempty. Download supervisor_result,queue_progress,three_arm_result and Chinese summary.
+- Independent final gate checker from independently recomputed APs (not using remote summary as source), compare frozen gate booleans/values; expected student/teacher/update counts.
+- Final11/11 statistical fallacy scan and report scope(single-seed12epochs, no p/CI/significance or generalization claim; public val reused across prior selection). Do not claim auxiliary mechanism from AP alone.
+- IfQfails, stop claim, bounded primary-literature/code follow-up for next concrete candidate+minimal plan; NO automatic next training.
+- Update canonical board/state with terminal verified evidence, preserve historical hashes/snapshots first. Only mark toolgoal complete after full objective, not launch or first arm.
+
+Authoritative startup reports:
+100_A43蒸馏三组已启动与固定判据.txt
+101_A43启动容量与冻结核验回执.json
+Canonical01/15 now A43active. Before mutating them again, verify101 hashes and snapshot/remap its 01/15 versions. A42 receipt99 hashes old canonicals; mapping preserved in D/historical_A42_canonical_remap.json and D/canonical_before_A43/. Do not edit old receipts.
+
+No Page task (page_idnull), no subagents, no external messaging, no new automation. Stay within authorized singleGPU. No approval question needed for remaining current work.
+
+Update: final/control/terminal-summary/per-class helpers are now prepared locally; terminal summary collector still needs upload at Q completion. Latest r01_08 observation is in goal_live_latest.json; B epoch5/micro551,3787updates,3924studentforwards, no teacher calls in B. CPU/arm collectors already staged remotely. Goal remains ACTIVE.
+
+r02 update: collect_terminal_summary.py is now staged remotely and hash verified (6084d5f8b1a5067be534b67fc59c3620abe8635b46e17ee161874fc2306069f7), not executed. Final/control/summary/descriptive helpers locally parse; primary APs class-sign fields added to descriptive helper only. Frozen training files untouched.
+
+r02 end: live receipt A43_goal_r02_04 confirmed supervisor21467 and original21562 identities. B epoch7 micro151,5005updates,5142studentforwards. Goal ACTIVE, no blocker. Next poll id A43_goal_r03_01. See goal_progress_02_postprocessing_ready_verified_wait.json; no model/optimizer calls by postprocessing.
+
+r03 end:6 live process/progress polls verified. Latest id A43_goal_r03_06, B completed8epochs including planned8validation, entering9/12 with6473updates and6747studentforwards. Supervisor21467/B21562 identities match. Goal ACTIVE; no blocker/no restart. Next poll A43_goal_r04_01.
+
+r04 end: B now COMPLETED12/9708updates/10159studentforwards/teacher0/exit0. CPUaudit+166932405byte archive128members+independentmetrics+rawGT/ignore+controlsB PASS,0postprocessingmodelcalls. New report102/receipt103 authoritative. Before next canonical01/15 update, verify103 and snapshot/remap its versions;101mapping in startup_state_historical_remap.json. BcheckpointSHA 3c16057c22e63a702995a72930526f38b87b03e63119a9c1a74f81628d31dd68. Teacher MUST remain OLD A42B EMA sha bbd5712fe42bc7b11e3b01d46e930f7baa3992dd76832a913b367a58626a6ad6; DO NOT substitute completedA43B. BmetricsAP24.011496565587738/APs14.35738013834752/APs7511.573405806356355. Latest live id A43_goal_r04_18: M22270/start_ticks106117130 verified,epoch2micro451,1260studentupdates/forwards+1260teacherforwards,finite native andKDloss. Supervisor21467same. Qnotstarted. GoalACTIVE,nextpoll A43_goal_r05_01. Observer excludeszombies and handles live-supervisor transitions now; training unchanged.
+
+r05 end: M formal initialization matches common native init, frozen oldA42B teacherstate and shared projection digest; epoch1sampler+first8actualbatches matchB. Evidence early_M_initialization_epoch1_verification.json, rawexecid A43_goal_r05_M_early_recorded_controls. Teacherassigned341825/1379unmatched due300query cap of343204effectiveGT; assignmentavailability,NOTcorrectdetections/recall. Full M/Q pairing stillpendingQ. Latest id A43_goal_r05_05: Mepoch4micro101,2528updates/studentforwards+2528teacherforwards,PID22270 unchanged,finitebothlosses. Bverifieddone,Qqueued. GoalACTIVE,nextpoll A43_goal_r06_01.
+
+r06 end:6 live polls verified M22270 and supervisor21467 identities. M completed scheduled4epoch native-only validation and resumed training; last id A43_goal_r06_06: epoch5micro401,3637updates/teacherforwards,3774studentforwards (137scheduledvalcalls),finite native+KDloss. Bverifieddone, Qqueued. No source/configchange,no extra detectorcalls or updates. GoalACTIVE,no blocker,nextpoll A43_goal_r07_01.
+
+r07 end: existing M worker22270 and supervisor21467 verified. Last A43_goal_r07_10: epoch8micro101,5764updates/teacherforwards,5901studentforwards; finite native/KDloss. B12verified, Qqueued. No training/source change or new detectorcalls/updates by monitoring. GoalACTIVE,no blocker,nextpoll A43_goal_r08_01. See goal_progress_07_M_epoch8_verified_wait.json.
+
+r08 end:7 real live polls; M completed scheduled8epoch native-only validation and resumedepoch9. Last A43_goal_r08_07: epoch9micro101,6573updates/teacherforwards,6847studentforwards, finite native/KDloss. Supervisor21467 andM22270 identitiesmatch. B12verified,Qqueued. No training/helperchanges or extra modelcalls/updates. GoalACTIVE,no blocker,nextpoll A43_goal_r09_01. See goal_progress_08_M_epoch9_verified_wait.json.
+
+r09 end: M COMPLETED12/9708updates/10159student+9708teacherforwards/exit0, PID22270reaped. CPU strict native+aux optimizer checkPASS, downloaded167041240byte archive128members hashPASS, independentNumPy all40400precision+400recall cells exact,548rawGT/ignore checkPASS,B_M controlsPASS. M AP24.056884131582333/APs14.307542909864344/APs7511.522541694913395; M-B AP+.045387565994595/APs-.049837228483176/APs75-.050864111442960pp. McheckpointSHA ee9deadefb817d1fd1d2a8f6d77ce03e400e7752c95117672f2260f409dfba2c. CPU id A43_goal_r09_verify_terminal_M_cpu;packageid A43_goal_r09_package_terminal_M;downloadid A43_goal_r09_download_terminal_M. See M_endpoint_verified_Q_running.txt and goal_progress_09_M_terminal_verified_Q_epoch1_pairing.json. Canonical01/15/103 unchanged; final update must first verify103 and snapshot/remap its versions.
+Q now PID23291/start_ticks106543525, supervisor21467 unchanged. Qinitialization matchesM; completedepoch1full809batch teacher outputs/assignments/BOTHtargets rollingdigest and first8inputs/sampler match M/B; evidence early_Q_initialization_epoch1_verification.json (exec A43_goal_r09_Q_epoch1_recorded_controls). Full12epochpairing NOTYET verified. Lastmonitor A43_goal_r09_33: Qepoch2micro201/1010updates/studentforwards/teacherforwards, finite losses/gradient. B/Mdoneverified,Qrunning. GoalACTIVE,no blocker,no sourcechange/no restart,no new detectorcalls/updates bypostprocessing. Nextpoll A43_goal_r10_01.
+
+r10 end:21liveprocess/progresspollsverified Q23291/start_ticks106543525 andsupervisor21467 unchanged. Qcompleted scheduled4epoch native-only validation and resumedtrainingepoch5;last A43_goal_r10_21 epoch5micro51,3287updates/teacherforwards,3424studentforwards (137scheduledvalcalls),finite losses/gradient. No training/sourcechanges, no restart, no newdetectorcalls/updates byobserver. B/Mcompletedverified asr09, fullQendpoint/all12M_Qpairing/gatespending. GoalACTIVE,no blocker,nextpoll A43_goal_r11_01. See goal_progress_10_Q_epoch5_verified_wait.json.
+
+r11 end:30realprocess/progresspollsverified Q23291/start_ticks106543525 andsupervisor21467 unchanged. Qcompleted scheduled8epoch native-only validation and resumedtrainingepoch9;last A43_goal_r11_30 epoch9micro51,6523updates/teacherforwards,6797studentforwards (274scheduledvalcalls),finite losses/gradient. Validation progressfileunchanged duringevaluation was nottreated asstoppage; revalidated actualprocess then observedresumedtraining. No training/sourcechanges,restart,extra detectorcalls/updates byobserver. B/Mcompletedverified asr09, fullQendpoint/all12M_Qpairing/gatespending. GoalACTIVE,no blocker,nextpoll A43_goal_r12_01. See goal_progress_11_Q_epoch9_verified_wait.json.
+
+FINAL: allB/M/Q12epochs independentlyverified; QAPs14.234834094108189, Q-B-.122546044239330pp/Q-M-.072708815756155pp, frozen gain gatesfailed. A43retired,no rescuesweep. Complete finalreport104 and15-requirementaudit105PASS,53signedfiles checked. All91frozeninputs perarm/128archive members each verified; alljobidentities absent. CountersA43full49905inclcapacity,updates29129; cumulativefull83915,updates58793incl19capacity.
+Next A44_QUERY_CONDITIONAL_SCALE_READ_ALLOCATION isonlya concrete untrained proposal in next_candidate_A44_v1;7queries/3primaryselectedmethods/sourcecomparison documented, noveltynotcleared, allocation0. No otherdirection training. Beforeanyfuturemutationof01/15, preserve105signedversions.103historicalmapping in B_terminal_state_historical_remap.json, older99/101chainverified. AppgoalmarkedCOMPLETE; exacttoolreceipt goal_completion_tool_receipt.json; elapsed15476seconds. DoNOTcontinueQorlaunchanotherarmwithoutnewuserauthorization.
+
+SUPERSEDING HISTORY CORRECTION: A44 recommendation WITHDRAWN after user pointed to prior records. See106report/107receipt. Current priority=null; no new training. Do not rerun old finalize_A43_report.py as current updater: it would restore a superseded recommendation. A43 numeric results/checkpoints unchanged; original105 signed versions are preserved in the new correction snapshot mapping.

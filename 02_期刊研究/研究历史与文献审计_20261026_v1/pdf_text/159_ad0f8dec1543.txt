@@ -1,0 +1,99 @@
+Mahalanobis-Based Multi-Head Attention for Complex State
+Propagation
+Xiaohe Li ∗
+August 26, 2026
+Abstract
+In our previous work, we demonstrated that Complex State Propagator (CSP) alone
+suffices for deterministic state tracking tasks such as parity checking and parenthesis match-
+ing. However, CSP relies on input-dependent rotations in complex space, which inevitably
+introducessynthetic distance distortionsacross layers—especially when processing long
+sequences with nested structures.
+In this paper, we proposeMahalanobis-Based Multi-Head Attention(MHA-CSP),
+a novel attention mechanism that replaces the standard dot-product with aMahalanobis
+distance-based RBF kernel, which effectively computes attention in an infinite-dimensional
+feature space without increasing the parameter count. Crucially, the positive definiteness of
+the Mahalanobis distance enables adirect construction of Tree Attention: attention
+scores are built directly from accumulated distances, with a LogSumExp correction that
+rectifies the raw distance by subtracting the log-sum of edge exponentials. Moreover, the
+multi-head Mahalanobis distance matrices are themselves repurposed to construct anatten-
+tion meshing mechanism, enabling cross-head kernel collaboration that simultaneously
+boosts accuracy and training efficiency. Extensive experiments demonstrate that MHA-CSP,
+with only 119K parameters andteacher forcing applied exclusively at the final hid-
+den state, consistently outperforms Transformer and GCN baselines trained from scratch
+under identical conditions on long-sequence state tracking tasks. While these baselines rely
+on dense attention or graph propagation, MHA-CSP achieves robust structured reasoning
+via synthetic distance rectification—powered by Mahalanobis-based attention—and efficient
+information bypass inherited from the CSP backbone.
+This result highlights the effectiveness of complex-valued state propagation with col-
+laborative multi-head rectification in capturing symbolic structures, establishing a new
+efficiency-performance trade-off for structured reasoning. Our code is available athttps:
+//github.com/hilhert/CSP-MHD.
+1 Introduction
+Since its introduction, the Transformer architecture [41] has garnered significant attention and
+has become a de facto standard in sequence modeling, underpinning state-of-the-art systems
+across natural language processing, computer vision, and beyond. Its core innovation—the at-
+tention mechanism—enables models to dynamically weigh relationships between tokens, yielding
+remarkable flexibility and performance.
+However, recent studies have revealed several intriguing phenomena regarding the internal
+workings of trained Transformers. Empirical observations indicate that the query (Q) and key
+(K) projection matrices often exhibit homogeneity [3], and well-trained models frequently oper-
+ate in a low-rank regime [6,43], suggesting that much of the parameter budget is underutilized.
+Concurrently, researchers have pointed out that standard Transformers struggle with learning
+∗GuangDong Police College
+1
+arXiv:2608.24462v1  [cs.AI]  25 Aug 2026
+
+---PAGE---
+
+semantic structures that involve nested hierarchies—such as parentheses matching or recursive
+grammatical constructions. This limitation has motivated a line of work on tree-structured
+attention mechanisms. Early efforts such as Tree-Transformer [45] and Tree-structured Atten-
+tion with Hierarchical Accumulation [31] encode parse tree structures into self-attention by
+constraining attention heads to follow tree topologies. The Tree Attention algorithm [37, 38]
+later formalized this approach through an energy-based formulation, deriving the scalar en-
+ergy function whose gradient computes the self-attention block, and showing that the reduction
+across the sequence axis can be efficiently computed in parallel via a tree reduction. Criti-
+cally, this formulation enables the use of optimized automatic differentiation techniques—a key
+insight that underpins Consistency Tree Attention [51], which further enforces that gradient
+paths across different tree branches remain consistent and stable during training. Related work
+on Flash Tree Attention (DeFT) [48] has further optimized tree-structured inference through
+KV-guided grouping and improved load balancing, achieving up to 2.23×speedup in decoding
+latency on tree-based workloads. These works collectively establish tree-structured attention as
+a principled approach for hierarchical reasoning [27].
+Beyond hierarchical attention, the broader question of how to effectively coordinate mul-
+tiple attention heads has attracted substantial interest. The standard multi-head attention
+mechanism [41] projects queries, keys, and values into separate subspaces, allowing the model
+to attend to different aspects of the input simultaneously. Recent analyses have revealed that
+attention heads in trained Transformers exhibit specialization and redundancy [9, 25, 29, 42],
+and that simply increasing the number of heads does not always improve performance—in
+some cases, it can severely degrade accuracy on tasks requiring precise state tracking [1]. This
+has motivated a range of approaches for adaptive head fusion and collaboration. Collabora-
+tive multi-head attention [2] enables heads to learn shared query/key projections, reducing
+computational cost while preserving representational fidelity. Head-wise Attention Correction
+(HAC) [21] adjusts attention scores by accounting for head-specific characteristics, demonstrat-
+ing that attention distortion varies significantly across heads and requires tailored correction.
+Split ’n’ Merge Net [5] proposes dynamic masking mechanisms that filter task-specific and
+task-agnostic information across heads, with a merging network that fuses these signals for
+downstream tasks. Hierarchical Multi-Task Learning with Interactive Multi-Head Attention
+Feature Fusion (IMHAFF) [44] further demonstrates that interactive fusion across attention
+heads yields substantial improvements on multi-task benchmarks.
+Crucially, the pursuit of efficient multi-head collaboration has also advanced through the lens
+of low-rank approximation and attention compression. DeepSeek’s Multi-head Latent Attention
+(MLA) [12,13] compresses key-value (KV) caches into a low-rank latent space, reducing memory
+footprint while preserving representational fidelity—a technique that shares our view that the
+conventional Q/K/V projection machinery is over-parameterized for many tasks. More recently,
+the Native Sparse Attention (NSA) framework [50] introduced a hardware-aligned hierarchical
+sparse attention design, combining token compression, block-level selection, and sliding window
+attention to achieve end-to-end efficient training and inference. Notably, NSA was recognized
+with the Best Paper Award at ACL 2025 [49], underscoring the broader impact of structured
+attention compression and multi-path attention fusion. In the SSM community, MossNet [40]
+showed that mixture-of-state-space-experts can emulate linear multi-head attention, suggesting
+that the benefits of multi-head collaboration extend beyond the standard Transformer frame-
+work.
+From a complementary perspective, recent work has revisited attention through the lens
+of kernel methods and numerical linear algebra. The kernel view of attention [39] interprets
+softmax attention as a normalized kernel smoother, where multi-head attention corresponds
+to parallel ensembles of smoothers with different learned projections. However, pure kernel
+approaches suffer from weak optimization dynamics and fail to eliminate random bias without
+careful architectural support [8, 22]. DARKFormer [52] addresses these limitations by learning
+2

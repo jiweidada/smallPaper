@@ -1,0 +1,182 @@
+Enhancing Your Trained DETRs with Box Refinement
+Yiqun Chen1,2 Qiang Chen3 Peize Sun4 Shoufa Chen4 Jingdong Wang3 Jian Cheng1
+1Institute of Automation, Chinese Academy of Sciences
+2School of Artificial Intelligence, University of Chinese Academy of Sciences
+3Baidu
+4The University of Hong Kong
+Abstract
+We present a conceptually simple, efficient, and general
+framework for localization problems in DETR-like mod-
+els. We add plugins to well-trained models instead of in-
+efficiently designing new models and training them from
+scratch. The method, called RefineBox, refines the out-
+puts of DETR-like detectors by lightweight refinement net-
+works. RefineBox is easy to implement and train as it only
+leverages the features and predicted boxes from the well-
+trained detection models. Our method is also efficient as
+we freeze the trained detectors during training. In addi-
+tion, we can easily generalize RefineBox to various trained
+detection models without any modification. We conduct ex-
+periments on COCO and LVIS 1.0. Experimental results
+indicate the effectiveness of our RefineBox for DETR and
+its representative variants (Figure 1). For example, the per-
+formance gains for DETR, Conditinal-DETR, DAB-DETR,
+and DN-DETR are 2.4 AP , 2.5 AP , 1.9 AP , and 1.6 AP , re-
+spectively. We hope our work will bring the attention of the
+detection community to the localization bottleneck of cur-
+rent DETR-like models and highlight the potential of the Re-
+fineBox framework. Code and models will be publicly avail-
+able at: https://github.com/YiqunChen1999/RefineBox.
+1. Introduction
+Transformer [40] has become an alternative to convolu-
+tional neural networks in object detection. DETR [3] in-
+troduces the Transformer into object detection and forms
+a new detection fashion. Recently, some DETR-like mod-
+els became state-of-the-art on the COCO benchmark [23],
+e.g., Co-DETR [48], Group-DETR-V2 [5], DETA [32],
+DINO [45], etc. Despite their success, the detection com-
+munity might not be clear about the bottleneck of the
+DETR-like models and the potential development direction.
+The DETR-like detectors produce a set of predictions
+and assign each ground truth a prediction result during train-
+ing. The positive samples,i.e., that match with ground truth,
+/uni0000001b/uni00000013/uni0000001c/uni00000013/uni00000014/uni00000013/uni00000013
+/uni00000017/uni00000014
+/uni00000017/uni00000015
+/uni00000017/uni00000016
+/uni00000017/uni00000017
+/uni00000017/uni00000018
+/uni00000017/uni00000019
+/uni00000017/uni0000001a
+/uni00000014/uni00000018/uni00000013/uni00000014/uni00000019/uni00000013/uni00000014/uni0000001a/uni00000013/uni00000014/uni0000001b/uni00000013/uni00000014/uni0000001c/uni00000013
+/uni0000002a/uni00000029/uni0000002f/uni00000032/uni00000033/uni00000056
+/uni00000024/uni00000033
+/uni0000002c/uni00000050/uni00000053/uni00000055/uni00000052/uni00000059/uni00000048/uni00000050/uni00000048/uni00000051/uni00000057/uni00000056/uni00000003/uni00000052/uni00000059/uni00000048/uni00000055/uni00000003/uni00000033/uni00000052/uni00000053/uni00000058/uni0000004f/uni00000044/uni00000055/uni00000003/uni00000025/uni00000044/uni00000056/uni00000048/uni0000004f/uni0000004c/uni00000051/uni00000048/uni00000056
+/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000014/uni00000013/uni00000014
+/uni00000026/uni00000052/uni00000051/uni00000047/uni0000004c/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000044/uni0000004f/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+/uni00000026/uni00000052/uni00000051/uni00000047/uni0000004c/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000044/uni0000004f/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000014/uni00000013/uni00000014
+/uni00000027/uni00000024/uni00000025/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+/uni00000027/uni00000024/uni00000025/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000014/uni00000013/uni00000014
+/uni00000027/uni00000024/uni00000025/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000036/uni0000005a/uni0000004c/uni00000051/uni00000010/uni00000037/uni0000004c/uni00000051/uni0000005c
+/uni00000027/uni00000031/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+/uni00000027/uni00000048/uni00000049/uni00000052/uni00000055/uni00000050/uni00000044/uni00000045/uni0000004f/uni00000048/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+Figure 1. Our RefineBox framework gives non-trivial improve-
+ments over popular detectors on COCO [23]. The newly added
+refinement network only introduces 0.4 M parameters for Swin-
+Tiny-based detectors and 0.5 M additional parameters for ResNet-
+50/101-based models. Best viewed in color.
+contribute significantly to the model training. We are cu-
+rious about how to improve the prediction results of the
+DETR-like models by correcting the positive samples dur-
+ing training. We start by exploring the performance up-
+per bound of DETR-like models with perfect localization or
+classification ability in a simple way. Specifically, we cal-
+culate the performance gains brought by eliminating clas-
+sification and localization errors of the positive samples.
+We observe that the gain of improving localization abil-
+ity is substantial while improving classification capability
+is much lower, i.e., about 25 AP vs. 3-5 AP (Figure 3, dis-
+cussed later in Section 3). This phenomenon suggests that
+the localization capability is the bottleneck restricting the
+performance of current DETR-like models rather than the
+classification ability. Based on the above finding, we focus
+on improving the localization ability of DETR-like models.
+We present a novel framework RefineBox to solve the
+localization problem in this paper. Our method, called Re-
+arXiv:2307.11828v1  [cs.CV]  21 Jul 2023
+
+---PAGE---
+
+ImageTrained Detector
+FeaturesRefinementNetwork𝑥𝑦𝑤ℎ𝑥𝑦𝑤ℎ······𝑥𝑦𝑤ℎ𝑥𝑦𝑤ℎ······boxesboxesFrozen
+Figure 2. We build our RefineBox on top of trained and frozen
+DETR-like detection models. The refinement is responsible for
+refining the predicted boxes of the detectors. We only fit the pa-
+rameters of the refinement network during training.
+fineBox, adopts the two-stage detection framework by ap-
+plying a lightweight box refinement network to the well-
+trained object detectors, as illustrated in Figure 2. The ob-
+ject detectors are responsible for producing the detection
+results, including the classification logits and the bounding
+boxes. The extracted features and predicted bounding boxes
+from the trained detector serve as inputs to the refinement
+network, which is responsible for enhancing the boxes to
+mitigate localization errors.
+RefineBox explores a new fashion for improving the lo-
+calization quality of the trained detectors, which is different
+from previous works on two-stage detection that mainly de-
+sign and train new detectors. Our refinement network acts
+like a plug-and-play plugin and brings clear benefits. It is
+easy to implement and train as we only need to fit the newly
+added parameters by freezing the trained detectors. Fur-
+thermore, it is highly efficient and cost-effective, facilitat-
+ing speedy experimentation and the implementation of en-
+hancements to large models with limited hardware. More-
+over, RefineBox can be generalized to various detection
+models without any modification.
+We validate the effectiveness of our method on DETR [3]
+and its representative variants, including Conditional-
+DETR-R50 [29], DAB-DETR-R50 [25], and DN-DETR-
+R50 [19]. Without bells and whistles, our RefineBox brings
+non-trivial improvements to them, as illustrated in Figure 1.
+We also show that our RefineBox can easily combine with
+techniques that aim to speed up model convergence, e.g.,
+Group-DETR [4]. Our example gives a gain of 2.7 AP on
+Group-Conditional-DETR-R50 on the COCO dataset [23].
+2. Related Works
+Two-Stage Detection. The two-stage detection architec-
+ture [28, 44, 20, 33] has become predominant several years
+ago due to the success of the models in the R-CNN se-
+ries [11, 10, 37]. A typical two-stage detection model splits
+the detection pipeline into two stages: (1) produces a set of
+region proposals that might contain an object; (2) adjust the
+proposed bounding boxes and predict the categories. Our
+RefineBox takes the idea of two-stage detection but makes
+some changes: RefineBox builds on top of well-trained de-
+tection models and freezes them.
+Error Analysis for Object Detection. The community
+/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013/uni00000026/uni00000052/uni00000051/uni00000047/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013/uni00000027/uni00000024/uni00000025/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013/uni00000027/uni00000031/uni00000010/uni00000027/uni00000028/uni00000037/uni00000035/uni00000010/uni00000035/uni00000018/uni00000013
+/uni00000017/uni00000015/uni00000011/uni00000013/uni00000017/uni00000014/uni00000011/uni00000013/uni00000017/uni00000016/uni00000011/uni00000016/uni00000017/uni00000017/uni00000011/uni00000016/uni00000017/uni00000018/uni00000011/uni0000001a/uni00000017/uni00000018/uni00000011/uni0000001c/uni00000017/uni0000001b/uni00000011/uni00000019/uni00000017/uni0000001b/uni00000011/uni0000001c
+/uni00000019/uni00000019/uni00000011/uni0000001b/uni00000019/uni00000019/uni00000011/uni0000001b/uni00000019/uni0000001b/uni00000011/uni0000001b/uni00000019/uni0000001c/uni00000011/uni00000018
+/uni00000033/uni00000048/uni00000055/uni00000049/uni00000052/uni00000055/uni00000050/uni00000044/uni00000051/uni00000046/uni00000048/uni00000003/uni00000052/uni00000049/uni00000003/uni00000028/uni0000004f/uni0000004c/uni00000050/uni0000004c/uni00000051/uni00000044/uni00000057/uni0000004c/uni00000051/uni0000004a/uni00000003/uni00000026/uni0000004f/uni00000056/uni00000012/uni0000002f/uni00000052/uni00000046/uni00000003/uni00000028/uni00000055/uni00000055/uni00000052/uni00000055
+/uni00000055/uni00000048/uni00000049/uni00000048/uni00000055/uni00000048/uni00000051/uni00000046/uni00000048/uni00000048/uni0000004f/uni0000004c/uni00000050/uni0000004c/uni00000051/uni00000044/uni00000057/uni00000048/uni00000003/uni00000046/uni0000004f/uni00000044/uni00000056/uni00000056/uni0000004c/uni00000049/uni0000004c/uni00000046/uni00000044/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000003/uni00000048/uni00000055/uni00000055/uni00000052/uni00000055/uni00000048/uni0000004f/uni0000004c/uni00000050/uni0000004c/uni00000051/uni00000044/uni00000057/uni00000048/uni00000003/uni0000004f/uni00000052/uni00000046/uni00000044/uni0000004f/uni0000004c/uni0000005d/uni00000044/uni00000057/uni0000004c/uni00000052/uni00000051/uni00000003/uni00000048/uni00000055/uni00000055/uni00000052/uni00000055
+Figure 3. We obtain the ideal performance (AP) when eliminating
+the classification errors (blue bars) and localization errors (green
+bars). Eliminating the classification leads to perfect classification
+ability but improves the model less. Improving localization can
+bring impressive gains.
+measures the detection performance by AP (Averaged Pre-
+cision) and mAP (mean Average Precision). To further un-
+derstand why we consider a detection a failure, Hoiem et
+al. [15] introduced a categorization for false positive de-
+tections. The COCO [23] analysis tool further computes
+the numbers of several error types progressively. However,
+the analysis results rely on the computing order of the error
+types [1]. TIDE [1] then solves this issue by avoiding com-
+puting errors progressively. DCR [7, 6] recognizes that the
+classification capability is responsible for the false positives
+of the Faster RCNN [37]. It combines the Faster RCNN
+and a classification refinement network to mitigate this is-
+sue. Some works [35, 36, 43, 30] focus on false negatives
+and solve this issue by introducing some prior. Miller et
+al. [31] split the detection pipeline into several stages to lo-
+cate the stage when a model fails to detect an object.
+Freezing Detector’s Parameters.Recently, there are some
+works [39, 24, 21, 18] on exploiting the frozen components
+on detection. Vasconcelos et al. [39] pay attention to freez-
+ing the backbone. They observed that with the powerful de-
+tection components, detection models trained with frozen
+backbones perform better than that with a non-frozen strat-
+egy. Lin et al. [24] further answer how to better apply this
+frozen setting. An open-vocabulary detection method, F-
+VLM [18], freezes the vision and language models and only
+fits the detection head during training. Recently, Large-
+UniDet [21] freezes the backbone to handle the million-
+scale multi-domain universal object detection problem. Al-
+though RefineBox shares the similar idea of freezing trained
+models, it has several differences: (1) They aim to reuse
+the image classification features properly. In contrast, we
+explore a new fashion for improving localization quality.
+(2) They freeze the classification model while RefineBox
+freezes the whole detector.

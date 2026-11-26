@@ -1,0 +1,56 @@
+336｜给DeepSeek的指令：补齐实现链路，直到"可被审查的启动前状态"（自包含，2026-10-21）
+
+你是执行方。本文接在334、335之后。先读，再动手。不确定的事实先在源码/文件里查证，不凭键名推断；做不到的写"未执行+缺什么"，不顶替。
+
+一、决定与边界
+- 用户已决定：这条主线值得做一次有限验证（四臂N/S/G/R，317 v3）。本轮目标是把实现链路补到"启动前可审查"，不是开训。
+- 仍然禁止：SSH、GPU、队列、监测（远端由另一个聊天管理）；在GPU上或本机启动真实训练；读取heldout3236图像或预测；修改历史文件。
+- 允许：本机CPU上的缓存构建（只读development/val图像做global前向，不读heldout）与小规模冒烟。先在32张图的子集上验证，子集结果交回我审过，再决定是否跑全量缓存。
+- 允许写一个训练入口脚本，但文件头注明"未授权，不得在GPU上运行"；不要在汇总里给任何"可直接运行"的GPU命令。
+- 输出文件名一律以336_开头，独占新建，不覆盖335及之前的任何结果。
+
+二、必读与必须使用的资产
+1. 317 v3（主依据）、296（L_mass、GT散射、M_dep定义）、304（S接口）、316（G的κ_c）、327、334、335、333。317与其余冲突时以317为准。
+2. 头模块：必须import 持续寻找研究主线_20261020_v2\311_unit_instance_core_v2\core.py（SHA 56d7dc062a4445320f2ff87e05d3fb8b2d09559a619206bfb158a3620e992959）与 320_geometry_calibrated_core_v2\gcal.py（SHA 0d6a28a88af3b6d1…，用sha256sum取全值）。v1（8cd5dbc6…、76745805…）只作对照，不再用于训练。不得改它们；需要改接口时另存新版本并写diff。
+   uic_model.py（手写约1M代理）不得用于任何训练或评估结论，只可留作历史。
+3. 真实global：code\fine_residual_screen24_20261009_v2\geometry.py 的 ResidualGeometryDEIM，加 code\dn_pre_frozen_diagnostic_20261020_v1\native 的引擎快照（335已验证与training_source_binding.json逐SHA一致）。checkpoint用 last.pth['model'] raw，不用EMA。
+4. 评估器：data\00_实验计划与证据索引\单一候选评价依赖补齐与构建核验_20261008_v1\isolated_runtime\pycocoeval（cocoeval.py SHA 288eab6c…）。注意本机是Windows .pyd，receipt绑定的是Linux .so；所有评估result必须注明这一差异。
+5. 图像目录：需自己从annotations的file_name定位并确认目录存在（可能是annotations的同级images目录），把确认依据写进result。
+
+三、本轮对一个未决口径的决定（我作为主控）
+- 317第5节"完整目标仍进原native归一化分母"。我的读法：沿原DEIMCriterion.forward的定义，分母 = 当前batch内全部完整U_W目标数之和（含overflow未被匹配的目标），clamp(min=1)；不按图平均。依据：deim_criterion.py L304-308的num_boxes是整批GT之和。这是我对317的解读，不是317原文；请在result里把它作为"主控解读"原样记录，并另外报告"按图平均"口径下loss数值差异（只报告，不用）。
+
+四、四个阶段
+阶段1｜缓存构建器（先子集后全量）
+- 每seed、每张development图：raw模型eval模式、native eval640做一次global前向，存final300的boxes与300×10 logits；构造fullP（sigmoid flatten取top300后score严格>.001；同query异类不合并，不先perclass100）。
+- 选窗：640平面64²格上fullP… 注意317写的是"原final300预测中心数最多格，row-major解并列"，以317原文为准；不用GT与新头。窗内RGB128²采样、归一化沿296。
+- M0：用任务1实现（335修复版）在fullP×全图native有效GT上一次确定；G_W、U_W、K_g散射目标按317第2节；同一seed的四臂共享缓存。
+- 每个缓存条目存SHA；整库有manifest；heldout3236路径拦截再测一次。
+- 子集验证（32张图，取development ids前32个）：确定性（同输入两次逐位相同）、raw/eval一致、score区间、窗选择与手算一致、U_W闭合、缓存读回与写入逐位相同、耗时。全量缓存预计规模自己算好写进result（3235×2个seed的前向次数；335实测单图0.18s仅供参考，不要直接外推墙钟）。
+阶段2｜训练链路
+- 四臂N/S/G/R的头：用311_v2/320_v2的实现；S的P-token与count接口按304与317第4节；N不读P。
+- 损失：L_det用任务2的compute_losses（分母按第三节）；L_mass、L_assoc按296/317第5节；L_total权重均1。
+- 优化器与日程按317第5节（AdamW、lr/warmup/cosine、clip1、FP32、bias/norm无decay、κ_c进no-decay只接检测损失），沿任务5的路由实现。
+- 续跑：保存/恢复完整状态（模型、优化器、调度、RNG、epoch/step、shuffle种子）。验证：同一子集上，"连续跑2步"与"跑1步→保存→恢复→再跑1步"所有参数逐位相同。
+- 端到端梯度：用真实compute_losses把检测损失接到G的class_null，在冒烟中报告每个κ_c的梯度与更新；饱和情形按实际算子记零，并写明该次是否因此"κ_c未学动"。
+- 冒烟：四臂各在32张缓存子集上跑20步CPU训练，报告loss是否有限、各分项数值、参数是否更新、global是否零grad且state不变。不要把这20步的loss下降当成效果证据。
+阶段3｜评估链路
+- 融合：global300＋new4统一concat→sigmoid flatten top300→score严格>.001→逐类max100（任务3实现，不加NMS/温度/保底）。
+- 指标：用绑定的pycocoeval算12项COCO统计；另算317第7节的主B（tiny Geo0正式新增TP，定义以317原文为准）、全GT Geo0与IoU.75另报、FP、原TP丢失/新增、新candidate入选/挤出。
+- 配对bootstrap：同548图抽样索引作用于各arm/seed，1000次，seed 2026102103，重复图用新image_id，按重采样数据集重算AP/APs；B按对应图计数；95%百分位区间。
+- 12项方向规则的判定脚本：输入各arm各seed指标，输出12项符号表与"保留/mixed/不支持"，规则严格照317第7节（零不算正；不平均；不抵消）。用构造数据测试该脚本，覆盖全正、一零、一负、跨seed抵消四种情形。
+- baseline复现核对：对两个seed的raw模型在val548上无new4地跑一遍，与训练日志中报告的AP（335记为.16603、.16409）比较。如果不一致，如实报告并列出可能原因（raw与EMA、评估尺寸、后端.pyd与.so），不得为了凑一致而改评估设置。
+阶段4｜核算
+- 实际参数、CPU单窗FLOPs/时延（用真实头，不是代理）、缓存构建耗时与存储量；显存/GPU小时/墙钟标NA。
+- 全部run的步数、曝光数与317第6节核对。
+
+五、红线（沿用334/335，并增加）
+- 工程合同失败写"实现失败"，不得写成科学阴性，不得暗改科学目标。
+- 不得根据冒烟、子集或baseline复现的任何数值调整配方、阈值、窗、标签。
+- 若发现317本身有歧义或矛盾，停下，写入result的"待主控"栏，不自行决定（第三节已决的除外）。
+- 每份result分列"已执行（含调用次数）/未执行/未核"，附源文件SHA256；数字只写实际运行结果。
+- 预注册规则不变：mixed就停，不加轮、不改标签或阈值去救；阴性按阴性报告。
+
+六、交付
+- 每阶段一份336_result_*.json；阶段1子集验证完成后先交回，不等全量。
+- 一页中文汇总：做了什么、没做什么、发现的疑点、"启动前还差什么"清单。不要给GPU启动命令。

@@ -1,0 +1,184 @@
+Detecting Objects with Context-Likelihood Graphs and Graph Refinement
+Aritra Bhowmik1 Yu Wang2 Nora Baka2 Martin R. Oswald1 Cees G. M. Snoek1
+Atlas Lab - 1University of Amsterdam 2TomTom
+{a.bhowmik, m.r.oswald, cgmsnoek }@uva.nl {nora.baka, yu.wang }@tomtom.com
+Abstract
+The goal of this paper is to detect objects by exploit-
+ing their interrelationships. Contrary to existing methods,
+which learn objects and relations separately, our key idea
+is to learn the object-relation distribution jointly. We first
+propose a novel way of creating a graphical representa-
+tion of an image from inter-object relation priors and ini-
+tial class predictions, we call a context-likelihood graph.
+We then learn the joint distribution with an energy-based
+modeling technique which allows to sample and refine the
+context-likelihood graph iteratively for a given image. Our
+formulation of jointly learning the distribution enables us
+to generate a more accurate graph representation of an im-
+age which leads to a better object detection performance.
+We demonstrate the benefits of our context-likelihood graph
+formulation and the energy-based graph refinement via ex-
+periments on the Visual Genome and MS-COCO datasets
+where we achieve a consistent improvement over object de-
+tectors like DETR and Faster-RCNN, as well as alternative
+methods modeling object interrelationships separately. Our
+method is detector agnostic, end-to-end trainable, and es-
+pecially beneficial for rare object classes.
+1. Introduction
+Object detection is a classical task in computer vi-
+sion [2, 29], where methods in the last decade have evolved
+from deep convolutional architectures [38, 37, 26, 4] to self-
+attention based transformer networks [5, 49, 35, 42]. Al-
+though these two approaches vary widely in architecture,
+they both focus exclusively on the image space for feature
+representation, rather than incorporating contextual seman-
+tics about object categories. Once fed with sufficient data,
+these architectures might implicitly learn some object rela-
+tions, but prior works [21, 45, 46, 44] have shown that ex-
+plicitly modeling object relations enhances object detection
+performance by a substantial margin.
+Amongst existing work on modeling object relations,
+Jiang et al. [21] hypothesize that in case a dataset has lit-
+tle information about certain classes, incorporating prior
+Faster-RCNN [27] Ground truth detections
+Initial context-likelihood graph Results after energy-refinement
+Figure 1. We generate a context-likelihood graph from the initial
+predictions of a base detector, here Faster-RCNN, by incorporating
+inter-object relation priors. Having learnt the joint object-relation
+distribution, we iteratively sample a refined graph by energy opti-
+mization. This enables us to predict objects undetected by Faster-
+RCNN, due to their relations or co-occurrence patterns with al-
+ready detected objects. For instance, the detection of a face makes
+the occurrence of eyes or a nose much more likely and vice versa.
+Likewise for the trousers in the presence of a man, which are not
+even present in the ground truth.
+knowledge in the training of a detector should improve de-
+tection. This prior knowledge could be from another source,
+or it could even be distilled from the original dataset. The
+authors establish a novel way of explicitly incorporating se-
+mantic prior knowledge into a base object detection frame-
+work by predicting object-relations from features, creating
+a graphical representation of the image. Xu et al. [45] pro-
+pose to predict object relations solely from object features
+and their spatial orientation, without any extra prior infor-
+mation, by creating a sparse graphical representation. Both
+these methods are dependent on the correctness of the pre-
+dicted relations since they refine the object features for clas-
+sification. Instead of predicting an explicit graph represen-
+tation, Xu et al . [46] enhance object detection by evolv-
+ing high-level semantic representations globally, rather than
+relying solely on visual features. This is accomplished
+1
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+6524
+
+
+---PAGE---
+
+through a network that generates a global semantic pool and
+adapts each object’s features by attending to different se-
+mantic contexts in the pool, automatically discovering the
+most relevant categories for feature evolution. Although all
+these works utilize prior knowledge about objects in their
+problem formulation, they do so consecutively making them
+critically dependant on the object features. Instead, we pro-
+pose to model the objects and their relations jointly from the
+start, in order to have a better understanding of the scene and
+infer better class predictions.
+Our main contributions are thereby as follows:
+(1) We propose a novel way of leveraging inter-object rela-
+tion priors for object detectors during training by creat-
+ing a context-likelihood graph with relation edges based
+on initial class predictions. (Sec. 3.1).
+(2) We demonstrate the potential of our context-likelihood
+graph with an empirical evaluation showing that in-
+corporating inter-object relations from the start leads
+to substantially better object detection rates when us-
+ing a graph built with ground truth class predictions
+(Sec. 3.2).
+(3) We introduce an energy-based method for learning
+object-relation joint distribution, which allows to itera-
+tively refine our context-likelihood graph to further ben-
+efit us in our end task (Sec. 3.3).
+Experiments on the Visual Genome [23] and MS-
+COCO [28] datasets demonstrate our method is detector
+agnostic, end-to-end trainable, and especially beneficial for
+rare object classes. What is more, we establish a consis-
+tent improvement over object detectors like DETR [5] and
+Faster-RCNN [38], as well as alternative methods modeling
+object interrelationships. Before introducing our method,
+we first provide more background on related works.
+2. Related Work
+Object detection. Modern object detection models can
+be broadly classified into two groups: those based on con-
+volution architectures and those based on transformers. In
+the convolution family, methods like Faster-RCNN [38] and
+R-FCN [8] are well established. They consists of a region
+proposal network to generate regions of interest and a clas-
+sification and bounding box regression module to predict a
+set of objects. YOLO [37] and SSD [30] predict objects
+directly from convolutional feature maps. ObjectBox [48]
+treats objects as center-points in a shape and size agnostic
+fashion and allows learning at all scales. All these meth-
+ods typically utilize a pretrained backbone like ResNet [18]
+for feature extraction. Recently, there has been a rise in
+methods which use an attention mechanism in a transformer
+network. For instance, ViT [42], SwinTransFormer [32]
+and MViTv2 [25]. Carion et al . [5] introduced a detec-
+tion transformer (DETR) which uses an attention mech-
+anism for object detection in an end-to-end manner. To
+speed up convergence and reduce the computational cost
+for the self-attention on image features, Zhu et al. [49] in-
+troduced multi-head deformable attention replacing the dot-
+product in the attention computation with two linear pro-
+jections for sampling points and computing their attention
+weights. Nguyen et al. [35] introduced BoxeR which sam-
+ples boxes instead of points for attention computation, and
+demonstrates utility for object detection, instance segmen-
+tation and 3D detection. Although these object detectors
+use spatial context information in the image space, they do
+not explicitly model the relation between (detected) objects.
+Using Faster-RCNN and DETR as representative examples
+of the convolution and transformer approach to object de-
+tection, we demonstrate that creating a graphical represen-
+tation of an image from inter-object relation priors and ini-
+tial class predictions improves object detection.
+Object graph representation. Aside from classic object
+detection, many works have aimed to represent the interac-
+tions between objects and scenes. Early works [14, 15, 34]
+use object relations as a post-processing step on simpler
+datasets like PASCAL VOC [13]. Recent works model
+objects and relations together in a graph structure, e.g.,
+[6, 7, 22, 33] where Xu et al. [47] use a unified conditional
+random field to model the joint distribution of all the objects
+and their relations in a scene graph. However, this requires
+ground truth labels for both the objects and their relations
+for each image during training. To avoid explicit relation
+annotations, others, e.g., [21, 45, 46, 44] exploit priors like
+co-occurrence statistics or attributes of object classes to ob-
+tain a graph representation of an image. Jiang et al. [21]
+predict the edge values representing the relations between
+object pairs, whereas Xu et al. [45] propose a form of self-
+attention to obtain these edges. In a follow-up work, Xu et
+al. [46] further introduce a global semantic pool, created us-
+ing the weights of individual object classifiers, as a relation-
+ship prior instead of generating an explicit graph represen-
+tation. To aggregate information from different domains,
+they also introduce graph transfer learning [44]. All these
+works enhance the object feature representation by propa-
+gating the relation information via a graph structure. These
+works utilize the relation information as is and do not con-
+sider the joint modeling of the relation with the objects in
+the scene. In our work, we learn the joint distribution of ob-
+jects and their relations by sampling meaningful relations
+for object pairs before the graph propagation.
+Energy-based models. Energy-based models (EBMs)
+bring forth simplicity and generality in likelihood model-
+ing [1, 19, 24, 20]. Various tasks like image generation
+[11, 36], out-of-distribution detection [31], memory model-
+ing [3] and anomaly detection [9] have been addressed with
+the help of EBMs. Recently, there has been an increasing
+interest in applying EBMs to the task of image generation.
+6525

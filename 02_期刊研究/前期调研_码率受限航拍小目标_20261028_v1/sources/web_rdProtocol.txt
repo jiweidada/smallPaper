@@ -1,0 +1,101 @@
+CMC | Free Full-Text | Robust and Discriminative Feature Learning via Mutual Information Maximization for Object Detection in Aerial Images (https://www.techscience.com/cmc/v80n3/57863/html)
+ [wordlim: 200] Crawled: 5 days ago; Content type: text/html; Source: open({"ref_id":"turn41view1","lineno":194}); Total lines: 467
+L160: After mining the object chips and background chips, we uniform them to a fixed size. These resized chips are used to enhance the backbone by fine-tuning. The rank sample mining method lays the foundation for detectors to distinguish objects from complex backgrounds, and confused objects from different categories.
+L161: 
+L162: 3.4 Momentum Contrast Learning Strategy
+L163: In the aerial image domain, object categories often exhibit high semantic similarity, which makes sample detection more difficult. To mitigate this, we propose a momentum contrast learning strategy to enhance the backbone ability to learn more discriminative features. This approach enables the backbone to encode features of the same category similarly and those of different categories dissimilarly [【80†41】].
+L164: During the initialization phase, we use a matrix E with dimension [C, D im] to store the average encoded features for each category, where C denotes the number of categories and D im is the length of encoded features. We also initialize a queue Q with dimension [C, N um, D im] as a temporary storage for encoded features during the learning process. The N um is the maximum number of encoded features for each category that the queue can store, which is discussed in 【78†Section 4.4】.
+L165: In a concrete implementation, the feature map output from the backbone undergoes an average pooling operation to reduce its dimensionality and retain important features. This operation results in a feature map F with dimension [B, D im], where B denotes the batch size, which is less than the N um. We use momentum contrast loss function L mc to fine-tune the backbone pre-trained on the ImageNet dataset.
+L166: 
+L167: Lmc=−log⁡exp⁡(xqE (c+)/τ)∑i=1Cexp⁡(xqE (ci)/τ)(7)
+L168: where x q is the encoded feature of a sample in F, E(c+) is the expectation of encoded features that are the same category as x q, and E(c i) is the expectation of encoded features for category i in the matrix E.
+L169: 
+L170: The feature map F is enqueued into queue Q according to the category labels of input samples, maintaining a dynamic and updated set of features for each category. When the queue reaches its maximum capacity N um, we use the momentum method to update matrix E.
+L171: 
+L172: E (ci)←mE (ci)+(1−m)E q(ci)(8)
+L173: where m is a momentum factor, and E q(c i) is the expectation of encoded features for category i in the updated queue Q. This momentum update mechanism ensures that the encoded features in the matrix E are continuously and stably updated, facilitating the backbone to learn consistent feature representations more easily.
+L174: 【81†Fig. 4】 depicts the encoded feature visualization from ResNet50. After applying the proposed momentum contrast learning strategy, we observe that the distances between features from the same category are closer, while those of different categories are more distant. The stark contrast in feature clustering highlights the effectiveness of our proposed momentum contrast learning strategy.
+L175: 
+L176: 【82†Image: images†cdn.techscience.cn】
+L177: Figure 4: Visualization results of the encoded feature distribution from ResNet50. (a) Without momentum contrast learning. (b) With momentum contrast learning
+L178: 
+L179: 3.5 Global Attention Mechanism Based on Transformer Encoder
+L180: Aerial images always contain complex geographical elements, which easily confuse objects and backgrounds. In our work, we not only focus on the object regions but also consider the background regions that provide abundant contextual information for objects and facilitate object localization.
+L181: Inspired by the transformer [【83†42】], we propose an efficient and simple GATM module to extract relevant information from different receptive fields in robust and discriminative feature maps, which is able to enhance the object location semantics. Our module maintains original input sizes and can be extended as an additional component for various typical object detectors. As presented in 【84†Fig.
+L182: 5】, we only add the GATM module in the last two stages of the backbone, which allows us to decrease the expensive computation and memory costs. The enhanced information can flow to the shallow feature maps through FPN. Related experiments on the arrangement of the proposed module are discussed in 【78†Section 4.4】.
+L183: 【85†Image: images†cdn.techscience.cn】
+L184: 
+L185: Figure 5: The architecture of GATM. Our module is embedded in the last two stages of the backbone network, which primarily consists of the patch embedding and a transformer encoder
+L186: In GATM module, given an input feature map with dimension [H, W, C], we use the zero padding and depthwise separable convolution to obtain a series of patches. They are flattened and projected to the fixed dimensional embedding. After that, we feed the patch embedding and position embedding into a transformer encoder. The output is reshaped to its original size through a 1 × 1 convolution.
+L187: For the transformer encoder, it contains the multi-head attention and feed-forward layers, which achieves better performance for occluded and dense objects in aerial images. To further decrease computation costs, we use spatial reduction (SR) to reduce input sequences for key K and value V. The self-attention operation A can be formulated as
+L188: A(Q,K,V)=Softmax(Q×SR(K)Td)SR(V)(9)
+L189: 
+L190: where Q is the query, and d is a scaling factor.
+L191: 
+L192: 4  Experimental Results and Analysis
+L193: 
+L194: 4.1 Datasets
+L195: 
+L196: We used two popular datasets VisDrone and UAVDT to verify the effectiveness of the proposed method for object detection in aerial images. In addition, to evaluate the compatibility of our method with oriented object detection methods, we introduced the DroneVehicle dataset [【86†43】] with oriented bounding box (OBB) annotations.
+L197: •   VisDrone dataset: The dataset has 10 object categories and 10,209 images, including 6471 for training, 548 for validation, and 3190 for testing. The image size is about 2000 × 1500 pixels, and the majority of objects are small, dense, and occluded from each other. We used the validation set to evaluate our method, following the same as previous methods [【36†8】].
+L198: •   UAVDT dataset: The dataset consists of 23,258 training images and 15,069 testing images. The images with a 1080 × 540 size include three kinds of vehicles: car, bus and truck.
+L199: 
+L200: •   DroneVehicle dataset: It includes 28439 visible-infrared image pairs with OBB annotations and has five categories: car, truck, bus, van, and freight car. The input image size is 840 × 712. We only adopted RGB images of the dataset.
+L201: To further measure robustness for detectors in aerial images, inspired by Yamada et al. [【42†13】] work on natural images, we introduced 10 synthetic image corruption types to the two VisDrone and UAVDT datasets. Considering the complex working conditions of UAVs, we adopted the following corruption types: Gaussian, shot, defocus, motion, snow, frost, fog, brightness, contrast, and compression [【87†44】]. The corrupted images are algorithmically synthesized and only used to test detector robustness.
+L202: We applied each type to the VisDrone validation dataset and UAVDT testing dataset, obtaining 5480 and 150,690 corrupted images, respectively. 【88†Fig. 6】 presents the 10 corruption types on the VisDrone dataset.
+L203: 【89†Image: images†cdn.techscience.cn】
+L204: 
+L205: Figure 6: Corruption types on the VisDrone dataset
+L206: 
+L207: 4.2 Implementation Details
+L208: 
+L209: Our experiments were implemented on the open-source MMDetection toolbox [【90†45】]. The comparative method YOLOv8 [【91†46】] used the MMYOLO [【92†47】] framework. We adopted Faster R-CNN, RetinaNet, and FCOS with three different backbones of ResNet50, RegNetX-1.6GF, and PVTv2-B0. These models were trained and tested on two NVIDIA Tesla P40 GPUs with 24 GB memory.
+L210: In the training phase, we set the batch size to 4, the initial learning rate to 1.0 × 10−4, and the number of the epochs to 18. The testing phase used the same input image size as the training phase. We used the primary AP (average precision), AP50, and AP75 as evaluation metrics. AP50 and AP75 are the average precision with the IoU threshold of 0.5 and 0.75, respectively. Clean accuracy was evaluated on images without corruption types.
+L211: The mean detection accuracy of the detector for each corruption type is defined as corruption robustness. The confusion matrix was also introduced to evaluate and analyze errors and confusions between different object categories.
+L212: 4.3 Comparison Experiments
+L213: To compare the detection performance of our approach and the original method that transfers ImageNet network, we implemented three representative detectors, including Faster R-CNN (FRCNN), RetinaNet (Retina), and FCOS as basic models. We chose ResNet50, RegNetX-1.6GF, and PVTv2-B0 as backbones in 【93†Tables 1】–【94†3】, respectively. RD-MIM achieves obvious improvements on almost all basic models, demonstrating the importance of underlying features.
+L214: It can be seen that our method has higher AP score increases on the VisDrone dataset compared with the UAVDT dataset. Also, the improvement in robustness is greater than that of accuracy on the UAVDT dataset. The reason is that the UAVDT dataset contains only three categories, so the categorical similarity is not severe. In 【93†Table 1】, original FCOS obtains higher clean accuracy than Retina, but it has poor corruption robustness.
+L215: It means that accuracy and robustness are not always correlated, indicating the necessity of studying corruption robustness on aerial images. RD-MIM achieves the relative growth rates of 51.0% and 39.4% on the corrupted VisDrone dataset using FCOS and on the corrupted UAVDT dataset using FRCNN, respectively. It suggests that the proposed approach has considerable benefits in enhancing robustness.
+L216: In 【94†Table 3】, although the PVTv2-B0 composed of transformer architecture performs well in handling dense and small object detection problems, it still obtains gains from our method. The training loss of FRCNN with ResNet50 on the VisDrone dataset is presented in 【95†Fig. 7】. With the increase of training steps, our approach achieves faster convergence and lower loss values.
+L217: 【96†Image: images†cdn.techscience.cn】
+L218: 
+L219: 【97†Image: images†cdn.techscience.cn】
+L220: 
+L221: 【98†Image: images†cdn.techscience.cn】
+L222: 
+L223: 【99†Image: images†cdn.techscience.cn】
+L224: 
+L225: Figure 7: The training loss of FRCNN with ResNet50 on the VisDrone dataset
+L226: 【100†Table 4】 presents the detection results on each class by using FRCNN with ResNet50 on the clean VisDrone dataset. Our method improves AP scores for all classes, especially those categories with hard samples. For example, the detection accuracy for the class awning-tricycle and bicycle is increased by 2.3% and 2.0%, respectively. We further explored the confusion matrices of AP scores for different categories in 【101†Fig. 8】.
+L227: From the observation, our approach allows detectors to better distinguish objects and complicated backgrounds, and reduces the detection errors of objects from confused categories. The results reveal that the designed rank sample mining method and momentum contrast learning strategy can effectively alleviate the problems of interclass similarity and intraclass variability.
+L228: 【102†Image: images†cdn.techscience.cn】
+L229: 
+L230: 【103†Image: images†cdn.techscience.cn】
+L231: 
+L232: Figure 8: Confusion matrices on the clean VisDrone dataset using (a) original FRCNN and (b) FRCNN with our RD-MIM
+L233: To further explore the robustness performance of the RD-MIM, we evaluated the AP scores of FRCNN with ResNet50 under different corruption types in 【104†Table 5】. The shot noise and snow severely deteriorate the accuracy of the original detector on the VisDrone and UAVDT datasets, resulting in 8.1% and 9.3% AP drops compared to clean accuracy. After applying the RD-MIM, the AP scores increase by 5.2% and 6.0%.
+L234: Moreover, we also used the models trained on the VisDrone dataset to evaluate the unseen UAVDT dataset by using AP scores in 【105†Table 6】. Even though the training and testing sets have completely different data distributions, our implementation still outperforms the original models, yielding 4.5%, 4.2%, and 4.8% average improvements. These results reveal that our approach brings great robustness gains to the detector.
+L235: 【106†Image: images†cdn.techscience.cn】
+L236: 
+L237: 【107†Image: images†cdn.techscience.cn】
+L238: The comparison of existing approaches on the VisDrone dataset is shown in 【108†Table 7】. The proposed approach outperforms the first two methods [【37†9】,【60†27】], resulting in 3.8% and 1.2% AP score improvements respectively. Compared to the DSHNet [【36†8】] with FRCNN, RD-MIM obtains slightly lower accuracy on clean aerial images but increases by 2.2% AP score on corrupted aerial images. QueryDet [【109†48】] is specifically designed for aerial images, which performs well for small objects.
+L239: After combining the RD-MIM, the AP scores increase by 1.9% and 3.8% on clean and corrupted images, respectively. We also evaluated the performance gains of the recently released YOLOv8 [【91†46】] and the advanced DINO (DETR with Improved denoising anchor boxes) [【110†49】]. As can be seen, our RD-MIM still improves the performance of advanced detectors, especially in terms of corruption robustness.
+L240: 【111†Image: images†cdn.techscience.cn】
+L241: To demonstrate the compatibility of our method, we tested different types of oriented object detection methods, including Faster R-CNN (OBB) [【112†50】], Retina (OBB) [【53†20】], ROI Transformer [【113†51】], OAN [【66†33】], and recent TS-Conv [【67†34】] on the DroneVehicle dataset in 【114†Table 8】. We adopted AP50 to evaluate each subcategory. As can be observed, our RD-MIM help the original detection methods achieve higher AP50 scores.
+L242: It illustrates that our approach can be easily integrated into oriented object detection methods to further improve performance.
+L243: 【115†Image: images†cdn.techscience.cn】
+L244: 
+L245: 4.4 Ablation Study
+L246: We conducted ablation experiments on the VisDrone dataset to verify the contributions of major components in RD-MIM, as depicted in 【116†Table 9】. Rank sample mining method (RSM) shows an obvious increase over the original FRCNN, because it is conducive to better learning underlying features of aerial images. After employing momentum contrast learning (MCL), the AP score increases by 1.2% on the clean VisDrone dataset.
+L247: The promising result indicates that our momentum contrast learning can help the detector distinguish object features more effectively. The detection accuracy is further improved with the GATM module, illustrating that it can enhance feature representations. The performance trend of corruption robustness is similar to clean accuracy and has a higher gain. It suggests that each component of RD-MIM facilitates remarkable robustness enhancement.
+L248: 【117†Image: images†cdn.techscience.cn】
+L249: In 【118†Table 10】, we explored the impact of relevant parameters on the AP scores of the rank sample mining method. We conducted three ways of ranking category priorities, including random order, quantity order, and performance order. The quantity order is based on long-tail distribution where the fewer the sample number, the higher the category priority. The performance order is determined by the detection results of the original FRCNN, where the lower the accuracy, the higher the category priority.
+L250: It can be seen from 【118†Table 10】 that using performance order obtains higher AP scores. We also observe that data augmentation of high priority object chips can enhance clean accuracy and corruption robustness. In addition, we explored the impact of object clip and background chip IoU thresholds on the classification accuracy for the enhanced backbone with the momentum contrast learning in 【119†Fig. 9】.
+L251: When the object clip IoU threshold T o is set to 0.1 and the background chip IoU threshold T b is set to 0.01, the highest classification accuracy can be reached.
+L252: 【120†Image: images†cdn.techscience.cn】
+L253: 
+L254: 【121†Image: images†cdn.techscience.cn】
+L255: 
+L256: Figure 9: The impact of object clip and background chip IoU thresholds on the classification accuracy. 【122†[email protected]】 means that background chip IoU threshold T b is set to 0.01
+L257: We measured the maximum number N um of each category stored in the queue Q for momentum contrast learning in 【123†Fig. 10】. When the N um value is 512, the model achieves better accuracy and robustness. A higher or lower value results in poorer performance. This is attributed to the fact that the larger the queue capacity, the fewer update steps. When the capacity is small, it is difficult to approach the expectation of encoded features. Therefore, we chose 512 as the N um value.
+

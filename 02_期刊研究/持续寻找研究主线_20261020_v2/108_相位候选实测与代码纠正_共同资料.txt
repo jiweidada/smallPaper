@@ -1,0 +1,1403 @@
+共享背景：核心资产摘要，原始完整来源在03/09及其链接；仅压缩材料，不改变新目标、原判据或原始结果。
+新目标：找到至少一条有实质创新且值得申请训练的具体方法线。三Astra/xhigh+一Claude Opus5.5轮流，不限轮数/无训练核查次数，不因候选失败结束，也不硬凑。当前不训练、不远程、不监测。专家只读文件/公开原文，不运行脚本模型，主助手核查。
+
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A6 attention采样集中在已失败tiny群体0/85、0/93，未过25%门槛。不主张所有attention无用。
+A7 骨干stem的随机/预训相混不能归因结构；late-downsample原有，不能再提作创新。旧fine_residual局部高分辨率encoder几何残差被用户停于10/17轮，没有完整正证据，当前不恢复。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D2 BASE12 EMA548val离线CPU原N vs每queryargmax删D/补R：N AP6.128496/7.908137；R5.190986/6.738981，R-N-.937510/-1.169156pp，停止该版。删除secondary-class TP3333/3361，新增query TP432/545，补入大量背景。不能把重复query类全当无用。pipeline CPU另登记，不称复现原GPU1e-8。
+D3 BASE24两dev批原损失历史Adam端点，ordered变化2081/2400、1855/2400，但成员仅换38/19，约99%保留。已覆盖tiny bestsite都没换出，分母小；逆序槽换框差<2.8e-6，不能把排序当巨大集合不稳定。
+D4 分布方差U已有partialrank-.0898/-.1146，16批均负但效应弱；GFLv2/GaussianYOLOv3/D-FINE先例强，不为加方差评分再训练。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+
+当前可用：data08 isolated_v3/A(seed1)、B(seed2) development00–07保存640增强输入、GT、同前向原生匹配、普通所有层pred_boxes/pred_corners/ref_points。data10保存BASE24 online native fullmodel梯度、Adam状态、可供隔离重建。已反复开发，不叫独立验证。可使用CPU2线程低优先级少量冻结前向/反传及独立Adam虚拟端点，不累计更新、不写模型、不伪装训练。现成范围、topK、DDF表不再说待统计。
+
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+
+===== 101_末框中心残差作用面_事前口径.txt =====
+本文件先于本次结果生成。仅诊断一个明确版本：原始入选 P3 槽的最终框中心可加不超过 ±2 输入像素的残差，宽高、分类分数、top300 类别预算及其他槽保持原值。
+
+来源：91 的两个 BASE24 online 模型原始预测和实际 selected_indices；85 预选的同四张开发图；77 的原 GT 和固定 original_sub4 队列。不是 C96，不是独立留出，不将结果外推到初始 reference 干预。
+
+比较：原始；P3 最终中心 ±2 残差；P3 网格中心 ±2 绝对替换（另一方法）；P3 无界 GT 中心；P3 仅替换为 GT 宽高。后四项均为使用 GT 的逐边可行上界，不是可部署方法、预测 AP 或可学习性证据。所有非 P3 槽保持原框。
+
+固定宽高时，将 GT 中心投影到允许中心矩形，可取得该 query-GT 边的最大 IoU。用可行边求最大一对一匹配；每个 query 容量为一。native class×query top300 中的同槽多类别只形成允许类别集合，不能把同一槽当多个独立几何框。额外复算原 detection-row 容量结果，仅解释与旧表的口径差。
+
+分别报告全 GT / 原 sub4，IoU .5/.75，纯几何 / 真类预算覆盖。每个分组和门槛的最大匹配独立求解；不声称同一组残差同时实现整表上界。另报 P3 同一常数平移的 25 个控制（各轴 -2,-1,0,1,2 像素），按各指标取最佳常数，只用来识别整体偏置即可解释的部分。
+
+首检必要停止规则：任一模型的 ±2 残差上界在 sub4 真类 IoU .5 上不能严格高于原同槽基线，则停止该模型面板支持的精确残差修正假设。非零恢复只允许继续检验相位专属信息，不许可据此申请训练；全 GT 不降是原解可行所保证，不作为阳性门槛。无限尺寸 oracle 与中心 oracle 无必须胜负关系。
+
+只读已有 pt/json，CPU 两线程、低优先级，零模型前向、零反传、零更新、零远程操作。不读留出。先做合成容量和边界测试；输出脚本 SHA、输入 SHA 和原始整数计数。
+
+
+===== 103_final_center_feasibility/01_results.json =====
+{
+  "state": "complete",
+  "resources": {
+    "priority": "below_normal",
+    "affinity": [
+      13,
+      15
+    ],
+    "threads": 2,
+    "available_RAM_GiB": 23.95075225830078,
+    "torch": "2.5.1+cpu",
+    "cuda_runtime": null
+  },
+  "totals": {
+    "1": {
+      "counts": {
+        "original": {
+          "all_geo05": 302,
+          "all_geo075": 147,
+          "all_class05": 268,
+          "all_class075": 143,
+          "sub4_geo05": 28,
+          "sub4_geo075": 2,
+          "sub4_class05": 22,
+          "sub4_class075": 2
+        },
+        "P3_final_residual_2px": {
+          "all_geo05": 366,
+          "all_geo075": 228,
+          "all_class05": 307,
+          "all_class075": 208,
+          "sub4_geo05": 50,
+          "sub4_geo075": 13,
+          "sub4_class05": 32,
+          "sub4_class075": 11
+        },
+        "P3_grid_absolute_2px": {
+          "all_geo05": 222,
+          "all_geo075": 77,
+          "all_class05": 168,
+          "all_class075": 69,
+          "sub4_geo05": 30,
+          "sub4_geo075": 4,
+          "sub4_class05": 14,
+          "sub4_class075": 2
+        },
+        "P3_free_center": {
+          "all_geo05": 658,
+          "all_geo075": 535,
+          "all_class05": 468,
+          "all_class075": 390,
+          "sub4_geo05": 226,
+          "sub4_geo075": 104,
+          "sub4_class05": 113,
+          "sub4_class075": 55
+        },
+        "P3_GT_size_only": {
+          "all_geo05": 341,
+          "all_geo075": 197,
+          "all_class05": 280,
+          "all_class075": 179,
+          "sub4_geo05": 45,
+          "sub4_geo075": 12,
+          "sub4_class05": 24,
+          "sub4_class075": 8
+        }
+      },
+      "best_single_constant_P3_shift_per_metric": {
+        "all_geo05": 306,
+        "all_geo075": 147,
+        "all_class05": 274,
+        "all_class075": 143,
+        "sub4_geo05": 29,
+        "sub4_geo075": 3,
+        "sub4_class05": 23,
+        "sub4_class075": 2
+      },
+      "denominators": {
+        "GT": 902,
+        "sub4": 453,
+        "P3_slots": 1017,
+        "P4_P5_slots": 183,
+        "native_detection_row_sub4_class05": 22
+      },
+      "constant_shift_table": [
+        {
+          "shift_pixels": [
+            -2,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 188,
+            "all_geo075": 43,
+            "all_class05": 167,
+            "all_class075": 41,
+            "sub4_geo05": 6,
+            "sub4_geo075": 0,
+            "sub4_class05": 3,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 215,
+            "all_geo075": 46,
+            "all_class05": 190,
+            "all_class075": 44,
+            "sub4_geo05": 11,
+            "sub4_geo075": 0,
+            "sub4_class05": 4,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            0
+          ],
+          "counts": {
+            "all_geo05": 231,
+            "all_geo075": 54,
+            "all_class05": 205,
+            "all_class075": 53,
+            "sub4_geo05": 13,
+            "sub4_geo075": 0,
+            "sub4_class05": 4,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            1
+          ],
+          "counts": {
+            "all_geo05": 218,
+            "all_geo075": 58,
+            "all_class05": 193,
+            "all_class075": 55,
+            "sub4_geo05": 11,
+            "sub4_geo075": 0,
+            "sub4_class05": 3,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            2
+          ],
+          "counts": {
+            "all_geo05": 202,
+            "all_geo075": 54,
+            "all_class05": 177,
+            "all_class075": 50,
+            "sub4_geo05": 9,
+            "sub4_geo075": 1,
+            "sub4_class05": 2,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 245,
+            "all_geo075": 63,
+            "all_class05": 222,
+            "all_class075": 62,
+            "sub4_geo05": 13,
+            "sub4_geo075": 0,
+            "sub4_class05": 11,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 265,
+            "all_geo075": 83,
+            "all_class05": 234,
+            "all_class075": 82,
+            "sub4_geo05": 17,
+            "sub4_geo075": 0,
+            "sub4_class05": 11,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            0
+          ],
+          "counts": {
+            "all_geo05": 280,
+            "all_geo075": 104,
+            "all_class05": 252,
+            "all_class075": 101,
+            "sub4_geo05": 21,
+            "sub4_geo075": 0,
+            "sub4_class05": 15,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            1
+          ],
+          "counts": {
+            "all_geo05": 272,
+            "all_geo075": 101,
+            "all_class05": 244,
+            "all_class075": 97,
+            "sub4_geo05": 20,
+            "sub4_geo075": 0,
+            "sub4_class05": 12,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            2
+          ],
+          "counts": {
+            "all_geo05": 261,
+            "all_geo075": 86,
+            "all_class05": 230,
+            "all_class075": 80,
+            "sub4_geo05": 16,
+            "sub4_geo075": 0,
+            "sub4_class05": 9,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 269,
+            "all_geo075": 92,
+            "all_class05": 242,
+            "all_class075": 88,
+            "sub4_geo05": 14,
+            "sub4_geo075": 0,
+            "sub4_class05": 13,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 296,
+            "all_geo075": 131,
+            "all_class05": 262,
+            "all_class075": 124,
+            "sub4_geo05": 22,
+            "sub4_geo075": 3,
+            "sub4_class05": 18,
+            "sub4_class075": 2
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            0
+          ],
+          "counts": {
+            "all_geo05": 302,
+            "all_geo075": 147,
+            "all_class05": 268,
+            "all_class075": 143,
+            "sub4_geo05": 28,
+            "sub4_geo075": 2,
+            "sub4_class05": 22,
+            "sub4_class075": 2
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            1
+          ],
+          "counts": {
+            "all_geo05": 306,
+            "all_geo075": 146,
+            "all_class05": 274,
+            "all_class075": 139,
+            "sub4_geo05": 29,
+            "sub4_geo075": 2,
+            "sub4_class05": 23,
+            "sub4_class075": 2
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            2
+          ],
+          "counts": {
+            "all_geo05": 291,
+            "all_geo075": 117,
+            "all_class05": 260,
+            "all_class075": 111,
+            "sub4_geo05": 21,
+            "sub4_geo075": 3,
+            "sub4_class05": 15,
+            "sub4_class075": 2
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 260,
+            "all_geo075": 78,
+            "all_class05": 230,
+            "all_class075": 75,
+            "sub4_geo05": 7,
+            "sub4_geo075": 0,
+            "sub4_class05": 6,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 286,
+            "all_geo075": 112,
+            "all_class05": 249,
+            "all_class075": 107,
+            "sub4_geo05": 15,
+            "sub4_geo075": 1,
+            "sub4_class05": 12,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            0
+          ],
+          "counts": {
+            "all_geo05": 298,
+            "all_geo075": 128,
+            "all_class05": 266,
+            "all_class075": 125,
+            "sub4_geo05": 18,
+            "sub4_geo075": 1,
+            "sub4_class05": 16,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            1
+          ],
+          "counts": {
+            "all_geo05": 298,
+            "all_geo075": 135,
+            "all_class05": 265,
+            "all_class075": 129,
+            "sub4_geo05": 21,
+            "sub4_geo075": 1,
+            "sub4_class05": 18,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            2
+          ],
+          "counts": {
+            "all_geo05": 277,
+            "all_geo075": 106,
+            "all_class05": 248,
+            "all_class075": 102,
+            "sub4_geo05": 14,
+            "sub4_geo075": 0,
+            "sub4_class05": 10,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 212,
+            "all_geo075": 52,
+            "all_class05": 191,
+            "all_class075": 50,
+            "sub4_geo05": 4,
+            "sub4_geo075": 0,
+            "sub4_class05": 2,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 237,
+            "all_geo075": 62,
+            "all_class05": 212,
+            "all_class075": 59,
+            "sub4_geo05": 7,
+            "sub4_geo075": 0,
+            "sub4_class05": 4,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            0
+          ],
+          "counts": {
+            "all_geo05": 247,
+            "all_geo075": 79,
+            "all_class05": 222,
+            "all_class075": 76,
+            "sub4_geo05": 8,
+            "sub4_geo075": 0,
+            "sub4_class05": 6,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            1
+          ],
+          "counts": {
+            "all_geo05": 244,
+            "all_geo075": 80,
+            "all_class05": 221,
+            "all_class075": 73,
+            "sub4_geo05": 10,
+            "sub4_geo075": 0,
+            "sub4_class05": 7,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            2
+          ],
+          "counts": {
+            "all_geo05": 232,
+            "all_geo075": 71,
+            "all_class05": 206,
+            "all_class075": 63,
+            "sub4_geo05": 8,
+            "sub4_geo075": 0,
+            "sub4_class05": 4,
+            "sub4_class075": 0
+          }
+        }
+      ]
+    },
+    "2": {
+      "counts": {
+        "original": {
+          "all_geo05": 309,
+          "all_geo075": 165,
+          "all_class05": 281,
+          "all_class075": 159,
+          "sub4_geo05": 31,
+          "sub4_geo075": 5,
+          "sub4_class05": 25,
+          "sub4_class075": 4
+        },
+        "P3_final_residual_2px": {
+          "all_geo05": 357,
+          "all_geo075": 233,
+          "all_class05": 315,
+          "all_class075": 221,
+          "sub4_geo05": 54,
+          "sub4_geo075": 21,
+          "sub4_class05": 40,
+          "sub4_class075": 18
+        },
+        "P3_grid_absolute_2px": {
+          "all_geo05": 249,
+          "all_geo075": 116,
+          "all_class05": 207,
+          "all_class075": 109,
+          "sub4_geo05": 23,
+          "sub4_geo075": 6,
+          "sub4_class05": 12,
+          "sub4_class075": 4
+        },
+        "P3_free_center": {
+          "all_geo05": 656,
+          "all_geo075": 535,
+          "all_class05": 493,
+          "all_class075": 398,
+          "sub4_geo05": 220,
+          "sub4_geo075": 113,
+          "sub4_class05": 143,
+          "sub4_class075": 67
+        },
+        "P3_GT_size_only": {
+          "all_geo05": 338,
+          "all_geo075": 226,
+          "all_class05": 291,
+          "all_class075": 203,
+          "sub4_geo05": 46,
+          "sub4_geo075": 18,
+          "sub4_class05": 29,
+          "sub4_class075": 13
+        }
+      },
+      "best_single_constant_P3_shift_per_metric": {
+        "all_geo05": 309,
+        "all_geo075": 165,
+        "all_class05": 281,
+        "all_class075": 159,
+        "sub4_geo05": 32,
+        "sub4_geo075": 5,
+        "sub4_class05": 25,
+        "sub4_class075": 5
+      },
+      "denominators": {
+        "GT": 902,
+        "sub4": 453,
+        "P3_slots": 991,
+        "P4_P5_slots": 209,
+        "native_detection_row_sub4_class05": 25
+      },
+      "constant_shift_table": [
+        {
+          "shift_pixels": [
+            -2,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 201,
+            "all_geo075": 72,
+            "all_class05": 180,
+            "all_class075": 70,
+            "sub4_geo05": 10,
+            "sub4_geo075": 0,
+            "sub4_class05": 5,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 227,
+            "all_geo075": 76,
+            "all_class05": 206,
+            "all_class075": 72,
+            "sub4_geo05": 13,
+            "sub4_geo075": 0,
+            "sub4_class05": 9,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            0
+          ],
+          "counts": {
+            "all_geo05": 230,
+            "all_geo075": 82,
+            "all_class05": 208,
+            "all_class075": 78,
+            "sub4_geo05": 15,
+            "sub4_geo075": 0,
+            "sub4_class05": 7,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            1
+          ],
+          "counts": {
+            "all_geo05": 226,
+            "all_geo075": 79,
+            "all_class05": 201,
+            "all_class075": 75,
+            "sub4_geo05": 14,
+            "sub4_geo075": 0,
+            "sub4_class05": 5,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -2,
+            2
+          ],
+          "counts": {
+            "all_geo05": 208,
+            "all_geo075": 75,
+            "all_class05": 186,
+            "all_class075": 70,
+            "sub4_geo05": 8,
+            "sub4_geo075": 1,
+            "sub4_class05": 4,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 260,
+            "all_geo075": 83,
+            "all_class05": 237,
+            "all_class075": 81,
+            "sub4_geo05": 15,
+            "sub4_geo075": 0,
+            "sub4_class05": 11,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 285,
+            "all_geo075": 108,
+            "all_class05": 257,
+            "all_class075": 104,
+            "sub4_geo05": 23,
+            "sub4_geo075": 2,
+            "sub4_class05": 16,
+            "sub4_class075": 2
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            0
+          ],
+          "counts": {
+            "all_geo05": 293,
+            "all_geo075": 118,
+            "all_class05": 267,
+            "all_class075": 114,
+            "sub4_geo05": 28,
+            "sub4_geo075": 2,
+            "sub4_class05": 22,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            1
+          ],
+          "counts": {
+            "all_geo05": 283,
+            "all_geo075": 112,
+            "all_class05": 257,
+            "all_class075": 107,
+            "sub4_geo05": 29,
+            "sub4_geo075": 2,
+            "sub4_class05": 21,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            -1,
+            2
+          ],
+          "counts": {
+            "all_geo05": 259,
+            "all_geo075": 94,
+            "all_class05": 234,
+            "all_class075": 90,
+            "sub4_geo05": 19,
+            "sub4_geo075": 1,
+            "sub4_class05": 13,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 286,
+            "all_geo075": 112,
+            "all_class05": 260,
+            "all_class075": 106,
+            "sub4_geo05": 19,
+            "sub4_geo075": 0,
+            "sub4_class05": 14,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 298,
+            "all_geo075": 142,
+            "all_class05": 271,
+            "all_class075": 135,
+            "sub4_geo05": 26,
+            "sub4_geo075": 2,
+            "sub4_class05": 21,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            0
+          ],
+          "counts": {
+            "all_geo05": 309,
+            "all_geo075": 165,
+            "all_class05": 281,
+            "all_class075": 159,
+            "sub4_geo05": 31,
+            "sub4_geo075": 5,
+            "sub4_class05": 25,
+            "sub4_class075": 4
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            1
+          ],
+          "counts": {
+            "all_geo05": 305,
+            "all_geo075": 148,
+            "all_class05": 277,
+            "all_class075": 146,
+            "sub4_geo05": 32,
+            "sub4_geo075": 5,
+            "sub4_class05": 24,
+            "sub4_class075": 5
+          }
+        },
+        {
+          "shift_pixels": [
+            0,
+            2
+          ],
+          "counts": {
+            "all_geo05": 289,
+            "all_geo075": 122,
+            "all_class05": 262,
+            "all_class075": 118,
+            "sub4_geo05": 27,
+            "sub4_geo075": 4,
+            "sub4_class05": 21,
+            "sub4_class075": 4
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 254,
+            "all_geo075": 93,
+            "all_class05": 228,
+            "all_class075": 90,
+            "sub4_geo05": 11,
+            "sub4_geo075": 0,
+            "sub4_class05": 7,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 282,
+            "all_geo075": 108,
+            "all_class05": 257,
+            "all_class075": 104,
+            "sub4_geo05": 15,
+            "sub4_geo075": 0,
+            "sub4_class05": 10,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            0
+          ],
+          "counts": {
+            "all_geo05": 283,
+            "all_geo075": 129,
+            "all_class05": 260,
+            "all_class075": 120,
+            "sub4_geo05": 13,
+            "sub4_geo075": 0,
+            "sub4_class05": 12,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            1
+          ],
+          "counts": {
+            "all_geo05": 276,
+            "all_geo075": 123,
+            "all_class05": 253,
+            "all_class075": 115,
+            "sub4_geo05": 15,
+            "sub4_geo075": 0,
+            "sub4_class05": 12,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            1,
+            2
+          ],
+          "counts": {
+            "all_geo05": 260,
+            "all_geo075": 100,
+            "all_class05": 236,
+            "all_class075": 94,
+            "sub4_geo05": 12,
+            "sub4_geo075": 0,
+            "sub4_class05": 9,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            -2
+          ],
+          "counts": {
+            "all_geo05": 202,
+            "all_geo075": 77,
+            "all_class05": 186,
+            "all_class075": 74,
+            "sub4_geo05": 7,
+            "sub4_geo075": 0,
+            "sub4_class05": 5,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            -1
+          ],
+          "counts": {
+            "all_geo05": 220,
+            "all_geo075": 85,
+            "all_class05": 199,
+            "all_class075": 82,
+            "sub4_geo05": 7,
+            "sub4_geo075": 1,
+            "sub4_class05": 5,
+            "sub4_class075": 1
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            0
+          ],
+          "counts": {
+            "all_geo05": 231,
+            "all_geo075": 94,
+            "all_class05": 211,
+            "all_class075": 90,
+            "sub4_geo05": 8,
+            "sub4_geo075": 0,
+            "sub4_class05": 6,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            1
+          ],
+          "counts": {
+            "all_geo05": 220,
+            "all_geo075": 86,
+            "all_class05": 201,
+            "all_class075": 82,
+            "sub4_geo05": 7,
+            "sub4_geo075": 0,
+            "sub4_class05": 5,
+            "sub4_class075": 0
+          }
+        },
+        {
+          "shift_pixels": [
+            2,
+            2
+          ],
+          "counts": {
+            "all_geo05": 211,
+            "all_geo075": 79,
+            "all_class05": 192,
+            "all_class075": 75,
+            "sub4_geo05": 5,
+            "sub4_geo075": 0,
+            "sub4_class05": 3,
+            "sub4_class075": 0
+          }
+        }
+      ]
+    }
+  },
+  "necessary_gate": {
+    "1": {
+      "nonzero_sub4_class05_recovery": true,
+      "recovery_above_best_constant": 9
+    },
+    "2": {
+      "nonzero_sub4_class05_recovery": true,
+      "recovery_above_best_constant": 15
+    }
+  },
+  "both_nonzero": true,
+  "scope": "BASE24 cached development geometric bounds only; no phase information, C96, initial-reference or trained benefit validated",
+  "input_sha256": {
+    "77_all_count_frozen/00_all_count_inputs.pt": "eebe20927288384ea665f4179ac3501576fb7cc58747a1a893535a13dece8674",
+    "85_source_self_attention/00_selected.json": "fc8ae7f402c7eb2df74238d8c5c80d64534b63b112b39aae6f4b6f1dbf1f3256",
+    "91_source_quota_frozen/00_selections.json": "89e4026d1914a71a36db20bf9e6270e74a935ebcb7678f1f5f67e14008d49ebc",
+    "91_source_quota_frozen/seed1_predictions.pt": "66d70835048ea2cb4d3a09bf47c89658ec2911687acaa7dfb9da9a6f61491c9b",
+    "91_source_quota_frozen/seed2_predictions.pt": "f4047cac6a67e9ce937940fd28883960e4ff8d5d5523a816823913e0c7bd91a6"
+  },
+  "script_sha256": "faec819a3309e67e6f24f8ebc04f7624f8f9708559a7845c3f2c0eefaa557813",
+  "protocol_sha256": "0b1d08ecfbb77e5fdf9d1eaba44442eb73cf4a1065e31d4dd0615499d720d857",
+  "actual_model_forwards": 0,
+  "model_backwards": 0,
+  "optimizer_steps": 0,
+  "new_training": false,
+  "seconds": 0.75
+}
+
+===== 104_C0_本地资产严格加载核验.json =====
+{
+  "resources": {
+    "priority": "below_normal",
+    "affinity": [
+      13,
+      15
+    ],
+    "threads": 2,
+    "available_RAM_GiB": 23.92462921142578,
+    "torch": "2.5.1+cpu",
+    "cuda_runtime": null
+  },
+  "checkpoint": "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\data\\01_C主线_已完成\\weights\\p2_skip_main_seed0_best_stg2_remote.pth",
+  "checkpoint_sha256": "9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e",
+  "last_epoch": 94,
+  "original_source": "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\data\\01_C主线_已完成\\C实际代码_远端_hgnetv2_light.py",
+  "source_sha256": "8ce18f55cb785429f5b3205e6422246f04b478833e69e8af7be5c476b63eccb5",
+  "recipe": "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\相位机制论文_20261018\\data\\source_snapshot\\common.yml",
+  "recipe_sha256": "25c158ef1cae63595512e2a57f5a60507cc06978b68724edb705923d44ea3157",
+  "strict_load_model": "<All keys matched successfully>",
+  "strict_load_ema": "<All keys matched successfully>",
+  "num_state_tensors": 801,
+  "phase_parameter_count": 17440,
+  "has_optimizer": true,
+  "optimizer_groups": 4,
+  "keys": [
+    "date",
+    "name",
+    "last_epoch",
+    "model",
+    "criterion",
+    "postprocessor",
+    "ema",
+    "scaler",
+    "optimizer",
+    "lr_warmup_scheduler",
+    "best_stat"
+  ],
+  "model_forwards": 0,
+  "model_backwards": 0,
+  "optimizer_steps": 0,
+  "new_training": false
+}
+
+===== 上一场全部12条已完成回答，未截断 =====
+
+
+第1轮 Claude · 设计与证据整合
+## 接收
+
+87/92/95 的结论我按原文接收，不再为来源 mask、配额或回写追加条件。A 的教训是：计数布局能复现大部分收益。B、C 的教训是：tiny 局部增益总伴随全图代价。E 说明当前面板里不存在“正确跨源迁移”这一作用面。我转向 A1 的 C 相位资产和 A3 的覆盖失败。
+
+## 当前主张：相位亚格中心投票（未验证设计）
+
+已知事实：
+- A3：短边<4 的 GT 中，约 96%（4029/4147）在三个观察阶段都没有 IoU.5 几何覆盖。
+- A1：C 的 APs 收益约一半可由 rank16 低秩对照复现。C 目前只是把四相位当作可学习通道融合。
+- A8：C 在 UAVDT 上多出 321/281 个 IoU.75 覆盖，但 AP 下降。
+
+条件性推论：3px 框要达到 IoU.5，中心误差需在约 1px 内，远小于 P3 stride 8。如果失败主要来自格内中心偏移，那么相位里的亚格坐标信息在当前结构中没有被显式用于几何。
+
+设计如下：
+1. 在 C 模块融合之前保留 space-to-depth 的四组原始 P2 特征 g_k，k 对应格内偏移 o_k ∈ {(±¼, ±¼)}·8px。
+2. 对每个 encoder top300 的 anchor 所在 P3 格，计算 e_k = ⟨W g_k, q⟩，其中 W 为共享低秩投影，q 为该 query 的 content。
+3. 计算 δ = Σ_k softmax(e/τ)_k · o_k。
+4. 只作用于第 0 层初始参考中心：r0' = sg(r0) + δ，宽高不变。
+
+梯度路径：官方 D-FINE 初始参考是 detach 的，所以 δ 是唯一不被截断的新路径。路径为 decoder 各层 L1/GIoU/FGL → 参考中心 → softmax 相位能量 → P2 主干。这样四相位第一次受到显式的亚格定位监督，而不是只靠分类与融合间接学习。
+
+## 近邻与增量
+
+- 积分回归 / soft-argmax（Sun 等 2018）：在热图上做坐标期望，不涉及相位分解。
+- CenterNet 的 offset 头：用自由 MLP 回归偏移。
+- SPD-Conv、UAV-DETR SOEP、HMF-DEIM：把相位并入通道。这三者是凭记忆或依据材料转述，本轮未独立重读原文。
+
+剩余增量仅在于“固定 2×2 几何基底上的投票作为参考初始化”。这一点可能很薄，需要靠下面的检验来证伪。
+
+最强简单对照：同参数量的 MLP，从融合后的 P3 特征直接回归 δ。它等价于加强现有 encoder 框头。如果对照与本设计等效，相位几何就没有价值。
+
+## 最低成本无训练首检（零前向）
+
+用 data08 已存的 final pred_boxes 与 GT，对原 sub4 GT 取最近预测，分解三种 oracle：
+- (a) 仅把中心修正到正确的四分之一格中心（±2px 量化）；
+- (b) 仅修正尺寸；
+- (c) 预测落在错误 P3 格。
+
+计算各自能跨过 IoU.5 的比例。
+
+事前判据：两个模型中，(a) 新增覆盖都多于 (b)，且 (c) 占失败的比例低于一半，才进入第二检，即冻结 P2 相位能量对 GT 所在象限的识别率是否高于 25%。若不满足，说明瓶颈在 token 选择或尺寸，停止此线。
+
+## 仍缺
+
+- 本地 C checkpoint 是否带可分离的相位组，需要主助手确认。
+- 中心量化 oracle 不等于可学性。
+- UAVDT 上的 AP 代价未解释。
+
+是否立线留给用户和同行判断。
+
+第1轮 Codex A · 结构与信息路径
+我回应 Claude 的两项具体主张：“固定四相位投票具有独立几何增量”，以及“用末层框中心修正判断初始化是否值得做”。我接受转向 C 资产；87 的全图正向与 tiny 下降、92 的 tiny 增益与全图损失、95 的有限作用面均按原结论保留，不重开这些具体版本。
+
+已知数字需要收窄解释：A1 中 C−Cmean 的三 seed APs 增量为 .837/.164/.163，rank16−mean 为 .205/.267/.571，不能概括成“约一半由低秩复现”。它们支持低秩是强对照，尚不能拆分相位贡献。A3 的三阶段缺覆盖也没有识别出中心误差主因；这个区分改变了我对直接增加定位头的优先级判断。
+
+我的实质修订是：**先让相位坐标与候选框坐标严格对应，再检验是否存在融合后丢失的定位信息。** Claude 的 \(r'_0=sg(r_0)+\sum_k\alpha_ko_k\) 中，\(r_0\) 已经过 encoder 回归，而 \(o_k\) 相对原始网格中心；直接相加可能重复补偿，也可能只是一个有界偏移头。
+
+对 P3 候选，可明确四相位实际坐标 \(p_k=c+o_k\)，采用
+\[
+\hat r_{xy}=\sum_k\alpha_kp_k/(W,H),\qquad
+\alpha_k=\operatorname{softmax}_k\langle Ug_k,V\,sg(q)\rangle ,
+\]
+宽高保留原值。该版本只检验“相位位置作为参考中心”的假设，不声称适合所有候选。插入点必须在原生初始化最后一次 detach 之后；梯度可经中心、权重到 P2，但后续参考更新若再次 detach，不能笼统声称所有层定位损失都直接回到这条路径。
+
+最强简单方案是融合后 P3 接同参数量偏移头，并限制在同一坐标可行域。固定四点上的期望本身不足以构成创新；必须证明保留相位身份提供了这个对照没有的信息。
+
+首检应改为使用**初始参考及选点位置**：固定宽高，计算中心在四点凸包内移动的最佳 IoU，并用最大一对一匹配统计新增与丢失；同时报告允许任意中心修正的上界。末层框修正不能代表初始化干预，连续 softmax 也不等于四点量化。预先判据可设为两模型均有 sub4 新增且全 GT 覆盖不降；失败则停止这个受限初始化版本。无需要求中心修正一定胜过尺寸修正，两者可以同时有作用。
+
+原文边界仍未解决：材料说明 UAV-DETR SOEP、HMF-DEIM 已有四相位融合，D-FINE 已有参考框与分布细化；我本轮未独立读取三篇原文，不能据此宣布实质区别成立。我的判断是：Claude 提供了值得澄清的几何假设，但当前投票公式仍更像可解释对照；是否值得申请训练，取决于坐标可达性与相位专属信息两项证据，而不是“显式几何”这个名称。
+
+第1轮 Codex B · 数据与可实施设计
+**回应与判断修订**
+
+我回应 Codex A 的“四点凸包可达性首检”，以及 Claude 的“相位投票能触及无覆盖 tiny”。87/92/95 的完整结论均接受，不重开三个具体版本。A 对坐标和梯度截断的纠正改变了我的判断：不能把末框中心修好，便推断初始化干预有效。仍未解决的是：**相位里存在定位信息，不等于失败 query 能取得它。**
+
+A3 的4029/4147是漏检 sub4 中三个观察阶段均无覆盖的数量，不是中心偏差证据；A8 多321/281个高IoU覆盖却增加729/475个FP，更要求把几何改善与正确类排序分开。
+
+**实质修订：先比较同一候选的两种信息输入**
+
+我主张暂时取消四点坐标投票，保留原 encoder 已回归的参考中心，比较两个严格同域的残差估计器：
+\[
+r'_i=r_i+\epsilon\tanh h(z_i),\qquad
+z_i^{P}=[g_1,g_2,g_3,g_4],\quad
+z_i^{M}=[\bar g,\bar g,\bar g,\bar g].
+\]
+两臂使用相同容量、初始化和偏移范围；另保留现有 rank16 对照。P/M 的差别只剩相位差异信息，避免把新增回归能力算成相位收益。此公式本身只是强对照，尚不是创新；若确有独占收益，再讨论如何施加几何结构。
+
+仅对选中的 P3 token，在初始化最后一次 detach 后加入残差；宽高、选点、分类和匹配保留。梯度经实际未截断的参考使用路径回到头与相位特征，不能承诺所有层直接监督它。作用对象是已有候选附近的失败GT，因此须显式报告“所有候选都远离”的漏检，不宣称覆盖整个96%群体。
+
+**最低成本首检与取舍**
+
+先用已有选点、初始框和末框，针对同一原漏检GT建立候选关系：固定初始宽高，在上述残差范围内求最佳几何可达性；分别统计候选末层原本已覆盖、仍未覆盖，以及正确类未进入预算的情况。保留全部原框另加oracle框会天然不降，不能作为通过条件；应保持300个位置，每位置只替换一次，并用最大一对一匹配计数。
+
+原判据可定为：两模型均有原未覆盖 sub4 获得新增，且全GT覆盖不降；否则停止这个有界初始化版本。通过仅说明作用面存在，不能区分P/M，也不许可直接申请训练。
+
+材料中的 SOEP、HMF-DEIM 已覆盖相位融合，D-FINE 已有参考细化；我未独立读其原文。缺口是C的相位缓存、精确detach位置，以及相位输入相对均值和低秩的独占信息。我的修订是先把“新增定位头有效”与“相位几何有效”拆开；目前仍没有足够依据把投票形式认定为实质贡献。
+
+第1轮 Codex C · 数学与强简单对照
+我回应 **Codex B 的“同域残差头与可达性首检”**。A 对坐标基准、B 对信息可取得性的纠正改变了我的判断：末框可修复不能支持初始化投票。87 的全图改善与 tiny 下降、92 的 tiny 改善与全图损失、95 的异供体几何边仅1/0，均接受原结论，不重开对应版本。
+
+**一个需要修正的数学判据。** B 的残差域包含零偏移。若 oracle 联合选择中心与一对一匹配，原解始终可行，因此
+\[
+\max_{\delta_i\in[-\epsilon,\epsilon]^2}|M(\delta)|
+\ge |M(0)|.
+\]
+即使严格保持300个框，“全GT不降”仍是可行域包含关系的结果；它不能筛出有价值的方法。新增覆盖只证明作用面，不能区分相位头与普通偏移头。我也赞同 A：A1 的 .837/.164/.163 与低秩的 .205/.267/.571 不能解释成固定比例的贡献分解。
+
+**我的候选：将相位差分用于监督路由。** 暂不增加定位头，在 C 融合前令四相位特征为 \(g\in\mathbb R^{4\times d}\)，定义
+\[
+P_\Delta=I-\tfrac14\mathbf1\mathbf1^\top,\qquad
+\nabla_gL\leftarrow\nabla_gL_{\rm rest}
++P_\Delta\nabla_gL_{\rm geo}.
+\]
+这里 \(L_{\rm geo}\) 仅含普通分支的 L1/GIoU；分类、FGL、DN 等归入其余项。投影仅发生在 C 输入界面，融合参数仍接收原梯度，上游 P2 接收投影后的几何梯度。前向、选点、参考框和推理算子完全相同，明确把它作为训练规则，而不是原损失的完整梯度。
+
+待核验假设是：**几何监督沿相位差分回传，比沿相位共同分量回传更有用。** 这不是说均值只含语义，也不保证共享参数更新后均值不变。它与新增偏移头的作用变量不同，能直接检验已有 C 收益是否涉及监督路径。
+
+最强简单对照是：仅缩放该界面的几何梯度，使最终全网更新方向范数与候选相同；另加等秩固定随机投影，区分相位结构与一般梯度削弱。原文边界必须保留：据材料，SOEP、HMF-DEIM 已有相位融合，D-FINE 已有定位监督与细化；我未独立阅读三篇原文，不能宣布此路由具有文献新颖性。
+
+**最低成本首检。** 若有可用 C 检查点，用两批现有开发输入、固定原匹配，计算上述方向及两个对照的全网梯度，不更新权重。令单位下降方向为 \(u\)，跨批一阶变化为 \(-\nabla L_{\rm eval}^{\top}u\)，并交换两批。原判据：两个 seed、两个方向中，候选的几何变化均优于原方向及简单对照，分类变化均不劣于原方向；失败则停止此精确路由。通过也只支持继续核查实际优化器端点，不能证明训练 AP。
+
+缺口是 C 检查点及融合前四相位的准确接口。这个首检至少能改变“继续改前向结构，还是研究监督进入已有结构的方式”的取舍，而不会把 oracle 必然不降当成正证据。
+
+第2轮 Codex A · 结构与信息路径
+我回应 **Codex C 的“oracle不降是可行域包含的结果”及“相位差分监督路由”**。前者改变了我的首检判断：残差域包含零时，即使固定300框，全GT不降仍是数学保证，不能作正证据。我上一轮的四点凸包若排除原中心，虽不恒真，也只能检验限制坐标域的代价，不能证明相位可学性。87/92/95的停止决定保持。
+
+对路由，我接受它与新增定位头作用不同；尚未解决的是**差分是否具有所需的几何含义**。\(P_\Delta\) 本身不区分任何四相位排列，保留了水平、垂直和棋盘格三种模式。一个具体反例是四相位共同分量携带目标横坐标，此时去均值会删掉有效定位梯度；而棋盘格差分可能只反映纹理。这里是构造反例，不是对现有C特征的实测描述。
+
+我的实质修订是：按四相位实际空间顺序，将候选收窄为**水平、垂直差分路由**。若顺序为左上、右上、左下、右下，定义
+\[
+h_x=(-1,1,-1,1)^\top/2,\quad
+h_y=(-1,-1,1,1)^\top/2,\quad
+Q=h_xh_x^\top+h_yh_y^\top .
+\]
+用\(Q\)替换C的\(P_\Delta\)，其他路径保持：仅普通L1/GIoU在融合输入界面的梯度投影，融合参数接收原梯度。区别是明确排除棋盘格方向；它仍只是待证的空间结构假设，不是“几何信息必在此”的结论。
+
+最低成本首检可以沿用C的跨批双向梯度检验，但同时保留原方向、\(P_\Delta\)、范数匹配的普通缩放和等秩随机投影。预先要求两个seed、两个方向中，候选几何变化均优于这些对照，分类变化不劣于原方向；失败则停止此精确版本。通过仅支持进入实际Adam虚拟端点核查。随机投影也是同秩，才能避免把降低梯度维数算成空间结构收益。
+
+工作量主要在梯度分解，前提仍是可用C检查点和准确相位接口，现有材料尚未确认。文献方面，我只读了贴文对SOEP、HMF-DEIM及D-FINE的核查记录，没有独立核原文；尤其缺少与子带监督、梯度投影方法的具体比较。我的判断已从“先做初始化投票”转向“先辨认监督进入哪些相位模式”，但尚不足以据此申请训练。
+
+第2轮 Codex B · 数据与可实施设计
+我回应 **Codex A 本轮“水平、垂直差分投影Q更具几何针对性”**。C指出oracle不降属于可行域包含，已改变我的判断：我撤回上一轮把它列作通过条件的建议。对A仍有分歧：Q把水平、垂直模式一起保留，却对中心与宽高监督一律处理，尚不能说明它为何触及定位失败。
+
+已知事实是：92的tiny增益伴随全GT下降；A8的高IoU覆盖增加伴随更多FP。因此平均几何损失改善不足以支持这条线。A3的4029/4147来自BASE12，也不能直接充当C检查点的失败群体。
+
+**我的修订是把坐标分量与相位方向对应，保留尺寸监督原路径。** 将普通框L1拆为中心两项与宽高两项，令 \(P_x=h_xh_x^\top,P_y=h_yh_y^\top\)，在融合输入界面使用：
+\[
+\nabla_gL\leftarrow\nabla_gL+
+(P_x-I)\nabla_gL_{cx}+
+(P_y-I)\nabla_gL_{cy}.
+\]
+宽高L1、GIoU及其余损失保持原路径，融合参数仍接收原梯度。它检验的是“横向中心误差适合沿横向相位差分回传”，不是预设几何信息都在差分中。普通匹配仍给漏检GT提供监督，但该路由能否改变它们，必须单独检验。
+
+最强简单对照除原方向、A的Q和范数匹配缩放外，应加入**交换x/y投影**：它保留投影秩与计算量，直接检验坐标对应是否有价值，比单个随机投影更贴近主张。
+
+首检可沿用两批互换，但先按各C检查点原始预测固定“sub4无几何覆盖”“有几何覆盖但真类未过预算”两组，分别评估跨批方向导数。若要支持漏检机制，应预先要求两个seed、两个方向中，无覆盖组的几何改善均胜简单对照，且全GT几何与分类不劣于原方向；总体改善却失败组不改善，不支持此解释。通过也只进入Adam虚拟端点核查。
+
+待核验的是C检查点、原L1坐标格式、相位顺序及接口；工作量主要是损失分解。子带监督与梯度投影原文我尚未独立阅读，不能宣布新颖性。当前我赞成研究监督路径，但更倾向检验明确的坐标对应，而非先认定去均值或去棋盘格有益。
+
+第2轮 Codex C · 数学与强简单对照
+我回应 **Codex B 的“中心坐标分别走水平／垂直投影”及交换方向对照**。拆开中心与尺寸改变了我的判断：我撤回把全部几何梯度投到差分空间作为首选。仍有分歧：方向命名尚不足以赋予投影稳定的几何意义。87/92/95的停止决定保持。
+
+**数学问题：投影依赖分块原点**
+
+将 \(P_x\) 看作完整P2网格上的逐块算子，令 \(T\) 平移一个P2位置，一般有
+\[
+P_xT\ne TP_x.
+\]
+一维反例是梯度 \((1,1,0,0)\)：按相邻两点做差分投影得到零；循环平移一格后则非零。因此，同一梯度结构仅改变分块原点，就可能从完全删除变成保留。这是代数反例，不是现有C的实测缺陷；A1的平移结果也未证明这种依赖有害。
+
+**实质修订：加入消除分块原点依赖的强简单对照**
+
+在完整P2梯度网格上定义
+\[
+\bar P_j=\tfrac14\sum_{s\in\{0,1\}^2}T_s^{-1}P_jT_s,\quad j=x,y,
+\]
+用它替换B式中的投影，其余路径保持。训练前向与推理均不变，仅改变中心L1进入上游的梯度。
+
+对内部位置，该平均可直接推导为固定可分离滤波：
+\[
+K_x=a^\top d,\quad K_y=d^\top a,\qquad
+a=(1,2,1)/4,\ d=(-1,2,-1)/4.
+\]
+所以它有一个很强的简单解释：定向高通配合正交方向平滑。这只消除该算子的分块依赖，不保证整网平移等变；也不能把滤波换名算成创新。
+
+**最低成本判别**
+
+沿用B的跨批方向导数及失败群体划分，比较原方向、B投影、上述滤波和交换方向；另报告B投影四种分块原点的结果。若B不能胜过滤波对照，则不足以支持固定相位身份有独占价值；若优势随原点反号，坐标对应解释需要修订。通过仍仅支持实际Adam端点核查。
+
+这些均未实测。缺口仍是C检查点、真实相位接口和边界处理；我未独立阅读子带监督原文。目前更值得辨认的是收益来自相位身份，还是普通梯度频率选择。
+
+第2轮 Claude · 设计与证据整合
+## 回应对象
+
+我回应 Codex C 的两项主张：一是“块原点平均后得到固定可分离滤波”，二是沿用跨批一阶方向导数作为首检。前者改变了我的判断。按 C 的式子展开，水平差分投影经两种原点平均后，变成 d=(−1,2,−1)/4，这是对称二阶差分，不再带左右方向。所以“横向中心误差沿横向相位差分回传”在消除原点依赖后，只剩“中心梯度只更新 P2 的横向高频”这一条。相位身份能否提供滤波之外的东西，正是该线唯一的潜在增量。这一点我同意 C。
+
+## 论证一：一阶检验与实际优化器不一致
+
+D-FINE 用 AdamW 训练。Adam 按元素用二阶矩归一化：对某参数整体缩放梯度，更新几乎不变；投影的效果则取决于它与分类、P3 等其他梯度在同一元素上的混合比例。因此，SGD 意义下的单位下降方向 u 和“范数匹配缩放”对照，在 Adam 下可能失去区分力。
+
+另一个缺口：data10 保存的是 BASE24 的 Adam 状态，材料没有说明 C 检查点也有。如果没有，C 提的检验只能作停止条件，失败即停；通过时不能拿来支持继续。
+
+## 论证二：投影改动的份额可能很小
+
+P2 参数的中心 L1 梯度有两条来源：
+- 经 C 融合输入界面回传；
+- 经主干 P2→P3 下采样路径回传。
+
+投影只改前一条。如果这一条在 P2 参数梯度中占比很小，任何投影都改变不了训练，后续比较全无意义。
+
+## 修订后的首检（比方向导数更早、更便宜）
+
+用同一 C 检查点，在两批开发输入、固定原匹配下各做一次反传，不更新权重。计算三种梯度：原 P2 参数梯度 G、B 投影版 G_B、C 滤波版 G_K。
+
+判据不另设任意阈值：
+1. ‖G_B−G‖ 和 ‖G_K−G‖ 均应大于同一方法两批之间的差异 ‖G(批1)−G(批2)‖，否则改动淹没在批间噪声里，停止此线。
+2. ‖G_B−G_K‖ 也应大于该批间差异，否则相位身份与普通频率选择不可区分，按 C 的逻辑应退回滤波解释，不立相位主张。
+
+只有两项都通过，才做方向导数。若有 C 的 Adam 状态，就在预条件空间里做；若没有，结论只作停止依据。
+
+## 可复用的已有数据
+
+A1 的平移实验中，输入平移 4px 会改变 P2 块原点奇偶，8px 不会。主助手若保留逐平移量结果，比较 C−base 在 4 与 8 之间的差异，即可零成本得到前向原点依赖的旧证据。若只剩“无一致优势”的汇总，就不再追加。
+
+## 分歧与缺口
+
+- 未解决：B 的坐标对应假设是否在 Adam 下仍有意义。
+- 缺口：C 检查点、是否有优化器状态、真实相位顺序和边界处理。
+- 文献：梯度频率选择与子带监督的原文我未独立阅读，不宣称新颖。
+
+当前这条线是否值得申请训练，留给用户判断。
+
+第3轮 Codex B · 数据与可实施设计
+我回应 **Claude第二轮“干预梯度范数必须超过批间差异，否则停线”**，以及 Codex C 的原点平均滤波对照。Adam预条件和旁路梯度改变了我的判断：单位SGD方向不足以裁定实际训练干预；但我不接受上述范数门槛，也撤回自己把一阶检验失败直接作为停线依据的建议。
+
+**已知与推论需要分开。** 批间梯度差异包含样本组成变化，并不是干预效果的噪声估计。反例是：批间差异很大，却与漏检损失梯度正交；很小的干预恰好沿改善方向，仍可能有效。反之，大幅改动也可能有害。“超过批间差异”实际引入了未经论证的比值阈值1。另一个分歧是：对称二阶差分虽不保留左右符号，仍区分横轴与纵轴；因此坐标对应假设尚未被代数否定，交换x/y仍是有效对照。
+
+我的实质修订是**直接比较同批、同优化器状态下的干预差值**，暂不增加新投影。保留原方案O、坐标对应B、原点平均滤波K及交换方向四臂。若C历史Adam状态可用，各臂从同一权重和状态出发做独立虚拟一步，在另一批评估，再交换两批；不累计更新。对预先固定的原漏检组，比较
+\[
+D_B=L_{\rm miss}(\theta+\Delta_B)-L_{\rm miss}(\theta+\Delta_O),
+\]
+并比较B与K、交换方向的对应差值。这样检验的是实际参数更新后的作用，而非参数改动是否足够大。
+
+漏检组必须由各C检查点自身定义，不能沿用BASE12的4029/4147。建议预先要求两seed、双向评估中，B的漏检组几何损失均优于O及两个结构对照，全GT几何和分类损失不劣O；同时报告几何覆盖与正确类预算覆盖，不能把损失下降称为恢复漏检。若B只与K相当，就撤回固定相位身份的独占解释。
+
+目前没有这些实测；C检查点、历史优化器状态和准确接口仍缺确认。缺状态意味着无法作该项判断，不意味着SGD失败足以否决Adam。相关原文我未独立阅读，即使筛查通过，也只支持继续考察这条训练规则，尚不足以认定创新或申请训练。
+
+第3轮 Codex C · 数学与强简单对照
+**回应与判断修订**
+
+我回应 **Codex B 本轮“同历史Adam状态下比较虚拟端点”**，以及 Claude 的“干预幅度须超过批间差异”。B 的反例改变了我的判断：撤回此前把单位梯度方向检验失败直接作为停线依据的建议；缺少C的优化器状态，只能说明历史Adam端点尚不可判。批间差异也不是干预噪声的估计。另同意B：对称二阶差分仍区分横轴与纵轴，不能据其丢失左右符号否定坐标对应。
+
+**实质修订：补上能区分“方向改变”与“梯度削弱”的简单臂**
+
+保留B的候选，不继续增加投影种类。但K和交换方向都改变梯度方向，尚未排除收益仅来自降低中心监督强度。我第一轮的“全网更新范数匹配”也过于粗糙。
+
+令 \(v_j=\nabla_gL_{cj}\)，在同一个C输入界面定义
+\[
+a_j=\frac{\langle v_j,P_jv_j\rangle}{\|v_j\|^2},
+\qquad
+G_S=G_{\rm rest}+a_xv_x+a_yv_y .
+\]
+零梯度时取 \(a_j=1\)。这里 \(G_{\rm rest}\) 包含其余原路径梯度；融合参数和主干旁路不变。
+
+已知数学事实是：正交投影使 \(a_j\in[0,1]\)，且它恰好最小化
+\[
+\|P_jv_j-a_jv_j\|^2.
+\]
+因此S是候选投影在该界面的最佳单标量近似，无需调参；剩余差异与原梯度正交。它直接检验空间方向选择是否优于普通分支内降权，不保证经共享参数和Adam后仍然等价。
+
+**下一步检验与证据边界**
+
+沿用B的同状态、跨批虚拟端点比较，把S加入；使用完整梯度及原生裁剪、Adam顺序。已有梯度分解即可构造S，新增工作主要是一个端点评估。若B不能胜过S，即使胜过原方向，也不足以支持相位方向机制；若胜过S而不胜K，则固定分块身份仍无独占证据。这些是解释边界，不是永久否决整条路线。
+
+目前只有设计，没有新实测。A1支持C及低秩对照值得研究，尚不支持监督路由；C检查点、历史状态、接口仍待确认，相关原文我未独立核读。我的主张收窄为：先辨认空间梯度方向是否提供标量降权之外的价值。
+
+第3轮 Claude · 设计与证据整合
+## 回应对象与判断变化
+
+我回应两项主张：Codex B 的“批间差异不是干预噪声，应改为同状态虚拟端点比较”，以及 Codex C 的“最佳单标量近似臂 S”。
+
+B 的反例成立。我撤回上一轮“干预范数须大于批间差异”的门槛：它暗含比值阈值 1，而且混淆了样本组成变化与干预效果。C 的 S 我也接受。它直接区分“改变方向”与“削弱中心监督”，比全网范数匹配更准，也无需调参。87/92/95 的停止决定保持。
+
+## 新论证：路由作用在匹配 query 的支持区，而不在 GT 处
+
+B 的坐标对应假设隐含一个前提：中心 L1 梯度回到 P2 时，落在 GT 所在的相位块附近。实际信息路径并非如此。梯度从被匹配 query 的框中心出发，经 decoder 采样点和 encoder 回到该 query 的支持区。
+
+已知事实（A5，BASE12，不是 C 检查点）：短边<4 的 1970/2079 次曝光中，IoU0 且落在自身固定支持外的有 1077/1223。
+
+条件性推论：若 C 检查点比例相近，失败 tiny 中过半的中心梯度会在离 GT 较远的位置被“横纵投影”。这时“横向误差走横向差分”没有几何含义，B 或 S 在这一部分上的差异只能算一般正则效应。
+
+另有一个份额问题：D-FINE 的中心信息还经 GIoU 和 FGL 边距分布回传，B 只改中心 L1，所以作用面本就只是几何监督中的一部分。
+
+## 实质修订：先分层，再判据
+
+1. 零前向分层。用 data08 已存的 ref_points、原生匹配和 GT，对 C 检查点自身定义的漏检组，分出两层：
+   - 层 I：GT 中心落在匹配 query 初始 token 格内，或落在其采样支持内；
+   - 层 II：其余。
+   
+   若检查点不同于 data08，需要主助手确认能否得到同类缓存。
+2. 修改 B 的事前判据。只要求 B 在层 I 内两 seed、双向评估中均胜 O、S、K 和交换方向，全 GT 几何与分类不劣于 O。层 II 不作主张，只报告。
+3. 若层 I 在漏检组中占比很小，就说明这条路由无法触及主要失败群体。此时无需做 Adam 端点，直接停止“相位坐标对应”这一解释，最多保留滤波或降权对照的一般意义。
+
+这一步不需要优化器状态，能先决定 B/C 的端点比较是否值得做。
+
+## 仍缺
+
+- C 检查点是否有历史 Adam 状态、真实相位顺序及支持区缓存，仍待确认。
+- 层 I 的“采样支持”定义需在事前固定为初始 token 格或首层采样点，不能事后择优。
+- 梯度频率选择与子带监督的原文我未独立阅读。
+
+是否立线由用户判断。
+
+第3轮 Codex A · 结构与信息路径
+我回应 **Claude 本轮“由A5支持外比例推断梯度远离GT，并改用层I作为主判据”**，以及 Codex C 的标量对照S。B对批间差异门槛的反例、C对降权解释的拆分改变了我的判断：我接受同历史Adam端点比较及S，不再以单位方向导数失败停线；但不接受新的支持区停线条件。
+
+这里混合了三种不同的“支持”：框回归的可达范围、初始token所属格、特征取值及反传覆盖区域。A5的1077/1223属于回归可达性相关统计，材料没有证明它等于注意力采样支持。**ref_points也不能单独重建采样支持**，还需要偏移、权重及特征感受野。原生selected content已detach；若C沿用该实现，普通decoder损失更不能被理解为直接回到被选token附近。Claude指出信息路径重要，我接受；由现有数字推断“过半梯度远离GT”，依据仍不足。
+
+一个反例是：远处上下文特征编码目标相对位置，横向特征变化仍可帮助修正横坐标；反过来，GT就在token格内，差分也可能只对应背景纹理。因此，空间邻近既不是坐标相关信息存在的必要条件，也不是充分条件。这是逻辑反例，并非实测。
+
+我的实质修订是：**把B明确为“中心坐标分量对应的空间梯度方向选择”，撤去必须在GT附近才有意义的解释。** 保持原投影接口及其他损失路径，比较O、B、S、K与交换方向，不继续增加算子。保留C自身全体漏检组的原主指标；邻近分层只能辅助解释，不能替代它。若已有梯度分解，可把界面梯度还原到P2网格观察空间分布，无需另造一套支持区门槛，但梯度能量仍不是因果贡献。
+
+B胜S才支持方向选择超出降权；再胜K才支持固定分块具有额外价值。即便全部通过，也只是局部优化证据。工作量应集中于已有五臂的独立虚拟端点，而非不断追加首检。C检查点、历史状态、接口尚未确认；子带监督与梯度整形原文我本轮未独立阅读。当前分歧是机制解释能否成立，尚没有足够证据将这条规则提升为值得申请训练的创新主线。

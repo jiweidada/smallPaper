@@ -1,0 +1,54 @@
+128｜C0 四边共同平移兼容质量：读取127结果前锁定的前提核查
+日期：2026-10-21。编写者：受托 Astra B。执行者：root。
+本协议和129脚本编写时未读取127缓存或LK结果；本轮仅写文件，不运行脚本。
+
+一、范围和决定
+只检验一个前提：原生四边FGL兼容能量沿“最终宽高固定、中心共同平移”的路径，是否提供超出均匀候选和相同一二阶矩分布的有用形状信息。
+若通过，只允许继续讨论/登记“PMF约束＋局部图像证据”的冻结核查；不是AP证明、训练许可、创新已成立或新二维相关性证据。此前轴路由114、重锚等停止结果不改变。
+只使用单个C0 online checkpoint的四张开发图；不与BASE24或旧SVD实验跨checkpoint比较效果。
+129只分析缓存，模型前向=0、反向=0、优化器更新=0、新训练=0、远程操作=0。CPU最多2线程，不使用随机数。
+
+二、固定输入契约
+127_C0_attention_template_registration/01_cache.pt，顶层records列表（恰好4图），公共reg_max/up/reg_scale、checkpoint_sha256、weight_key。
+checkpoint_sha256必须为9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e，weight_key必须为model_online，reg_max=32。
+每条record必须有image_index/event/input_sha256/pred_boxes[300,4]（normalized cxcywh）/pred_logits[300,10]/selected_indices[300]/target（boxes normalized cxcywh、labels）/original_sub4布尔向量/final_corners[300,132]/ref_points_initial[300,4]。
+其他LK字段忽略，不据它们改队列或门槛。四图须合计902 GT、453 original_sub4。记录缓存、脚本、协议和所用native数学源码的SHA256及前后不变性。
+读取原生dfine_utils.py和box_ops.py数学实现，不实例化/加载模型或checkpoint；仅从缓存读取checkpoint哈希声明。用corners/ref和原生weighting_function、distance2bbox重建最终框，最大normalized误差必须<=1e-6。
+复核121的独立sub4容量1计数：class IoU.5 original/bound=51/89，.75=10/40；geometry .5=66/105，.75=15/49。任何不一致failclosed，不用新缓存重新定义基线。
+
+三、PMF无关的主配对
+仍沿121：pred_logits.sigmoid().flatten().topk(300)给出允许的(query,class)集合，重复类别槽折叠成query容量1。非该集合的真类边不能进入主匹配。
+P3 query由selected_indices<6400确定。只允许P3最终中心逐轴移动±2像素，宽高不变；非P3保持原框。
+对每个q-GT求连续固定宽高IoU上界：将GT中心逐轴截到[q中心-2/640,q中心+2/640]；非P3使用原中心。边存在当且仅当真类允许且上界IoU>=0.5。
+在所有GT（不限sub4）的该图上做最大基数二分匹配。唯一复现规则为：query按整数索引升序进入确定性Kuhn增广；每次按GT原target数组索引升序访问邻接表；每次增广使用全新的GT visited集合，按同一顺序递归重新分配旧query。该规则确定输出，不声称它等于所有最大匹配中字典序最小解。
+主候选配对是上述匹配中：GT original_sub4=true、该q-GT原IoU<0.5且连续上界>=0.5的边。没有重复q或GT；不把121最大匹配增量38直接称作这个唯一GT集合。
+所有可恢复真类sub4边、geometry-only可恢复边和匹配计数另作描述，不替换主配对。
+
+四、固定25点及物理支持
+d=(dx,dy)，dx、dy均按[-2,-1,0,1,2]升序枚举，dx为外层。b(d)=(cx+dx/640,cy+dy/640,w,h)。不加密、不移动原节点、不改±2。
+每条主配对的25点若均不能达到IoU.5，记为continuous_recoverable_but_no_25grid_correction，单列、不进入质量均值；其数量必须显式报告。
+若25点存在可纠偏点，但这些点全部在原FDR物理支持外，仍进入质量均值，三个臂均记零质量；不得排除这类配对。
+支持检查先独立反算每条边的连续原生distance，逐条要求在weighting_function最小/最大节点之间（包括端点）。支持外能量=-inf。不得靠bbox2distance/translate_gt的端点clamp假装支持。
+按C0原生FP32、未convert_to_deploy路径先生成原物理节点，再以FP64分析几何。对支持内候选调用原生bbox2distance；其translate_gt显式生成FP32权重，故以其实际两bin权重重建distance并核对，误差<=5e-7；另与物理节点上的独立双精度二点权重核对，误差<=1e-7。保留原生权重，不悄换target编码；权重非负且其原生精度之和为1。原最终框d=0必须在支持内。这些容差在读取127前由原生实现的float()路径锁定。
+
+五、三个预先锁定的分布
+p_e=softmax(final_corners_e)。使用log_softmax计算能量，避免先取小概率再log造成假零。
+E(d)=sum_e sum_i t_ei(b(d))*log p_ei，Q0=softmax(E)。这是FGL插值目标的兼容能量，不宣称已校准真实后验。
+E按x/y分解，两轴各只有对边约束；须核验全25点物理支持是两个轴支持的笛卡尔积，能量满足可加分解。无新增二维相关性主张。
+主臂Q为argmin_R KL(R||Q0)，约束E_R[dx]=E_R[dy]=0。对每轴在相同物理支持上求exp(E_axis+lambda*d)并归一化。
+若某轴物理支持仅{0}或只有0及单侧非零点，唯一零均值分布是delta(d=0)：直接精确返回这个理论边界解，lambda记为boundary；不得强求有限lambda、不得记NA=0。
+控制U：在相同完整物理支持上均匀分布，不额外强制均值零。
+控制M：在相同物理支持上最大熵，均值0且轴方差分别等于Q。一般支持不对称，使用exp(alpha*d+beta*d^2)，同时求alpha和beta；不能只用beta*d^2冒充零均值。结构性单侧时M同样为delta0。
+轴求解用确定性括区间和二分；均值误差<=1e-10，方差误差<=1e-10，概率和误差<=1e-12。最大熵控制的熵不得比Q低超过1e-9。
+双侧支持但目标方差距0或理论最大方差(-d_min*d_max)不足1e-12时，不把数值饱和当结构边界：failclosed。求解超出预定迭代/括区间上限、检查失败、NaN或非法输入均failclosed；不换近似控制救结果。
+
+六、唯一主量和门槛
+对于进入均值的配对(q,g)，D_qg为25点中达到IoU>=0.5的点。各臂质量m_A(q,g)=sum_{d in D_qg} A_q(d)，物理支持外概率自然为0。
+主量L_A=所有进入均值配对的mean(log m_A)。按配对等权汇总四图；同时报告分图量、样本量、零质量数。对数用稳定logsumexp。
+m=0严格给log m=-inf，不加epsilon。若任一配对零质量，该臂均值为-inf；两个-inf不构成严格胜出。没有进入均值的配对，则主量NA、gate=false。有限log质量对应的正质量若指数转换发生浮点下溢，只在展示字段记positive_below_float64_range，仍用原有限log质量参加统计，不能误记真零。
+唯一gate：Q均值有限，且L_Q严格大于L_U及L_M。数值严格比较固定为差>1e-10（仅数值容差，非作用量要求）；有限数大于-inf。任何输入/数值审计失败gate=false。不得用其他描述量替代gate。
+不增加反射/旋转先验控制；U和M已锁。完整Q与同矩M若后续在仿射特征/零初始化处给出相同一阶头切线，不能据此宣布方法全等；本次只检验兼容质量前提。
+
+七、输出
+129默认输出130_C0_pmf_translation_prior（新目录，已存在则拒绝覆盖）：00_results.json含完整审计、主配对、25点质量、各分布、求解诊断、全GT确定性匹配、所有可恢复边描述、唯一gate和文件哈希。JSON中-inf以字符串表示，NA为null。
+脚本运行后仍不构成训练授权；若不胜两个控制，停止当前完整PMF共同平移约束，不先采更多P2/q来挽救。

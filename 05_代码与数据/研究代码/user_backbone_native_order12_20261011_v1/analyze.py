@@ -1,0 +1,115 @@
+"""Exact native all-area score-order accounting for Candidate12 versus cached BASE12."""
+from pathlib import Path
+import argparse,hashlib,importlib.util,json,sys
+import numpy as np
+ROOT=Path(__file__).resolve().parents[3];HERE=Path(__file__).resolve().parent
+read=lambda p:json.loads(Path(p).read_bytes())
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,o):
+ with Path(p).open('x',encoding='utf8') as f:json.dump(o,f,ensure_ascii=False,indent=2,allow_nan=False)
+def module(n,p):
+ s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+def analyze(seed,arm):
+ protocol=read(HERE/'protocol.json');assert seed in (1,2) and arm in ('backbone_silu','p2_skip','backbone_attention') and sha(__file__)==protocol['analysis_sha256']
+ for n,h in protocol['dependencies_sha256'].items():assert sha(ROOT/n)==h,n
+ tools=module('candidate_order_saved_tools',ROOT/'英文小论文/code/stem_init_stage_analysis_20261011_v2/compare_saved_stages.py')
+ p,_,_,_,readers=tools.prepared();base=tools.cached_baseline(seed,p,readers['full'])
+ folder=ROOT/f'outputs/user_backbone_primary_collection12_20261011_v1/seed{seed}_{arm}_v1'
+ verification=read(folder/'primary_verification_v1.json')
+ assert verification['status']=='PASS_USER_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS'
+ assert verification['verification_script_sha256']==protocol['dependencies_sha256']['英文小论文/code/user_backbone_primary_collection12_20261011_v1/verify_primary.py']
+ assert not verification['saved_EMA_independent_replay_verified'] and not verification['formal_terminal_reader_passed']
+ packet=Path(verification['downloaded_packet']);manifest=read(packet/'primary_manifest.json')
+ assert sha(packet/'primary_manifest.json')==verification['primary_manifest_sha256']
+ for n in ('run/endpoint_epoch12/manifest.json','run/endpoint_epoch12/summary.json','run/endpoint_epoch12/precision_recall.npz','run/endpoint_epoch12/GT_hits.npz','run/endpoint_epoch12/matching_all_area.json.gz','run/training_completion.json'):
+  assert (packet/n).stat().st_size==manifest['files'][n]['bytes'] and sha(packet/n)==manifest['files'][n]['sha256'],n
+ summary,flags,_=readers['control'].native_endpoint(packet/'run/endpoint_epoch12',base['annotation'])
+ assert summary['identity']==verification['identity'] and summary['identity']['arm']==arm and summary['identity']['seed']==seed
+ for n in ('common_init_sha256','baseline_checkpoint_sha256','baseline_first100_sha256','val_annotation_sha256','evaluator_binding'):
+  assert summary['identity'][n]==base['summary']['identity'][n],n
+ upstream=module('candidate_exact_native_order',ROOT/'英文小论文/code/stem_native_rank_primary12_20261011_v1/analyze.py')
+ previous=read(ROOT/'outputs/stem_native_rank_primary12_20261011_v1/report.json')
+ assert previous['source_sha256']==sha(Path(upstream.__file__))
+ evaluator=summary['identity']['evaluator_binding']['files']['cocoeval.py']
+ bm=read(base['packet']/'manifest.json')
+ b_endpoint=dict(endpoint_manifest_sha256=bm['files']['baseline_eval/endpoint_epoch12/manifest.json']['sha256'])
+ w_endpoint=dict(endpoint_manifest_sha256=manifest['files']['run/endpoint_epoch12/manifest.json']['sha256'])
+ B=upstream.accounting(base['packet']/'baseline_eval/endpoint_epoch12',b_endpoint,base['annotation'],evaluator)
+ W=upstream.accounting(packet/'run/endpoint_epoch12',w_endpoint,base['annotation'],evaluator)
+ for n in ('annotation_id','category_id'):assert np.array_equal(B['arrays'][n],W['arrays'][n])
+ assert abs(B['precision'].mean()*100-base['summary']['native_stats'][0]*100)<1e-12
+ assert abs(W['precision'].mean()*100-summary['native_stats'][0]*100)<1e-12
+ gt={int(a['id']):a for a in base['annotation']['annotations']}
+ small=np.array([gt[int(g)]['area']<=1024 for g in B['arrays']['annotation_id']],dtype=bool)
+ assert small.sum()==26586 and len(small)==38759
+ classes=[]
+ for cid in range(10):
+  byIoU=[];mask=B['arrays']['category_id']==cid
+  for ti,t in enumerate(summary['protocol']['iou_thresholds']):
+   br=B['arrays']['native_true_match_score_rank'][:,ti];wr=W['arrays']['native_true_match_score_rank'][:,ti]
+   common=(br>0)&(wr>0)
+   bp={x['rank']:x for x in B['description']['classes'][cid]['by_IoU'][ti]['prefixes']}
+   wp={x['rank']:x for x in W['description']['classes'][cid]['by_IoU'][ti]['prefixes']}
+   groups={}
+   for group,m in [('all_GT_of_class',mask),('small_GT_native_all_area_matches',mask&small)]:
+    entries=[]
+    for n in protocol['prefixes']:
+     if n not in bp or n not in wp:continue
+     eb=(br>0)&(br<=n);ew=(wr>0)&(wr<=n)
+     entry=dict(rank=n,new_Candidate_TP_in_prefix=int((m&ew&(br<0)).sum()),
+      lost_BASE_TP_in_prefix=int((m&eb&(wr<0)).sum()),
+      common_matched_GT_entering_Candidate_prefix=int((m&common&ew&~eb).sum()),
+      common_matched_GT_leaving_Candidate_prefix=int((m&common&eb&~ew).sum()),
+      BASE_TP=int((m&eb).sum()),Candidate_TP=int((m&ew).sum()),TP_prefix_delta=int((m&ew).sum()-(m&eb).sum()))
+     assert entry['new_Candidate_TP_in_prefix']-entry['lost_BASE_TP_in_prefix']+entry['common_matched_GT_entering_Candidate_prefix']-entry['common_matched_GT_leaving_Candidate_prefix']==entry['TP_prefix_delta']
+     if group=='all_GT_of_class':
+      assert entry['BASE_TP']==bp[n]['TP'] and entry['Candidate_TP']==wp[n]['TP']
+      entry.update(BASE_FP=bp[n]['FP'],Candidate_FP=wp[n]['FP'],BASE_raw_precision=bp[n]['raw_precision'],Candidate_raw_precision=wp[n]['raw_precision'])
+     entries.append(entry)
+    gain=m&(br<0)&(wr>0);loss=m&(br>0)&(wr<0);both=m&common
+    groups[group]=dict(prefixes=entries,GT=int(m.sum()),gained_native_TP=int(gain.sum()),lost_native_TP=int(loss.sum()),
+       common_native_TP=int(both.sum()),
+       common_matched_GT_earlier_Candidate_native_rank=int((both&(wr<br)).sum()),
+       common_matched_GT_later_Candidate_native_rank=int((both&(wr>br)).sum()),
+       common_matched_GT_equal_Candidate_native_rank=int((both&(wr==br)).sum()),
+       matched_GT_score_tie_interval_overlap=int((both&(W['arrays']['score_tie_rank_min'][:,ti]<=B['arrays']['score_tie_rank_max'][:,ti])&(B['arrays']['score_tie_rank_min'][:,ti]<=W['arrays']['score_tie_rank_max'][:,ti])).sum()))
+   byIoU.append(dict(IoU=float(t),groups=groups,native_all_area_AP_delta_points=float((W['precision'][ti,:,cid]-B['precision'][ti,:,cid]).mean()*100)))
+  bAP=float(B['precision'][:,:,cid].mean()*100);wAP=float(W['precision'][:,:,cid].mean()*100)
+  classes.append(dict(class_id=cid,name=summary['categories_percent'][cid]['name'],BASE_AP=bAP,Candidate_AP=wAP,
+   native_all_area_AP_delta_points=wAP-bAP,contribution_to_total_AP_points=(wAP-bAP)/10,
+   BASE_predictions=B['description']['classes'][cid]['predictions'],Candidate_predictions=W['description']['classes'][cid]['predictions'],by_IoU=byIoU))
+ delta=float((W['precision']-B['precision']).mean()*100)
+ assert abs(sum(c['contribution_to_total_AP_points'] for c in classes)-delta)<1e-12
+ destination=ROOT/f'outputs/user_backbone_native_order12_20261011_v1/seed{seed}_{arm}'
+ destination.parent.mkdir(exist_ok=True);destination.mkdir(exist_ok=False)
+ for tag,value in [('BASE12',B),('Candidate12',W)]:
+  write(destination/(tag+'_order.json'),value['description'])
+  np.savez_compressed(destination/(tag+'_GT_order.npz'),**value['arrays'])
+ result=dict(status='USER_ARM_AND_CACHED_BASE_NATIVE_ALL_AREA_PR20200_CELLS_AND_GT_PREFIXES_REPRODUCED_EXACTLY',
+ seed=seed,arm=arm,classes=classes,BASE_AP=float(B['precision'].mean()*100),Candidate_AP=float(W['precision'].mean()*100),delta_AP_points=delta,
+ precision_cells_each=10100,total_precision_cells_reconstructed=20200,native_PR_max_abs_difference=0,
+ all_native_GT_flags_exact=True,actual_native_stable_ties_preserved=True,
+ primary_verification_sha256=sha(folder/'primary_verification_v1.json'),primary_manifest_sha256=verification['primary_manifest_sha256'],
+ baseline_source_report_sha256=base['source_report_sha256'],baseline_packet_manifest_sha256=sha(base['packet']/'manifest.json'),
+ all10_categories_and10_IoUs_retained=True,analysis_sha256=sha(__file__),protocol_sha256=sha(HERE/'protocol.json'),
+ new_model_forwards=0,new_BASE_forwards=0,new_evaluator_calls=0,new_native_matching_calls=0,new_training_epochs=0,new_optimizer_updates=0,
+ saved_EMA_independent_replay_verified=False,formal_terminal_reader_passed=False,other_seed_primary_endpoint_pending=True,
+ root_proven=False,novelty_proven=False,goal_complete=False,
+ scope='Exact accounting of saved native all-area matches and precision. Small-GT prefixes are a subset of native all-area matches, not native small-area APs matching or APs prefix reconstruction. Same-GT ranks join outcomes; prediction boxes/queries are not aligned across runs. Common-GT rank movement can involve localization, classification, candidate retention or matching together. No unique classification-head or decoder root, no causal AP decomposition.')
+ write(destination/'report.json',result)
+ text=['原生分数前段分析：'+arm+'种子'+str(seed)+'对已有BASE12','',
+  '全面积原生PR：每组10100个数值，两组共20200个，逐值完全相同地重建；没有新模型前向或重新匹配。',
+  '总体AP差值 %.6f。小面积APs的逐检测匹配明细缺失，本报告的small_GT前段只按全面积原生TP取小GT子集，不能替代APs。'%delta,
+  '前段TP变化 = 新增TP进入前段 − 丢失TP原在前段 + 共通命中GT进入前段 − 共通命中GT离开前段。','',
+  'people / IoU0.50（示例类别；所有10类和10个IoU均保留；这里是全面积前段）：']
+ people=classes[1]['by_IoU'][0]['groups']['all_GT_of_class']
+ for row in people['prefixes']:
+  text.append('前%d：BASE TP%d/FP%d；Candidate TP%d/FP%d；TP差值%+d = 新增%d − 丢失%d + 共通进入%d − 共通离开%d'%(row['rank'],row['BASE_TP'],row['BASE_FP'],row['Candidate_TP'],row['Candidate_FP'],row['TP_prefix_delta'],row['new_Candidate_TP_in_prefix'],row['lost_BASE_TP_in_prefix'],row['common_matched_GT_entering_Candidate_prefix'],row['common_matched_GT_leaving_Candidate_prefix']))
+ text.extend(['','同一GT两组均命中，不意味着使用同一查询或同一预测框；上述等式是输出账目，不能证明单个模块或纯分类错误。',
+              '另一种子与独立保存EMA前向核验待完成。'])
+ (destination/'原生排序与命中前段.txt').write_text('\n'.join(text)+'\n',encoding='utf8')
+ write(destination/'manifest.json',dict(files={q.name:sha(q) for q in destination.iterdir() if q.is_file()}))
+ assert 'torch' not in sys.modules and not any(n.startswith('pycocoeval') for n in sys.modules)
+ print(json.dumps(dict(status=result['status'],seed=seed,delta_AP_points=delta,people50=people),ensure_ascii=False))
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--arm',choices=('backbone_silu','p2_skip','backbone_attention'),required=True);args=p.parse_args();analyze(args.seed,args.arm)

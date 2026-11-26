@@ -1,0 +1,111 @@
+Published as a conference paper at ICLR 2021
+ESTIMATING AND EVALUATING REGRESSION PREDIC -
+TIVE UNCERTAINTY IN DEEP OBJECT DETECTORS
+Ali Harakeh
+Institute for Aerospace Studies
+University of Toronto
+ali.harakeh@utoronto.ca
+Steven L. Waslander
+Institute for Aerospace Studies
+University of Toronto
+stevenw@utias.utoronto.ca
+ABSTRACT
+Predictive uncertainty estimation is an essential next step for the reliable deploy-
+ment of deep object detectors in safety-critical tasks. In this work, we focus on
+estimating predictive distributions for bounding box regression output with vari-
+ance networks. We show that in the context of object detection, training vari-
+ance networks with negative log likelihood (NLL) can lead to high entropy pre-
+dictive distributions regardless of the correctness of the output mean. We pro-
+pose to use the energy score as a non-local proper scoring rule and ﬁnd that
+when used for training, the energy score leads to better calibrated and lower en-
+tropy predictive distributions than NLL. We also address the widespread use of
+non-proper scoring metrics for evaluating predictive distributions from deep ob-
+ject detectors by proposing an alternate evaluation approach founded on proper
+scoring rules. Using the proposed evaluation tools, we show that although vari-
+ance networks can be used to produce high quality predictive distributions, ad-
+hoc approaches used by seminal object detectors for choosing regression targets
+during training do not provide wide enough data support for reliable variance
+learning. We hope that our work helps shift evaluation in probabilistic object
+detection to better align with predictive uncertainty evaluation in other machine
+learning domains. Code for all models, evaluation, and datasets is available at:
+https://github.com/asharakeh/probdet.git.
+1 I NTRODUCTION
+Deep object detectors are being increasingly deployed as perception components in safety critical
+robotics and automation applications. For reliable and safe operation, subsequent tasks using detec-
+tors as sensors require meaningful predictive uncertainty estimates correlated with their outputs. As
+an example, overconﬁdent incorrect predictions can lead to non-optimal decision making in plan-
+ning tasks, while underconﬁdent correct predictions can lead to under-utilizing information in sensor
+fusion. This paper investigates probabilistic object detectors, extensions of standard object detectors
+that estimate predictive distributions for output categories and bounding boxes simultaneously.
+This paper aims to identify the shortcomings of recent trends followed by state-of-the-art probabilis-
+tic object detectors, and provides theoretically founded solutions for identiﬁed issues. Speciﬁcally,
+we observe that the majority of state-of-the-art probabilistic object detectors methods (Feng et al.,
+2018a; Le et al., 2018; Feng et al., 2018b; He et al., 2019; Kraus & Dietmayer, 2019; Meyer et al.,
+2019; Choi et al., 2019; Feng et al., 2020; He & Wang, 2020; Harakeh et al., 2020; Lee et al., 2020)
+build on deterministic object detection backends to estimate bounding box predictive distributions by
+modifying such backends with variance networks (Detlefsen et al., 2019). The mean and variance
+of bounding box predictive distributions estimated using variance networks are then learnt using
+negative log likelihood (NLL). It is also common for these methods to use non-proper scoring rules
+such as the mean Average Precision (mAP) when evaluating the quality of their output predictive
+distributions.
+Pitfalls of NLL We show that under standard training procedures used by common object detectors,
+using NLL as a minimization objective results in variance networks that output high entropy dis-
+tributions regardless of the correctness of an output bounding box. We address this issue by using
+1
+arXiv:2101.05036v3  [cs.CV]  12 Mar 2021
+
+---PAGE---
+
+Published as a conference paper at ICLR 2021
+the Energy Score (Gneiting & Raftery, 2007), a distance-sensitive proper scoring rule based on en-
+ergy statistics (Sz´ekely & Rizzo, 2013), as an alternative for training variance networks. We show
+that predictive distributions learnt with the energy score are lower entropy, better calibrated, and of
+higher quality when evaluated using proper scoring rules.
+Pitfalls of Evaluation We address the widespread use of non-proper scoring rules for evaluating
+probabilistic object detectors by providing evaluation tools based on well established proper scoring
+rules (Gneiting & Raftery, 2007) that are only minimized if the estimated predictive distribution
+is equal to the true target distribution, for both classiﬁcation and regression. Using the proposed
+tools, we benchmark probabilistic extensions of three common object detection architectures on
+in-distribution, shifted, and out-of-distribution data. Our results show that variance networks can
+differentiate between in-distribution, shifted, and out-of-distribution data using their predictive en-
+tropy. We ﬁnd that ad-hoc approaches used by seminal object detectors for choosing their regression
+targets during training do not provide a wide enough data support for reliable learning in variance
+networks. Finally, we provide clear recommendations in Sec. 5 to avoid the pitfalls described above.
+2 R ELATED WORK
+Estimating predictive distributions with deep neural networks has long been a topic of interest
+for the research community. Bayesian Neural Networks (BNNs) (MacKay, 1992) quantify predic-
+tive uncertainty by approximating a posterior distribution over a set of network parameters given a
+predeﬁned prior distribution. Variance networks (Nix & Weigend, 1994) capture predictive uncer-
+tainty (Kendall & Gal, 2017) by estimating the mean and variance of every output through separate
+neural network branches, and are usually trained using maximum likelihood estimation (Detlefsen
+et al., 2019). Deep ensembles (Lakshminarayanan et al., 2017) train multiple copies of the vari-
+ance networks from different network initializations to estimate predictive distributions from output
+sample sets. Monte Carlo (MC) Dropout (Gal & Ghahramani, 2016) provides predictive uncertainty
+estimates based on output samples generated by activating dropout layers at test time. We refer the
+reader to the work of Detlefsen et al. (2019) for an in depth comparison of the performance of vari-
+ance networks, BNNs, Ensembles, and MC dropout on regression tasks. We ﬁnd variance networks
+to be the most scalable of these methods for the object detection task. Finally, we do not distinguish
+between aleatoric and epistemic uncertainty as is done in Kendall & Gal (2017), instead focusing
+on predictive uncertainty (Detlefsen et al., 2019) which reﬂects both types.
+State-of-the-art probabilistic object detectors model predictive uncertainty by adapting the work
+of Kendall & Gal (2017) to state-of-the-art object detectors. Standard detectors are extended with a
+variance network, usually referred to as the variance regression head, alongside the mean bounding
+box regression head and the resulting network is trained using NLL (Feng et al., 2018a; Le et al.,
+2018; He et al., 2019; Lee et al., 2020; Feng et al., 2020; He & Wang, 2020). Some approaches
+combine the variance networks with dropout (Feng et al., 2018b; Kraus & Dietmayer, 2019) and use
+Monte Carlo sampling at test time. Others (Meyer et al., 2019; Choi et al., 2019; Harakeh et al.,
+2020) make use of the output predicted variance by modifying the non-maximum suppression post-
+processing stage. Such modiﬁcations are orthogonal to the scope of the paper. It is important to
+note that a substantial portion of existing probabilistic object detectors focus on non-proper scoring
+metrics such as the mAP and calibration errors to evaluate the quality of their predictive distributions.
+More recent methods (Harakeh et al., 2020; He & Wang, 2020) use the probability-based detection
+quality (PDQ) proposed by Hall et al. (2020) for evaluating probabilistic object detectors, which can
+also be shown to be non-proper (See appendix D.3). Instead, we combine the error decomposition
+proposed by Hoiem et al. (2012) with well established proper scoring rules (Gneiting & Raftery,
+2007) to evaluate probabilistic object detectors.
+3 L EARNING BOUNDING BOX DISTRIBUTIONS WITH PROPER SCORING
+RULES
+3.1 N OTATION AND PROBLEM FORMULATION
+Let x∈ Rm be a set ofm-dimensional features, y∈{ 1,...,K } be classiﬁcation labels forK-way
+classiﬁcation, andz∈ Rd be bounding box regression targets associated with object instances in the
+2

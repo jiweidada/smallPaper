@@ -1,0 +1,76 @@
+DINO: DETR with Improved DeNoising Anchor
+Boxes for End-to-End Object Detection
+Hao Zhang1,3∗†, Feng Li 1,3∗†, Shilong Liu 2,3∗†, Lei Zhang 3‡,
+Hang Su2, Jun Zhu 2, Lionel M. Ni 1,4, Heung-Yeung Shum 1,3
+1The Hong Kong University of Science and Technology.
+2Dept. of CST., BNRist Center, Institute for AI, Tsinghua University.
+3International Digital Economy Academy (IDEA).
+4The Hong Kong University of Science and Technology (Guangzhou).
+{hzhangcx,fliay}@connect.ust.hk
+{liusl20}@mails.tsinghua.edu.cn
+{suhangss,dcszj}@mail.tsinghua.edu.cn
+{ni,hshum}@ust.hk
+{leizhang}@idea.edu.cn
+Abstract. We present DINO (DETR with Improved deNoising anchOr
+boxes), a state-of-the-art end-to-end object detector. DINO improves
+over previous DETR-like models in performance and efficiency by using
+a contrastive way for denoising training, a mixed query selection method
+for anchor initialization, and a look forward twice scheme for box pre-
+diction. DINO achieves 49 .4AP in 12 epochs and 51 .3AP in 24 epochs
+on COCO with a ResNet-50 backbone and multi-scale features, yield-
+ing a significant improvement of +6.0AP and +2.7AP, respectively,
+compared to DN-DETR, the previous best DETR-like model. DINO
+scales well in both model size and data size. Without bells and whistles,
+after pre-training on the Objects365 dataset with a SwinL backbone,
+DINO obtains the best results on both COCO val2017 (63.2AP) and
+test-dev (63.3AP). Compared to other models on the leaderboard,
+DINO significantly reduces its model size and pre-training data size
+while achieving better results. Our code will be available at https:
+//github.com/IDEACVR/DINO.
+Keywords: Object Detection; Detection Transformer; End-to-End De-
+tector
+1 Introduction
+Object detection is a fundamental task in computer vision. Remarkable progress
+has been accomplished by classical convolution-based object detection algo-
+∗ Equal contribution. Listing order is random.
+† This work was done when Hao Zhang, Feng Li, and Shilong Liu were interns at
+IDEA.
+‡ Corresponding author.
+arXiv:2203.03605v4  [cs.CV]  11 Jul 2022
+
+---PAGE---
+
+2 H. Zhang, F. Li, S. Liu, et al.
+Fig. 1. AP on COCO compared with other detection models. (a) Comparison to mod-
+els with a ResNet-50 backbone w.r.t. training epochs. Models marked with DC5 use a
+dilated larger resolution feature map. Other models use multi-scale features. (b) Com-
+parison to SOTA models w.r.t. pre-training data size and model size. SOTA models
+are from the COCO test-dev leaderboard. In the legend we list the backbone pre-
+training data size (first number) and detection pre-training data size (second number).
+∗ means the data size is not disclosed.
+rithms [31,35,19,2,12]. Despite that such algorithms normally include hand-
+designed components like anchor generation and non-maximum suppression (NMS),
+they yield the best detection models such as DyHead [7], Swin [23] and SwinV2 [22]
+with HTC++ [4], as evidenced on the COCO test-dev leaderboard [1].
+In contrast to classical detection algorithms, DETR [3] is a novel Transformer-
+based detection algorithm. It eliminates the need of hand-designed components
+and achieves comparable performance with optimized classical detectors like
+Faster RCNN [31]. Different from previous detectors, DETR models object de-
+tection as a set prediction task and assigns labels by bipartite graph matching. It
+leverages learnable queries to probe the existence of objects and combine features
+from an image feature map, which behaves like soft ROI pooling [21].
+Despite its promising performance, the training convergence of DETR is slow
+and the meaning of queries is unclear. To address such problems, many methods
+have been proposed, such as introducing deformable attention [41], decoupling
+positional and content information [25], providing spatial priors [11,39,37], etc.
+Recently, DAB-DETR [21] proposes to formulate DETR queries as dynamic
+anchor boxes (DAB), which bridges the gap between classical anchor-based de-
+tectors and DETR-like ones. DN-DETR [17] further solves the instability of bi-
+partite matching by introducing a denoising (DN) technique. The combination
+of DAB and DN makes DETR-like models competitive with classical detectors
+on both training efficiency and inference performance.
+The best detection models nowadays are based on improved classical detec-
+tors like DyHead [8] and HTC [4]. For example, the best result presented in
+SwinV2 [22] was trained with the HTC++ [4,23] framework. Two main reasons
+contribute to the phenomenon: 1) Previous DETR-like models are inferior to the
+improved classical detectors. Most classical detectors have been well studied and

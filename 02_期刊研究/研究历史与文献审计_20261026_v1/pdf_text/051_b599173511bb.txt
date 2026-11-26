@@ -1,0 +1,156 @@
+Upsample Anything: A Simple and Hard to Beat Baseline for Feature
+Upsampling
+Minseok Seo1 Mark Hamilton2,3 Changick Kim1
+1KAIST 2MIT 3Microsoft
+minseok.seo@kaist.ac.kr
+Cartoon
+Natural
+Upsample Anything
+A universal, training-free upsampler 
+via lightweight test-time optimization
+Manufacturing
+Autonomous Driving
+Medical
+Ours LR
+Ours LR
+Satellite Thermal
+Ours LR
+Biochemical
+Ours LR
+Ours LR
+Ours LR
+Ours LR
+Ours LR
+Figure 1. Our method performs lightweight test-time optimization(≈0.419 s/image)without requiring any dataset-level training.It general-
+izes seamlessly across domains while maintaining consistent reconstruction quality for every image. (All examples are randomly selected,
+without cherry-picking.)
+Abstract
+We presentUpsample Anything, a lightweight test-time op-
+timization (TTO) framework that restores low-resolution
+features to high-resolution, pixel-wise outputs without any
+training. Although Vision Foundation Models demon-
+strate strong generalization across diverse downstream
+tasks, their representations are typically downsampled by
+14×/16× (e.g., ViT), which limits their direct use in pixel-
+level applications. Existing feature upsampling approaches
+depend on dataset-specific retraining or heavy implicit op-
+timization, restricting scalability and generalization. Up-
+sample Anything addresses these issues through a simple
+per-image optimization that learns an anisotropic Gaus-
+sian kernel combining spatial and range cues, effectively
+bridging Gaussian Splatting and Joint Bilateral Upsam-
+pling. The learned kernel acts as a universal, edge-aware
+operator that transfers seamlessly across architectures and
+modalities, enabling precise high-resolution reconstruction
+of features, depth, or probability maps. It runs in only
+≈0.419s per 224×224 image and achieves state-of-the-art
+performance on semantic segmentation, depth estimation,
+and both depth and probability map upsampling.
+1. Introduction
+Modern computer vision systems for pixel-level prediction
+tasks such as semantic, instance, and panoptic segmenta-
+tion [2, 5, 15, 30] or depth estimation [11, 20, 26] often
+use an encoder–decoder paradigm. The encoder extracts hi-
+erarchical features that capture semantic abstraction from
+arXiv:2511.16301v1  [cs.CV]  20 Nov 2025
+
+---PAGE---
+
+(a) Dataset-Level Training Method (b) Upsample Anything (Ours)
+Step1. Training Upsampler
+VFM
+ Upsampler
+Step2. Inference (Task-specific inference only)
+𝐼𝐻𝑅
+𝐹𝐿𝑅 𝐹𝐻𝑅
+Upsampler
+Step1. Test-time Optimization & Inference
+𝐹𝐻𝑅
+𝐷𝐻𝑅
+𝐿𝐻𝑅
+𝐹𝐿𝑅 𝐷𝐿𝑅 𝐿𝐿𝑅
+Anything
+VFM
+ Upsampler
+𝐼𝐿𝑅
+Upsampler
+𝐼𝐻𝑅
+Dataset
+Training Objective
+FeatUp
+LoftUP
+JAFAR
+AnyUP
+≈0.419 s/image
+𝑇𝑇𝑂
+Figure 2. Comparison of dataset-level training and our test-time optimization (TTO). (a) Dataset-level methods (FeatUp, LoftUp, JAFAR,
+AnyUp) require paired training data and handle only 2D feature maps. (b) Our Upsample Anything performs TTO using only one HR
+image and generalizes to feature, depth, segmentation, and even 3D features.
+the input image, and the decoder reconstructs dense, task-
+specific predictions such as class maps, depth, or optical
+flow at the original spatial resolution.
+Recent advances in large-scale self-supervised learn-
+ing [1, 8, 17, 18, 27, 31] introduce general-purpose encoders
+called Vision Foundation Models (VFMs) that can serve as
+universal backbones across diverse downstream tasks. This
+paradigm shift has led to the emergence of Vision Foun-
+dation Models (VFMs) such as DINO [17], CLIP [18],
+SigLIP [27], and MAE [8], which provide transferable and
+semantically rich features with minimal task-specific fine-
+tuning.
+By decoupling the encoder from the downstream task,
+these foundation models dramatically reduce the data and
+training costs needed for adaptation while maintaining
+strong generalization across domains. However, despite
+these advantages, high-performing pixel-level systems still
+require large and complex decoders such as DPT [19],
+UPerNet [24], or SegFormer [25] to recover spatial details
+from low-resolution features. Foundation features are typ-
+ically downsampled by a factor of 14-16 in Vision Trans-
+former [4] architectures or equivalently through multiple
+pooling stages in CNN-based backbones [7, 16]. As a re-
+sult, they lack fine-grained spatial information, forcing de-
+coders to rely on heavy upsampling networks that are com-
+putationally expensive, memory-intensive, and often diffi-
+cult to generalize to new architectures or resolutions.
+To address this resolution gap, a growing line of research
+has explored feature upsampling methods [3, 6, 10, 22, 23]
+to restore spatial details in pretrained representations with-
+out modifying the encoder. These methods learn an up-
+sampling operator that maps low-resolution foundation fea-
+tures to higher resolutions, effectively bridging the seman-
+tic–spatial gap before the downstream decoder. In doing so,
+they can achieve strong performance across diverse pixel-
+level tasks even with a single 1×1 convolutional decoder.
+Feature upsampling approaches can be broadly catego-
+rized into two paradigms depending on how the upsampler
+is optimized: (a) dataset-level training [3, 6, 10, 22, 23]
+and (b) test-time optimization (TTO) [6], as illustrated in
+Fig. 2. In the dataset-level training paradigm, the feature
+upsampler is trained on a target dataset either by generating
+pseudo-labels using methods such as SAM [13] for zero-
+shot supervision [10] or by adopting multi-view training ob-
+jectives [3, 6, 22, 23].
+While this approach can generalize to certain unseen
+data, it still requires dataset-level training, meaning that the
+upsampler must be retrained whenever the backbone archi-
+tecture or target dataset changes. Moreover, due to heavy
+memory usage, most trained upsamplers can only operate
+up to 112–224 pixels in resolution. The test-time optimiza-
+tion paradigm, exemplified by methods such as FeatUp (Im-
+plicit), avoids dataset-level training by optimizing the fea-
+ture upsampler directly at inference time for each test im-
+age. Although this removes the need for offline training, the
+per-image optimization is computationally expensive, tak-
+ing an average of 49 seconds to converge for a 224-sized
+image.
+We propose Upsample Anything, a test-time optimiza-
+tion (TTO) framework for feature upsampling, as illus-
+trated in Fig. 2-(b). Unlike previous methods requiring
+dataset-level training, it performs lightweight per-image op-
+timization and processes a 224-sized image in only≈0.419
+s. Given an input image, Upsample Anything resizes the
+RGB guidance to match the low-resolution (LR) feature-
+map size, reconstructs the high-resolution (HR) color im-
+age through optimization, and learns pixelwise anisotropic
+Gaussian parameters—(σ x, σy, θ, σr)—that define a con-

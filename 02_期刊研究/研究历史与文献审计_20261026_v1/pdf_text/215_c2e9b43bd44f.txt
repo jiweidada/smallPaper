@@ -1,0 +1,130 @@
+Alias-Free ViT:
+Fractional Shift Invariance via Linear Attention
+Hagay Michaeli
+Technion
+Haifa, Israel
+hagaymi@campus.technion.ac.il
+Daniel Soudry
+Technion
+Haifa, Israel
+daniel.soudry@gmail.com
+Abstract
+Transformers have emerged as a competitive alternative to convnets in vision
+tasks, yet they lack the architectural inductive bias of convnets, which may hin-
+der their potential performance. Specifically, Vision Transformers (ViTs) are not
+translation-invariant and are more sensitive to minor image translations than stan-
+dard convnets. Previous studies have shown, however, that convnets are also not
+perfectly shift-invariant, due to aliasing in downsampling and nonlinear layers.
+Consequently, anti-aliasing approaches have been proposed to certify convnets
+translation robustness. Building on this line of work, we propose an Alias -Free
+ViT, which combines two main components. First, it uses alias-free downsam-
+pling and nonlinearities. Second, it uses linear cross -covariance attention that
+is shift-equivariant to both integer and fractional translations, enabling a shift-
+invariant global representation. Our model maintains competitive performance in
+image classification and outperforms similar-sized models in terms of robustness
+to adversarial translations.1
+1 Introduction
+Transformers, primarily designed for language modeling [58], have become dominant in vision tasks
+[26, 34]. Since they were originally designed for sequential data, their underlying attention mechanism
+is not sensitive to the locality of information in visual data. As a result, Vision Transformers (ViTs)
+exhibit a lack of shift-invariance, a shortcoming that becomes evident in cases where small image
+translations lead to significant deviations in output [25, 51].
+To mitigate this gap, many studies have been conducted on the integration of convolutional priors,
+such as spatial hierarchy and shift-invariance, into ViT architectures. For example, approaches include
+hierarchical patch merging [39], the incorporation of convolutional layers [61], and the design of
+relative positional encodings [ 62]. Furthermore, some works have drawn parallels between self-
+attention and dynamic convolutions [1, 9, 27], motivating reinterpretations of the attention mechanism
+through a convolutional lens.
+Despite being more spatially aware than transformers, convnets are not perfectly shift-invariant
+due to aliasing introduced by strided convolutions and pooling layers [ 4, 67]. This has led to
+a line of research that aims to restore shift-invariance, by methods including anti-aliasing filters
+[21, 23, 32, 40, 67, 71] and adaptive sampling techniques [6, 46]. Building on these advances, recent
+works have adapted such methods for transformer architectures. For example, Adaptive Polyphase
+Sampling (APS) has been employed to achieve cyclic shift-equivariance in ViTs [13, 47]. However,
+despite the latter approach efficiently guaranteeing shift-invariance for integer pixel cyclic shifts, it
+falls short in fractional (i.e., sub-pixel) shifts and “standard” shifts (i.e. imitating camera translation)
+[11, 40, 51].
+1Our code is available at github.com/hmichaeli/alias_free_vit.
+39th Conference on Neural Information Processing Systems (NeurIPS 2025).
+
+---PAGE---
+
+Conv
+BN
+AF-Up 2x
+GeLU
+AF-Down 4x
+ 
+AF Patch Embedding
+AF-LN
+XCA
+AF-LN
+AF-LPI
+AF-LN
+AF-MLP
+ 
+AFT Block
+AF Class Attention Block AF Class
+Attention
+Linear
+Linear
+AF-LN
+XCA
+LN
+MLP
+ 
+Image
+tokens
+Class
+token
+Image
+tokens
+Class
+token
+Image
+tokens
+Class
+token
+ 
+ 
+CLS 
+   
+Image
+tokens
+Figure 1: Overview of the Alias-Free Vision Transformer (AFT) architecture. The input image is
+first processed by an alias-free patch embedding module composed of convolutional layers (Conv),
+batch normalization (BN), and alias-free activation, composed of upsampling (AF-Up), GELU and
+downsampling (AF-Down). The result is reshaped to a token matrix form and fed through L Alias-
+Free Transformer blocks, each consisting of alias-free layer normalization (AF-LN), cross-covariance
+attention (XCA), alias-free local patch interaction (AF-LPI), and alias-free MLP (AF-MLP) layers,
+interconnected by residual connections. The result is concatenated with a learnable class token
+embedding and fed into two Alias-Free Class Attention blocks composed of an XCA layer and an
+MLP applied on the class token. The final representation is the updated class token, which is fed into
+a final linear classifier. Detailed explanations of each component are provided in Section 3.
+As aliasing is primarily related to downsampling layers, which are not frequently used in ViTs,
+only few studies have been conducted on integrating aliasing-reduction techniques to achieve shift-
+invariance in ViTs. Qian et al. [42] propose plugging a low-pass filter post self-attention to reduce
+aliasing, however, this only provides a partial solution, as it does not resolve the inherent lack of
+shift-equivariance in self-attention and aliasing in other nonlinearities. Recent works study aliasing
+in latent diffusion models [2, 64, 70] that typically include attention layers, in order to improve their
+consistency i.e. in video generation. However, these works do not address the main issue in the
+self-attention operation. A similar problem may also hinder transformer neural operators which have
+recently become popular [28, 38, 52], as aliasing has been shown to be related to discretization errors
+[5, 44, 69].
+Another emerging direction focuses on linear and softmax-free attention mechanisms, initially
+proposed to reduce the quadratic complexity of standard attention in large language models (LLMs)
+[7, 33, 59]. In the vision domain, models such as XCiT [ 16] and SimA [ 35] demonstrate that
+alternative attention formulations, e.g., using cross-covariance or linear attention, can maintain
+competitive performance without directly computing a full attention map. Beyond improved efficiency,
+we now show that such mechanisms enable designing a transformer-based architecture that is shift-
+equivariant, similar to convnets.
+Contributions. In this paper
+• We present in Section 2 a certain class of shift-equivariant attention layers (SEA), including linear
+attention and cross-covariance attention, which is useful for vision tasks.
+• We design in Section 3 a shift-invariant, alias-free Vision Transformer (AFT) using cross-
+covariance attention and alias-free nonlinearities and show it has a competitive performance
+in image classification.
+• We show in Section 4 that the AFT is robust (∼ 99% consistency) to fractional cyclic shifts, and
+significantly more robust to practical translations than other similar models, albeit with increased
+computational overhead due to the alias-free components.
+2

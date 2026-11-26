@@ -1,0 +1,31 @@
+267｜自然development H/L像素定位信息：固定事前协议
+2026-10-21。268仅实现无训练像素检查；作者只获准先执行合成，真实图像由主控审后执行。输出269_*，不写旧文件，不训练/模型/前向/CP/远端。
+
+问题与身份
+问同一物理窗口内，直接原图采样H是否比先缩640再采样L提供可被固定像素读出利用的中心定位信息。不是BASE24真实pre错误重放，不是260的40/25增强事件，不是AP。260只有几何必要面，F4的244阴性保留。
+实际sample_plan：英文小论文/data/08_匹配聚合覆盖探针_20261019_v1/sample_plan.json，SHA825bbfb56b6e2db79209460dd6b22ba06a2450b93ab863e46a3a147c2faacc99。
+读取source_pools.development，升序取前16 id=[1,2,3,5,6,7,9,10,12,13,14,16,17,18,19,20]；与heldout池互斥。两BASE24 seed只共同指向这一面板，本检查没有权重、随机seed或“两个seed独立成功”。
+源：C:/Users/jiwei/Desktop/DEIM/dataset_visdrone/VisDrone2019-DET-train/images及annotations/train.json。标注SHA32c1cae852e084430ea74503eb660f0707ec6b5e65d0998ce3ec8b448265c883。只使用这些16图的COCO项，非crowd/ignore、正宽高、合法10类，按annotation_id升序取最多64个满足min(w*640/W0,h*640/H0)<4的GT。无样本补齐/按像素挑选/按H收益挑选。用COCO原bbox而不临时裁GT；记录出界框及窗口边界，保持265正宽高口径。不裁原GT来改变tiny定义。
+固定同GT宽高，初始中心=c_GT+(+2,0)、(−2,0)、(0,+2)、(0,−2) input px；对应真实目标移动为相反向量。O4为该初始框四边外扩4px。GT只用于生成受控问题及评分，固定读出仅收到patch、已知采样坐标和初始中心，永不收到GT/类别/偏移标签。这是已知尺寸的人工定位问题，不能宣称部署知道这些尺寸或真实pre偏差分布。
+
+精确像素函数
+现有环境：D:/Anaconda/python.exe，复用dn_pre_frozen_diagnostic_20261020_v1/runtime的torch2.5.1+cpu、torchvision0.20.1+cpu；Pillow10.4.0、NumPy2.5.3。程序严格锁上述实际已装版本，不安装依赖。初版误沿用260的np1.26.4，两次合成入口检查在版本锁处退出（一次通用错误、一次列出实际版本），均未进入合成/读取真实数据；当前改为本独立像素探针实际NumPy2.5.3，绝不改旧260环境/结果或宣称跨版本bitexact。只导入冻结136的资源/存储定义，不调用模型/历史main。
+每个参与GT的原图仅Image.open一次、convert('RGB')一次；不EXIF旋转、不灰度、不锐化。真实解码宽高必须等于COCO。原图uint8，Resize使用Pillow Image.Resampling.BILINEAR；合成逐像素核对等于torchvision v2.Resize([640,640],BILINEAR,antialias=True)对PIL RGB的结果。PIL双线性降采样采用其滤波实现；不用tensor interpolate近似冒称原native像素一致。历史运行Pillow指纹未取得，故这里只承诺当前锁定采样链，非旧输入bitexact重放。
+L640=Resize(I0,640²)。HD0=Resize(L640,(W0,H0))；这就是Hdegraded，无新原图信息。
+坐标用像素边缘坐标，像素中心为j+.5。O=[x1,y1,x2,y2]，16²采样点：x_j=x1+(j+.5)(x2−x1)/16，y_i同理。L在L640坐标(x_j,y_i)采样；H在原图(x_j W0/640,y_i H0/640)采样；Hdegraded在HD0用同H位置采样。RGB转换后值/255，在FP64做双线性插值；插值数组索引=edge_coordinate−.5，超边界索引用border replicate，不补黑。三臂输出同物理O、同16²×3。无隐藏整数crop取整、额外高频核或改输出像素数。
+Hdegraded相比直接L多一次重建插值；记录该链，不把它视为与L必然逐像素相等。它用于识别H优势是否可由无新增信息的采样/平滑复制。另记录O4名义/输入内可见比例，仅作边界描述，不额外筛面板。
+
+固定读出和唯一主统计
+每个patch最外圈60个像素RGB均值b；w(p)=||I(p)−b||²。若Σw=0则delta_hat=0；否则c_hat=Σw(p)p/Σw(p)，delta_hat=clip(c_hat−c_init,−4,4)逐轴。三臂完全相同，无拟合、调参、GT mask或门控；不得结果后换核。零移动为额外简单参照。
+e_X=||delta_hat_X−delta_true||∞，X=L/H/Hdegraded/zero。每GT先平均四方向，再每自然图平均GT；唯一主读数为参与图等权平均(e_H−e_L)，同时给逐图值、中位、H胜/平/负及(e_H−e_Hdegraded)、各臂相对zero。64GT×4不是256独立图；若64GT集中在少数图就如实报告，不能重分配来“改善功效”。无tinyGT的固定图报告0，不用其他图替换。
+保存每次patch/H-L数值差、读出和误差；像素MSE非零不叫有用信息。H较L更差/无改善不能支持此固定读出；H优但Hdegraded复制，不支持新增原图信息解释；H在多数参与图降低误差且未由Hdegraded复制，才是有限的可用像素证据，仍不是学到中心函数、训练批准或创新。不给任意微小正值命名为方法成立；本脚本无自动GO布尔门槛。简单读出失败只否定此读出，不封杀所有可学phi；不再靠补几何表来挽救它。
+
+真实方法边界和近邻
+拟议方法的具体变量是：保持pre宽高/FDR单位，用同位置H/L共享phi的差分更新pre中心，例如c'=c+4*tanh(phi(H,q)−phi(L,q))（input px）。H=L时严格零新增更新。额外高分crop本身和一般多分辨率检测不是新意。强控制仍为相同已有像素的自由中心头，以及相同新增crop仅末层校正；当前固定重心测试不实现这些网络。
+2026近邻确指Khujamatov等《Differentiable Resolution Allocation for Tiny Object Detection in UAV Imagery》，Sensors26(19)6157，DOI10.3390/s26196157，https://www.mdpi.com/1424-8220/26/19/6157。194当时只取得部分§3。本轮B并行核原文：出版社直页429、PDF未取得；可读出版社搜索正文含式6/7，c_m=(u_m+Δu_m)s、σ_m=σhat_m exp(Δlogσ_m)，Gumbel无放回p_m^(k)=softmax((a_m+g_m^k)/τ)，直通z=h+p−stopgrad(p)。已覆盖低分辨率density选择中心/尺度、可微原图重读、crop内wavelet恢复、density初始化查询与softNMS。B明确未在已读范围见到同位置H/L共享phi差分只移动固定wh的pre中心，但Eq2–12仍未全取得，不能据此断言该精确式不存在。以上是B原文核查回报，不冒称A亲读了完整公式；主控仍需在论文增量判断中保留缺口。AutoFocus/CornerNet局部重读先例同样保留。本协议不宣称新颖性核查完成，也不让全文获取失败阻塞无训练像素实现。
+
+执行、合成、输出
+CPU2、interop1、affinity[13,15]、BelowNormal、RAM>8GiB，空CUDA、BLAS2；无线程池/worker。full只读16图名单，hash前/后逐图核对，每参与图只解码一次；记录库/PIL核心二进制/脚本/协议/标注/plan SHA；源变化或样本/尺寸身份异常关闭结论。
+合成仅内存图：常量零移动、对称目标重心、单点正确坐标/裁4、整数中心重采样恒等、线性坡面双线性精度、border replicate、16²网格、PIL与T.Resize全等、640原图H=L=Hdegraded、非方图H与L/HD形状、聚合四方向和按图等权。合成不得读取真实annotation、plan内容或JPEG，不加载模型。
+作者运行命令仅：D:/Anaconda/python.exe -B <V2>/268_natural_development_HL_pixel_probe.py --synthetic-only；只新建269_natural_HL_synthetic.json，已存在则拒绝。真实执行默认须显式--real-images，由主控另行调用；默认无模式则拒绝。full新建269_natural_development_HL_pixel_probe目录，不覆盖，写00_manifest、逐图json/npz、01_results、02_output_sha256；失败写FAILED，不报方法阴性。
+本协议和代码冻结后才进行合成；真实像素尚未执行。整个任务没有训练、网络参数、优化器、AP、checkpoint或检测器前向。

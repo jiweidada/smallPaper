@@ -1,0 +1,90 @@
+Multimodal Object Detection via Probabilistic
+Ensembling
+Yi-Ting Chen∗1, Jinghao Shi ∗2, Zelin Ye∗2, Christoph Mertz 2,
+Deva Ramanan†2,3, Shu Kong †2,4
+1 University of Maryland, College Park
+2 Carnegie Mellon University
+3 Argo AI
+4 Texas A&M University
+ytchen@umd.edu, {jinghaos, zeliny, cmertz }@andrew.cmu.edu,
+deva@cs.cmu.edu, shu@tamu.edu
+open-source code in Github
+Abstract. Object detection with multimodal inputs can improve many
+safety-critical systems such as autonomous vehicles (AVs). Motivated by
+AVs that operate in both day and night, we study multimodal object de-
+tection with RGB and thermal cameras, since the latter provides much
+stronger object signatures under poor illumination. We explore strategies
+for fusing information from different modalities. Our key contribution
+is a probabilistic ensembling technique, ProbEn, a simple non-learned
+method that fuses together detections from multi-modalities. We derive
+ProbEn from Bayes’ rule and first principles that assume conditional
+independence across modalities. Through probabilistic marginalization,
+ProbEn elegantly handles missing modalities when detectors do not fire
+on the same object. Importantly, ProbEn also notably improves mul-
+timodal detection even when the conditional independence assumption
+does not hold, e.g., fusing outputs from other fusion methods (both off-
+the-shelf and trained in-house). We validate ProbEn on two benchmarks
+containing both aligned (KAIST) and unaligned (FLIR) multimodal im-
+ages, showing that ProbEn outperforms prior work by more than 13%
+in relative performance!
+Keywords: Object Detection · Multimodal Detection · Infrared · Ther-
+mal · Probabilistic Model · Ensembling · Multimodal Fusion · Uncertainty
+1 Introduction
+Object detection is a canonical computer vision problem that has been greatly
+advanced by the end-to-end training of deep neural detectors [45,23]. Such de-
+tectors are widely adopted in various safety-critical systems such as autonomous
+vehicles (AVs) [19,7]. Motivated by AVs that operate in both day and night,
+∗Equal contribution. The work was mostly done when authors were with CMU.
+†Equal supervision.
+
+---PAGE---
+
+2 Chen et al.
+0.70
+0.80
+0.70 0.80
+ 0.75
+0.80
+ 0.90
+(c) Averagethermal (a) Pooling (d) ProbEn(b) NMSRGB
+fusion
+Fig. 1. Multimodal detection via ensembling single-modal detectors . (a) A
+naive approach is to pool detections from each modality, but this will result in multi-
+ple detections that overlap the same object. ( b) To remedy this, one can apply non-
+maximal suppression (NMS) to suppress overlapping detections from different modal-
+ities, which always returns the higher (maximal) scoring detection. Though quite sim-
+ple, NMS is an effective fusion strategy that has not been previously proposed as such.
+However, NMS fails to incorporate cues from the lower-scoring modality. (c) A nat-
+ural strategy for doing so might average scores of overlapping detections (instead of
+suppressing the weaker ones) [33,36]. However, this must decrease the reported score
+compared to NMS. Intuitively, if two modalities agree on a candidate detection, one
+should boost its score. (d) To do so, we derive a simple probabilistic ensembling ap-
+proach, ProbEn, to score fusion that increases the score for detections that have
+strong evidence from multiple modalities. We further extend ProbEn to box fusion in
+Section 3. Our non-learned ProbEn significantly outperforms prior work (Table 2&4).
+we study multimodal object detection with RGB and thermal cameras, since
+the latter can provide much stronger object signatures under poor illumina-
+tion [26,51,32,12,57,4].
+Multimodal Data . There exists several challenges in multimodal detection.
+One is the lack of data. While there exists large repositories of annotated single-
+modal datasets (RGB) and pre-trained models, there exists much less annotated
+data of other modalities (thermal), and even less annotations of them paired to-
+gether. One often-ignored aspect is the alignment of the modalities: aligning RGB
+and thermal images requires special purpose hardware, e.g., a beam-splitter [26]
+or a specialized rack [48] for spatial alignment, and a GPS clock synchronizer for
+temporal alignment [42]. Fusion on unaligned RGB-thermal inputs (cf. Fig. 4)
+remains relatively unexplored. For example, even annotating bounding boxes is
+cumbersome because separate annotations are required for each modality, in-
+creasing overall cost. As a result, many unaligned datasets annotate only one
+modality (e.g., FLIR [17]), further complicating multimodal learning.
+Multimodal F usion.The central question in multimodal detection ishow to
+fuse information from different modalities. Previous work has explored strategies
+for fusion at various stages [9,51,32,56,57,4], which are often categorized into
+early-, mid- and late-fusion. Early-fusion constructs a four-channel RGB-thermal
+input [49], which is then processed by a (typical) deep network. In contrast, mid-
+fusion keeps RGB and thermal inputs in different streams and then merges their
+features downstream within the network (Fig. 2a) [49,36,30]. The vast majority
+of past work focuses on architectural design of where and how to merge. Our
+key contribution is the exploration of an extreme variant of very-late fusion of
+detectors trained on separate modalities (Fig. 2b) through detector ensembling.
+Though conceptually simple, ensembling can be effective because one can learn

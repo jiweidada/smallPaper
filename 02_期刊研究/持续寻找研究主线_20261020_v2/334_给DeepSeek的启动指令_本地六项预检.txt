@@ -1,0 +1,50 @@
+334｜给DeepSeek的启动指令：本地六项预检（自包含，2026-10-21）
+
+你是执行方。你看不到之前的对话，下面的文件是全部依据。先读，再动手。不确定的事实先在源码里查证，不得凭变量名推断。
+
+一、范围与禁区
+- 只做本地、CPU、无GPU的实现与预检。
+- 不做：SSH、GPU、队列、监测；启动任何真实训练；读取heldout（sample_plan里的heldout3236）图像或预测；修改任何历史文件（317、311、320、296、304、316及322等结果）。
+- 没有任何训练授权。完成后不要启动训练，也不要写“可直接开训”。
+- 输出文件一律独占新建，不覆盖；已存在则换新文件名。
+
+二、环境
+- 解释器：D:\Anaconda\python.exe -s -X utf8 -B
+- 依赖torch2.5.1+cpu在：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\dn_pre_frozen_diagnostic_20261020_v1\runtime，需放入sys.path（做法见311_unit_instance_core\test_core.py开头：CUDA_VISIBLE_DEVICES置空、线程数2、MKL_THREADING_LAYER=SEQUENTIAL）。
+- 系统默认python没有torch。
+- 新代码目录：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1（尚不存在，由你创建）。
+- DEIM源码（只读）：C:\Users\jiwei\Desktop\DEIM，关键文件 engine\deim\{postprocessor,matcher,deim_criterion,box_ops}.py、engine\data\dataset\coco_eval.py、engine\solver\det_engine.py。
+
+三、必读文件（均在 C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\）
+1. 317_A_单位解释残余补全_四臂有限验证方案_v3.txt（主依据：网络、损失、日程、指标）
+2. 332_本地预检六项_交Codex实现规格.txt（六项任务；文中“Codex”即你）
+3. 333_332勘误_原生后处理与损失配方核实.txt（覆盖332中后处理、损失配方、分母三处）
+4. 327_训练实施输入索引.json（development 3235个id及SHA、两个checkpoint路径与SHA、标注路径与SHA）
+5. 296_A_单位实例残余补全_具体实现提案.txt、304_C_直接条件对照与目标边界.txt、316_C_固定解释对照及完成条件核查.txt（317引用的细节；317与它们冲突时以317为准）
+6. 已有只读代码：311_unit_instance_core\core.py、320_geometry_calibrated_core\gcal.py（320会校验311的SHA 8cd5dbc61052c7d3c3b4058b4d25b150b906ecc06c6eb005793c737cef3f17ef，不得改311）
+7. 配方快照：英文小论文\相位机制论文_20261018\data\source_snapshot\common.yml
+
+四、先做的三件事（在写六项之前）
+A. 查清评估口径：在评估所用的库源码里确认 max_dets、score_threshold 是否被消费、如何消费。DEIM的engine与train.py里搜不到这两个键的引用，不得凭键名猜测。结论写入result，附所读文件路径与行号。
+B. 确认common.yml是否为BASE24两个checkpoint训练时的实际配方：看checkpoint内保存的配置或训练日志（路径见327）。读checkpoint须在本地CPU、weights_only安全方式下进行；记录结果。查不到就写“未核”。
+C. 重算两个checkpoint与train/val标注的SHA256，与327中expected值比对，不一致立即停下并报告。
+
+五、六项任务
+按332执行，并按333勘误修正。验收标准：
+1. M0三级lex：并列稳定、重排输入不变、U_W与G_W−M0闭合、空P/空GT/无合法边、“全final300任何类框均无IoU≥.5边的GT必在U_W”。
+2. native MAL/boxes适配：新写compute_losses，只接4个新query，分母由外部传入max(1,|U_W|)，不得调用原DEIMCriterion.forward；与原loss_labels_mal/loss_boxes做数值parity（原类用common.yml的alpha .75/gamma 1.5、mal_alpha未设构造），记录容差。分母按batch合计还是按图：以317第5节原文为准，原文没写明就停下并在result里标“待主控确认”，不要自行决定。
+3. global300＋new4融合：new4分数全<0.001时输出与仅global逐位相同；不加NMS、温度、保底配额。parity分两层：①无new4时与PostProcessor逐项一致；②同一预测经自建后处理与原评估库下AP一致。②的容差口径待A查清后另报，不要先定。
+4. 自然数据缓存与训练/续跑/独评管线：只实现与预检，不运行真实训练。
+5. optimizer路由：打印每个参数所属组并落盘；断言G的class_null在no-decay组、只接检测损失梯度；global参数不在任何组。
+6. 参数/FLOPs/CPU单窗时延：实际建四臂模型实测；S新增参数317记133888，与实测核对；显存与墙钟标NA。
+
+317第8节新增合同（G/R初态同值、改θ只改G的aux计划、κ_c梯度与饱和例）也在本轮执行并如实记录。
+
+六、红线
+- 工程合同失败 = 实现失败，写成“实现失败”，不得写成科学阴性或暗改科学目标。
+- 每个result必须分开列：已执行（含调用次数）、未执行、未核。未执行的不得记作通过。
+- 任何数字只写你实际运行得到的；不编数据、不估成功率。
+- 需要修改接口时另存新版本并写差异，不改原文件。
+
+七、交付
+每项一份result json（含所用源文件SHA256）。全部完成后写一页中文汇总：做了什么、没做什么、发现的疑点。不要给训练命令。

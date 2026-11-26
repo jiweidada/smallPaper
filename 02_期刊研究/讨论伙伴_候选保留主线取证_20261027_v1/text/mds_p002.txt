@@ -1,0 +1,111 @@
+Authoret al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+to identify true positive queries and suppress false positive
+queries as duplicate, similarly to NMS. However, as shown
+in [2], this so-called hybrid layer scheme yields degraded
+performance. This failure is not from the hybrid scheme
+itself, but from the inherent symmetry of the DETR decoder.
+Duplicate suppression inherently requires high asymme-
+try: even when multiple candidate boxes have exactly the
+same bounding boxes and classification scores, only one
+should be preserved while the others must be suppressed. In
+contrast, if two object queries are identical, their predictions
+obtained by forwarding through the DETR decoder will also
+be perfectly identical, because DETR defines object queries
+as a set rather than a sequence and the decoder’s self-
+attention is permutation-equivariant. Therefore, a conven-
+tional decoder layer would struggle to function as a duplicate
+suppressor.
+Several prior works have attempted to address this inherent
+symmetry of DETR decoders. Rank-DETR [5] introduces
+confidence-based rank embeddings to impose asymmetry.
+While this is a straightforward approach, it often leads the
+decoder to overfit to the absolute rank itself, rather than
+leveraging meaningful interactions through self-attention.
+The mixed query selection strategy in DINO [9] can also be
+interpreted as a proposal confidence-based embedding for the
+initial query. However, its primary role is to facilitate query
+denoising as a context embedding, rather than acting as a
+rank embedding. Ease-DETR [10] takes a different approach
+by explicitly encoding both relative rank and pairwise IoU
+as attention weights. While IoU-based weights encourage
+interactions among highly overlapped queries, they lack the
+capacity to model fine-grained spatial relationships between
+queries.
+To handle this issue, we introduce a novel Masked Du-
+plicate Suppressor (MDS) designed as an asymmetric block
+for the one-to-one supervised decoder layer. As illustrated
+in Fig. 1, MDS consists of confidence-based sorting and
+masked self-attention, based on the assumption that the
+queries obtained from one-to-many supervised layers are re-
+liable and their confidences are well-calibrated. While NMS
+operates as an iterative post-processing method in which
+higher-confidence boxes suppress lower-confidence onesus-
+ing handcrafted IoU thresholds, our masked self-attention
+instead learnshow lower-confidence queries are suppressed
+by higher-confidence queriesin parallel, without relying on
+any handcrafted hyperparameters.
+Our MDS-DETR is clearly distinguished from previous
+DETRs that focus on the crucial role of self-attention as
+a duplicate-free prediction. Prior approaches enforced self-
+attention to act as a duplicate suppressor by introducing
+auxiliary decoders or learnable query embeddings, which
+eventually leads its behavior to be intractable. In contrast, our
+novel masked self-attention and true positive tokens are ex-
+plicitly designed for duplicate suppression, offering explain-
+ability. Through comprehensive experiments on the COCO
+2017 benchmark [11], we demonstrate that MDS-DETR
+outperforms state-of-the-art DETRs such as MS-DETR [12],
+MR.DETR [7], and Relation-DETR [6]. Furthermore, our
+method significantly reduces computational complexity, as
+it does not require any additional queries, losses, or any
+auxiliary decoders.
+II. RELATED WORK
+A. DETECTION TRANSFORMERS
+The DETR framework introduced a fully end-to-end
+paradigm for object detection and successfully extended to a
+wide range of vision recognition tasks [13]–[17]. Subsequent
+DETR-based variants have focused mainly on addressing the
+slow convergence of DETR and the limited training effi-
+ciency. Deformable DETR [8] replaces global dense attention
+with a multi-scale deformable attention module that restricts
+attention to a sparse set of key features around reference
+points. DAB-DETR [18] proposes dynamic anchor boxes
+as object queries, allowing the model to refine both query
+content and position iteratively. DN-DETR [19] and DINO-
+DETR [9] further accelerate training and enhance both sta-
+bility and supervision by introducing denoising-based query
+learning and mixed query selection strategies. While most
+existing DETR-based detectors focus on improving object
+query design [18], [20] or enhancing image feature aggre-
+gation via cross-attention [21], [22], we focus on the ability
+of self-attention in the decoder to suppress duplicated candi-
+dates for one-to-one prediction.
+B. DETRS WITH ONE-TO-MANY SUPERVISION
+One-to-many supervision assigns multiple queries to each
+ground truth object for significantly accelerating conver-
+gence and improving recall in DETR-based models. Group-
+DETR [3] introduces a group-wise one-to-many assignment
+strategy to enhance positive supervision signals. Hybrid-
+DETR [2] proposes a weight-shared auxiliary decoder
+trained with one-to-many matching, referred to as a hybrid
+branch. This hybrid branch scheme has been widely adopted
+in subsequent one-to-many-based DETR variants such as
+DAC-DETR [23], Rank-DETR [5], Relation-DETR [6], and
+MR.DETR [7]. However, the use of auxiliary decoders in-
+herently requires a large number of additional queries, which
+leads to a significant trade-off between training complexity
+and performance. In this paper, we question the necessity
+of auxiliary decoders and propose the Masked Duplicate
+Suppressor (MDS) as an effective alternative. MDS-DETR
+achieves performance that is competitive with, and in some
+cases superior to, existing heavily trained one-to-many-based
+DETRs, while introducing only negligible additional training
+cost compared to the Deformable-DETR baseline.
+C. RANK-ORIENTED DETECTION TRANSFORMERS
+In classical object detection frameworks, rank-oriented de-
+signs have primarily focused on constructing IoU-aware
+confidence measures through loss functions [24], [25] and
+architectural modifications [25]–[27]. In contrast, DETR not
+only suffers from such misalignment but also faces the chal-
+lenge of suppressing duplicate predictions. To address this,
+2 VOLUME 4, 2016

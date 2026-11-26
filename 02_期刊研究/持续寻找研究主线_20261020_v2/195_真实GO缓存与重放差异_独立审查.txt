@@ -1,0 +1,52 @@
+195 真实GO缓存与重放差异：独立只读审查
+2026-10-21，专家C。审查对象186/187、188全部JSON及输出hash、113和实际native criterion/decoder源码。仅读取文件、解析既有JSON并核对hash；没有执行Python脚本、加载torch/cache tensor、运行模型、追加前向或修改186—194及任何历史结果。01_cache.pt只核SHA，不声称本次独立反序列化重算其tensor内容。
+
+结论
+未发现阻止188作为后续固定缓存基线的实现错误。188是同权重、同输入、同DN随机状态下，按原生训练分支与原criterion实际新采集的一套内部一致输出；不是114的bitexact历史重放。后续baseline及全部候选必须共同使用188的预测、训练ref、GO、GT与分母。不能把114配对或127 eval ref拼入188，不追加前向追求旧bitexact。本结论仅准许固定缓存分析，不构成方法收益或训练准入。
+
+一、来源与执行约束
+186 SHA256：53b769be04ca7b251ffe2ac935a45c64a0ae764f4dbcecd4e18e245fa0914a6c。
+187 SHA256：16bd61b9e2397ae9ed6cff29d85e5615e1b4da4569ee6f08929e3694a0b08c5a。
+188/01_cache.pt SHA256：8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9。
+本次逐项重核05_output_sha256.json所列8个输出文件，全部一致；186/187 hash也与冻结交接一致。
+04_execution为complete：4 model forward、4 criterion、0 backward/VJP/cache-autograd/optimizer step/eval forward，strict801 tensor。CPU2、interop1、affinity13/15、BelowNormal、MHA fastpath=false，资源记录RAM23.59GiB；main计时2.844秒，不把该计时写成包含模块导入的全部进程耗时。
+模型、BN及criterion state前后hash一致，CP与输入/源码不变检查全true。criterion state hash为空state_dict的SHA，并不能单独证明所有Python临时成员不变；187确实每图清除原生loss缓存，完整loss及真实索引另有记录，因此未以这个空hash替代语义检查。
+
+二、真实GO、多重GT与loss口径核对
+图序     GT/sub4      final-own pairs   GO pairs   GO unique GT   GO额外重复槽
+0        146/46       146               172        146            26
+1        280/121      280               290        265            25
+2        418/271      300               300        280            20
+3         58/15        58                70         58            12
+合计     902/453      784               832        749            83
+
+直接从JSON索引复核：每图GO query唯一，GT_multiset直方图、per-query GT/class映射与配对数组相符；每个被选q/g都是实际五个ordinary stage累计中该query的最高出现频次之一。这与_get_go_indices实际“按pair频次，为每个query保留一个GT”的实现相符。GT可重复、query不重复；832不是832个独立GT，也不是单query同时接受多个GO GT。
+五个own matcher依次为final、aux.0、aux.1、pre、enc.0；各自pair数均为min(300,N_GT)，各自query和GT均唯一。相对当前188 final-own的GT集合，GO各图丢失/新增GT数为0/0、15/0、24/4、0/0。因此GO不是保留final-own全部GT后单纯加重复监督；这属于原生算法的实际结果，不是缓存错误。
+每图27次get_loss调用、37个最终加权loss键。ordinary MAL用各stage own，分母为146/280/418/58；final/aux/pre boxes与local使用GO及172/290/300/70分母；encoder boxes用GO，而其MAL/local仍own，local在无corners时返回空字典；DN使用原生DN正配对，当前group=1，分母为各图GT数。没有以pair数300误替第三图MAL分母418。
+按JSON原始loss返回值与weight_dict逐项核对，乘权后的最大FP64读数残差不超过9.54e-8，符合记录原生FP32结果的舍入。37项JSON标量用FP64重求和与保存的原生FP32顺序和差不超过2.99e-6，不是漏项证据。
+GO_summary.class_per_query是GO回归配对所指GT的类别，不等于原生MAL分类正标签；后者仍由每层own决定。后续若只重排GO回归，应明确这一分类监督边界，不能把保存GO class解释为已经改过MAL。
+
+三、训练ref及实际source可用性
+每图ordinary三层FDR（final、aux.0、aux.1）ref逐元素exact，最大差0，且exact等于该图pre_outputs.pred_boxes。DN三层也分别逐元素exact，并等于各自dn_pre_outputs.pred_boxes；DN长度为292/560/836/116，不与ordinary300槽混合。共享的是同一数值参照：各层view共享底层storage，但并非同一tensor对象或同一首元素地址。native源码在首层定义pre_bboxes.detach()，随后stack同一initial ref，与记录相符。
+encoder、ordinary pre和DN pre原输出不含ref_points；188明确列为缺失，没有凭空补造。native_outputs保留了本来存在的各层预测、corners、teacher、refs和DN元数据。保存发生在原criterion求值后，其新增up/reg_scale/is_dn元数据不会替换ref/预测；已读loss路径没有修改这些原始预测值。
+selected_indices来自本次真实训练_select_topk，并验证返回memory/logits/anchors逐项等于同index gather，四图均true；与114保存的eval selected index也均exact。这个比较只证明source index一致，114没有独立train-index缓存；不能扩成所有训练内部激活一致。selected index是encoder source身份，不能据此假设decoder最后框仍在其原空间格内。
+
+四、与114的差异确实存在，且已正确披露
+图序   max|box差|        max|logit差|       总loss(188−114)       GO ordered/multiset
+0      1.7881393e-7      4.6253204e-5      -1.9073486e-6        true/true
+1      1.9371510e-7      2.7179718e-5      +2.1820068e-3        false/false
+2      5.0663948e-7      2.9087067e-5      +7.6293945e-6        true/true
+3      1.7881393e-7      4.4345856e-5      -3.8146973e-6        true/true
+以上box是normalized cxcywh的绝对差，不能未经单位换算称像素差。四图loss键相同、GO分母相同；DN_meta、seed/group/split和forward前后RNG均与114相同，criterion前后RNG也未变化。
+直接与114各图原JSON索引比较，只有图1以下5个query的GT更换：
+query138：128→123；153：184→208；162：126→129；196：259→279；213：52→50。
+但图1有78个GO列表位置不同，因其余配对顺序也变化。必须区分“5个query改配”和“78个列表位置改变”，不把后者说成78个GT变化；其余三图连顺序也完全一致。
+186已事前允许真实重放差异原样报告，187没有为parity调tensor、替换GO或改变DN。故parity_with_114=false是正确结论，不违反该采集协议，也不构成方法效果。
+
+五、不能由现有记录指定浮点差的原因
+113训练前向在开启autograd、仅restore W保留requires_grad的条件下运行；188按新协议在no_grad下运行，保留build原requires_grad元数据，并增加不改变返回值的观测hook。两者执行条件确有差别，但现有记录没有逐算子对照，也没有114各stage own及训练ref。因此不能证明某个kernel、某一层、某种排序tie是具体来源；也不能把image1全部loss差严格分解成“仅五对GO变化”。只陈述微小预测差、离散配对差与loss差同时被观察到。无需新增前向来完成本次内部一致性审查。
+
+六、后续固定cache分析可以做什么，必须限制什么
+可以用188自身做固定四development图的真实GO预算、物理支持域和可行重排检查。模型预测、训练ref、GO query集合、GT multiset/每GT次数、约束采用的class身份和分母，baseline及所有对照均从同一188记录取；GO总量832与ordinary-own784必须分开标注。184的ordinary-own阳性不自动成为GO阳性。
+共享initial ref说明同query的native FDR几何支持域可以在这三层共用参照；不说明三层loss或当前可恢复性相同。各层pred_corners/pred_boxes及IoU权重不同，aux DDF还含teacher分布、分类置信度和匹配/未匹配项。仅末层几何oracle不能被称为完整原criterion、完整梯度或训练收益；GO改变时原生pre/encoder boxes及local/DDF是否随之使用新索引，后续方法必须明确。
+固定缓存只刻画当前C0 online、这四幅反复使用的development输入、固定DN实现下的条件事实。它不证明后续训练中ref仍固定、完整网络更新效果、泛化/AP或创新性。这里未读取191/192的未执行结果、未新增门槛、未改任何失败方案的结论。

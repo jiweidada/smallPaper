@@ -1,0 +1,31 @@
+from pathlib import Path
+import base64
+import datetime
+import hashlib
+import json
+import py_compile
+import shutil
+import zlib
+
+code=Path(__file__).resolve().parent
+root=code.parents[2]
+out=root/'outputs/native_augmented_supervision_20261010_v1'
+out.mkdir(exist_ok=False)
+source=code.parent/'assignment_mechanism_diagnostic_20261010_v1/training_evidence.py'
+assert hashlib.sha256(source.read_bytes()).hexdigest()=='26013101b0777b709b3b1a0b9bbf6d4022b5698e1120e2d490c4eb5aa1c45258'
+shutil.copy2(source,code/'training_evidence.py')
+for name in ['capture_coverage.py','controller.py','training_evidence.py']:py_compile.compile(str(code/name),doraise=True)
+hashes={n:hashlib.sha256((code/n).read_bytes()).hexdigest() for n in ['capture_coverage.py','controller.py','training_evidence.py']}
+protocol=dict(material_passport={'workflow':'experiment-agent','mode':'run+validate','scope':'bounded frozen augmented-batch native supervision observation'},status='FROZEN_BEFORE_FIRST_EXECUTION',frozen_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),hypothesis='Native augmented targets exceeding300 normal queries leave a measurable normal classification/geometry supervision gap, potentially concentrated on small/dim MixUp exposures. DN coverage must be measured separately before describing absent total supervision.',seeds=[1,2],cohort='64 uniformly spaced primary training positions round(i*(6471-1)/63), in dataset.ids order, fixed before current outputs;16batches of4, augmentation epoch index4 and RNG=seed. No result-conditioned sample replacement.',endpoints=[12,132],weights='Verified BASE12 and BASE132 EMA; reset weights/buffers and fixed per-batch model RNG. Native CUDA FP32 train mode; all normal, auxiliary and DN heads/losses. No backward/optimizer.',data_path='Original native Mosaic/crop/etc and original batch MixUp plus multiscale collate. Single-process outcome-independent fixture sampling, not real historical four-worker/RNG training history.',source_identity='Annotation-ID labels are used ONLY in a separate CPU data pass; require exact native image and box bytes, decoded classes and MixUp weights. Restore class IDs before model; per-augmented-row source annotation IDs retained. Local canonical train.json SHA must match32c1cae852e084430ea74503eb660f0707ec6b5e65d0998ce3ec8b448265c883.',observer_parity='First batch per endpoint plain and recorded forward AND native losses, private BN updates/RNG exactly equal; all native source SHA unchanged; parameter bytes unchanged.',records=['Before/after collate GT counts and exact image/boxes hashes','Every normal-stage own matcher and classification positive target','Actual majority-union localization targets and all DN positive targets','Normal head boxes/logits and actual per-loss indices and scalar losses','Per-instance post-augmentation input pixels, canonical original COCO area, source annotation, MixUp weight'],predeclared_summaries=['GT>300 and unavoidable final-O2O unmatched fraction','Final classification / any auxiliary classification / normal localization union / DN / no-supervision coverage separately','Sizes by actual input short side bins<4,4-8,8-16,>=16 and original area<1024','Seed/endpoints/batch count/MixUp/size/class strata retained separately'],decision_boundary='No-normal-supervision fraction>=10% among original-COCO-small augmented rows at BOTH mature endpoints makes normal-query capacity a priority for a separate capacity-controlled train-only mechanism investigation. Below boundary lowers priority; no tuning cohorts/boundary. All-DN coverage disproves the stronger no-any-supervision claim regardless of normal gap. No AP or historical causality claim and no automatic detector training.',budget_per_seed={'max_model_forwards':34,'model_backwards':0,'training_epochs_added':0,'optimizer_steps':0,'hard_timeout_seconds':600,'automatic_retry':False},new_detector_training_boundary='Each new configuration at most12 total native132-prefix epochs, fixed12EMA vs same-seed BASE; APs increase plus overallAP nondecline required. Interrupted/closed routes remain closed.',limits='Two deterministic augmentation fixtures and frozen checkpoints cannot estimate whole training prevalence, optimizer gradients, learning dynamics, causal root or AP effect. Original-area small status differs from post-augmentation input size. DN has noisy initialization/attention isolation and is not identical to ordinary queries. MixUp weight is image blending metadata; criterion usage must be assessed from actual source, not assumed.',code_sha256=hashes)
+(out/'protocol.json').write_text(json.dumps(protocol,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+files={n:(code/n).read_bytes() for n in hashes};files['protocol.json']=(out/'protocol.json').read_bytes()
+payload={'files':{n:base64.b64encode(v).decode() for n,v in files.items()},'hashes':{n:hashlib.sha256(v).hexdigest() for n,v in files.items()}}
+packed=base64.b64encode(zlib.compress(json.dumps(payload).encode())).decode()
+(out/'deployment_payload.json').write_text(json.dumps({'packed':packed,'hashes':payload['hashes']}),encoding='utf8')
+state_path=root/'outputs/sod_roi12_20261009/execution_state.json';state=json.loads(state_path.read_text(encoding='utf-8-sig'))
+state['previous_goal_turn_classification']='PROGRESS: completed user-requested foldable network graph and independent module tree, verified complete native data preserved and changed authoritative delivery/state.'
+state['last_goal_turn_classification']='PROGRESS: actual two-server idle check; separate normal vs DN supervision hypotheses; fixed native-augmentation diagnostic protocol prepared before execution.'
+state['augmented_supervision_diagnostic']={'status':'PREPARED_NOT_LAUNCHED','protocol':str(out/'protocol.json'),'code':str(code),'training_epochs_added':0,'optimizer_steps':0,'goal_status':'active'}
+state['next']='Execute the prepared outcome-independent native augmentation supervision coverage panel once per authorized idle server; collect exact native indices and source-annotation identities before considering train-only query capacity.'
+state['updated_utc']=protocol['frozen_utc'];state_path.write_text(json.dumps(state,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+print(json.dumps({'packed':packed,'hashes':payload['hashes'],'status':protocol['status']}))

@@ -1,0 +1,188 @@
+2146 IEEE TRANSACTIONS ON SIGNAL PROCESSING, VOL. 42, NO. 8, AUGUST 1994 
+Matched Subspace Detectors 
+Louis L. Scharf, Fellow, IEEE, and Benjamin Friedlander, Fellow, IEEE 
+Abstract-In this paper we formulate a general class of prob- 
+lems for detecting subspace signals in subspace interference and 
+broadband noise. We derive the generalized likelihood ratio 
+(GLR) for each problem in the class. We then establish the 
+invariances for the GLR and argue that these are the natural 
+invariances for the problem. In each case, the GLR is a maximal 
+invariant statistic, and the distribution of the maximal invariant 
+statistic is monotone. This means that the GLR test (GLRT) is 
+the uniformly most powerful invariant detector. We illustrate the 
+utility of this finding by solving a number of problems for de- 
+tecting subspace signals in subspace interference and broadband 
+noise. In each case we give the distribution for the detector and 
+compute performance curves. 
+I. INTRODUCTION 
+HE matched filter, or more accurately the matched signal 
+T detector, is one of the basic building blocks of signal 
+processing; however, in many applications the rank- 1 matched 
+signal detector is replaced by a multirank matched subspace 
+detector. In fact, the matched subspace detector is really the 
+general building block, and the matched signal detector is a 
+special case. In sonar signal processing, the matched subspace 
+detector is called a matched field detector. 
+In [l], one of the authors developed a theory of matched 
+subspace detectors based on the construction of invariant 
+statistics. In this paper we extend this work in two ways. First, 
+we include structured interference in the measurement model, 
+and second we use the principle of the generalized likelihood 
+ratio test (GLRT) to derive matched subspace detectors. By 
+studying the invariance classes for these GLRT’s, we are 
+able to establish that the GLRT’s are invariant to a natural 
+set of invariances and optimum within the class of detectors 
+which share these invariances. This establishes once and for 
+all the optimality of the GLRT for solving matched subspace 
+detection problems and answers “no” to the question, “can 
+the GLRT be improved upon?” This result holds for all finite 
+sample sizes, thereby improving on the standard asymptotic 
+theory of the GLRT. 
+Our program in this paper is to derive GLRT’s for the 
+class of problems studied in [l], [4]-161 and generalize them 
+Manuscript received July 3, 1993; revised November 11, 1993. This work 
+was supported by the Office of Naval Research, Mathematics Division, 
+Statistics and Probability Branch, under Contracts N00014-89-Jl070 and 
+N00014-91-J1602, and by the National Science Foundation under Grant MIP- 
+90-17221. The associate editor coordinating the review of this paper and 
+approving it for publication was Prof. Kevin M. Buckley. 
+L. L. Scharf is with the Department of Electrical & Computer Engineering, 
+University of Colorado, Boulder, Colorado 80309-0425 USA. 
+B. Friedlander is with the Department of Electrical & Computer Engineer- 
+ing, University of California-Davis, Davis, CA 95616 USA. 
+IEEE Log Number 9401912. 
+to include subspace interferences. These problems involve 
+unknown parameters in the mean and covariance of a mul- 
+tivariate normal (MVN) distribution. For each problem in the 
+class, we establish invariances for the GLR and find that they 
+are identical to the natural invariances for the problem. We 
+show that a monotone function of the GLRT equals one of 
+the uniformly most powerful invariant (UMP-invariant) tests 
+derived in 111. This means that the GLRT is itself UMP- 
+invariant. In addition to tying up the theories of invariance and 
+the GLRT, our results generalize and extend previous work on 
+these problems published in 111-[6]. 
+We begin our development by establishing the invariances 
+of the GLRT in the MVN problem. We then specialize our 
+results for structured means in order to derive UMP-invariant 
+GLRT detectors for matched subspace filtering in subspace 
+interference. The GLRT produces an UMP-invariant detector, 
+which is CFAR if the noise variance is unknown. As we shall 
+find, the optimum detector may be interpreted as a null steering 
+or interference rejecting processor followed by a matched 
+subspace detector. 
+11. DETECTION PROBLEMS 
+The detection problems to be studied in this paper may 
+be described as follows. We are given N samples from a 
+real, scalar time series {y(n), n = 0,1,. . . , N - l} which 
+are assembled into the N-dimensional measurement vector 
+y = [y(O), y(l), . . . , y(N - 1)IT. Based on these data, we 
+must decide between two possible hypotheses regarding how 
+the data was generated. The null hypothesis HO says that the 
+data consist of noise w only. The altemative hypothesis H1 
+says that the data consist of a sum of signal pz and noise w; 
+that is, 
+y=pz+w (2.1) 
+where p = 0 under HO and p > 0 under HI. This is the 
+standard detection problem wherein the polarity of the signal 
+z is assumed known. Near the end of Section V we replace 
+H1 : p > 0 with H1 : p # 0 in order to model problems 
+where polarity is unknown. 
+We shall assume that the signal z obeys the linear subspace 
+model 
+z=~e, HEIR~~P, eEw (2.2) 
+and the noise is MVN with mean Scp and covariance R = 
+w:Af[Scp,a2&], S€RNXt,  ER^, t< N-p 
+ff2R0: 
+Ro > 0 E RNxN. (2.3) 
+1053-587X/94$04.00 0 1994 IEEE 
+Authorized licensed use limited to: Marquette University. Downloaded on January 29, 2010 at 11:03 from IEEE Xplore.  Restrictions apply. 
+
+---PAGE---
+
+SCHARF AND FRLEDLANDER: MATCHED SUBSPACE DETECTORS 2147 
+n : N[ q 021 1 
+cns : orthogonal subspace 
+I 
+c S> : rank-t interference subspace 
+(b) 
+Fig. 1. Illustrating the detection problem: (a) Detecting a signal in inter- 
+ference plus additive noise; (b) resolving a measurement into signal plus 
+interference plus noise. 
+We shall assume that H, S, and & are known, although 
+we will offer some ways to relax this assumption in our 
+conclusions. Without loss of generality, we assume that & = 
+I. Then the detection problem is a test of distributions: 
+H~ : : N[s~, U21] vs H~ : : + s4, U21]. (2.4) 
+The component pHB is an information-bearing signal that 
+lies in the subspace (H), and the component S4 is an 
+interference that lies in the subspace (S). The noise n = 
+y - pHB - S4 = U - S4 : N[0,a21] is additive white 
+Gaussian noise. The subspaces (H) and (S) are not orthogonal 
+(i.e. HTS # 0), but they are linearly independent, meaning 
+that there is no element of (H) which can be written as a 
+linear combination of vectors in (S). Linear independence is 
+much weaker than orthogonality. We assume that H and S are 
+each full-rank matrices, meaning that (H) and (S) are each 
+full-rank subspaces. 
+Fig. 1 illustrates the detection problem two ways: first, as a 
+communication problem of detecting a signal when a channel 
+adds background noise and structured interference and second, 
+as an algebraic problem of determining which subspaces of 
+EN better model the measurement y. In the second illustration, 
+the problem is to determine whether y is more probably 
+described by signal plus noise plus interference or by noise 
+plus interference. The signal subspace (H) and the interference 
+subspace (S), illustrated in Fig. 1, are generally of dimension 
+greater than 1. When these subspaces are very close, then the 
+resolution of hypotheses is difficult. 
+The probability density function for the MVN vector y is 
+where y is the variable of the function and /3 = (PO, 4) is the 
+parameter of the density. The noise n is 
+n = y - pHB - S4. (2.6) 
+The likelihood function for this MVN distribution is 
+1 Z(/3,c2;y) = (27rU2)-N/2exP{ - Ilnll;} (2.7) 
+which is a function of (/3, 02) with the data y playing the role 
+of a parameter. For any two values (Pl, U!) and (Po, U,"), the 
+likelihood ratio is defined to be 
+We expect Z(y) to be greater than one whenever the parameters 
+(&, U;) better model y than do the parameters (&, U,"). 
+The detection problem outlined here applies to the detection 
+of lines or modal signals in broadband noise and narrowband 
+inteferences or to the detection of propagating fields (whether 
+planar or not) in propagating interferences and broadband 
+noise. Then the matrix H is a matrix of Vandermonde columns 
+or of autoregressive impulse responses. The matrix S may be 
+a Vandermonde matrix, one of the matrices illustrated in the 
+following examples, or almost anything which characterizes 
+structured noise. 
+Example I4etection in Unknown Bias: When there is an 
+unknown bias added to a measurement, then we may say 
+y = pz+u where w : N[bl, c21]. The bias is bl = (bb . . . b)T 
+with b unknown. In this case, the interference subspace (S) is 
+the rank-1 subspace (1). 
+Example 24etection in Sinusoidal Interference: When 
+there is a sinusoidal interference of known frequency but 
+unknown amplitude and phase, st = Acos(wot - 4) = 
+A cos 4 cos wot + A sin 4 sin wot, then we may say y = pz + U 
+where U : N[S4,a21]. The interference is 
+In this case the interference subspace (S) is the rank-2 
+subspace above with cosine and sine columns. 
+111. LINEAR ALGEBRAIC PRELIMINARIES 
+When we say that the signal obeys the linear subspace 
+model z = HB, we are saying that the vector z E RN actually 
+lies in a p-dimensional subspace of RN which we denote 
+(H). The subspace (H) is the range of the transformation 
+H. It is spanned by the columns of the matrix H. These 
+columns comprise a basis for the subspace, and the elements 
+of B = (0, O2 . . . are the coordinates of z with respect to 
+this basis. Similarly, the interference S4 lies in a t-dimensional 
+subspace of EN. This subspace, spanned by the columns of 
+S, is denoted (S). 
+Together, the columns of the concatenated matrix (HS) 
+span the(p + t)-dimensional subspace (HS). This subspace 
+is illustrated in Fig. 2. The typical orthogonal projection of 
+y E EN onto (HS) is denoted P~sy, where PHS is the 
+projection 
+PHS = [H,S] [[H,S]TIH,S]]-l[H,S]T. (3:l) 
+Authorized licensed use limited to: Marquette University. Downloaded on January 29, 2010 at 11:03 from IEEE Xplore.  Restrictions apply. 

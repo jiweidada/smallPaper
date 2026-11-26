@@ -1,0 +1,125 @@
+Published as a conference paper at ICLR 2027
+LIG-DETR: LOCAL-IN-GLOBALREASSEMBLY INLA-
+TENTSPACE FORAERIALOBJECTDETECTION
+Yupeng Zhang1 Fangzhuo Gao1 Juntao Cheng3,4 Ziyi Zhao2 Liang Wan1 Ruize Han2
+1Tianjin University. 2Shenzhen University of Advanced Technology. 3Shanghai Jiaotong University.
+4Shanghai AI Laboratory.
+{zhangyupeng, fangzhuo, lwan}@tju.edu.cn, suat25060113@stu.suat-sz.edu.cn
+hanruize@suat-sz.edu.cn, juntao-cheng@sjtu.edu.cn
+ABSTRACT
+Aerial object detection faces substantial scale and density variations. Small
+objects are easily degraded by downsampling and feature compression, while
+medium and large objects require sufficient global context. Existing methods
+mainly follow two paradigms: image slicing provides clearer local evidence but
+relies on independent crop-level prediction and post-processing, whereas feature-
+and query-level optimization preserves unified inference but operates on already
+compressed full-image representations, limiting recovery of fine-grained informa-
+tion. This raises a key question: can aerial detection directly acquire high-fidelity
+local evidence before feature degradation and integrate it into a unified end-to-
+end framework? To this end, we propose LiG-DETR, an Efficient Global-Local
+Reassembly framework that reformulates image slicing as high-fidelity local fea-
+ture acquisition. A shared encoder extracts global and locally magnified features,
+which are projected into the detector feature space. The projected local features
+are reassembled according to their original spatial locations to form a globally
+aligned local feature level, and a single DETR decoder jointly decodes global
+and local features. To reduce redundant computation, Context-Preserved Selec-
+tive Reassembly focuses high-resolution encoding on informative regions while
+preserving a dense feature layout, and Density-Aware Adaptive Query Alloca-
+tion adapts the decoder query budget using encoder proposal scores. Experiments
+show substantial gains on small and medium objects while retaining strong large-
+object performance, with favorable accuracy–efficiency trade-offs and improved
+cross-domain generalization.The code will be released.
+1 INTRODUCTION
+Aerial object detection (Du et al., 2018; 2019) is important for UA V perception and wide-area
+surveillance. Compared with ground-level imagery, aerial imagery typically covers larger fields
+of view and exhibits greater variations in object scale and density, often containing many tiny ob-
+jects alongside larger ones. Effective detection therefore requires fine-grained local evidence for
+small objects while preserving global context across scales. However, small objects are particularly
+vulnerable to degradation because their limited spatial extent provides weak texture, boundary, and
+shape cues that can be further suppressed by background clutter and feature compression.
+Existing methods mainly address aerial small-object detection in two ways. Image slicing meth-
+ods, such as SAHI (Akyon et al., 2022) and ASAHI (Zhang et al., 2023), improve small-object
+visibility by cropping and resizing local regions. Other methods better exploit full-image represen-
+tations via feature or query manipulation, including multi-scale fusion with FPN (Lin et al., 2017),
+sparse high-resolution computation with QueryDet (Yang et al., 2022), attention enhancement with
+Deformable DETR (Zhu et al., 2020) and TPH-YOLOv5 (Zhu et al., 2021), and density- or query-
+aware refinement with DQ-DETR (Huang et al., 2024) and Dome-DETR (Hu et al., 2025). These
+two paradigms reveal a design trade-off. Image slicing acquires clearer local visual evidence, but
+requires independent crop-level detection and subsequent box fusion or NMS-like post-processing,
+leading to redundant computation, duplicate predictions, and fragmented inference. In contrast,
+feature- or query-level refinement preserves unified end-to-end inference, but operates on already
+1
+arXiv:2610.09511v1  [cs.CV]  7 Oct 2026
+
+---PAGE---
+
+Published as a conference paper at ICLR 2027
+encoded full-image representations. Once fine-grained evidence is weakened by downsampling and
+feature compression, subsequent representation enhancement may be unable to fully recover it.
+Source Image
+(H × W)
+Global G1
+(H/16 × W/16)
+Global G0
+(H/8 × W/8)
+Local Reassembled L
+(H/8 × W/8)
+Figure 1: Comparison of small-object evidence
+under global and local encoding. Full-image
+features (GlobalG 1/G0) exhibit sparse or am-
+biguous small-object responses. Considering
+locally magnified encoding preserves clearer
+evidence before feature degradation, we pro-
+pose reassembled local featureLretaining high-
+resolution evidence in global coordinate space.
+To further examine the limitations of full-image
+representations for small-object detection, we an-
+alyze representative DETR-based detectors (Zhu
+et al., 2020; Zhao et al., 2024; Robinson et al.,
+2026). Despite their strong global context mod-
+eling and end-to-end prediction capabilities, full-
+image encoding can weaken the fine-grained in-
+formation of small objects. Repeated downsam-
+pling and feature compression may leave only
+sparse and weak responses before decoding, lim-
+iting the visual evidence available to subsequent
+feature- or query-level refinement. We use RF-
+DETR (Robinson et al., 2026) for diagnostic anal-
+ysis and visualize its intermediate representations
+in Fig. 1. We denote the encoder-native global
+feature as GlobalG 1, and thehigher-resolution
+global featuregenerated through projection as
+GlobalG 0. As shown in Fig. 1, small-object re-
+sponses in GlobalG 1 are sparse and coarse. Al-
+though GlobalG 0 provides higher spatial resolu-
+tion, it is still derived from the full-image repre-
+sentation and may not fully recover fine-grained
+object information already weakened during en-
+coding. This way, we consider to construct the
+Local Reassembled featureL, where local image regions are magnified and encoded by the same
+visual encoder, then projected and reassembled according to their original spatial locations (in the
+global coordinate space). We can see that the locally magnified and reassembled featureLpreserves
+clearer and more complete evidence before such degradation occurs. This observation raises a nat-
+ural question:beyond refining existing representations, can aerial object detection directlyacquire
+high-fidelity local evidence before feature degradation and integrate it into a unified end-to-end
+detection frameworkfor stronger small-object representations?
+Based on this observation, we proposeLiG-DETR, an efficientLocal-in-Globallatent reassembly
+framework based on DETR that reformulates image slicing from an independent detection strategy
+into a mechanism for acquiring high-fidelity local evidence. Instead of predicting on each crop
+independently, LiG-DETR encodes locally magnified observations and reassembles their features
+into a unified global coordinate space. In this way, image slices become feature acquisition units
+rather than prediction units. The reassembled local evidence and global features are jointly decoded
+by a single DETR decoder, eliminating crop-level detection heads, box fusion, and additional NMS.
+Specifically, LiG-DETR uses a shared encoder for the global branch and the local high-resolution
+branch. TheGlobal-Local Reassembly Projectormaps global and local features into the detector
+feature space, after which the projected local features are reassembled according to their original
+spatial locations to form a globally aligned local feature level. Within this framework,Context-
+Preserved Selective Reassembly (CPSR)concentrates high-resolution encoding on informative
+regions and fills unselected locations with corresponding global features to preserve a dense feature
+layout, whereasDensity-Aware Adaptive Query Allocation (DA-AQA)adapts the decoder query
+budget to image content according to encoder proposal scores. Together, they reduce redundant com-
+putation along the spatial and query dimensions, respectively. Experiments on VisDrone-DET2019,
+AI-TOD-v2, and DGDet-VisDrone (built in this work) demonstrate that LiG-DETR obtains sub-
+stantial gains on small and medium objects while retaining strong large-object performance, with
+favorable accuracy-efficiency trade-offs and improved cross-domain generalization.
+2

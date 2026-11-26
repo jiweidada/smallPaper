@@ -1,0 +1,100 @@
+"""Finalize only after the user's disposition: preserve or drop_invalid_A3_only."""
+import argparse
+import importlib.util
+from pathlib import Path
+p=Path(r'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\aspect_precheck_20261023_v1')
+sp=importlib.util.spec_from_file_location('aspect349',p/'349_precheck.py')
+C=importlib.util.module_from_spec(sp)
+sp.loader.exec_module(C)
+C.sys.stdout.reconfigure(encoding='utf-8')
+parser=argparse.ArgumentParser()
+parser.add_argument('--disposition',choices=['preserve','drop_invalid_A3_only'],required=True)
+args=parser.parse_args()
+receipt=C.read(p/'349_用户异常裁定.json')
+assert receipt['disposition']==args.disposition
+draft=C.read_sealed(p/'349_异常交付草稿.json')
+report=C.read_sealed(p/'349_A3_seed2_异常与原始前向完成.json')
+binding=C.read_sealed(p/'349_inputs.json')
+for f,h in {**draft['all_input_sha256'],**draft['all_source_sha256']}.items():
+    assert C.sha(f)==h, 'Input/source changed: '+f
+if args.disposition=='preserve':
+    result=dict(draft)
+    result['status']='completed_with_invalid_descriptive_arm'
+    result['protocol_disposition']='Preserve all frozen rules. A3 seed2 is invalid under strict 343 postprocessing; affected metrics N/A.'
+    unavailable={'status':'unavailable_under_frozen_protocol','seed':2,'arm':'A3','images':548,
+                 'reason':report['unavailable_reason'],'invalid_images':report['invalid_images'],
+                 'valid_COCO_predictions_created':False,'predictions_deleted_or_clipped':0}
+    C.write(p/'349_predictions_seed2_A3_UNAVAILABLE.json',unavailable)
+    md=(p/'349_中文汇总_待裁定.md').read_text(encoding='utf-8')
+    md=md.replace('# 349 零训练预检：交付草稿（A3 seed2 待裁定）','# 349 零训练预检')
+    md=md.replace('全部原始前向已完成；异常交付待主控裁定；未生成训练命令或启动重训。',
+                  '按用户裁定保持冻结协议，A3 seed2标记无效，相关指标N/A；已封存，等主控核对。未生成训练命令或启动重训。')
+else:
+    rows=C.read(p/'349_A3_seed2_候选预测_含非正框_仅诊断.json')
+    valid=[r for r in rows if r['bbox'][2]>0 and r['bbox'][3]>0]
+    assert len(rows)-len(valid)==2
+    C.write(p/'349_predictions_seed2_A3.json',valid)
+    idx=C.read(C.INDEX)
+    ann_path=next(a['path'] for a in idx['annotations'] if a['split']=='val')
+    dataset=C.read(ann_path)
+    ev,stats,log,seconds=C.E.evaluate(dataset,valid)
+    C.write_text(p/'349_COCO_seed2_A3_authorized_exception.txt',log)
+    all_range=ev.params.areaRng[ev.params.areaRngLbl.index('all')]
+    ti=int(C.np.flatnonzero(C.np.isclose(ev.params.iouThrs,.5,atol=1e-12,rtol=0))[0])
+    matches={}
+    for item in ev.evalImgs:
+        if item is None or item['aRng']!=all_range or item['maxDet']!=100:
+            continue
+        for gid,did in zip(item['gtIds'],item['gtMatches'][ti]):
+            if did!=0:
+                gid,did=int(gid),int(did)
+                assert gid not in matches
+                matches[gid]={'detection_id':did,'width_orig':float(ev.cocoDt.anns[did]['bbox'][2])}
+    cohort=C.read(p/'349_cohort_metadata.json')
+    matched=set(matches)
+    for group,ids in {'T':cohort['T'],'S':cohort['S'],**cohort['T_width_bins']}.items():
+        report['cohorts'][group]['TP_at_0p5']=len(set(ids)&matched)
+    tiny=sorted(set(cohort['T'])&matched)
+    report['T_matched_ids']=tiny
+    report['S_matched_ids']=sorted(set(cohort['S'])&matched)
+    report['T_match_records']={str(g):matches[g] for g in tiny}
+    report['T_matched_prediction_width_orig_median']=float(C.np.median([matches[g]['width_orig'] for g in tiny])) if tiny else None
+    report['stats12']=stats
+    report['status']='completed_with_A3_only_authorized_invalid_box_exception'
+    report['COCO_evaluation_seconds']=seconds
+    report['postprocessing_exception']={'dropped_rows':2,'image_id':362,'query_index':114,
+            'scope':'A3 seed2 only; delete nonpositive-width/height selected rows; no refill or other changes'}
+    for name in ('349_predictions_seed2_A3.json','349_COCO_seed2_A3_authorized_exception.txt'):
+        report['artifact_sha256'][str(p/name)]=C.sha(p/name)
+    C.sealed_json(p/'349_completed_seed2_A3_authorized_exception.json',report)
+    result=dict(draft)
+    result['status']='completed_with_authorized_descriptive_arm_exception'
+    result['protocol_disposition']='User explicitly authorized deleting exactly two nonpositive selected rows in A3 seed2 only.'
+    result['per_seed_arm']=[r for r in draft['per_seed_arm'] if (r['seed'],r['arm'])!=(2,'A3')]+[report]
+    result['executed_counts']={**draft['executed_counts'],'COCO_evaluations':8}
+    result['actual_COCO_evaluation_seconds']+=seconds
+    result['protocol_exception']['unavailable_outputs']=[]
+    md=(p/'349_中文汇总_待裁定.md').read_text(encoding='utf-8')
+    md=md.replace('# 349 零训练预检：交付草稿（A3 seed2 待裁定）','# 349 零训练预检')
+    g=report['cohorts']
+    row=['2','A3','960×544']+[f'{stats[k]:.12f}' for k in C.E.NAMES]
+    row += [str(g[a][k]) for a in ('T','S') for k in ('Geo0','TP_at_0p5')]
+    row += [f'{g[b]["Geo0"]}/{g[b]["TP_at_0p5"]}' for b in ('[0,2)','[2,3)','[3,4)')]
+    row += [str(report['T_matched_prediction_width_orig_median']),f'{report["CPU_forward_seconds"]:.6f}']
+    md='\n'.join('| '+' | '.join(row)+' |' if line.startswith('| 2 | A3 |') else line for line in md.splitlines())+'\n'
+    md=md.replace('343_fusion.py 第24行的正宽高断言拒绝该组；COCO指标及TP未计算。未删框、未截断、未改精度。',
+                  '343正宽高断言拒绝该组后，按用户明确裁定仅删除上述2条非正框，未补足top300；仅A3 seed2采用此协议例外，已完成COCO评价。')
+    md=md.replace('COCO_evaluations=7','COCO_evaluations=8')
+    md=md.replace('全部原始前向已完成；异常交付待主控裁定；未生成训练命令或启动重训。',
+                  '全部评价完成并封存，A3 seed2注明用户授权协议例外；已停止等主控核对。未生成训练命令或启动重训。')
+result.pop('pending_disposition',None)
+result['user_disposition_receipt']={'path':str(p/'349_用户异常裁定.json'),'sha256':C.sha(p/'349_用户异常裁定.json')}
+result['completed_utc']=C.now()
+result['all_source_sha256'][str(p/'349_异常交付封存源码.txt')]=C.sha(p/'349_异常交付封存源码.txt')
+result['stop_point']='Stopped for controller review; no training commands generated or training started.'
+C.sealed_json(p/'349_result.json',result)
+C.write_text(p/'349_中文汇总.md',md)
+files={str(f):C.sha(f) for f in sorted(p.rglob('*')) if f.is_file() and 'incomplete_' not in f.name and not f.name.startswith('349_delivery_SHA256')}
+C.sealed_json(p/'349_delivery_SHA256.json',{'status':'sealed','disposition':args.disposition,'files':files})
+C.say({'event':'sealed_delivery','status':result['status'],'conclusion':result['conclusion'],
+       'counts':result['executed_counts'],'CPU_forward_seconds':result['actual_CPU_forward_seconds']})

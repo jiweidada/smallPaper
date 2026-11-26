@@ -1,0 +1,314 @@
+YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG (https://www.mdpi.com/2079-3197/14/9/206)
+ [wordlim: 200] Published: last month; Crawled: last week; 
+
+7 September 2026
+
+23 Pages
+
+# YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG
+
+Rostyslav Tsekhmystro^{ 1,2,*},
+
+Vladimir Lukin^{ 1} and
+
+Dmytro Krytskyi^{ 2}
+
+^{1}
+
+Department of Information-Communication Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{2}
+
+Department of Design Information Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+Computation2026, 14(9), 206;https://doi.org/10.3390/computation14090206
+
+This article belongs to the Special Issue Integrated Computer Technologies in Mechanical Engineering—Synergetic Engineering V
+
+Version Notes
+
+Order Reprints
+
+## Abstract
+
+Methods for object localization and classification in images acquired from unmanned aerial vehicles (UAVs) quickly develop and find new applications. Pre-trained convolutional neural networks (CNNs) play the key role in solving these tasks. However, there are many factors that degrade the quality of acquired images and make the performance of methods intended for object detection and classification worse. One such factor is lossy compression of acquired images or video data widely used to pass them from on-board sensors and devices of preliminary data processing to on-land centers that perform further data processing for retrieval of valuable information. Both CNNs applied for localization and classification, and lossy compression techniques used to reduce the transferred data size have an impact on final results. To study this impact, we analyze the performance of several modifications of YOLO (You Only Look Once) CNNs applied to color images compressed by JPEG, which continues to be one of the basic compression tools. The quality factor is varied within wide limits to detect the situation when distortions due to lossy compression start to become too large and have a considerable negative effect on the localization and classification of objects of different types and sizes. Analysis is carried out using several traditional criteria, including Intersection over Union, F1, and mAP metrics, as well as some others. Dependence of localization and classification characteristics on the object size is performed. The datasets VisDrone and TAI are employed in training and verification.
+
+## 1. Introduction
+
+Unmanned aerial vehicles (UAVs) have found numerous civil and military applications nowadays [1,2]. It is possible to mention urban planning and development of smart cities [3,4], detection and identification of explosive ordnance [5], precision agriculture [6], battlefield control [7], and so on. These applications have appeared and developed, in particular, due to the fact that UAVs and drones have on board one or several types of sensors that are capable of acquiring one or several images or videos of an object or territory of interest [8]. Although infrared, radar, and hyperspectral sensors are gaining popularity in drone applications [9,10,11], optical sensors operating in visible range and offering conventional color images remain the most popular due to several reasons [12]. For example, they are able to provide high-resolution imaging and ensure low-power acquisition of high-accuracy data (compared to active types of sensors).
+
+The paper is organized as follows. First, basic properties of JPEG compression are briefly considered. Some aspects of CNN training are discussed. Quantitative criteria of localization and classification accuracy are considered. Then, Section 3 deals with experiment description, while Section 4 is devoted to analysis of the obtained results. Computational aspects and additional experiments are discussed in Section 5. Finally, the conclusions follow.
+
+## 3. Experiment Description
+
+### 3.1. Used Datasets
+
+To achieve good performance for a neural network used for object localization and classification, one of the most important factors is the correct selection of the dataset. It must correspond to the required final characteristics of the neural network, namely the ability to localize and classify a specific class structure of objects, specific features, camera-relative projections, and other factors affecting object discrimination. Therefore, during the design and training stages of the neural network, it is necessary to select a suitable dataset.
+
+In our work, we used the VisDrone dataset [54] to train the neural network, as it fully meets the required final characteristics of the network. It contains a fairly large number of images and therefore allows for the training of deeper neural networks. Also, the specific nature of the data is important for the task at hand; namely, the images must be captured using a UAV, with object projections characteristic of this method, and the data in the dataset meets these criteria. Another factor contributing to the dataset’s quality is the accuracy of its annotation, specifically the absence of large internal gaps, which allows for more precise object localization. The dataset consists of 10 classes: “pedestrian”, “person”, “bicycle”, “car”, “van”, “truck”, “tricycle”, “awning-tricycle”, “bus”, “motorcycle”; the total size of each class, as well as the percentage of the entire sample, is shown in Table 1.
+
+Image
+
+Table 1. The number of regions for each class in the training and test sets of VisDrone dataset.
+
+Table 1 also presents the parameters for the validation portion of the VisDrone dataset. An analysis of the statistics reveals a large number of annotated regions for vehicles, specifically “truck,” “car,” and “van,” as well as many regions containing people (“person,” “pedestrian”).
+
+Given the specific nature of the training dataset and the research focus, it is important to select a test dataset to evaluate the accuracy of localization and classification by trained neural networks when images are compressed in JPEG format. The need to select a different dataset for verification stems from several reasons: first, a separate dataset can ensure realistic statistics that do not depend on the neural network’s memorization level but are solely based on its predictions. Additionally, the dataset must contain a large number of images and annotated regions; however, the VisDrone dataset has a rather limited amount of data in its validation set, as shown in Table 1. Taking these factors into account, the Traffic Aerial Images (TAI) dataset [55] has been selected for testing, as it contains a large number of images and is effectively divided into parts. Also, it has a region labeling scheme similar to that of the VisDrone dataset. Specifically, each of the subsets has distinct characteristics focused on the localization and classification of vehicles. Additionally, each of the subsets has distinct characteristics regarding imaging and projections. Therefore, we selected a subset that matches the imaging characteristics of the VisDrone dataset and contains only the “vehicle” class, comprising 24,820 regions of various sizes across 2332 images. In the selected subset, only the passenger car was labeled; therefore, we used direct mapping of the “car” class in the trained neural network to the “vehicle” class. Other classes were not ignored, but the representations were as negatively classified.
+
+### 3.2. Neural Networks’ Training
+
+The neural networks presented in Section 2.2 were trained on the Ultralytics platform using the VisDrone dataset. Data augmentation techniques were also employed to improve the performance of the neural networks and enhance final accuracy across different datasets. These included Mosaic (p = 1.0, close_mosaic = 10), RandomPerspective (degrees = 0.0, translate = 0.1, scale = 0.5, shear = 0.0, perspective = 0.0), MixUp (p = 0.0), CutMix (p = 0.0), Albumentations (p = 1.0, Blur (p = 0.1), MedianBlur (p = 0.1), ToGray (p = 0.1), CLAHE (p = 0.1), RandomBrightnessContrast (p = 0.1), RandomGamm (p = 0.1)), RandomHSV (hgain = 0.015, sgain = 0.7, vgain = 0.4), RandomFlip (direction = ’vertical’, p = 0.0) and RandomFlip (direction = ’horizontal’, p = 0.5). The infrastructure parameters, optimizer settings, and hyperparameters used during the training process are presented in Table 2. The final number of epochs was set to 300 for each neural network, but EarlyStopping was also used with patience = 50 (corresponding to 16% of the total number of epochs), and for all neural network modifications, the training was stopped within the range of 170–240 epochs. It is worth noting that the neural networks of the “nano” version converged 60–70 epochs later than the models of the “medium” version. The batch size was set to 16 for the ‘nano’ versions and to 8 for the ‘medium’ versions due to hardware limits imposed by GPU memory (VRAM). However, given the use of the Gradient Accumulation algorithm with a Nominal Batch Size (NBS) of 64, the effective batch size for optimizer updates remains strictly identical (Effective Batch Size (EBS) = 64), ensuring no bias in gradient calculations during training. The training was performed using an NVIDIA RTX 4060 Ti graphics card. The results obtained for the mAP metric during validation for the best neural network versions are shown in Figure 2. In the case of metric calculation in the Ultralytics training infrastructure, a confidence threshold of 0.001 was set to prevent the exclusion of regions with low accuracy. This is slightly different from calculating the metric for the experimental part, where the threshold was set at 0.1. Establishing an underestimated threshold (0.001) during the learning process ensures high sensitivity of the model to relevant patterns and prevents premature cutting off of boundary examples.
+
+According to the data obtained, the medium variant of the neural networks performs better than the nano variant. It is also worth noting that newer-generation neural networks (YOLOv11) achieve higher mAP scores with the medium variant. The YOLOv5 neural network has the lowest accuracy.
+
+### 3.3. Statistics of Compressed Images in the Verification Set
+
+JPEG compression was applied using the standard implementation available in the library, with default chroma subsampling (4:2:0). The quality factor (QF) parameter was varied to control the compression level, while all other encoding parameters were held fixed.
+
+This approach ensures that the observed effects are directly related to QF changes and are independent of additional encoder-specific optimizations. The chosen implementation corresponds to widely used practical scenarios where standard JPEG encoding is used for real-time image transmission in UAV systems.
+
+JPEG compression has been applied to images in the dataset TAI (we used the version of JPEG available at https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving accessed on 21 April 2026). Taking into account the data in Figure 1a and the results of their analysis, we have studied seven values of QF, namely, 15, 20, 30, 40, 60, 80 and 90. For each compressed image, we have calculated PSNR and PSNR-HVS-M. Mean, minimal, and maximal values of these metrics have been determined. The obtained results for the metric PSNR are presented in Figure 3a,b. We also calculated the score of bits per pixel (BPP) and the compression ratio (CR) for images as a function of the quality factor (QF). The resulting values are presented as graphs in Figure 3c,d.
+
+Analysis of data in Figure 3a,b reveals a significant degradation in both the PSNR and PSNR-HVS-M metrics as the QF decreases. For example, at QF = 15, the degradation is approximately 8 dB for PSNR (compared to QF = 80). For PSNR-HVS-M, the degradation is approximately 13 dB, which is a significant deterioration in image quality. For average QF values (40–60), the degradation of the metrics is also less significant and, compared to QF = 80, averages 4–6 dB. The results show that reducing QF below 40 significantly affects image quality, specifically the preservation of textures, colors, and fine details.
+
+When analyzing the BPP graph (Figure 3c), a significant decrease with QF decreasing is observed, dropping sharply from the original image (value of 13.2) to JPEG QF 90 (value of 2.2), as well as to subsequent JPEG values (for example, a value of 0.4 for JPEG QF 15). The mean QR (quality ratio) value also increases significantly (Figure 3d), reaching 6.0 for JPEG QF 90 and 32.9 for JPEG QF 15. This demonstrates a significant reduction in the amount of data required to transmit and store compressed images.
+
+Data in Figure 3 are in good agreement with the corresponding metrics’ values in Figure 1. Meanwhile, variations in PSNR and PSNR-HVS-M values are smaller than for data in Figure 1. This can deal with fewer numbers of images in TAI than in KonJND-1k and/or less variability of image content in TAI. Analysis of data in Figure 3b also shows that distortions due to lossy compression are practically invisible for QF = 90 and QF = 80, mostly invisible for QF = 60, mostly visible for QF = 40 and 30, and visible for QF = 20 and 15.
+
+This can also be observed from visual inspection of compressed images in Figure 4. The displayed images show a significant degradation in color and texture at QF = 15 and visible distortions for QF = 40.
+
+Image
+
+Figure 4. Examples of compressed images with QF = 15 (a), QF = 40 (b), QF = 80 (c), and original (d).
+
+The analysis carried out above allows us to expect that our further analysis is done for the main interval of QF variation where the main tendencies valuable for practice are observed.
+
+## 4. Analysis of the Obtained Results
+
+### 4.1. Accuracy Analysis on the Validation Subset of VisDrone
+
+Using neural networks trained with the parameters specified earlier, a study was conducted to investigate the effect of compression on the quality of localization and classification. The first stage of the study involved evaluating the metrics—namely, mAP_{0.5:0.95}, F1, and IoU—on the test set of the VisDrone dataset using various compression levels. The results of this evaluation are presented in Figure 5, Figure 6 and Figure 7. The solid-color area on the charts, as well as the numerical value at the top of each bin, represents the average value of the metric across the entire dataset. The shaded areas on the graphs represent 95% confidence intervals calculated using the nonparametric bootstrap method (2000 iterations). In each iteration, a repeated sampling estimation with replacement was performed using a sample of the same size as the original test dataset. This procedure allows for an assessment of the statistical uncertainty of the analyzed indicators, which is due to the variability of the test sample, assuming the use of a pre-trained model.
+
+Image
+
+Figure 5. IoU values (given over bars) for images in the VisDrone dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval).
+
+Image
+
+Figure 6. F1 values (given over bars) for images in the VisDrone dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval).
+
+Image
+
+Figure 7. mAP_{0.5:0.95} values (given over bars) for images in the VisDrone dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval).
+
+The results obtained for the IoU metric (see Figure 5) demonstrate the stability of this metric across all compression levels. In particular, the IoU values remain nearly constant across the entire range of QF values studied, and the significant overlap of the 95% confidence intervals indicates that the variations are statistically insignificant. This indicates that the positioning accuracy of the correctly detected rectangles relative to the annotated ones is robust to the degradation in image quality caused by JPEG compression.
+
+The results obtained for the F1 score (see Figure 6) also indicate high overall stability of the metric as the image quality factor (QF) varies, and the significant overlap of the confidence intervals shows that fluctuations in the metric are generally not statistically significant.
+
+When analyzing the mAP_{0.5:0.95} metric (see Figure 7), a noticeable decrease in this metric is observed as QF decreases for the “medium” model versions. We also observe a decrease in the values of this metric compared to Figure 2, which is due to the use of a higher confidence threshold compared to testing on the Ultralytics infrastructure (0.1 in our evaluation and 0.001 on Ultralytics). For the mAP metric, the confidence intervals between high and low QF levels (e.g., QF = 90 and QF = 15) do not overlap at all, for most neural networks (except YOLOv5n), indicating that the degradation in localization and classification accuracy caused by image compression is statistically significant compared to the variability of the test samples.
+--------------------------------------------------------------------------------
+MECA-DETR฀Multi-scale Edge-aware Contextual (https://assets-eu.researchsquare.com/files/rs-7257091/v1_covered_fa4a2e2c-e8c8-4250-a926-e7d476bf22fa.pdf?c=1755120067)
+ [wordlim: 200] Published: last year; 
+detection pipeline by performing object localization and classification in one pass. The YOLO 
+series has seen rapid progress, with recent versions like YOLOv8[20], YOLOv10, and 
+YOLOv12[22] integrating modules such as Bi-level Feature Pyramid Networks (BiFPN) [23], 
+anchor-free decoupled heads, and dynamic label assignment to achieve better accuracy-speed 
+trade-offs. YOLOv12, in particular, introduces structural reparameterization and spatial-
+channel decoupling, achieving competitive performance on challenging benchmarks like 
+VisDrone[24] and UAVDT[25]. Due to their low latency and deployment flexibility, single-
+stage detectors are widely adopted in UAV-based real-time scenarios. 
+Despite these advances, most conventional detectors still rely on heuristic post-processing steps 
+such as Non-Maximum Suppression (NMS)[26], which can introduce sub-optimal decisions in 
+densely populated or occluded scenes. Moreover, the detection of small-scale aerial objects 
+remains a persistent challenge, especially when objects occupy less than 32×32 pixels in high-
+resolution images. This is compounded by issues such as uneven object distribution, high inter-
+class similarity, and low contrast against cluttered backgrounds[27]. 
+Recent advances in real-time object detection have catalyzed significant improvements in UAV-
+based perception systems. Notably, RT-DETR[28] surpasses YOLO-based detectors of similar 
+scale in both accuracy and efficiency by introducing a hybrid encoder and a novel IoU-guided 
+query initialization strategy. Unlike conventional pipelines, RT-DETR removes reliance on 
+non-maximum suppression (NMS), enabling fully end-to-end training and inference, thereby 
+reducing deployment overhead in edge scenarios. To mitigate challenges posed by complex 
+backgrounds in aerial imagery, Xue et al. proposed SCRDet[30], which integrates a multi-
+dimensional supervised attention mechanism to suppress noise and enhance object saliency. 
+This design improves robustness against occlusion and clutter, which are prevalent in UAV-
+6--------------------------------------------------------------------------------
+FACULTY OF INFORMATION TECHNOLOGY AND ELECTRICAL ENGINEERING (https://oulurepo.oulu.fi/bitstream/handle/10024/63596/nbnfioulu-202606174448.pdf?isAllowed=y&sequence=1)
+ [wordlim: 200] Published: 4 months ago; 
+50
+3.5.4
+YOLO Detection Label Generation
+After object localization and classification, YOLO-format object detection labels were generated. The
+extracted connected object regions were converted into object contours using contour extraction methods.
+The bounding rectangles were later computed for each extracted contour to generate YOLO-compatible
+object detection labels. Each generated YOLO label consisted of normalized coordinates of the center of
+the object, the width of the object, and the height of the object values.
+Automatically suggested object classes were manually accepted, corrected, or rejected. This semi-
+automatic labeling strategy significantly reduced the effort of manually marking while improving overall
+label quality and consistency.
+3.5.5
+YOLO Dataset Preparation
+The hyperspectral dataset was prepared for YOLOv8 training after label generation. The hyperspectral
+images were converted into RGB-style images by selecting predefined spectral bands from the hyperspec-
+tral image cube. Specifically, spectral bands 10, 50, and 100 were used to generate three-channel RGB
+representations. The selected spectral bands were normalized and converted into PNG images compatible
+with the YOLOv8 framework.
+The generated RGB images and corresponding YOLO detection labels were organized into training,
+validation, and testing using a standard YOLO dataset folder structure. A YAML file containing dataset
+paths and object class information was also generated to enable YOLOv8 training compatibility.
+3.5.6
+YOLO Training
+The prepared dataset was used to train a YOLOv8-based object detection model. The YOLOv8 nano
+detection architecture was selected to perform multiclass object localization and classification. Dur-
+ing training, the YOLOv8 detector learned object appearance patterns and localization characteristics
+associated with the generated object categories.
+3.5.7
+Inference and Object Detection Prediction
+After training, the optimized YOLOv8 detector was used to perform object detection inference on unseen
+test images. The trained model generated object bounding boxes, confidence scores, and object class
+predictions for each detected object instance. Detection predictions were visualized using object bounding
+box overlays and compared against the generated ground-truth labels.--------------------------------------------------------------------------------
+Deep Learning-Based Small-Object Detection in UAV Imagery: A Symmetry-Informed Review of Scale Variation and Scenario Constraints (https://www.mdpi.com/2073-8994/18/9/1548)
+ [wordlim: 200] Published: last month; Crawled: 3 weeks ago; 
+Network architecture: Mainstream backbone networks typically have a maximum downsampling factor of 32. Accordingly, a 32\times 32-pixel object in the input image corresponds to exactly one feature unit on the deepest feature map. Below this threshold, spatial features are severely diluted through successive downsampling stages, resulting in inadequate feature representations. Established convention: The MS-COCO dataset defines objects with an area smaller than 32\times 32 pixels as small objects. This threshold has been widely used in COCO-based evaluation protocols, including COCO-style evaluations of datasets such as VisDrone and DOTA. Based on the above analysis, all instances with a bounding-box area smaller than 32\times 32 pixels are hereafter uniformly defined as small objects.
+
+This definition is based on bounding-box area, i.e., an area of less than 32\times 32 pixels, rather than on either width or height alone. For objects with extreme aspect ratios, bounding-box area accounts only for the total number of pixels while disregarding the pixel extent along the shorter axis. --------------------------------------------------------------------------------
+RTUAV-YOLO: A Family of Efficient and Lightweight Models for Real-Time Object Detection in UAV Aerial Imagery (https://www.mdpi.com/1424-8220/25/21/6573)
+ [wordlim: 200] Published: last year; Crawled: 5 days ago; 
+(28)
+
+$$\alpha ={\displaystyle \frac{v}{v-\mathrm{IoU}+1+\mathsf{ϵ}}}$$
+
+(29)
+
+$${P}_{\mathrm{ar}}=\alpha \cdot v$$
+
+(30)
+
+To ensure enhanced attention allocation to small objects while preventing excessive penalization of high-quality samples, scale-adaptive weight computation is executed utilizing a small object threshold of 32 × 32 = 1024 pixels. This mechanism is subsequently integrated with quality-aware suppression to derive a dynamic focus weight. The corresponding computational formulation is expressed as follows:
+
+$${A}_{1}={w}_{1}\cdot {h}_{1},  {A}_{2}={w}_{2}\cdot {h}_{2}$$
+
+(31)
+
+$${A}_{\mathrm{min}}=\mathit{min}({A}_{1},{A}_{2})$$
+
+(32)
+
+$$\beta ={\displaystyle \frac{{A}_{\mathrm{min}}}{{A}_{\mathrm{min}}+1024}}$$
+
+(33)
+
+$$\gamma =2-2\cdot \mathrm{IoU}$$
+
+(34)
+
+$${W}_{f}=\beta \cdot \mathit{exp}(-\gamma )$$
+
+(35)
+
+The Inner-IoU enhancement mechanism augments the model’s sensitivity to positional variations in small objects through the construction of a scaled auxiliary bounding box. Through computing the IoU between the predicted box and the scaled ground-truth box, followed by weighted fusion with the original IoU, the precision of small object detection is substantially enhanced. The corresponding mathematical expression is delineated as follows, where the scaling parameter s = 1.25:
+
+$${\widehat{w}}_{1}=s\cdot {w}_{1},  {\widehat{h}}_{1}=s\cdot {h}_{1}$$
+
+(36)
+
+$${\widehat{w}}_{2}=s\cdot {w}_{2},  {\widehat{h}}_{2}=s\cdot {h}_{2}$$
+
+(37)
+
+$${c}_{1}^{x}={\displaystyle \frac{{x}_{1}^{1}+{x}_{2}^{1}}{2}},{c}_{1}^{y}={\displaystyle \frac{{y}_{1}^{1}+{y}_{2}^{1}}{2}}$$
+
+--------------------------------------------------------------------------------
+Object recognition and localization enhancement in visual prostheses: a real-time mixed reality simulation - PMC (https://pmc.ncbi.nlm.nih.gov/articles/PMC9790133/)
+ [wordlim: 200] Published: 3.8 years ago; Crawled: last week; 
+The multiple-object experiments show the effect of using YOLO for objects’ detection to get the labels of the objects to retrieve the corresponding clip art representation. This enabled accurate selection of clip art object that identifies the real object’s identity. It is noteworthy that using clip art as opposed to providing an audio description of the viewed object is in alignment with the purpose of visual prostheses to partially restore vision without relying on other senses. Additionally, using clip art could be superior to using a textual description of the viewed object as this will require more processing time to display the detected word character by character. This is because it might be hard to recognize as a whole word through the typical limited resolution of visual prostheses. In addition, this might be problematic in case of having a long word since a real patient will not be able to memorize the sequence of letters they have already seen.
+
+The navigation experiments show that allowing the participants to navigate while wearing the VR headset in real-time and perceiving the phosphene simulation of the physical floor, eases the ability to indicate that an object is placed on the floor and thus, the object localization is done easily. --------------------------------------------------------------------------------
+https://doi.org/10.1038/s41598-026-52894-w (https://www.nature.com/articles/s41598-026-52894-w_reference.pdf)
+ [wordlim: 200] Published: 4 months ago; 
+object detection framework which is capable of simultaneously performing object localization and classification within a single forward pass
+through a convolutional neural network9. Due to its high detection speed and accuracy, YOLO-based detectors are widely used for real-time
+security inspection applications2,27. The model was trained using the CLCXray dataset3, which contains annotated X-ray baggage images1.
+Since the original annotations were provided in COCO format, they were converted into YOLO label format prior to training. Training
+was performed using the Ultralytics YOLO training framework with an input image resolution of 640×6404. The YOLOv8-s model was
+fine-tuned using transfer learning from pretrained weights and trained for a total of 160 epochs, consisting of an initial training phase of 80
+epochs followed by an additional fine-tuning stage of 80 epochs whereas YOLOv11-s was trained for 50 epochs27. During training, the
+model learns the spatial features that allows it to detect prohibited objects such as knives, blades, scissors, and other hazardous items that are
+present in baggage scans2. The trained YOLO detection model predicts bounding box coordinates, object class labels, and confidence scores
+for each detected object.
+/--------------------------------------------------------------------------------
+SD2 Final Report (https://creol.ucf.edu/wp-content/uploads/sites/2/2026/05/2026_Spring_G7_SD2_Design_Doc.pdf)
+ [wordlim: 200] Published: 4 months ago; 
+Primary Role Edge Readiness | End-to-end CV toolkit High (CPU/NEON; broad backends) | Edge inference for TF models High (quantization, delegates) | Research DL; scripted deployment Medium (heavier runtime) | Prebuilt perception graphs High (mobile/edge focused) --- | --- | --- | --- | --- Primary Role Pipeline Breadth | End-to-end CV toolkit Wide (capture → inference → tracking) | Edge inference for TF models Narrow (inference only) | Research DL; scripted deployment Narrow → Medium | Prebuilt perception graphs Medium (task-focused) Primary Role Integration Effort | End-to-end CV toolkit Low | Edge inference for TF models Medium | Research DL; scripted deployment Medium–High | Prebuilt perception graphs MediumChoice: OpenCV is selected as the primary computer vision framework due to its unified 
+support for camera input, tracking, deep learning inference within a single 
+embedded-optimized library and its compatibility with the Raspberry Pi 
+3.8 Object Detection Algorithms 
+YOLO (You Only Look Once) 
+YOLO-based object detection models perform object localization and classification in a 
+single forward pass through a convolutional neural network, enabling high detection 
+accuracy with low inference latency. Lightweight variants such as YOLO-Tiny and 
+YOLO-Nano are well suited for embedded platforms, providing reliable human detection 
+while maintaining real-time performance. These models demonstrate strong robustness to 
+partial occlusion, scale variation, and lighting changes, making them appropriate for live 
+tracking applications. 
+MobileNet-SSD 
+MobileNet-SSD is designed for mobile and embedded systems, combining a lightweight 
+backbone network with a single-shot detection framework. While it achieves fast 
+inference with reduced computational requirements, it generally exhibits lower detection 
+accuracy and reduced robustness to occlusion and dynamic backgrounds compared to 
+66--------------------------------------------------------------------------------
+PASR-YOLO: a small object detection algorithm for UAV based on cross-scale feature aggregation | Journal on Advances in Signal Processing | Springer Nature Link (https://link.springer.com/article/10.1186/s13634-026-01353-9)
+ [wordlim: 200] Published: 3 months ago; Crawled: today; 
+
+# PASR-YOLO: a small object detection algorithm for UAV based on cross-scale feature aggregation
+  * Published: 03 July 2026
+
+  * Volume 2026, article number 78 (2026)
+
+PASR-YOLO: a small object detection algorithm for UAV based on cross-scale feature aggregation
+
+Download PDF
+
+  * Tien-Wen Sung^{1},
+  * Yujie Lai^{1},
+  * Chao-Yang Lee^{2} &
+  * …
+  * Shaopei Wen^{3} 
+
+## Abstract
+
+In recent years, the application of Unmanned Aerial Vehicle (UAV) in production activities involving outdoor operations has gradually become widespread and routine. However, challenges such as the wide size variation of small objects, frequent occlusions, and complex backgrounds have emerged as key difficulties in UAV aerial image object detection. This paper proposes PASR-YOLO, an enhanced YOLO11 algorithm optimized for small objects. To address the issue of insufficient representation of small objects in the detection layer, the High Resolution Detail Injection Unit (HDI) is introduced. --------------------------------------------------------------------------------
+A Systematic Literature Review of You Only Look Once Architectures (v1–v12) in Healthcare Systems (https://pmc.ncbi.nlm.nih.gov/articles/PMC13025279/)
+ [wordlim: 200] Published: 7 months ago; Crawled: last month; 
+It has a decoupled head, which is a design philosophy that breaks up the processes of object classification and localization to reach a better accuracy level, mainly for smaller-sized objects. Another new feature in the YOLOv6 model is a re-parameterized backbone network, which improves the model’s representational capabilities during training and is also optimized for faster inference capabilities. Therefore, it can easily serve to meet the demands of precise and fast processing required during real-world applications and experiments. Conversely, the main highlighting feature of YOLOv7 is a list of architectural novelties and sophisticated learning approaches that help to define a model that is at the edge of the performance chart for the task of object detection. One of its most striking features is the use of the concept of “extendable efficient layer aggregation networks,” which improves the model’s learnability along with computational efficiency. Another feature highlighted by YOLOv7 is that it uses a compound scaling approach that enables the scaling of model depth and width while keeping the optimal model structure intact.
+
+Identifier: [pub-id-type: pii] diagnostics-16-00935-t001_Table 1 Table 1
+
+Caption:
+
+Inclusion and exclusion criteria.
+
+Table coordinates and group numbers are generated in source order. Header/body/footer labels describe source row groups; span continuations refer to one source cell, not additional observations.
+
+[Source table presentation: frame="hsides"; rules="groups"]
+Source row  | Column 1  | Column 2
+--- | --- | ---
+1 (header group 1)  | [Source header] [Source th presentation: align="left"; valign="middle"; style="border-bottom:solid thin;border-top:solid thin"] Inclusion Criteria  | [Source header] [Source th presentation: align="left"; valign="middle"; style="border-bottom:solid thin;border-top:solid thin"] Exclusion Criteria
+2 (body group 2)  | [Source td presentation: align="left"; valign="middle"; style="border-bottom:solid thin"] [Bullet list] [Item] [Paragraph] Peer-reviewed journal articles; [End paragraph] [End item] [Item] [Paragraph] Studies explicitly using YOLO or its variants (e.g., YOLOv3, YOLOv5, YOLOv11); [End paragraph] [End item] [Item] [Paragraph] Applications within healthcare contexts (e.g., medical imaging, patient monitoring, disease detection); [End paragraph] [End item] [Item] [Paragraph] Publications in English; [End paragraph] [End item] [Item] [Paragraph] Articles published between 2018 and 1 January 2026. --------------------------------------------------------------------------------
+A Large-scale AI-generated Image Inpainting Benchmark | alphaXiv (https://www.alphaxiv.org/abs/2502.06593v1)
+ [wordlim: 200] Published: 1.7 years ago; Crawled: today; 
+
+## Robustness and Validation Studies
+
+The paper includes comprehensive robustness analysis under JPEG and WEBP compression, showing that retrained models, particularly TruFor, maintain stable performance across various compression quality levels. However, localization tasks show greater sensitivity to compression than binary detection.
+
+Ablation studies validate each component of the methodology. The comparison between LLM-generated prompts and simple object labels demonstrates superior aesthetic scores and perceptual quality for LLM prompts, confirming SAOR's effectiveness in producing more convincing manipulations.
+
+Image: Compression robustness analysis Figure 4: Performance of detection models under different compression levels, showing that retrained models maintain robustness, with TruFor demonstrating particularly stable performance across JPEG and WEBP compression.
+
+Human evaluation studies involving 42 participants validate UGDA's effectiveness. Participants achieved only 0.35 accuracy and 0.13 IoU on images classified as "deceiving" by UGDA, compared to 0.74 accuracy and 0.40 IoU on "undeceiving" images. 

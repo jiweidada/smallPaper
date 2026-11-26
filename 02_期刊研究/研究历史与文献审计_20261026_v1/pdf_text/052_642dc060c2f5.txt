@@ -1,0 +1,168 @@
+FeatSharp: Your Vision Model Features, Sharper
+Mike Ranzinger 1 Greg Heinrich 1 Pavlo Molchanov 1 Jan Kautz 1 Bryan Catanzaro 1 Andrew Tao1
+Abstract
+The feature maps of vision encoders are funda-
+mental to myriad modern AI tasks, ranging from
+core perception algorithms (e.g. semantic segmen-
+tation, object detection, depth perception, etc.)
+to modern multimodal understanding in vision-
+language models (VLMs). Currently, in computer
+vision, the frontier of general purpose vision back-
+bones are Vision Transformers (ViT), typically
+trained using contrastive loss (e.g. CLIP). A key
+problem with most off-the-shelf ViTs, particularly
+CLIP, is that these models are inflexibly low reso-
+lution. Most run at 224x224px, while the “high
+resolution” versions are around 378-448px, but
+still inflexible. We introduce a novel method to co-
+herently and cheaply upsample the feature maps
+of low-res vision encoders while picking up on
+fine-grained details that would otherwise be lost
+due to resolution. We demonstrate the effective-
+ness of this approach on core perception tasks
+as well as within agglomerative model (RADIO)
+training as a way of providing richer targets for
+distillation.
+1. Introduction
+The use of vision foundation models (VFM) (Awais et al.,
+2023) has seen widespread use since the beginning of
+the modern era of computer vision using deep learning
+(Krizhevsky et al., 2012), primarily used to perform trans-
+fer learning (Plested & Gedeon, 2022) (e.g. finetuning a
+VFM on a downstream task), information retrieval (Babenko
+et al., 2014; Zhang & Liu, 2024), and most recently, to
+power visual capabilities for vision-language models (VLM)
+(Alayrac et al., 2022; et al., 2024; Liu et al., 2023; Lin et al.,
+2023). The recent shift toward using Transformers (Vaswani
+et al., 2017) for computer vision (ViT (Dosovitskiy et al.,
+2021)) has both tremendously moved the field forward, but
+has generally left the use of VFMs in a tricky spot: Trans-
+formers are computationally demanding and have poor al-
+1NVIDIA. Correspondence to: Mike Ranzinger
+<mranzinger@nvidia.com>.
+Preprint
+gorithmic scaling properties (O(n2) for 1D sequences, or
+O((w · h)2 for 2D inputs), leaving the majority of mod-
+els to be relatively low-resolution. For example, perhaps
+the most popular family of VFMs to date, CLIP (Radford
+et al., 2021), typically runs at 224 or 336px input resolu-
+tions, and produces spatial features at a 14x downsample
+(e.g. 2242 → 162). Owing to the nature of learned posi-
+tion embeddings, ViTs also tend to be relatively inflexible
+to changes of input resolution, allowing for changes, but
+requiring finetuning (Dosovitskiy et al., 2021).
+It’s possible that the strict dependence on the training res-
+olution is an artifact of the algorithm used for training, as
+DINOv2 (Oquab et al., 2023; Darcet et al., 2023) is quite ro-
+bust to interpolating its position embeddings, producing sta-
+ble features at various resolutions (Ranzinger et al., 2024b),
+ignoring for the moment that DINOv2, being a transformer,
+is expensive to use at high-resolution. A recent technique
+called AM-RADIO (Ranzinger et al., 2024a), borrowing
+ideas from ViTDet (Li et al., 2022), FlexiViT (Beyer et al.,
+2023), and RO-ViT (Kim et al., 2023), has attempted to cre-
+ate a resolution-flexible ViT, however it is still dependent on
+low-resolution ViTs as it distills from other seminal VFMs
+which are low-res-only: DFN CLIP (Fang et al., 2023) and
+SigLIP (Zhai et al., 2023).
+Recently, FeatUp (Fu et al., 2024) aims to directly ad-
+dress the problem of low-resolution vision features by us-
+ing one of two learned upsampling algorithms: A model-
+specific generalized upsampler using Joint Bilateral Up-
+sampling (JBU) (Kopf et al., 2007), or a model-specific-
+image-specific implicit network. While they demonstrate
+particularly compelling results with their implicit network,
+their results using the stack of JBU filters lack refined de-
+tails (shown in figure 18 in the appendix). Along with lack
+of granular refinement, it’s impossible for this approach to
+capture fine-grained details that are too small for the vision
+backbone to detect at its native resolution. To this end, we
+take inspiration from both FeatUp’s JBU approach, as well
+as the recent trend in VLMs such as LLaV A 1.6 (Liu et al.,
+2024), InternVL-1.5 (Chen et al., 2024), NVLM (Dai et al.,
+2024b) and Eagle (Shi et al., 2024b) to tile an image, aggre-
+gating local features from a fixed-low-resolution model, to
+build an upsampler that simultaneously leverages the raw
+pixel guidance, low-res feature guidance, and regional tile
+guidance, resulting in substantially more detailed feature
+1
+arXiv:2502.16025v1  [cs.CV]  22 Feb 2025
+
+---PAGE---
+
+FeatSharp: Your Vision Model Features, Sharper
+Tiled Features
+Low-Resolution
+Features
+Featurizer
+ FeatSharp
+ Full-Res Reference
+PredictionJBU Upsample
+De-Bias
+FeatUp
+JBU
+Repeat
+with Tiles
+Figure 1. Upsampling architecture diagram. We combine the upsampled features coming from FeatUp (Fu et al., 2024) with the tiled
+features and mix them with FeatSharp to produce a feature map with higher fidelity. The tiled features have more detail, but also
+representation issues such as the difference in upper and lower body at the tile boundary. “Full-Res Reference” is for display purposes, as
+for a model that doesn’t exhibit stable resolution scaling (e.g. DFN CLIP, SigLIP, etc.) we don’t have access to a target hi-res feature map.
+Our proposed learnable modules are in green, combined with a learnable FeatUp JBU stack.
+maps which are also capable of capturing details too small
+for the original resolution. Specifically, we:
+• Build on top of FeatUp’s JBU algorithm (Fu et al.,
+2024) by adding de-biasing and tiling fusion modules
+to incorporate detailed tile features, resulting in signif-
+icantly higher levels of detail, with extensive experi-
+ments demonstrating effectiveness
+• Study the relationship between FeatUp’s feature consis-
+tency and ViT-Denoiser’s (Yang et al., 2024a) approach
+to cleaning the features of a ViT at its native resolution
+• Introduce an improved training setting for AM-RADIO
+(Ranzinger et al., 2024a) demonstrating a +0.6% im-
+provement across the entire benchmark suite, and better
+teacher adapter features
+2. Related Work
+Feature Upsampling The most obvious baseline for fea-
+ture upsampling is to use traditional filtering approaches
+such as bilinear or bicubic upsampling. The alternative
+is to evaluate the network at higher resolution, however it
+comes with the dual drawback that computational cost in-
+creases (quadratically in the case of Vision Transformers),
+and also that many models (ViTs in particular) have trou-
+ble extrapolating from their trained resolution (Beyer et al.,
+2023; Dehghani et al., 2023). If we expand our view to
+include parametric approaches, then deconvolution (Noh
+et al., 2015; Shi et al., 2016; Dumoulin & Visin, 2016) and
+resize-conv (Odena et al., 2016) are popular choices. There
+are also pixel-adaptive approaches such as CARAFE (Wang
+et al., 2019), SAPA (Lu et al., 2022), and FeatUp (Fu et al.,
+2024).
+We adopt FeatUp’s formulation of multi-view consistency as
+a way to train an upsampler, however, we notice that instead
+of solely relying on raw RGB pixels as guidance for upsam-
+pling, we can also use a small, fixed budget of inferences
+(similar in spirit to their implicit model), and use a mosaic of
+tiles as guidance at the higher resolution. This choice gives
+us a richer, and semantically relevant, feature space to merge
+from. Additionally, it allows us to incorporate information
+from regions that were too small for the low-res view, but
+become visible within a tile. Small details are a limitation of
+every approach that doesn’t acquire extra samples from the
+base model, as they rely on all relevant information already
+being encoded by the initial model evaluation.
+Feature Denoising Related to multi-view consistency,
+ViT-Denoiser (Yang et al., 2024a) noticed that ViT fea-
+tures are generally very noisy (although some are much
+cleaner than others), and also propose a multi-view con-
+sistency formulation to learn how to separate fixed noise,
+conditional noise, and semantic content. We notice the deep
+ties between ViT-Denoiser and FeatUp, in that multi-view
+consistency provides a way to eradicate fixed-pattern noise
+from the feature buffer. Drawing inspiration from this, we
+add a learnable bias buffer (similar to learned position em-
+beddings) at the output of the base model. This simple
+change works because fixed patterns will degrade multi-
+view consistency, as the pattern is always local to the view,
+and lacks global coherence.
+2

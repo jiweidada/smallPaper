@@ -1,0 +1,115 @@
+Gradient Surgery for Multi-Task Learning
+Tianhe Yu1, Saurabh Kumar1, Abhishek Gupta2, Sergey Levine2,
+Karol Hausman3, Chelsea Finn1
+Stanford University1, UC Berkeley2, Robotics at Google3
+tianheyu@cs.stanford.edu
+Abstract
+While deep learning and deep reinforcement learning (RL) systems have demon-
+strated impressive results in domains such as image classiﬁcation, game playing,
+and robotic control, data efﬁciency remains a major challenge. Multi-task learning
+has emerged as a promising approach for sharing structure across multiple tasks to
+enable more efﬁcient learning. However, the multi-task setting presents a number
+of optimization challenges, making it difﬁcult to realize large efﬁciency gains com-
+pared to learning tasks independently. The reasons why multi-task learning is so
+challenging compared to single-task learning are not fully understood. In this work,
+we identify a set of three conditions of the multi-task optimization landscape that
+cause detrimental gradient interference, and develop a simple yet general approach
+for avoiding such interference between task gradients. We propose a form of gradi-
+ent surgery that projects a task’s gradient onto the normal plane of the gradient of
+any other task that has a conﬂicting gradient. On a series of challenging multi-task
+supervised and multi-task RL problems, this approach leads to substantial gains
+in efﬁciency and performance. Further, it is model-agnostic and can be combined
+with previously-proposed multi-task architectures for enhanced performance.
+1 Introduction
+While deep learning and deep reinforcement learning (RL) have shown considerable promise in
+enabling systems to learn complex tasks, the data requirements of current methods make it difﬁcult to
+learn a breadth of capabilities, particularly when all tasks are learned individually from scratch. A
+natural approach to such multi-task learning problems is to train a network on all tasks jointly, with
+the aim of discovering shared structure across the tasks in a way that achieves greater efﬁciency and
+performance than solving tasks individually. However, learning multiple tasks all at once results is a
+difﬁcult optimization problem, sometimes leading toworse overall performance and data efﬁciency
+compared to learning tasks individually [42, 50]. These optimization challenges are so prevalent that
+multiple multi-task RL algorithms have considered using independent training as a subroutine of the
+algorithm before distilling the independent models into a multi-tasking model [32, 42, 50, 21, 56],
+producing a multi-task model but losing out on the efﬁciency gains over independent training. If we
+could tackle the optimization challenges of multi-task learning effectively, we may be able to actually
+realize the hypothesized beneﬁts of multi-task learning without the cost in ﬁnal performance.
+While there has been a signiﬁcant amount of research in multi-task learning [6, 49], the optimization
+challenges are not well understood. Prior work has described varying learning speeds of different
+tasks [8, 26] and plateaus in the optimization landscape [52] as potential causes, whereas a range of
+other works have focused on the model architecture [40, 33]. In this work, we instead hypothesize
+that one of the main optimization issues in multi-task learning arises from gradients from different
+tasks conﬂicting with one another in a way that is detrimental to making progress. We deﬁne two
+gradients to be conﬂicting if they point away from one another, i.e., have a negative cosine similarity.
+We hypothesize that such conﬂict is detrimental when a) conﬂicting gradients coincide with b) high
+positive curvature and c) a large difference in gradient magnitudes.
+34th Conference on Neural Information Processing Systems (NeurIPS 2020), Vancouver, Canada.
+
+---PAGE---
+
+Figure 1: Visualization of PCGrad on a 2D multi-task optimiza-
+tion problem. (a) A multi-task objective landscape. (b) & (c)
+Contour plots of the individual task objectives that comprise (a).
+(d) Trajectory of gradient updates on the multi-task objective using
+the Adam optimizer. The gradient vectors of the two tasks at the
+end of the trajectory are indicated by blue and red arrows, where
+the relative lengths are on a log scale.(e) Trajectory of gradient
+updates on the multi-task objective using Adam with PCGrad. For
+(d) and (e), the optimization trajectory goes from black to yellow.
+As an illustrative example, consider the
+2D optimization landscapes of two task
+objectives in Figure 1a-c. The opti-
+mization landscape of each task con-
+sists of a deep valley, a property that
+has been observed in neural network
+optimization landscapes [22], and the
+bottom of each valley is characterized
+by high positive curvature and large
+differences in the task gradient mag-
+nitudes. Under such circumstances,
+the multi-task gradient is dominated
+by one task gradient, which comes at
+the cost of degrading the performance
+of the other task. Further, due to high
+curvature, the improvement in the dominating task may be overestimated, while the degradation in
+performance of the non-dominating task may be underestimated. As a result, the optimizer struggles
+to make progress on the optimization objective. In Figure 1d), the optimizer reaches the deep valley of
+task 1, but is unable to traverse the valley in a parameter setting where there are conﬂicting gradients,
+high curvature, and a large difference in gradient magnitudes(see gradients plotted in Fig. 1d). In
+Section 5.3, we ﬁnd experimentally that thistragic triad also occurs in a higher-dimensional neural
+network multi-task learning problem.
+The core contribution of this work is a method for mitigating gradient interference by altering the
+gradients directly, i.e. by performing “gradient surgery.” If two gradients are conﬂicting, we alter the
+gradients by projecting each onto the normal plane of the other, preventing the interfering components
+of the gradient from being applied to the network. We refer to this particular form of gradient
+surgery as projecting conﬂicting gradients (PCGrad). PCGrad is model-agnostic, requiring only a
+single modiﬁcation to the application of gradients. Hence, it is easy to apply to a range of problem
+settings, including multi-task supervised learning and multi-task reinforcement learning, and can
+also be readily combined with other multi-task learning approaches, such as those that modify the
+architecture. We theoretically prove the local conditions under which PCGrad improves upon standard
+multi-task gradient descent, and we empirically evaluate PCGrad on a variety of challenging problems,
+including multi-task CIFAR classiﬁcation, multi-objective scene understanding, a challenging multi-
+task RL domain, and goal-conditioned RL. Across the board, we ﬁnd PCGrad leads to substantial
+improvements in terms of data efﬁciency, optimization speed, and ﬁnal performance compared to
+prior approaches, including a more than 30% absolute improvement in multi-task reinforcement
+learning problems. Further, on multi-task supervised learning tasks, PCGrad can be successfully
+combined with prior state-of-the-art methods for multi-task learning for even greater performance.
+2 Multi-Task Learning with PCGrad
+While the multi-task problem can in principle be solved by simply applying a standard single-task
+algorithm with a suitable task identiﬁer provided to the model, or a simple multi-head or multi-output
+model, a number of prior works [42, 50, 53] have found this learning problem to be difﬁcult. In this
+section, we introduce notation, identify possible causes for the difﬁculty of multi-task optimization,
+propose a simple and general approach to mitigate it, and theoretically analyze the proposed approach.
+2.1 Preliminaries: Problem and Notation
+The goal of multi-task learning is to ﬁnd parameters θ of a model fθ that achieve high average
+performance across all the training tasks drawn from a distribution of tasksp(T ). More formally, we
+aim to solve the problem: min
+θ
+ETi∼p(T ) [Li(θ)], where Li is a loss function for thei-th task Ti that
+we want to minimize. For a set of tasks, {Ti}, we denote the multi-task loss as L(θ) =∑
+i Li(θ),
+and the gradients of each task as gi = ∇Li(θ) for a particularθ. (We drop the reliance onθ in the
+notation for brevity.) To obtain a model that solves a speciﬁc task from the task distributionp(T ),
+we deﬁne a task-conditioned modelfθ(y|x,z i), with inputx, outputy, and encodingzi for task Ti,
+which could be provided as a one-hot vector or in any other form.
+2

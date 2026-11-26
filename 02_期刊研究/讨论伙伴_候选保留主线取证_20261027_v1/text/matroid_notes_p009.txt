@@ -1,0 +1,57 @@
+4. Lecture notes on matroid optimization March 20th, 2009 9
+4.4.1 Algorithmic Proof
+Here we provide an algorithmic proof based on the greedy algorithm. From conv(X) ⊆ P ,
+we know that
+max{cTx :x ∈X} = max{cTx :x ∈conv(X)} ≤ max{cTx : x(S) ≤r(S) S ⊆E
+xe ≥ 0 e ∈E}.
+Using LP duality, we get that this last expression equals:
+min{∑
+Sr(S)yS : ∑
+S:e∈SyS ≥c(e) ∀e ∈E
+yS ≥ 0 S ⊆E}.
+Our goal now is, for any cost function c, to get an independent set S and a dual feasible
+solution y such that cTχ(S) = ∑
+Sr(S)yS which proves that conv(X) =P .
+Consider any cost function c. We know that the maximum cost independent set can be
+obtained by the greedy algorithm. More precisely, it is the last set Sk returned by the greedy
+algorithm when we consider only those elements up to eq where c(eq) ≥ 0 ≥ c(eq+1). We
+need now to exhibit a dual solution of the same value as Sk. There are exponentially many
+variables in the dual, but this is not a problem. In fact, we will set most of them to 0.
+For any indexj ≤k, we haveSj = {s1,s 2, · · ·,s j}, and we deﬁneUj to be all elements in
+our ordering up to and excluding sj+1, i.e. Uj = {e1,e 2, · · ·,e l} where el+1 =sj+1. In other
+words,Uj is all the elements in the ordering just before sj+1. One important property of Uj
+is that
+r(Uj) =r(Sj) =j.
+Indeed, by independence r(Sj) = |Sj| = j, and by ( R1), r(Uj) ≥ r(Sj). If r(Uj) > r(Sj),
+there would be an element sayep ∈Uj \Sj such thatSj ∪ {ep} ∈ I . But the greedy algorithm
+would have selected that element (by (I1)) contradicting the fact that ep ∈Uj \Sj.
+Set the non-zero entries of yS in the following way. For j = 1, · · ·,k , let
+yUj =c(sj) −c(sj+1),
+where it is understood that c(sk+1) = 0. By the ordering of the c(·), we have thatyS ≥ 0 for
+all S. In addition, for any e ∈E, we have that
+∑
+S:e∈S
+yS =
+k∑
+j=t
+yUj =c(st) ≥c(e),
+where t is the least index such that e ∈Ut (implying that e does not come before st in the
+ordering). This shows that y is a feasible solution to the dual. Moreover, its dual value is:
+∑
+S
+r(S)yS =
+k∑
+j=1
+r(Uj)yUj =
+k∑
+j=1
+j(c(sj)−c(sj+1)) =
+k∑
+j=1
+(j −(j −1))c(sj) =
+k∑
+j=1
+c(sj) =c(Sk).
+This shows that the dual solution has the same value as the independent set output by the
+greedy algorithm, and this is true for all cost functions. This completes the algorithmic
+proof.

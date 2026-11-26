@@ -1,0 +1,73 @@
+( O H F W U R Q L F  
+5 H V H D U F K  $ U F K L Y H
+http://www.aimspress.com/journal/era
+ERA, 31(8): 5025–5038.
+DOI: 10.3934/era.2023257
+Received: 30 May 2023
+Revised: 20 June 2023
+Accepted: 24 June 2023
+Published: 14 July 2023
+Research article
+Boundary distribution estimation for precise object detection
+Peng Zhi, Haoran Zhou, Hang Huang, Rui Zhao, Rui Zhou* and Qingguo Zhou*
+School of Information Science and Engineering, Lanzhou University, Lanzhou, China
+* Correspondence: Email: zr@lzu.edu.cn, zhouqg@lzu.edu.cn; Tel: +869318912025; Fax:
++869318912025.
+Abstract: In the field of state-of-the-art object detection, the task of object localization is typically
+accomplished through a dedicated subnet that emphasizes bounding box regression. This subnet
+traditionally predicts the object’s position by regressing the box’s center position and scaling factors.
+Despite the widespread adoption of this approach, we have observed that the localization results
+often suffer from defects, leading to unsatisfactory detector performance. In this paper, we address
+the shortcomings of previous methods through theoretical analysis and experimental verification and
+present an innovative solution for precise object detection. Instead of solely focusing on the object’s
+center and size, our approach enhances the accuracy of bounding box localization by refining the box
+edges based on the estimated distribution at the object’s boundary. Experimental results demonstrate
+the potential and generalizability of our proposed method.
+Keywords: object detection; deep learning; boundary estimation; box refinement
+1. Introduction
+As a combination of classification and localization, object detection is intended to spot desired
+objects in the image and categorize them respectively. In recent years, the field of object classification
+has made significant advancements due to the progress in deep learning frameworks. Classifiers [1–4]
+now demonstrate impressive performance on diverse and di fficult benchmarks [5–8]. However, the
+aspect of localization, which involves estimating the precise position and size of objects, still lags
+behind and poses limitations on the overall detection performance.
+In state-of-the-art object detectors such as faster region-based convolutional neural network
+(R-CNN) [9], RetinaNet [10] and CenterNet [11], the task of object localization is carried out by a
+box subnet that focuses on bounding box regression. This subnet typically predicts bounding boxes
+by regressing the box’s center position ( x, y) and scaling factors ( w, h). While this design has shown
+effective results in conventional frameworks, it su ffers from inherent flaws when it comes to precise
+
+---PAGE---
+
+5026
+localization. As illustrated in Figure 1, each variable of ( x, y, w, h) impacts multiple edges when
+adjusting the box’s center position or size. Consequently, all edges of the box shift together, which
+compromises the accuracy of localization. Moreover, the center-focus representation method
+introduces a feature imbalance, wherein detectors disproportionately emphasize internal features that
+are less crucial for localization.
+(a) Error in center position
+ (b) Error in box size
+Figure 1. Illustration of the center-size box tuning method: the green box represents the
+ground truth, while the red box represents the predicted box with either center error or
+size error.
+The aim of achieving precise localization is to minimize the disparity between predictions and the
+ground truth. When humans annotate ground truth boxes, they typically align each side of the box
+individually with the corresponding boundary, which is the most e fficient approach. Taking
+inspiration from this manual annotation method, we introduce a novel solution for precise localization
+by refining previous localization results using estimations of the actual boundary distribution. Our
+proposed method follows a two-step process. As shown in Figure 2, it first predicts the boundary
+within the proposed area of the existing pipeline. Next, the coarse boundary is determined based on
+the boundary probability map. For each side of the box, we estimate the corresponding fine boundary
+distribution by considering the context of the coarse boundary. This fine boundary distribution is then
+utilized to refine the final localization results.
+We apply our proposed method to various frameworks and assess their performance on the common
+objects in context (COCO) test-dev dataset [5]. Our method demonstrates significant potential through
+straightforward functional estimation. Specifically, we achieved an improvement of 2.0% in average
+precision (AP) without incurring additional computational costs or requiring additional annotation data,
+as compared to the competent Mask R-CNN [12] baseline.
+Our main contributions can be summarized as follows:
+• We propose a universal method for precise object detection that enhances the accuracy of
+bounding box localization by refining the box edges based on estimations of the object’s
+boundary distribution. This novel approach improves the overall detection performance.
+• In order to accurately generate each side of the bounding box, we evaluated various representation
+Electronic Research Archive V olume 31, Issue 8, 5025–5038.

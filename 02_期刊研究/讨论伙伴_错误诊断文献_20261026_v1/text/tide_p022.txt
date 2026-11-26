@@ -1,0 +1,38 @@
+22 D. Bolya et al.
+Table 5: Distribution of Misannotations on COCO. We sample the top 100 errors
+from each error type (and randomly for missed) and bin the misannotations we found
+into one of three categories. Because these are the most conﬁdent examples, they have a
+very large effect on overallmAP .
+Cls Loc Both Bkgnd Missed
+Crowd Flag 1 22 1 3 0
+Bad Annotation 1 8 36 34 8
+Ambiguous 5 2 29 20 3
+Total 7 32 66 57 11
+This leads us to seperate all the misannotations into 3 categories: missing crowd
+label (i.e., the crowd annotation existed, but it wasn’t ﬂagged as a crowd annotation
+and thus got treated like a regular annotation), bad annotation (e.g., wrong class, box
+drawn incorrectly, or the GT didn’t exist when it should have), and ambiguous (otherwise
+questionable annotations such as action ﬁgures not annotated as people, reﬂections of
+object not annotated, etc.).
+We summarize our ﬁndings of the top 100 Mask R-CNN box errors for each error
+category in Tab. 5. Localization, both, and background errors all have a worrying number
+of misannotated GT, with the both error type having a whole two thirds of the 100 most
+conﬁdent as misannotated! Furthermore, simply forgetting to mark a crowd box as a
+crowd is a surprisingly common mistake that causes localization errors. This suggests
+that very simple steps can be taken to improve the quality of these annotations (just ﬁx
+this mislabeled crowds and draw crowds around those that don’t have them). This might
+be a good idea for future work to pursue.
+Another crucial note is that these missannotations exist in the training set too. This
+means for instance that all the boxes that should be marked as crowds but aren’t are
+being used in our models as training examples. Qualitatively, a common error detectors
+make is when they lump two or more objects into the same detection. This type of error
+isn’t exclusive to one method (we’ve observed it in FCIS, Mask R-CNN, and YOLACT,
+which all are vastly different architectures). Perhaps this type of error is caused by bad
+training data. Certainly this type of misannotation seems very common, so we can’t
+really conﬁdently pin those types of errors as our detectors’ fault.
+Thus as a meta point, it’s really important that we be careful about how much we
+trust a dataset. Many errors could actually be a dataset’s fault and not a model’s fault,
+but it’s not very common to really explore the dataset when designing new architectures
+and testing on those datasets. We urge researchers in machine learning to not treat their
+datasets as black box benchmarks, since in many aspects the dataset matters as much as
+the method.

@@ -1,0 +1,101 @@
+Figure 5. Expected pedestrian bounding box size learned as a re-
+gression function between y location in the image and height of a
+detected pedestrian at that location.
+scale at which to expect detections is helpful, yet even this
+small amount of information is scene speciﬁc and trouble-
+some to set by hand.
+When camera calibration information is available, ex-
+pected size effects can be computed automatically; how-
+ever, calibration information is often not available. Some
+previous works have used apriori pedestrian height distribu-
+tions to estimate camera calibration information from noisy
+pedestrian detections [ 13, 18]. In our work, we employ
+a simple online learning approach that learns a regression
+function on expected bounding box height versus location
+in the image from a set of detections of pedestrians at dif-
+ferent locations in images taken from a stationary camera
+view. Figure 5 shows a sample plot comparing image y lo-
+cation with height of detected boxes in the image. When
+there are multiple heights of people observed over many
+different image locations, we can compute an approximate
+expected height model from this data. The light blue line is
+a quadratic regression function learned for one frame only,
+while the dark blue line is the height approximation found
+using data acquired over several frames. These approxi-
+mation curves could be used to identify outlier detections,
+represented by green dots, that do not have an appropriate
+size. However, rather than apply a hard threshold to ﬁlter
+improperly sized detections, we reduce unary conﬁdence
+scores according to the dissimilarity between a candidate
+bounding box scale and the expected detection height at that
+location. The detection conﬁdence score will be greatly re-
+duced when the detected box is much larger or smaller than
+the learned size estimate, reducing the chances that the can-
+didate will be kept in the solution vector returned by QUBO.
+3.2. Quadratic Unconstrained Binary Optimization
+Binary optimization is the problem of ﬁnding a binary
+vector x =[ x1,x 2,...,x n] that maximizes an objective
+function f (x). The objective function is typically repre-
+sented by a multi-linear polynomial expression of degree
+of 1 (linear), 2(quadratic) or possibly higher order. In this
+work, we use the quadratic objective function
+f (x)=
+n∑
+i=1
+n∑
+j=1
+cijxixj +
+n∑
+i=1
+cixi (2)
+where xi ∈{0, 1},i =1 ,...,n are the binary variables to
+be solved for, ci aren unary coefﬁcients, and cij areO(n2)
+pairwise coefﬁcients. The goal is to assign 0,1 values to
+eachxi in a way that maximizes the objective f (x). Noting
+that xi = x2
+i for binary variables, we can combine all the
+coefﬁcients ci and ci,j into a single square matrix Q and
+solve the binary integer maximization
+max
+x∈ Bn
+f (x)=m a x
+x∈ Bn
+x′Qx (3)
+The resulting Quadratic Unconstrained Binary Optimiza-
+tion (QUBO) problem is known to be NP-hard [ 17].
+3.2.1 Objective Function
+The quadratic objective function in Eq. 2 is computed by
+combining unary and pairwise terms. Each unary score ci
+is a measure of conﬁdence that candidate xi represents a
+person, while the pairwise scores ci,j penalize excessive
+overlap between pairs of candidates. These pairwise terms
+are based on the overlap ratio , computed as the intersec-
+tion area (in pixels) of two overlapping shapes, divided by
+the area of the smaller one. If there is only a small overlap
+penalty, it might be reasonable to keep both candidates. On
+the other hand, if there is a large overlap, a higher penalty is
+applied, and it is probably better to keep only one of them.
+Figure 6 presents an example of objective function com-
+putation. The three elliptically shaped candidates from left
+to right have unary values 3425, 4412 and 3658 computed
+from Eq. 1. For each pair of distinct overlapping candi-
+datesxi andxj , the overlap penalty ci,j (xi,x j ) is -4594 for
+shapes x1 and x2, -1998 for shapes x1 and x3, and -3432
+for shapes x2 and x3. From Eq. 3, we want to ﬁnd a maxi-
+mal value of x′Qx with the constraint that x =[ x1,x 2,x 3]
+can take only binary values. We ﬁnd that the optimal so-
+lution [1, 0, 1] speciﬁes that candidates x1 and x3 should
+be kept, while candidate x2 should be discarded. Note that
+if we applied a traditional, greedy non maximum suppres-
+sion approach where the candidate with highest conﬁdence
+score is chosen and overlapping candidates of lesser score
+are suppressed, we would have chosen to keep only the mid-
+dle candidate x2, while suppressing the other two.
+In general, the matrixQ in the objective function of Eq. 3
+can be formed as
+Q = w1 U −w2 P (4)
+where U is a diagonal unary score matrix, P is the pair-
+wise score matrix (overlap ratios), and w1,w 2 are relative
+3691
+3691
+3693

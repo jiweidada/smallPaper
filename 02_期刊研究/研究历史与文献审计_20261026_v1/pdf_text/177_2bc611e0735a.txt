@@ -1,0 +1,191 @@
+Enhancing Small Object Detection in Resource-Constrained ARAS Using
+Image Cropping and Slicing Techniques
+Chinmaya Kaundanya1
+ a, Paulo Cesar2
+ b, Barry Cronin2
+ c, Andrew Fleury2
+ d,
+Mingming Liu1
+ e and Suzanne Little1
+ f
+1Research Ireland Insight Centre for Data Analytics, Dublin City University, Ireland
+2Luna Systems, Dublin, Ireland
+chinmaya.kaundanya3@mail.dcu.ie, {paulo.cesar, barry.cronin, andrew.fleury}@luna.systems,
+ 
+Keywords: Small Object Detection, ARAS, Micromobility, Image Pre-Processing.
+Abstract: Powered two-wheelers, such as motorcycles, e-bikes, and e-scooters, exhibit disproportionately high fatality
+rates in road traffic incidents worldwide. Advanced Rider Assistance Systems (ARAS) have the potential to
+enhance rider safety by providing real-time hazard alerts. However, implementing effective ARAS on the
+resource-constrained hardware typical of micromobility vehicles presents significant challenges, particularly
+in detecting small or distant objects using monocular cameras and lightweight convolutional neural networks
+(CNNs). This study evaluates two computationally efficient image preprocessing techniques aimed at improv-
+ing small and distant object detection in ARAS applications: image center region-of-interest (ROI) cropping
+and image slicing and re-slicing. Utilizing the YOLOv8-nano object detection model at relatively low in-
+put resolutions of 160×160, 320×320, and 640×640 pixels, we conducted experiments on the VisDrone and
+KITTI datasets, which represent scenarios where small and distant objects are prevalent. Our results indi-
+cate that the image center ROI cropping technique improved the detection of small objects, particularly at a
+320×320 resolution, achieving enhancements of 6.67× and 1.27× in mean Average Precision (mAP) on the
+VisDrone and KITTI datasets, respectively. However, excessive cropping negatively impacted the detection
+of medium and large objects due to the loss of peripheral contextual information and the exclusion of objects
+outside the cropped region. Image slicing and re-slicing demonstrated impressive improvements in detecting
+small objects, especially using the grid-based slicing strategy on the VisDrone dataset, with an mAP increase
+of 2.24× over the baseline. Conversely, on the KITTI dataset, although a performance gain of 1.66× over the
+baseline was observed for small objects at a 320×320 resolution, image slicing adversely affected the detec-
+tion of medium and large objects. The fragmentation of objects at image slice borders caused partial visibility,
+which reduced detection accuracy. These findings contribute to the development of more effective and ef-
+ficient ARAS technologies, ultimately enhancing the safety of powered two-wheeler riders. Our evaluation
+code scripts are publicly accessible at: https://github.com/Luna-Scooters/SOD using image preprocessing.
+1 INTRODUCTION
+Micromobility refers to lightweight, usually electric,
+vehicles such as e-scooters and e-bikes, designed for
+short-distance travel in urban areas. The rise of these
+new transportation modes, particularly e-scooters, has
+introduced significant safety challenges that compli-
+a
+ https://orcid.org/0009-0007-4046-5936
+b
+ https://orcid.org/0009-0000-7171-499X
+c
+ https://orcid.org/0009-0008-5720-8941
+d
+ https://orcid.org/0009-0003-6916-6770
+e
+ https://orcid.org/0000-0002-8988-2104
+f
+ https://orcid.org/0000-0003-3281-3471
+cate their integration into urban environments. The
+growing popularity of e-scooters has been accompa-
+nied by a sharp increase in related injuries and fatali-
+ties. In the United States, between 2017 and 2021, in-
+juries associated with micromobility vehicles surged
+by 127%, reaching 77,200 incidents (Chen et al.,
+2024). Similarly, in 2023, police in Germany reported
+9,425 e-scooter accidents, a 14.1% increase from the
+previous year’s 8,260, with the number of fatalities
+from micromobility-related road accidents doubling
+compared to 2022. In Paris, e-scooters were used for
+around 20 million trips on 15,000 rental scooters in
+2022, yet the city recorded 459 accidents involving
+570
+Kaundanya, C., Cesar, P ., Cronin, B., Fleury , A., Liu, M. and Little, S.
+Enhancing Small Object Detection in Resource-Constrained ARAS Using Image Cropping and Slicing T echniques.
+DOI: 10.5220/0013190400003912
+Paper published under CC license (CC BY -NC-ND 4.0)
+In Proceedings of the 20th International Joint Conference on Computer Vision, Imaging and Computer Graphics Theory and Applications (VISIGRAPP 2025) - Volume 3: VISAPP , pages
+570-583
+ISBN: 978-989-758-728-3; ISSN: 2184-4321
+Proceedings Copyright © 2025 by SCITEPRESS – Science and T echnology Publications, Lda.
+
+
+---PAGE---
+
+these vehicles or similar micromobility devices, in-
+cluding three fatal incidents (dwG, 2024).
+Advanced Rider Assistance Systems (ARAS) are
+designed to enhance the safety of powered two-
+wheelers, such as motorcycles, scooters, and micro-
+mobility vehicles. These systems integrate a combi-
+nation of sensors, advanced algorithms, and connec-
+tivity features to assist riders in diverse traffic situ-
+ations, aiming to reduce accidents and improve the
+overall riding experience (Ait-Moula et al., 2024).
+The majority of ARAS systems offer applications
+such as vehicle collision warning, blind spot de-
+tection, Acitive Cruise Control et cetera (Ait-Moula
+et al., 2024). Unlike ARAS, Advanced Driver As-
+sistance Systems (ADAS) are developed for four-
+wheeled vehicles, which have the capacity and com-
+putational resources to accommodate and power so-
+phisticated hardware optimized for complex artificial
+intelligence (AI) models.
+ADAS hardware platforms are varied, rang-
+ing from complex multiprocessor system-on-chip
+(MPSoC) CPUs to traditional microcontroller units
+(MCUs), digital signal processors (DSPs), and spe-
+cialized hardware like field-programmable gate ar-
+rays (FPGAs), application-specific integrated cir-
+cuits (ASICs), or dedicated GPU platforms such as
+NVIDIA’s Tegra and Jetson families. Due to the
+resource-constrained environment of micromobility
+vehicles, implementing AI-based ARAS necessitates
+the use of low-compute hardware platforms. As a re-
+sult, there is a trade-off between the complexity of
+the models implemented and the hardware platform,
+which impacts performance metrics including func-
+tional accuracy, energy consumption, and process-
+ing speed (latency and throughput) (Borrego-Carazo
+et al., 2020).
+ARAS typically consist of monocular cameras,
+multi-camera setups, or multi-sensor fusion systems,
+and can operate in either active or passive modes. In
+this study, we consider a monocular camera-based,
+passive ARAS that utilizes a low-specification hard-
+ware platform running a two-dimensional (2D) ob-
+ject detection convolutional neural network (CNN)
+model. This system alerts riders to potential headway-
+monitoring events involving objects approaching
+from the front, where a headway monitoring warn-
+ing is triggered when the distance to the vehicle
+ahead becomes unsafe and more distancing is re-
+quired. The standard procedure for deploying such
+an ARAS involves mounting the camera at a fixed
+position on the vehicle and calibrating it to map the
+three-dimensional (3D) world coordinates to the two-
+dimensional (2D) image coordinate system. A cru-
+cial component of this is the object detection model,
+which is then used by an object tracking algorithm
+that monitors objects over time to determine their dis-
+tance and velocity based on predefined rules. Since
+the ARAS system relies on the initial detection of ob-
+jects by the model, early detection accuracy is vital to
+the overall performance of the system.
+Considering huge advancements in the object de-
+tection field, CNN models exhibit impressive perfor-
+mance with affordable computational requirements,
+making them suitable for resource-constrained de-
+vices. However, detecting small or distant objects
+remains a major challenge compared to objects of
+conventional scale. Small objects occupy fewer pix-
+els and contain less information, resulting in sub-
+stantially lower detection performance. The com-
+mon challenges associated with small object detec-
+tion include: (1) insufficient feature representation
+from individual layers in basic CNNs for small ob-
+jects; (2) a lack of contextual information necessary
+for accurate detection; (3) an imbalance between fore-
+ground and background training examples that com-
+plicates classification; and (4) a scarcity of positive
+training examples for small objects (Liu et al., 2021).
+In ARAS applications on resource-constrained plat-
+forms, significant computational limitations make it
+crucial to balance the trade-off between required la-
+tency and the accuracy of object detection models.
+Low-specification platforms, such as microcontrollers
+with limited memory, are unable to support advanced
+object detection algorithms or process high-resolution
+images, which exacerbates the difficulty of detecting
+small or distant objects.
+To address this challenge, we evaluate two image
+preprocessing techniques: (1) image center region-of-
+interest (ROI) cropping and (2) image slicing and re-
+slicing, using the KITTI (Geiger et al., 2013) and Vis-
+Drone (Du et al., 2019) datasets. The motivation for
+employing these techniques is to enhance the model’s
+performance in detecting small or distant objects by
+introducing computationally inexpensive operations
+as an image preprocessing step during model infer-
+ence. Experiments are conducted using the YOLOv8-
+nano (Jocher et al., 2023) model with input image
+resolutions of 160×160, 320×320, and 640×640. In
+this study, we adopt the definition of small objects as
+specified in the MS COCO (Lin et al., 2014) evalua-
+tion metrics: objects with bounding boxes occupying
+areas less than or equal to 32×32 pixels are classi-
+fied as “small,” those up to 96×96 pixels are consid-
+ered “medium,” and large objects exceed these dimen-
+sions. These size thresholds are widely recognized
+within the community for datasets involving common
+objects. The initial experiments are performed on the
+VisDrone dataset to validate the effectiveness of the
+Enhancing Small Object Detection in Resource-Constrained ARAS Using Image Cropping and Slicing Techniques
+571

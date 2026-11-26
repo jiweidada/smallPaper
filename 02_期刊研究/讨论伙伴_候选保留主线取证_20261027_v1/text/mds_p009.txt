@@ -1,0 +1,66 @@
+Authoret al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+FIGURE 4: Qualitative results on COCOval2017instance segmentation with a ResNet-50 backbone.
+to-many predictions with NMS yields better results than the
+final output [2], [7], [29]. Notably, the final output of MDS-
+DETR outperforms any intermediate one-to-many layer even
+when NMS is applied. Furthermore, it does not benefit
+from NMS, even its performance slightly degrades. Unlike
+NMS, our MDS module does not rely on hand-crafted post-
+processing. Instead, it naturally learns duplicate suppression
+from one-to-one matching supervision in an end-to-end man-
+ner. This allows MDS-DETR to achieve higher precision,
+particularly on strict metrics such as AP75 and APS.
+F . INSTANCE SEGMENTATION
+We evaluate an extended version of our MDS-DETR for
+instance segmentation by attaching an additional mask pre-
+diction head, while keeping the original one-to-one or one-
+to-many matching strategy unchanged. As shown in Table 9,
+our MDS-DETR consistently outperforms MR.DETR under
+both the 12-epoch and 24-epoch training schedules. Notably,
+while MR.DETR applies instance mask supervision across
+all three decoders with extra complexity, our model achieves
+large gains in both box mAP and mask mAP while main-
+taining nearly the same training cost as the Deformable-
+DETR baseline. This demonstrates the effectiveness of our
+suppression-aware design, even when extended to dense pre-
+diction tasks like instance segmentation.
+VI. CONCLUSION
+To better exploit one-to-many supervision in DETR-based
+detectors, we explored a strategy that blends both one-to-
+many and one-to-one supervision within a single decoder.
+At the core of this approach is the proposed Masked Dupli-
+cate Suppressor (MDS), which effectively bridges the gap
+between one-to-many and one-to-one predictions through
+an asymmetric, confidence-based masking mechanism. Our
+experiments demonstrate that MDS-DETR not only improves
+detection performance, but also offers a simple yet effective
+pipeline that eliminates the need for auxiliary decoders and
+queries, significantly reducing training cost. Despite these
+advantages, MDS-DETR still has room for improvement. For
+instance, integrating techniques such as query denoising or
+mixed query selection into our pipeline is non-trivial due to
+its structural differences. We leave the extension of MDS-
+DETR to DINO or other DETR variants as our future work.
+ACKNOWLEDGMENT
+This work was partly supported by Center for Applied Re-
+search in Artificial Intelligence (CARAI) grant funded by
+Defense Acquisition Program Administration (DAPA) and
+Agency for Defense Development (ADD) (UD230017TD)
+and a grant of the Korea Health Technology R&D Project
+through the Korea Health Industry Development Institute
+(KHIDI), funded by the Ministry of Health & Welfare, Re-
+public of Korea (grant number: RS-2022-KH129703).
+REFERENCES
+[1] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, and
+S. Zagoruyko, “End-to-end object detection with transformers,” in
+Computer Vision – ECCV 2020: 16th European Conference, Glasgow,
+UK, August 23–28, 2020, Proceedings, Part I. Berlin, Heidelberg:
+Springer-Verlag, 2020, p. 213–229. [Online]. Available: https://doi.org/
+10.1007/978-3-030-58452-8_13
+[2] D. Jia, Y . Yuan, H. He, X. Wu, H. Yu, W. Lin, L. Sun, C. Zhang, and
+H. Hu, “Detrs with hybrid matching,” in Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition (CVPR), June
+2023, pp. 19 702–19 712.
+[3] Q. Chen, X. Chen, J. Wang, S. Zhang, K. Yao, H. Feng, J. Han, E. Ding,
+G. Zeng, and J. Wang, “Group detr: Fast detr training with group-wise
+VOLUME 4, 2016 9

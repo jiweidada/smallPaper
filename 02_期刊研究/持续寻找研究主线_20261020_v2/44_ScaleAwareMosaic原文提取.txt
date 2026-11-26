@@ -1,0 +1,922 @@
+Article
+
+Scale-Aware Mosaic Augmentation and GSIoU-Based Varifocal
+Loss for Robust Object Detection Under Scale Imbalance
+Gyeongseo Kim 1, Jeonghyeon Kim 1, Sounghwan Hwang 2 and Han Sol Kim 1,*
+
+                                         1 Department of Electronics and Electrical Engineering, Dankook University, 152 Jukjeon-ro, Suji-gu,
+                                           Yongin-si 16890, Gyeonggi-do, Republic of Korea; gingseo@dankook.ac.kr (G.K.);
+                                           jeongh@dankook.ac.kr (J.K.)
+                                         2 School of Aeronautics and Astronautics, Purdue University, West Lafayette, IN 47907, USA;
+
+                                           hwang214@purdue.edu
+                                         * Correspondence: hansol@dankook.ac.kr
+
+
+                                         Abstract
+                                         The performance of deep learning-based object detection methods is heavily dependent
+                                         on the characteristics of training data. However, real-world detection datasets often
+                                         exhibit severe imbalance in object-scale distributions, resulting in insuﬃcient supervision
+                                         for object sizes with limited instances. To address this issue, we propose a scale-aware
+                                         mosaic augmentation algorithm and a generalized scale-adaptive intersection over union
+                                         (GSIoU)-based varifocal loss (VFL) function. The proposed scale-aware mosaic
+                                         augmentation method alleviates object-scale imbalance by explicitly regulating scale
+                                         distributions during training sample construction, overcoming the tendency of
+                                         conventional mosaic augmentation to preserve inherent dataset imbalance. Furthermore,
+                                         to handle the limitation of existing IoU-based quality targets that impose relatively large
+                                         penalties for small objects, we replace the localization quality target in VFL with GSIoU,
+                                         thereby enabling more consistent classification performance across object scales. We
+                                         evaluate the eﬀectiveness of the proposed method by applying the proposed method to
+                                         RT-DETRv2 and conducting experiments on the HRSC2016-MS dataset. Experimental
+                                         results demonstrate that the proposed method improves the overall average precision
+                                         (AP) by 1.11AP over the baseline, with a particularly notable improvement of 16.43AP in
+                                         small-object average precision, confirming that the proposed approach achieves balanced
+                                         detection performance across object scales.
+
+                                         Keywords: object detection; scale imbalance; data augmentation; mosaic augmentation;
+                                         varifocal loss; small object detection
+
+
+Academic Editor: Yue Wu
+
+Received: 27 January 2026                1. Introduction
+Revised: 19 February 2026
+                                               Object detection is a fundamental task in computer vision and has been widely
+Accepted: 2 March 2026
+                                         adopted across a variety of real-world applications, including autonomous driving, video
+Published: 4 March 2026
+                                         surveillance, and satellite imagery interpretation. According to recent studies (see, e.g.,
+Copyright: © 2026 by the authors.
+                                         [1]), the performance of deep learning-based detectors exhibits a logarithmic relationship
+Licensee MDPI, Basel, Switzerland.
+                                         with respect to the amount of training data, such that increasing the size of training data
+This article is an open access article
+distributed under the terms and
+                                         consistently leads to better generalization and overall accuracy. In addition to the amount
+conditions of the Creative Commons       of training data, distributional bias in training data can significantly degrade detection
+Attribution (CC BY) license.             performance. Accordingly, data imbalance has been widely studied in object detection,
+
+
+
+
+Electronics 2026, 15, 1075                                                                                  https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                      2 of 18
+
+
+
+
+                             particularly under the class long-tailed learning paradigm [2–4]. However, real-world
+                             detection datasets often exhibit long-tailed distributions arising not only from instance
+                             category frequency but also from factors such as object scale and data acquisition
+                             conditions. In particular, satellite and aerial imagery contain objects with substantial size
+                             variation, ranging from large structures such as ships to small targets like vehicles,
+                             resulting in highly imbalanced object size distributions. Despite its practical relevance,
+                             object size imbalance received limited attention compared to other forms of data
+                             imbalance in object detection.
+                                  Objects of diﬀerent sizes present diﬀerent visual attributes and have a direct impact
+                             on detection performance. Figure 1a illustrates the object-scale distribution of the
+                             HRSC2016-MS dataset [5]. As shown in the figure, large-scale objects constitute the
+                             majority of annotated instances, while small-scale objects appear far less frequently.
+                             Consequently, small objects contribute less to the training process, receiving fewer and
+                             weaker supervision signals. A sample image from the HRSC2016-MS dataset is given in
+                             Figure 1b, where ground-truth bounding boxes are visualized using diﬀerent colors
+                             according to the COCO benchmark [6] scale definitions. From the figure, it can be
+                             observed that objects with significantly diﬀerent spatial extents coexist within a single
+                             image, which results in diﬃculty learning scale-invariant feature representations.
+
+
+
+
+                             Figure 1. (a) Object-scale distribution of the HRSC2016-MS dataset, where instances are grouped by
+                             bounding box area into scales. (b) Example image from the HRSC2016-MS dataset illustrating objects
+                             at different scales. The bounding boxes were classified into three colors according to the object size.
+
+                                  To address scale variation, prior work has explored various strategies, including data
+                             augmentation techniques such as mosaic [7], crop, and multi-scale training [8], to enhance
+                             scale diversity. In parallel, architectural modifications, such as feature pyramid networks
+                             [9] and multi-resolution feature representations [10], have been proposed to better capture
+                             objects at diﬀerent scales. While these approaches have demonstrated eﬀectiveness in
+                             improving overall detection performance, they do not explicitly address the underlying
+                             imbalance in object size distributions present in real-world datasets. As a result,
+                             insuﬃciently sampled objects receive weaker supervision during training, and this
+                             limitation disproportionately aﬀects small objects.
+                                  In addition to the scale imbalance in the dataset, detecting small objects is also
+                             challenging because it occupies only a limited number of pixels relative to the overall
+                             image resolution. Therefore, small objects are inherently sensitive to annotation noise and
+                             matching errors during training. Compared to large objects, even minor localization
+                             inaccuracies can result in substantial relative misalignment for small objects, leading to
+                             unstable positive sample assignment and weakened supervision signals. Motivated by
+                             this concern, several IoU variants have been proposed to provide more informative
+
+                                                                                             https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                               3 of 18
+
+
+
+
+                             localization supervision for small objects. In [11], a scale-adaptive IoU (SIoU) was
+                             proposed to be less sensitive to object scale by incorporating object size into the IoU
+                             formulation through a scale-adaptive exponent. By adopting such an IoU formulation,
+                             objects of diﬀerent sizes can contribute more evenly to model training. For datasets
+                             containing objects of varying sizes, it is important to employ a scale-insensitive IoU in the
+                             loss function to ensure robust small-object detection.
+                                   Based on the above analysis, we propose a novel data augmentation method and an
+                             improved loss function designed to achieve robust object detection performance under
+                             scale imbalance. The main contributions of this paper include the following aspects:
+                             •    We propose the scale-aware mosaic algorithm, a novel mosaic data augmentation
+                                  that considers object size distributions during training sample construction.
+                             •    We introduce a GSIoU-based VFL that alleviates scale-dependent IoU penalties
+                                  under identical localization errors, leading to more consistent localization-aware
+                                  supervision in VFL.
+                             •    We apply the proposed method to the existing RT-DETRv2 [12] framework and
+                                  demonstrate consistent performance improvements across object scales on multiple
+                                  benchmarks, with particularly notable gains for small objects.
+                                  The rest of this paper is organized as follows: First, a brief review of related work is
+                             presented in Section 2. Next, Section 3 provides a detailed description of the proposed
+                             method. Experimental evaluations on the HRSC2016-MS dataset are reported in Section
+                             4. Finally, the paper concludes with a summary of the paper in Section 5.
+
+                             2. Related Works
+                             2.1. Challenges of Object Scale in Detection
+                                  In the COCO detection benchmark [6], object sizes are defined based on the bounding
+                             box area measured in pixels, where small objects have an area smaller than 32 × 32 ,
+                             medium objects fall between 32 × 32 and 96 × 96 , and large objects exceed 96 × 96 .
+                             Object detection performance is strongly influenced by object scale and its distribution, as
+                             objects of diﬀerent sizes contribute unevenly to training and optimization. Objects from
+                             sparsely populated size ranges contribute less to the training process, leading to limited
+                             performance gains.
+                                  In addition to this, small objects are inherently more sensitive to spatial perturbations
+                             introduced by annotation noise and localization inaccuracies [13]. This leads to substantial
+                             degradation in overlap-based matching, regression targets, and evaluation metrics that
+                             depend on spatial alignment. As a result, small objects are less likely to produce reliable
+                             positive samples during training, further weakening their supervision signals [14]. In
+                             contrast, objects with large areas tend to exert a disproportionate influence on the training
+                             process, biasing optimization away from balanced learning across all objects. Large
+                             objects provide stronger and more stable positive supervision signals and dominate
+                             gradient updates, thereby biasing the optimization process toward larger object scales
+                             [15,16]. To mitigate these diﬃculties, existing research eﬀorts can be broadly categorized
+                             into two directions: (i) modifying the input image resolution or scale, and (ii) improving
+                             model architectures to enhance feature representations.
+                                  From the perspective of input scale manipulation, prior studies have investigated a
+                             variety of data augmentation strategies that adjust the eﬀective object size seen by the
+                             detector during training. Cropping-based augmentation strategies enlarge target objects
+                             within the input image, enabling them to occupy a greater spatial extent and thereby
+                             receive stronger and more focused supervision during training [17–20]. Along this line,
+                             YOLOv4 [7] introduces mosaic augmentation, which combines four diﬀerent images into
+                             a single composite image. By randomly scaling and arranging multiple images within a
+
+                                                                                      https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                               4 of 18
+
+
+
+
+                             single training sample, mosaic augmentation allows objects of diﬀerent sizes to be
+                             observed simultaneously. This strategy generally improves small-object detection
+                             performance by resizing objects to smaller scales through packing multiple images into a
+                             single input. YOLO9000 [8] introduced a multi-scale training strategy by randomly
+                             varying the input image resolution during training to improve robustness to scale
+                             variations, and it has been widely adopted and extended in subsequent YOLO-based
+                             detectors. Although these strategies increase scale diversity through data augmentation,
+                             they largely preserve the inherent imbalance in object-scale distribution and therefore do
+                             not explicitly address scale distribution imbalance at the dataset level.
+                                  In contrast, other works have been carried out to improve multi-scale object detection
+                             performance by modifying the model architecture itself, explicitly enhancing feature
+                             representations across diﬀerent spatial resolutions. This enables objects of varying sizes
+                             to be handled within a unified framework [21,22]. Pyramid-based architectures improved
+                             cross-scale feature fusion to strengthen information flow between low-level spatial details
+                             and high-level semantic representations by adopting top-down pathways, lateral
+                             connections, and bidirectional fusion mechanisms [8,9,23,24]. Beyond feature fusion,
+                             several studies explicitly model scale diversity within the backbone or neck by modifying
+                             receptive fields or branch structures. TridentNet [25] introduces a multi-branch backbone
+                             architecture in which parallel branches share the same weights but employ diﬀerent
+                             dilation rates, thereby generating scale-specific feature maps with matched receptive
+                             fields for objects of diﬀerent sizes. In [26], scale-aware modeling strategies are explored to
+                             improve robustness under fine-grained variations in signal-based regression tasks.
+                             SCAFNet [27] proposed a CNN–transformer hybrid network to enhance robustness under
+                             scale-related feature inconsistencies by compensating semantic discrepancies between
+                             local and global representations through adaptive feature fusion. Recently, CNN layers
+                             have been incorporated into transformer architectures to improve multiscale feature
+                             representation and enhance robustness under scale variations [28]. Although these
+                             architectural refinements primarily enhance feature representation across scales, the
+                             underlying imbalance in scale-wise supervision signals remains unaddressed. This
+                             limitation leads to fewer eﬀective supervision signals for objects from underrepresented
+                             object scales during training, thereby biasing the optimization process toward dominant
+                             scales.
+
+                             2.2. Localization-Aware Classification
+                                  RT-DETR [29] is a real-time end-to-end object detector built upon the DETR [30]
+                             architecture, which has been widely adopted and extended in subsequent real-time
+                             detection research. One of the key contributions of RT-DETR is the introduction of
+                             uncertainty-minimal query selection mechanism, which explicitly considers both
+                             classification confidence and localization quality when selecting encoder features as object
+                             queries. When DETR-based detectors employ encoder feature selection, existing query
+                             selection methods primarily rely on classification confidence, while localization quality is
+                             not explicitly considered. Unlike conventional query selection strategies, RT-DETR
+                             integrates localization information into the classification objective by adopting VFL [31].
+                             Therefore, the classification scores are influenced not only by classification confidence but
+                             also by the degree of spatial alignment between predicted and ground-truth boxes. After
+                             the success application in RT-DETR, this kind of classification loss design has been widely
+                             adopted in subsequent object detection studies [32–34].
+                                  VFL is an extension of the focal loss function [35], introduced to mitigate the adverse
+                             eﬀect of an overwhelming number of easy negative samples during training. It assigns the
+                             IoU between the predicted and the ground-truth bounding boxes as a quality target for
+                             positive samples, aligning classification confidence with localization quality.
+
+                                                                                      https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                5 of 18
+
+
+
+
+                                  The loss formulation is given as follows:
+                                                              −𝑞 𝑞log 𝑝 + 1 − 𝑞 log 1 − 𝑝              𝑞>0
+                                               VFL 𝑝, 𝑞 =
+                                                              −𝛼𝑝 log 1 − 𝑝                            𝑞 = 0,
+                             where 𝑝 ∈ 0,1 represents the predicted probability for the foreground class, and 𝑞 ∈
+                             [0,1] indicates the IoU between the predicted bounding box and the ground-truth box.
+                             The parameter 𝛾 controls the balance between easy and hard samples, while 𝛼 adjusts
+                             the weighting between foreground and background samples.
+                                   Although IoU serves as a key component in VFL, its use introduces inherent
+                             limitations. Conventional IoU assigns zero to non-overlapping boxes regardless of their
+                             spatial distance, failing to penalize larger localization errors more severely. Moreover, IoU
+                             is highly sensitive to object scale, causing small objects to receive disproportionately large
+                             penalties for the same localization error. These issues hinder the achievement of scale-
+                             robust detection performance.
+
+                             2.3. Overlap-Based Localization Metrics
+                                  IoU is the most widely used metric for measuring the spatial alignment between
+                             predicted and ground-truth bounding boxes in object detection. It is defined as the ratio
+                             between the area of intersection and the area of union of two boxes. Owing to its simplicity
+                             and clear geometric interpretation, IoU-based losses have become a standard component
+                             in modern object detectors. However, when predicted and ground-truth boxes do not
+                             overlap, IoU yields zero values and fails to provide informative gradient signals,
+                             regardless of their relative spatial distance or configuration.
+                                  To address this issue, generalized intersection over union (GIoU) [36] was proposed
+                             as an extension of IoU that incorporates the spatial enclosure between two boxes. GIoU
+                             leverages the area of the smallest enclosing box to quantify how far the predicted and
+                             ground-truth boxes are separated when they do not overlap. As a result, GIoU provides
+                             meaningful gradients even when boxes do not overlap, enabling the loss function to
+                             encode relative spatial distance and enclosure relationships. The mathematical definition
+                             of GIoU is defined as [33]:
+                                                                              |𝐶| − |𝐴 ∪ 𝐵|
+                                                               GIoU = IoU −                 ,
+                                                                                   |𝐶|
+                             where 𝐴 and 𝐵 denote the predicted and ground-truth bounding boxes, and 𝐶
+                             represents the smallest enclosing box that fully contains both 𝐴 and 𝐵 . This property
+                             significantly improves optimization stability under zero-overlap conditions and has led
+                             to its adoption in bounding box regression losses across various detection frameworks.
+                                   Scale-adaptive intersection over union (SIoU) [11] was proposed to address the
+                             inherent scale sensitivity of IoU, which disproportionately penalizes localization errors
+                             for small objects. More specifically, SIoU introduces a scale-adaptive formulation that
+                             rescales the IoU value using a scale-dependent exponent, thereby adjusting the similarity
+                             measure according to object scale. Given a predicted bounding box 𝑏 and a ground-
+                             truth box 𝑏 , SIoU is defined as [11]:
+                                                               SIoU 𝑏 , 𝑏   = IoU 𝑏 , 𝑏
+                             where the exponent 𝑝 is a function of the object size and is defined as:
+
+                                                                                𝑤 ℎ +𝑤 ℎ
+                                                            𝑝 = 1 − 𝛾 exp −                     .
+                                                                                   √2𝜅
+                                 Here, 𝑤 and ℎ denote the width and height of box 𝑏 , while 𝛾 and 𝜅 are
+                             hyperparameters controlling the strength and decay rate of the scale adaptation. This
+
+
+                                                                                       https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                   6 of 18
+
+
+
+
+                             formulation allows SIoU to be more tolerant to localization errors for small objects while
+                             gradually recovering the behavior of standard IoU for larger objects.
+                                  While SIoU eﬀectively addresses scale sensitivity in overlapping cases, it inherits a
+                             limitation from IoU when predicted and ground-truth boxes do not overlap. To overcome
+                             this issue, SIoU is further extended by incorporating GIoU, which is particularly
+                             important for small objects that are more prone to non-overlapping predictions due to
+                             their limited spatial extent. GSIoU [11] is then proposed by applying the same scale-
+                             adaptive exponent to the GIoU value, as formulated below:
+                                                                   GIoU 𝑏 , 𝑏                𝑖𝑓 GIoU 𝑏 , 𝑏        0
+                                                GSIoU 𝑏 , 𝑏    =
+                                                                   −|GIoU 𝑏 , 𝑏 |            𝑖𝑓 GIoU 𝑏 , 𝑏        0
+                                 By combining scale adaptivity with the non-overlapping sensitivity of GIoU, GSIoU
+                             provides more informative supervision across all spatial configurations. As illustrated in
+                             Figure 2, GSIoU alleviates the disproportionate penalization imposed on small objects for
+                             identical localization.
+
+
+
+
+                             Figure 2. The sensitivity analysis of IoU on large and small objects. The box A (red) denotes the
+                             ground truth bounding box, and the boxes B (orange) and C (green) denote the predicted bounding
+                             box with 1 pixel and 3 pixels of diagonal deviation respectively.
+
+
+                             3. Proposed Method
+                                 The proposed method consists of two main components: a scale-aware mosaic
+                             augmentation strategy that balances the scale distribution of the dataset, and a GSIoU-
+                             based VFL that improved localization quality of classification loss for small objects.
+
+                             3.1. Scale-Aware Mosaic Augmentation
+                                  In this paper, we propose a scale-aware mosaic augmentation strategy shown in
+                             Figure 3. This strategy retains the standard mosaic construction pipeline but explicitly
+                             controls the scale distribution. The proposed mosaic algorithm consists of the following
+                             four processing steps:
+                                  In Step 1, all training and test images are resized to match the model’s input
+                             resolution, and the corresponding ground-truth bounding boxes are also rescaled
+                             accordingly.
+                                  In Step 2, each object is categorized as small, medium, or large based on the area of
+                             its ground-truth bounding box according to the COCO detection benchmark [6]. The
+                                                                                          https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                    7 of 18
+
+
+
+
+                             number of objects in each scale group is counted, and the maximum object count among
+                             the three scales is selected as the 𝑁       .
+                                  In Step 3, an image that contains an object in the scale group whose object count has
+                             not yet reached the 𝑁           is selected. Then, a patch with a size equal to half of the
+                             model’s input resolution is cropped, with the selected object placed near the center of the
+                             patch using positional jittering. After patch cropping, annotations that are excessively
+                             truncated within the patch are discarded. That is, bounding boxes whose remaining
+                             visible area or width or height in the cropped region falls below a predefined threshold
+                             are removed to prevent noisy supervision and unstable training. Examples of bounding
+                             boxes filtered out by this procedure are shown in Figure 4. Also, patches that contain
+                             objects belonging to scale groups that have already reached 𝑁             are identified as
+                             invalid patches and excluded from the candidate patch set. This invalid patch selection
+                             mechanism suppresses the selection probability of patches containing objects with
+                             suﬃcient counts and prevents overly aggressive augmentation during training.
+
+
+
+
+                             Figure 3. Overview of the proposed scale-aware mosaic augmentation algorithm. The generated
+                             mosaic images balance the object size distribution across the entire dataset.
+
+
+
+
+                             Figure 4. Examples of bounding box filtering cases. (a) A bounding box is filtered out due to the
+                             remaining visible area ratio falling below 30%. (b) A bounding box is filtered out due to the
+                             remaining bounding box width being less than 10 pixels.
+
+
+
+
+                                                                                           https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                       8 of 18
+
+
+
+
+                                  In Step 4, patches that were constructed in Step 3 are assembled into 2 × 2 mosaic
+                             images with a final resolution of 640 × 640 , with annotations adjusted accordingly.
+                             Mosaic construction is repeated until the object counts of all scale groups reach the 𝑁     .
+                                  In contrast to conventional mosaic augmentation, which passively inherits scale
+                             distributions from source images, our approach explicitly controls the scale distribution
+                             of training samples by regulating object selection during patch selection. By augmenting
+                             object samples belonging to underrepresented scale ranges, this strategy increases their
+                             eﬀective sampling frequency and thereby provides more balanced supervision during
+                             training. This strategy can be seamlessly integrated with any existing object detection
+                             frameworks. Moreover, since it is performed prior to training, it introduces no additional
+                             computation or memory overhead during the training process. The detailed procedure of
+                             the proposed scale-aware mosaic augmentation is summarized in Algorithm A1 in
+                             Appendix A.
+                                  Figure 5 compares the results of the conventional mosaic augmentation and the
+                             proposed method. While the conventional approach preserves the original object-scale
+                             distribution of the dataset, the proposed method explicitly constructs mosaic images by
+                             prioritizing underrepresented object scales, resulting in a more balanced scale distribution
+                             in the augmented samples.
+
+
+
+
+                             Figure 5. Comparison between traditional mosaic augmentation and the proposed scale-aware mosaic
+                             method. (a) Traditional mosaic augmentation follows the original object-scale distribution of the dataset,
+                             resulting in mosaics dominated by large objects. (b) The proposed method prioritizes underrepresented
+                             object scales, constructing mosaics with a higher proportion of medium and small objects.
+
+                             3.2. GSIoU-Based VFL
+                                  In this work, we improve VFL by replacing the IoU-based quality target with GSIoU
+                             [35] to achieve detection performance that is robust and invariant to object scale. By
+                             adopting GSIoU as the quality target, the classification branch can receive continuous and
+                             scale-adaptive supervision signals even when predicted and ground-truth boxes do not
+                             overlap. As GSIoU jointly encodes spatial enclosure and object-scale information, it allows
+                             the quality target to reflect both relative spatial proximity and scale-dependent tolerance,
+                             thereby alleviating excessive penalization of small objects. Consequently, classification
+                             confidence is more consistently aligned with localization quality across different object
+                             scales.
+
+
+                                                                                              https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                 9 of 18
+
+
+
+
+                                 As GIoU can take negative values when predicted and ground-truth boxes are far
+                             apart, directly using GSIoU as a quality target may lead to unstable supervision signals.
+                             To address this issue, we apply a linear normalization that maps GSIoU values from the
+                             range [−1, 1] to [0, 1], ensuring compatibility with the original VFL formulation. Using this
+                             mapping, the quality target 𝑞 used in VFL is reformulated as:
+                                                                            GSIoU + 1
+                                                                       𝑞=
+                                                                                2
+                                  By modifying only the definition of the quality target while preserving the original
+                             loss structure, the proposed GSIoU-based VFL provides more informative and stable
+                             supervision signals, leading to improved classification confidence and faster convergence
+                             without introducing additional parameters or computational overhead.
+
+                             4. Experiments
+                             4.1. Training Details
+                                  In the experiments, we apply the proposed method to RT-DETRv2 detection
+                             framework and train the model on the HRSC2016-MS dataset [5], which contains a single
+                             object category. The dataset consists of satellite images collected from diverse maritime
+                             scenes, including harbors and open sea areas, with targets ranging from large vessels to
+                             small boats. Since the dataset contains a single object category with a highly imbalanced
+                             scale distribution, it provides a controlled experimental setting in which the proposed
+                             method can be evaluated directly, without the influence of inter-class detection diﬃculty.
+                                  First, we apply the proposed scale-aware mosaic augmentation to the dataset to
+                             construct augmented training samples. As illustrated in Figure 6, the proposed
+                             augmentation rebalances the object-scale distribution by increasing the number of small-
+                             and medium-scale objects.
+
+
+
+
+                             Figure 6. Comparison of object count distributions across scales before and after applying the
+                             proposed scale-aware mosaic augmentation.
+
+                                  For the augmented dataset, the model is trained using the AdamW optimizer with a
+                             cosine learning rate scheduler with a flat warmup phase. In addition to the proposed
+                             augmentation method, we also apply the standard data augmentation techniques used in
+                             RT-DETRv2, including the data augmentation warmup strategy, along with multi-scale
+                             training with a base resolution of 640 × 640. In Step 3 of the proposed augmentation
+                             method, the visible area threshold is set to 0.3, and the minimum width and height are set
+                             to 10 pixels. The jittering range is defined as 0.2 of the patch size centered at the object. The
+                             hyperparameters of GSIoU are set to 𝛾 = 0 and 𝜅 = 64. All remaining hyperparameters,
+                             including optimizer settings and training configurations not explicitly mentioned above,
+                             follow the default settings of the original RT-DETRv2 implementation. To obtain scale-wise
+
+                                                                                        https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                 10 of 18
+
+
+
+
+                             performance metrics, we select the best checkpoint of each model based on the overall AP
+                             and re-evaluate it using the COCO benchmark protocol to compute metrics for small,
+                             medium, and large object scales. All training and inferences are performed on a single
+                             NVIDIA A6000 GPU with 49 GB of memory, using a batch size of 16. Since the proposed
+                             augmentation increases the total number of training samples, the amount of data processed
+                             per epoch also increases. Therefore, to ensure a fair comparison with the baseline, we report
+                             results based on a fixed number of training iterations rather than epochs.
+
+                             4.2. Comparisons with Original RT-DETRv2
+                                  We compared the proposed method with the baseline RT-DETRv2, and the results
+                             are summarized in Table 1. As shown in the table, it is notable that the proposed method
+                             improves the overall AP by 0.97 AP without introducing any additional model
+                             parameters. The improvement is particularly significant for small objects, where AP
+                             increases by 2.51 AP, corresponding to a 12.88% relative improvement. In addition to
+                             small objects, consistent performance gains were also observed for larger scales, with
+                             improvements of 0.85 AP for medium-scale objects and 0.75 AP for large-scale objects. As
+                             shown in Figure 7, the proposed method consistently outperforms RT-DETRv2
+                             throughout training and converges to its final performance with fewer iterations. This
+                             behavior is attributed to a more balanced object scale distribution in the training data,
+                             which facilitates more uniform learning across object sizes. This trend is particularly
+                             evident for small objects, indicating that the proposed method eﬀectively enhances
+                             supervision for underrepresented object scales and accelerates training, especially in the
+                             early stages of training. Figure 8 provides a qualitative comparison between the baseline
+                             and the proposed method. As shown in the figure, the proposed method more eﬀectively
+                             detects small objects, indicating improved detection capability for small-scale targets.
+
+
+
+
+                             Figure 7. Comparison of training convergence between RT-DETRv2 and the proposed method.
+                             While faster convergence is observed across all scales, the proposed method achieves substantially
+                                                                                         https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                 11 of 18
+
+
+
+
+                             higher and more stable performance on small objects, demonstrating its eﬀectiveness in handling
+                             scale imbalance during training.
+
+
+
+
+                             Figure 8. Qualitative comparison of detection results. (a) Baseline method. (b) Proposed method.
+                             The proposed method detects a larger number of small objects, demonstrating improved sensitivity
+                             to small-scale targets.
+
+                             Table 1. Comparison with real-time object detectors and end-to-end small-scale object detectors on
+                             the HRSC2016-MS dataset. The best results for each metric are highlighted in bold.
+
+                                    Model              #Params (M)          𝑨𝑷            𝑨𝑷𝒔            𝑨𝑷𝒎             𝑨𝑷𝒍
+                                  YOLOv8-M                 25.9            52.89         11.57           42.76          68.30
+                                   YOLOv8-L                43.7            53.09         12.05           42.77          68.71
+                                   YOLOv8-X                68.2            50.05         11.20           39.71          65.40
+                                  YOLOv10-M                15.4            47.03         8.84            37.81          61.59
+                                  YOLOv10-L                24.4            49.30         10.45           40.98          74.99
+                                  YOLOv10-X                29.5            50.05         14.24           40.26          64.88
+                                  YOLOv12-M                20.2            47.32         8.55            37.82          62.24
+                                  YOLOv12-L                26.4            45.26          9.16           35.51          60.59
+                                  YOLOv12X                 59.1            59.28         15.24           49.04          74.99
+                                  RT-DETRv2                42.7            62.22         19.48           53.32          76.63
+                                     Ours                  42.7            63.19         21.99           54.17          77.38
+
+                                  We performed an ablation study of the scale-aware mosaic augmentation and the
+                             GSIoU-based varifocal loss. The results are summarized in Table 2. Scale-aware mosaic
+                             augmentation adopts a data-level approach by restructuring the object-scale distribution,
+                             mitigating the issue that small objects are observed far less frequently than large objects
+                             in the training dataset. This eﬀectively encourages objects of all scales to participate in
+                             training with more balanced frequencies, resulting in the largest performance
+                             improvement of 1.09 AP for small objects. These results demonstrate that scale-aware
+                             mosaic augmentation eﬀectively addresses the structural imbalance caused by object-
+                             scale disparities. GSIoU-based VFL alleviates the limitation of IoU-based quality targets,
+                             where small objects receive disproportionately large penalties due to frequent non-
+                             overlapping predictions and localization errors. It provides a quality signal that reflects
+                             the relative spatial and scale relationships between objects, thereby delivering more
+                             uniform supervision in the classification branch. By integrating the GSIoU-based VFL, we
+                             can achieve an additional performance gain of 1.42 AP for small objects.
+
+
+
+
+                                                                                         https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                12 of 18
+
+
+
+
+                             Table 2. Analyzing the impact of each component on detection performance. The best results for
+                             each metric are highlighted in bold.
+
+                               Scale-Aware Mosaic              GSIoU-Based VFL         𝑨𝑷          𝑨𝑷𝒔        𝑨𝑷𝒎          𝑨𝑷𝒍
+                                                                                      62.22       19.48       53.32       76.63
+                                          🗸                                           63.21       20.57       60.13       77.70
+                                          🗸                            🗸              63.19       21.99       54.17       77.38
+
+                             4.3. Comparisons with Data Augmentation Methods
+                                  To further analyze the eﬀectiveness of the proposed scale-aware mosaic
+                             augmentation, we compare it with two alternative augmentation strategies: conventional
+                             mosaic augmentation and slice-aided fine-tuning (SF) [37] as summarized in Table 3. For
+                             the conventional mosaic setting, random cropped patches are combined in a 2 × 2 layout
+                             to generate the same number of augmented samples as the proposed method, and the
+                             resulting images are merged with the original dataset for training. The SF method extracts
+                             overlapping patches from each image to enlarge object instances during training, where
+                             the overlap ratio is set to 0.25 in our experiments.
+
+                             Table 3. Comparison of diﬀerent augmentation strategies on RT-DETRv2. The best results for each
+                             metric are highlighted in bold.
+
+                                        Method                       𝑨𝑷      𝑨𝑷𝒔     𝑨𝑹𝒔      𝑨𝑷𝒎     𝑨𝑹𝒎        𝑨𝑷𝒍       𝑨𝑹𝒍
+                                        Baseline                    62.22   19.48   45.31     53.32   69.11     76.63     84.91
+                                   Conventional mosaic              61.38   18.81   44.85     51.80   67.14     76.00     83.72
+                                         SF [36]                    63.77   21.27   49.89     53.50   69.75     78.70     86.48
+                                    Proposed method                 63.19   21.99   50.65     54.17   69.38     77.38     86.35
+
+                                  The conventional mosaic augmentation shows inferior performance across all
+                             metrics. This degradation results from the simple cropping strategy, which does not
+                             perform annotation filtering after patch extraction. Consequently, severely truncated
+                             objects or background-dominated patches remain in the training set, introducing noisy
+                             supervision and reducing learning eﬀectiveness.
+                                  Although the SF method achieves the highest overall AP, its performance gains are
+                             not uniformly distributed across object scales. In particular, improvements are more
+                             pronounced for large objects, while gains for small and medium objects remain relatively
+                             limited.
+                                  In contrast, the proposed method achieves more balanced improvements across
+                             object scales. Notably, it achieves the largest performance improvements on both small
+                             and medium objects, resulting in the most balanced detection performance across scales
+                             among the compared methods. This indicates that considering scale distribution during
+                             patch selection and refining the localization quality target in VFL eﬀectively mitigates
+                             imbalance in supervision signals during training.
+
+                             4.4. Comparisons with Real-Time Detectors
+                                  We also compared the proposed method against recent state-of-the-art real-time
+                             object detectors, including the M, L, and X variants of YOLOv8, YOLOv10 [34] and
+                             YOLOv12 [38]. YOLOv8 adopts traditional 4-image mosaic augmentation together with
+                             MixUp and copy-paste and disables mosaic augmentation in the later stage of training.
+                             YOLOv10 and YOLOv12 also adopt this standard augmentation pipeline. In direct
+                             comparison with YOLOv12-X, a representative YOLO-based SOTA real-time detector, the
+                             proposed method achieves substantially higher accuracy, improving the overall AP by
+                             3.91 AP, which corresponds to a 6.59% relative improvement, and improving small-object
+
+                                                                                        https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                    13 of 18
+
+
+
+
+                             AP by 6.75 AP, corresponding to a 34.6% relative improvement. Moreover, compared with
+                             YOLOv8-L, which has a similar number of parameters, the proposed method achieves
+                             10.10 AP higher overall accuracy and 9.94 AP higher performance on small objects.
+                                  While YOLO-based models are designed to be general-purpose real-time object
+                             detectors that optimize overall detection performance across diverse object sizes and
+                             scenes, the proposed approach focuses on analyzing the object-scale distribution of the
+                             used dataset and enabling small objects to be detected more eﬀectively. In terms of data
+                             augmentation, YOLO uses random 4-image mosaic augmentation, through which the
+                             original dataset distribution is directly reflected, causing large and medium objects to
+                             continue occupying a dominant proportion during training. In contrast, the proposed
+                             scale-aware mosaic augmentation encourages small objects to participate in training more.
+                             There are also diﬀerences in loss function design. The YOLO models use a binary cross-
+                             entropy loss in the classification branch, where localization errors and non-overlapping
+                             predictions are treated as the same negative samples. In contrast, the proposed GSIoU-
+                             based varifocal loss used in this study provides stable supervision signals even for small
+                             objects. Although recent YOLO variants have steadily improved small-object detection
+                             performance, the proposed method consistently delivers superior accuracy without
+                             increasing model scale or the number of parameters.
+
+                             4.5. Ablation Study
+                                  Table 4 presents the ablation study on the hyperparameters used in the filtering and
+                             positional jittering process of Step 3. We evaluate diﬀerent combinations of visible area
+                             thresholds, minimum pixel sizes, and jittering ranges. The configuration with a 30%
+                             visible area threshold, a minimum size of 10 pixels, and a jittering range of 0.2 achieves
+                             the most balanced performance across object scales. Although minor variations in overall
+                             AP are observed among diﬀerent settings, this configuration maintains stable
+                             performance while preserving improvements.
+
+                             Table 4. Ablation results for diﬀerent hyperparameter settings of the filtering and jittering strategies
+                             used in Step 3. The best results for each metric are highlighted in bold.
+
+                                Visible Area       Minimum Pixel Jittering Range              𝑨𝑷          𝑨𝑷𝒔     𝑨𝑷𝒎          𝑨𝑷𝒍
+                                     0%                 0                0                   63.40       21.17    53.77       78.09
+                                    30%                 10              0.2                  63.19       21.99    54.17       77.38
+                                    60%                 20              0.4                  63.60       20.15    53.81       78.26
+
+                                  Table 5 compares diﬀerent IoU variants used as the quality target 𝑞 in VFL. Since all
+                             three IoU variants produce values in the range [−1, 1], they are linearly normalized to [0,
+                             1] using the same mapping before being incorporated into VFL. Among the compared
+                             variants, GSIoU achieves the most consistent improvements on small and medium objects
+                             while maintaining competitive overall AP. Distance IoU (DIoU) [39] yields the highest
+                             performance on large objects; however, it shows limited improvement on small objects,
+                             resulting in the lowest overall AP among the three variants. This is attributed to its focus
+                             on center distance minimization, which benefits large objects but oﬀers limited gradient
+                             signals for small instances. Complete IoU (CIoU) [39] incorporates aspect ratio consistency
+                             and center alignment, leading to overall performance gains compared to DIoU. However,
+                             since it does not improve gradient informativeness under low-overlap conditions, its
+                             improvements remain less pronounced than those of GSIoU. Although GSIoU does not
+                             achieve the highest performance on overall metric, it yields the most balanced
+                             improvements across object scales and enhances small-object performance, which is the
+                             primary focus of this study. Therefore, GSIoU is adopted as the quality target in the final
+                             model.
+                                                                                            https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                     14 of 18
+
+
+
+
+                             Table 5. Comparison of diﬀerent IoU-based quality targets in VFL. The best results for each metric
+                             are highlighted in bold.
+
+                                          Method                       𝑨𝑷              𝑨𝑷𝒔               𝑨𝑷𝒎                𝑨𝑷𝒍
+                                           CIoU                       63.38            21.86             54.00             77.70
+                                           DIoU                       63.13            19.98             52.92             78.21
+                                          GSIoU                       63.19            21.99             54.17             77.38
+
+                             5. Conclusions
+                                   To enhance the robustness of object detectors under the scale distribution imbalance
+                             in real-world datasets, we developed scale-aware mosaic augmentation and GSIoU-based
+                             VFL. The scale-aware mosaic augmentation was designed to alleviate scale imbalance
+                             during training by explicitly controlling object scales during mosaic construction, thereby
+                             providing balanced scale-wise supervision signals. The GSIoU-based VFL improves the
+                             quality of localization-aware supervision in the classification loss by jointly accounting for
+                             object scale and non-overlapping spatial relationships, thereby providing more consistent
+                             supervision across object sizes. These two improvements jointly enhance the training
+                             eﬃciency and detection performance of RT-DETRv2, with particularly notable gains in
+                             small-object detection. Experimental results demonstrated that the proposed method
+                             achieves superior performance compared to the original RT-DETRv2 with fewer training
+                             iterations, while introducing no additional parameters or computational overhead. These
+                             attributes establish that the proposed method provides an eﬀective solution for detection
+                             scenarios where the scale distribution of the training dataset is highly imbalanced.
+                                   As future work, we will extend our research to the design of loss functions that
+                             explicitly account for object-scale characteristics, enabling scale-aware supervision at the
+                             loss level in addition to data augmentation.
+
+                             Author Contributions: Conceptualization, G.K.; methodology, G.K.; validation, G.K. and J.K.;
+                             writing—original draft preparation, G.K.; writing—review and editing, G.K., H.S.K. and S.H.;
+                             visualization, G.K.; supervision, H.S.K.; project administration, H.S.K. All authors have read and
+                             agreed to the published version of the manuscript.
+
+                             Funding:. This work was supported by the IITP(Institute of Information & Communications
+                             Technology Planning & Evaluation)-ITRC(Information Technology Research Center) grant funded
+                             by the Korea government(Ministry of Science and ICT)(IITP-2026-2024-00437102).
+
+                             Data Availability Statement: The HRSC2016-MS dataset used in this study is openly available for
+                             download from the oﬃcial website at https://github.com/wmchen/HRSC2016-MS?tab=readme-ov-
+                             file (accessed on 28 January 2026).
+
+                             Conflicts of Interest: The authors declare no conflicts of interest.
+
+
+                             Appendix A. Scale-Aware Mosaic Augmentation Algorithm
+                                  Algorithm A1 describes the proposed scale-aware mosaic augmentation procedure,
+                             which aims to balance the object-scale distribution during training through adaptive patch
+                             generation and mosaic construction. The algorithm first normalizes all training images to
+                             a fixed resolution and categorizes objects into predefined scale groups based on their
+                             bounding box areas. The maximum object count among scale groups is then selected as
+                             the target count to guide balanced sampling.
+
+
+
+
+                                                                                             https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                             15 of 18
+
+
+
+
+                             Algorithm A1: Scale-aware mosaic augmentation
+                              Input:
+                                  Training image set 𝐷 = 𝐼 , 𝐼 , … , 𝐼
+                                 Bounding box annotation set 𝐴 = 𝑏 = 𝑥 , , 𝑦 , 𝑤 , ℎ
+                                 Area thresholds 𝑇 = 𝑡 , 𝑡
+                                 Patch size 𝑠
+                                 Visibility threshold 𝜏
+                                 Minimum pixel length 𝜏
+                                 Jitter range 𝛿
+                              Output:
+                                  Scale-balanced mosaic image set 𝑀
+                                 Adjusted annotations 𝐴
+
+                               1:    Step 1:
+                               2:    Resize 𝐼 ∈ 𝐷
+
+                               3:    Step 2:
+                               4:    Categorize object scales
+                               5:    For each 𝑏 ∈ 𝐴 do
+                               6:                area 𝑏 = 𝑤 × ℎ
+                                                              small,          if area(𝑏) < 𝑡
+                               7:                scale(𝑏) = medium,           if 𝑡 ≤ area(𝑏) < 𝑡
+                                                              large,             otherwise
+                               8:
+                                     end for
+
+
+                               9:    Compute target object count
+                              10:              𝑛 = ‖ 𝑏 ∣ 𝑏 ∈ 𝐴, scale(𝑏) = 𝑔 ‖, 𝑔 ∈ small,medium,large
+                              11:                                   𝑁target = max 𝑛
+                              12:                                    𝑔     = arg max 𝑛
+
+
+                              13:    Step3:
+                              14:    Generate patches
+                              15:   Select an image containing an object 𝑏 centered at (𝑥 , 𝑦 ) from a scale group
+                              16:   with 𝑛 < 𝑁target
+                              17:   Sample positional jitter
+                              18:                              (Δ𝑥, Δ𝑦) ∼ 𝒰(−𝛿, 𝛿)
+                              19:   Crop a patch 𝑝 of size 𝑠 × 𝑠 centered at
+                              20:                               (𝑥 + Δ𝑥, 𝑦 + Δ𝑦)
+
+                              21:   Filter object annotations in patch
+                              22:   For each object 𝑏 within do
+                              23:        Remove 𝑏 if
+                              24:                                area(𝑏 ∩ 𝑝)
+                                                                             <𝜏
+                                                                   area(𝑏)
+                              25:        Remove 𝑏 if
+                              26:                                min(𝑤 , ℎ ) < 𝜏
+                              27:   end for
+
+
+                              28:   Identify invalid patches
+                              29:
+                                                                                     https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                            16 of 18
+
+
+
+
+                                             If a patch contains objects in 𝑝 belonging to a scale group 𝑔               remove 𝑝 from
+                                           candidate patch set.
+
+                                     30:     Step 4:
+                                     31:     for 𝑔 ∈ small,medium,large such that 𝑛 < 𝑁target do
+                                     32:         Construct mosaic image
+                                     33:         Assemble four 𝑝 ∈ 𝑃 into a 2 × 2 mosaic image.
+
+                                     34:        Updating the object counts
+                                     35:        Add 𝑝 to 𝑃 according to its selection priority, and update object counts 𝑛 .
+                                     36:     end for
+
+                                         During patch generation, objects are preferentially selected from scale groups whose
+                                   object counts have not yet reached the target. Patches are cropped around the selected
+                                   objects with positional jittering to increase spatial diversity. To avoid introducing noisy
+                                   supervision, object annotations that are excessively truncated or whose remaining visible
+                                   size falls below predefined thresholds are filtered out.
+                                         Subsequently, patches are assembled into 2 × 2 mosaic images. A penalty mechanism
+                                   is applied to patches containing only objects from scale groups that have already reached
+                                   the target count, reducing their selection priority during mosaic construction. This process
+                                   is repeated until all scale groups reach the target object count, resulting in scale-balanced
+                                   mosaic images and adjusted annotations for training.
+
+References
+1.    Sun, C.; Shrivastava, A.; Singh, S.; Gupta, A. Revisiting unreasonable eﬀectiveness of data in deep learning era. In Proceedings
+      of the IEEE International Conference on Computer Vision; IEEE: New York, NY, USA, 2017; pp. 843–852.
+2.    Tan, J.; Lu, X.; Zhang, G.; Yin, C.; Li, Q. Equalization loss v2: A new gradient balance approach for long-tailed object detection. In
+      Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2021; pp. 1685–1694.
+3.    Li, Y.; Wang, T.; Kang, B.; Tang, S.; Wang, C.; Li, J.; Feng, J. Overcoming classifier imbalance for long-tail object detection with
+      balanced group softmax. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New York,
+      NY, USA, 2020; pp. 10988–10997.
+4.    Li, B.; Yao, Y.; Tan, J.; Zhang, G.; Yu, F.; Lu, J.; Luo, Y. Equalized focal loss for dense long-tailed object detection. In Proceedings
+      of the IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2022; pp. 6990–6999.
+5.    Chen, W.; Han, B.; Yang, Z.; Gao, X. MSSDet: Multi-scale ship-detection framework in optical remote-sensing images and new
+      benchmark. Remote Sens. 2022, 14, 5460.
+6.    Lin, T.-Y.; Maire, M.; Belongie, S.; Bourdev, L.; Girshick, R.; Hays, J.; Perona, P.; Ramanan, D.; Zitnick, C.L.; Dollár, P. Microsoft
+      coco: Common objects in context. In European Conference on Computer Vision; Springer: Cham, Switzerland, 2015; pp. 740–755.
+7.    Bochkovskiy, A.; Wang, C.Y.; Liao, H.-Y.M. YOLOv4: Optimal speed and accuracy of object detection. arXiv 2020,
+      arXiv:2004.10934.
+8.     Redmon, J.; Farhadi, A. YOLO9000: Better, faster, stronger. In Proceedings of the IEEE Conference on Computer Vision and Pattern
+      Recognition; IEEE: New York, NY, USA, 2017; pp. 6517–6525.
+9.    Lin, T.-Y.; Dollar, P.; Girshick, R.; He, K.; Hariharan, B.; Belongie, S. Feature pyramid networks for object detection. In
+      Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2017; pp. 936–944.
+10.   Tan, M.; Pang, R.; Le, Q.V. EﬃcientDet: Scalable and eﬃcient object detection. In Proceedings of the IEEE/CVF Conference on
+      Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2020; pp. 10778–10787.
+11.   Jeune, P.L.; Mokraoui, A. Rethinking intersection over union for small object detection in few-shot regime. arXiv 2023,
+      arXiv:2307.09562.
+12.   Lv, W.; Zhao, Y.; Chang, Q.; Huang, K.; Wang, G.; Liu, Y. RT-detrv2: Improved baseline with bag-of-freebies for real-time
+      detection transformer. arXiv 2024, arXiv:2407.17140.
+13.   Sun, H.; Yang, L.; Chen, R.; Gu, K.; Zhang, B.; Yao, A.; Cao, X. Noise-robust tiny object localization with flows. arXiv 2026,
+      arXiv:2401.08056.
+
+                                                                                                    https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                              17 of 18
+
+
+
+
+14.   Wang, S.; Chen, Z.; Cao, L.; Ji, R. Purifying, labeling, and utilizing: A high-quality pipeline for small object detection. arXiv 2025,
+      arXiv:2504.20602.
+15.    Wei, J.; Wang, Q.; Zhao, Z. Interactive transformer for small object detection. Comput. Mater. Contin. 2023, 77, 1699–1717.
+16.   Zhao, Z.; Huang, Y.; Sun, L.; Li, C.; Tang, J. Bridging the scale gap: Balanced tiny and general object detection in remote sensing
+      imagery. arXiv 2025, arXiv:2512.01665.
+17.   Wang, X.; Zhu, D.; Yan, Y. Towards eﬃcient detection for small objects via attention-guided detection network and data
+      augmentation. Sensors 2022, 22, 7663.
+18.   Kaundanya, C.; Cesar, P.; Cronin, B.; Fleury, A.; Liu, M.; Little, S. Enhancing small object detection in resource-constrained aras
+      using image cropping and slicing techniques. In Proceedings of the 20th International Joint Conference on Computer Vision, Imaging
+      and Computer Graphics Theory and Applications; SciTePress: Setúbal, Portugal, 2025; pp. 570–583.
+19.   Meethal, A.; Granger, E.; Pedersoli, M. Density crop-guided semi-supervised object detection in aerial images. arXiv 2023,
+      arXiv:2308.05032.
+20.   Singh, B.; Najibi, M.; Davis, L.S. SNIPER: Eﬃcient multi-scale training. In Advances in Neural Information Processing Systems;
+      Curran Associates, Inc.: Red Hook, NY, USA, 2018; Volume 31.
+21.   Liu, W.; Anguelov, D.; Erhan, D.; Szegedy, C.; Reed, S.; Fu, C.-Y.; Berg, A.C. SSD: Single shot multibox detector. In Computer
+      Vision—ECCV 2016; Springer: Cham, Switzerland, 2016; Volume 9905, pp. 21–37.
+22.   Kundu, S.; Ari, S. MsCNN: A deep learning framework for p300-based brain–computer interface speller. IEEE Trans. Med. Robot.
+      Bionics 2020, 2, 86–93.
+23.   Liu, S.; Qi, L.; Qin, H.; Shi, J.; Jia, J. Path aggregation network for instance segmentation. In Proceedings of the IEEE Conference on
+      Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2018; pp. 8759-8768.
+24.   Ghiasi, G.; Lin, T.-Y.; Le, Q.V. NAS-fpn: Learning scalable feature pyramid architecture for object detection. In Proceedings of the
+      IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2019; pp. 7029–7038.
+25.   Li, Y.; Chen, Y.; Wang, N.; Zhang, Z.-X. Scale-aware trident networks for object detection. In Proceedings of the IEEE/CVF
+      International Conference on Computer Vision; IEEE: New York, NY, USA, 2019; pp. 6053–6062.
+26.   Han, X.; Chen, H.; Cheng, X.; Zhao, P. Continuous estimation of semg-based upper-limb joint angles in the time–frequency
+      domain using a scale temporal–channel cross-encoder. Actuators 2025, 14, 378.
+27.   Zhang, Y.; Zhen, J.; Sun, S.; Liu, T.; Huo, L.; Wang, T. SCAFNet: A semantic compensated adaptive fusion network for remote
+      sensing images change detection. IEEE Geosci. Remote Sens. Lett. 2026, 23, 1–5.
+28.   Zhang, Y.; Wang, T.; Xue, L.; Lian, W.; Tao, R. ORSI salient object detection via progressive interaction and saliency-guided
+      enhancement. IEEE Geosci. Remote Sens. Lett. 2026, 23, 1–5.
+29.   Zhao, Y.; Lv, W.; Xu, S.; Wei, J.; Wang, G.; Dang, Q.; Liu, Y.; Chen, J. DETRs beat yolos on real-time object detection. In Proceedings of
+      the 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR); IEEE: New York, NY, USA, 2024; pp. 16965–16974.
+30.   Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; Zagoruyko, S. End-to-end object detection with transformers. In
+      European Conference on Computer Vision; ACM: New York, NY, USA, 2020; pp. 213–229.
+31.   Zhang, H.; Wang, Y.; Dayoub, F.; Sünderhauf, N. VarifocalNet: An iou-aware dense object detector. In Proceedings of the
+      IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New York, NY, USA, 2021; pp. 8514–8523.
+32.   Sakai, Y.; Shimada, T.; Kong, X.; Tomiyama, H. VFR-net: Varifocal fine-grained refinement network for 3d object detection.
+      Appl. Sci. 2026, 16, 911.
+33.   Li, H.; Zhu, B.; Wu, B.; Zhang, X.; Sun, Q.; Jiang, R.; Wang, H. LCAF-rtdetr: Real-time infrared object detection with locality-
+      aware feature recalibration and adaptive fusion. J. Real-Time Image Process. 2026, 23, 42.
+34.   Wang, A.; Chen, H.; Liu, L.; Chen, K.; Lin, Z.; Han, J.; Ding, G. YOLOv10: Real-time end-to-end object detection. Adv. Neural Inf.
+      Process. Syst. 2024, 37, 107984–108011.
+35.   Lin, T.-Y.; Goyal, P.; Girshick, R.; He, K.; Dollar, P. Focal loss for dense object detection. In Proceedings of the IEEE International
+      Conference on Computer Vision; IEEE: New York, NY, USA, 2017; pp. 2980–2988.
+36.   Rezatofighi, H.; Tsoi, N.; Gwak, J.; Sadeghian, A.; Reid, I.; Savarese, S. Generalized intersection over union: A metric and a loss
+      for bounding box regression. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition; IEEE: New
+      York, NY, USA, 2019; pp. 658–666.
+37.   Akyon, F.C.; Altinuc, S.O.; Temizel, A. Slicing aided hyper inference and fine-tuning for small object detection. In Proceedings of
+      the IEEE International Conference on Image Processing; IEEE: New York, NY, USA, 2022; pp. 966–970.
+
+
+
+
+                                                                                                      https://doi.org/10.3390/electronics15051075
+Electronics 2026, 15, 1075                                                                                                       18 of 18
+
+
+
+
+38.   Tian, Y.; Ye, Q.; Doermann, D. YOLOv12: Attention-centric real-time object detectors. arXiv 2025, arXiv:2502.12524.
+39.   Zheng, Z.; Wang, P.; Liu, W.; Li, J.; Ye, R.; Ren, D. Distance-iou loss: Faster and better learning for bounding box regression.
+      Proc. AAAI Conf. Artif. Intell. 2020, 34, 12993–13000.
+
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury
+to people or property resulting from any ideas, methods, instructions or products referred to in the content.
+
+
+
+
+                                                                                               https://doi.org/10.3390/electronics15051075
+

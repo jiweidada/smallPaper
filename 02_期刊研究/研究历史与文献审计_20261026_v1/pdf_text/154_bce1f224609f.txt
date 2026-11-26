@@ -1,0 +1,165 @@
+Sparse Semi-DETR: Sparse Learnable Queries for
+Semi-Supervised Object Detection
+Tahira Shehzadi1,2,3, Khurram Azeem Hashmi 1,2,3,Didier Stricker 1,2,3,Muhammad Zeshan Afzal 1,2,3
+1DFKI, 2RPTU Kaiserslautern-Landau, 3MindGarage-RPTU
+Figure 1. (a)-(b) Comparative Overview of SSOD advancements: Sparse Semi-DETR’s major improvement lies in its Query Refinement
+Module and Reliable Pseudo-label Filtering Module, significantly enhancing detection of small or obscured objects and reliability in complex
+scenarios, surpassing all other methods as shown in the graph in (c).
+Abstract
+In this paper, we address the limitations of the DETR-
+based semi-supervised object detection (SSOD) framework,
+particularly focusing on the challenges posed by the quality
+of object queries. In DETR-based SSOD, the one-to-one as-
+signment strategy provides inaccurate pseudo-labels, while
+the one-to-many assignments strategy leads to overlapping
+predictions. These issues compromise training efficiency and
+degrade model performance, especially in detecting small or
+occluded objects. We introduce Sparse Semi-DETR, a novel
+transformer-based, end-to-end semi-supervised object de-
+tection solution to overcome these challenges. Sparse Semi-
+DETR incorporates a Query Refinement Moduleto enhance
+the quality of object queries, significantly improving detec-
+tion capabilities for small and partially obscured objects.
+Additionally, we integrate a Reliable Pseudo-Label Filter-
+ing Module that selectively filters high-quality pseudo-labels,
+thereby enhancing detection accuracy and consistency. On
+the MS-COCO and Pascal VOC object detection benchmarks,
+Sparse Semi-DETR achieves a significant improvement over
+current state-of-the-art methods that highlight Sparse Semi-
+DETR’s effectiveness in semi-supervised object detection,
+particularly in challenging scenarios involving small or par-
+tially obscured objects.
+1. Introduction
+Semi-Supervised Object Detection (SSOD) aims to improve
+the effectiveness of fully supervised object detection through
+the integration of abundant unlabeled data [3, 12, 15, 19, 28,
+39, 49–52, 58]. It has applications in diverse fields, ranging
+from autonomous vehicles [ 14, 20] to healthcare [ 31, 44],
+where obtaining extensive labeled datasets is often impracti-
+cal or cost-prohibitive [1].
+Several SSOD methods [3, 12, 15, 19, 28, 39, 49–52, 58]
+have been proposed. Two prevalent approaches in this do-
+main are pseudo-labeling [ 27, 30, 39, 45, 50–52, 58] and
+consistency-based regularization [ 3, 12, 15, 19, 28, 49].
+STAC [39] introduced a simple multi-stage SSOD train-
+ing method with pseudo-labeling and consistency training,
+later simplified by a Teacher-Student framework for gen-
+erating pseudo-labels [27]. Based on this framework, con-
+siderable research efforts have been directed towards en-
+hancing the quality of pseudo-labels [ 51, 58]. These tra-
+ditional SSOD methods are built upon conventional detec-
+tors like one-stage [ 33, 42] and two-stage [ 9, 35], which
+involve various manually designed components such as an-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+5840
+
+
+---PAGE---
+
+chor boxes and non-maximum suppression (NMS). Employ-
+ing object detection methods in SSOD poses several poten-
+tial challenges that must be carefully dealt with to obtain
+reasonable performance. These factors include overfitting
+of the labeled data [ 37], pseudo-label noise [ 10], bias in-
+duced through label imbalance [ 17, 32], and poor detec-
+tion performance on small objects [ 56]. Recently, DETR-
+based [2, 16, 18, 25, 38, 55, 59] SSOD methods [ 46, 56]
+remove the need for traditional components like NMS.
+Even though DETR-based SSOD [46, 56] has progressed
+remarkably, state-of-the-art methods possess some limita-
+tions. (1) DETR-based SSOD methods perform poorly in
+the detection of small objects, as shown in Figure 4. This is
+because these methods don’t use multi-scale features [36]
+like Feature Pyramid Networks (FPN) [22], which play an
+important role in identifying smaller objects as in CNN-
+based SSOD methods [ 3, 12, 15, 19, 28, 49, 51, 52, 58].
+Although recent advancements in DETR-based object de-
+tection [2, 16, 18, 25, 38, 55, 59] have improved the de-
+tection of small objects, their SSOD adaptation is still un-
+able to cater this challenge effectively [56]. (2) SSOD ap-
+proaches [51, 52, 56, 58] rely on handcrafted post-processing
+methods such as NMS [35]. This problem specifically ap-
+pears in DETR-based SSOD when we use a large number of
+object queries and the one-to-many assignment strategy [56].
+In DETR-based SSOD methods, this problem is partially
+solved using the one-to-one or hybrid (combination of one-to-
+one and one-to-many) assignment strategy. However, the hy-
+brid assignment strategy is preferred because the one-to-one
+assignment strategy produces inaccurate pseudo-labels [46],
+thus resulting in inefficient learning. Although the number of
+duplicate bounding boxes is less in the hybrid strategy [56],
+the amount is high enough to impact object detection perfor-
+mance adversely, as depicted in Figure 5. (3) The pseudo-
+label generation produces both high and low-quality labels.
+The DETR-based SSOD methods lack an effective refine-
+ment strategy for one-to-many assignments, which is crucial
+for filtering out low-quality proposals.
+To address the above mentioned issues, we propose en-
+hancing the state-of-the-art DETR-based SSOD approach,
+namely ’Sparse Semi-DETR’, presented in Figure 1 (b). Our
+approach involves expanding its architecture by integrating
+a couple of novel modules designed to mitigate the iden-
+tified shortcomings. The key module among these is the
+Query-Refinement module, as depicted in Figure 2 and
+explained in Figure 3. This module significantly improves
+the quality of the queries and reduces their numbers. The
+proposed module uses the low-level features from the back-
+bone and high-level features extracted directly from weakly
+augmented images using ROI alignment [13]. Fusing these
+features results in overcoming the first shortcoming, i.e., de-
+tecting small and obscured objects, as shown in Figure 4. The
+attention mechanism drives the aggregation of the features,
+resulting in refined, high-quality features to carry forward.
+To ensure the quality of the query features, the attention
+mechanism is accompanied by a query-matching strategy
+for filtering irrelevant queries. Thus, the Query Refinement
+Module not only improves the quality of the queries but also
+reduces their numbers, giving rise to efficient processing.
+This module results in significantly fewer overlapping pro-
+posals, improving the performance overall, thereby solving
+the second limitation. Besides, we introduce a Reliable
+Pseudo-Label Filtering Module, as illustrated in Figure 2,
+inspired by Hybrid-DETR [16] to address the third limitation.
+Employing this module significantly reduces the low-quality
+pseudo-labels. Therefore, it further reduces the amount of
+duplicate predictions that may still occur after the second
+stage of the hybrid assignment strategy. Our approach pro-
+vides better results than previous SSOD methods, as shown
+in Figure 1 (c).
+The key contributions of this work can be outlined as
+follows:
+1. We present Sparse Semi-DETR, a novel approach in semi-
+supervised object detection, introducing two novel con-
+tributions. To our knowledge, we are the first to examine
+and propose query refinement and low-quality proposal
+filtering for the one-to-many query assignment strategy.
+2. We introduce a novel query refinement module designed
+to improve object query features, particularly in complex
+detection scenarios such as identifying small or partially
+obscured objects. This enhancement not only boosts
+performance but also aids in learning semantic feature
+invariance among object queries.
+3. We introduce a Reliable Pseudo-Label Filtering Module
+specifically designed to reduce the effect of noisy pseudo-
+labels. This module is designed to efficiently identify and
+extract reliable pseudo boxes from unlabeled data using
+augmented ground truths, enhancing the consistency of
+the learning process.
+4. Sparse Semi-DETR outperforms current state-of-the-art
+methods on MS-COCO and Pascal VOC benchmarks.
+With only 10% labeled data from MS-COCO using
+ResNet-50 backbone, it achieves a 44.3 mAP, exceeding
+prior baselines by 0.8 mAP. Additionally, when trained
+on the complete COCO set with extra unlabeled data, it
+further improves, rising from 49.2 to 51.3 mAP.
+2. Related Work
+2.1. Object Detection
+Object detection identifies and locates objects in images or
+videos. Deep learning-based object detection approaches
+are typically categorized into two primary groups: two-stage
+detectors [9, 35] and one-stage detectors [ 23, 26, 34, 42].
+These methods depend on numerous heuristics, such as
+generating anchors and NMS. Recently, DEtection TRans-
+5841

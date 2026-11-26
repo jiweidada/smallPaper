@@ -1,0 +1,183 @@
+Feature Pyramid Networks for Object Detection
+Tsung-Yi Lin1,2, Piotr Doll´ar1, Ross Girshick1,
+Kaiming He1, Bharath Hariharan1, and Serge Belongie2
+1Facebook AI Research (FAIR)
+2Cornell University and Cornell Tech
+Abstract
+Feature pyramids are a basic component in recognition
+systems for detecting objects at different scales. But recent
+deep learning object detectors have avoided pyramid rep-
+resentations, in part because they are compute and memory
+intensive. In this paper, we exploit the inherent multi-scale,
+pyramidal hierarchy of deep convolutional networks to con-
+struct feature pyramids with marginal extra cost. A top-
+down architecture with lateral connections is developed for
+building high-level semantic feature maps at all scales. This
+architecture, called a Feature Pyramid Network (FPN),
+shows signiﬁcant improvement as a generic feature extrac-
+tor in several applications. Using FPN in a basic Faster
+R-CNN system, our method achieves state-of-the-art single-
+model results on the COCO detection benchmark without
+bells and whistles, surpassing all existing single-model en-
+tries including those from the COCO 2016 challenge win-
+ners. In addition, our method can run at 6 FPS on a GPU
+and thus is a practical and accurate solution to multi-scale
+object detection. Code will be made publicly available.
+1. Introduction
+Recognizing objects at vastly different scales is a fun-
+damental challenge in computer vision. Feature pyramids
+built upon image pyramids (for short we call these featur-
+ized image pyramids) form the basis of a standard solution
+[1] (Fig. 1(a)). These pyramids are scale-invariant in the
+sense that an object’s scale change is offset by shifting its
+level in the pyramid. Intuitively, this property enables a
+model to detect objects across a large range of scales by
+scanning the model over both positions and pyramid levels.
+Featurized image pyramids were heavily used in the
+era of hand-engineered features [5, 25]. They were so
+critical that object detectors like DPM [7] required dense
+scale sampling to achieve good results ( e.g., 10 scales per
+octave). For recognition tasks, engineered features have
+(a) Featurized image pyramid
+predict
+predict
+predict
+predict
+(b) Single feature map
+predict
+(d) Feature Pyramid Network
+predict
+predict
+predict
+(c) Pyramidal feature hierarchy
+predict
+predict
+predict
+Figure 1. (a) Using an image pyramid to build a feature pyramid.
+Features are computed on each of the image scales independently,
+which is slow. (b) Recent detection systems have opted to use
+only single scale features for faster detection. (c) An alternative is
+to reuse the pyramidal feature hierarchy computed by a ConvNet
+as if it were a featurized image pyramid. (d) Our proposed Feature
+Pyramid Network (FPN) is fast like (b) and (c), but more accurate.
+In this ﬁgure, feature maps are indicate by blue outlines and thicker
+outlines denote semantically stronger features.
+largely been replaced with features computed by deep con-
+volutional networks (ConvNets) [19, 20]. Aside from being
+capable of representing higher-level semantics, ConvNets
+are also more robust to variance in scale and thus facilitate
+recognition from features computed on a single input scale
+[15, 11, 29] (Fig. 1(b)). But even with this robustness, pyra-
+mids are still needed to get the most accurate results. All re-
+cent top entries in the ImageNet [33] and COCO [21] detec-
+tion challenges use multi-scale testing on featurized image
+pyramids (e.g., [16, 35]). The principle advantage of fea-
+turizing each level of an image pyramid is that it produces
+a multi-scale feature representation in which all levels are
+semantically strong, including the high-resolution levels.
+Nevertheless, featurizing each level of an image pyra-
+mid has obvious limitations. Inference time increases con-
+siderably (e.g., by four times [11]), making this approach
+impractical for real applications. Moreover, training deep
+1
+arXiv:1612.03144v2  [cs.CV]  19 Apr 2017
+
+---PAGE---
+
+networks end-to-end on an image pyramid is infeasible in
+terms of memory, and so, if exploited, image pyramids are
+used only at test time [15, 11, 16, 35], which creates an
+inconsistency between train/test-time inference. For these
+reasons, Fast and Faster R-CNN [11, 29] opt to not use fea-
+turized image pyramids under default settings.
+However, image pyramids are not the only way to com-
+pute a multi-scale feature representation. A deep ConvNet
+computes a feature hierarchy layer by layer, and with sub-
+sampling layers the feature hierarchy has an inherent multi-
+scale, pyramidal shape. This in-network feature hierarchy
+produces feature maps of different spatial resolutions, but
+introduces large semantic gaps caused by different depths.
+The high-resolution maps have low-level features that harm
+their representational capacity for object recognition.
+The Single Shot Detector (SSD) [22] is one of the ﬁrst
+attempts at using a ConvNet’s pyramidal feature hierarchy
+as if it were a featurized image pyramid (Fig. 1(c)). Ideally,
+the SSD-style pyramid would reuse the multi-scale feature
+maps from different layers computed in the forward pass
+and thus come free of cost. But to avoid using low-level
+features SSD foregoes reusing already computed layers and
+instead builds the pyramid starting from high up in the net-
+work (e.g., conv4 3 of VGG nets [36]) and then by adding
+several new layers. Thus it misses the opportunity to reuse
+the higher-resolution maps of the feature hierarchy. We
+show that these are important for detecting small objects.
+The goal of this paper is to naturally leverage the pyra-
+midal shape of a ConvNet’s feature hierarchy while cre-
+ating a feature pyramid that has strong semantics at all
+scales. To achieve this goal, we rely on an architecture that
+combines low-resolution, semantically strong features with
+high-resolution, semantically weak features via a top-down
+pathway and lateral connections (Fig. 1(d)). The result is
+a feature pyramid that has rich semantics at all levels and
+is built quickly from a single input image scale. In other
+words, we show how to create in-network feature pyramids
+that can be used to replace featurized image pyramids with-
+out sacriﬁcing representational power, speed, or memory.
+Similar architectures adopting top-down and skip con-
+nections are popular in recent research [28, 17, 8, 26]. Their
+goals are to produce a single high-level feature map of a ﬁne
+resolution on which the predictions are to be made (Fig. 2
+top). On the contrary, our method leverages the architecture
+as a feature pyramid where predictions ( e.g., object detec-
+tions) are independently made on each level (Fig. 2 bottom).
+Our model echoes a featurized image pyramid, which has
+not been explored in these works.
+We evaluate our method, called a Feature Pyramid Net-
+work (FPN), in various systems for detection and segmen-
+tation [11, 29, 27]. Without bells and whistles, we re-
+port a state-of-the-art single-model result on the challenging
+COCO detection benchmark [21] simply based on FPN and
+predict
+predict
+predict
+predict
+Figure 2. Top: a top-down architecture with skip connections,
+where predictions are made on the ﬁnest level (e.g., [28]). Bottom:
+our model that has a similar structure but leverages it as a feature
+pyramid, with predictions made independently at all levels.
+a basic Faster R-CNN detector [29], surpassing all exist-
+ing heavily-engineered single-model entries of competition
+winners. In ablation experiments, we ﬁnd that for bound-
+ing box proposals, FPN signiﬁcantly increases the Average
+Recall (AR) by 8.0 points; for object detection, it improves
+the COCO-style Average Precision (AP) by 2.3 points and
+PASCAL-style AP by 3.8 points, over a strong single-scale
+baseline of Faster R-CNN on ResNets [16]. Our method is
+also easily extended to mask proposals and improves both
+instance segmentation AR and speed over state-of-the-art
+methods that heavily depend on image pyramids.
+In addition, our pyramid structure can be trained end-to-
+end with all scales and is used consistently at train/test time,
+which would be memory-infeasible using image pyramids.
+As a result, FPNs are able to achieve higher accuracy than
+all existing state-of-the-art methods. Moreover, this im-
+provement is achieved without increasing testing time over
+the single-scale baseline. We believe these advances will
+facilitate future research and applications. Our code will be
+made publicly available.
+2. Related Work
+Hand-engineered features and early neural networks.
+SIFT features [25] were originally extracted at scale-space
+extrema and used for feature point matching. HOG fea-
+tures [5], and later SIFT features as well, were computed
+densely over entire image pyramids. These HOG and SIFT
+pyramids have been used in numerous works for image
+classiﬁcation, object detection, human pose estimation, and
+more. There has also been signiﬁcant interest in comput-
+ing featurized image pyramids quickly. Doll ´ar et al . [6]
+demonstrated fast pyramid computation by ﬁrst computing
+a sparsely sampled (in scale) pyramid and then interpolat-
+ing missing levels. Before HOG and SIFT, early work on
+face detection with ConvNets [38, 32] computed shallow
+networks over image pyramids to detect faces across scales.
+2

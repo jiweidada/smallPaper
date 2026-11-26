@@ -1,0 +1,182 @@
+CWNet: Causal Wavelet Network for Low-Light Image Enhancement
+Tongshun Zhang1,2 Pingping Liu1,2* Yubing Lu1,2 Mengen Cai1,2 Zijian Zhang1,2
+Zhe Zhang1,2 Qiuzhan Zhou3
+1College of Computer Science and Technology, Jilin University
+2Key Laboratory of Symbolic Computation and Knowledge Engineering of Ministry of Education
+3College of Communication Engineering, Jilin University
+{tszhang23, luyb24, caime24, zhezhang23 }@mails.jlu.edu.cn,
+{liupp, zhangzijian, zhouqz }@jlu.edu.cn
+Abstract
+Traditional Low-Light Image Enhancement (LLIE) methods
+primarily focus on uniform brightness adjustment, often ne-
+glecting instance-level semantic information and the inher-
+ent characteristics of different features. To address these
+limitations, we propose CWNet (Causal Wavelet Network),
+a novel architecture that leverages wavelet transforms for
+causal reasoning. Specifically, our approach comprises two
+key components: 1) Inspired by the concept of interven-
+tion in causality, we adopt a causal reasoning perspective
+to reveal the underlying causal relationships in low-light
+enhancement. From a global perspective, we employ a met-
+ric learning strategy to ensure causal embeddings adhere
+to causal principles, separating them from non-causal con-
+founding factors while focusing on the invariance of causal
+factors. At the local level, we introduce an instance-level
+CLIP semantic loss to precisely maintain causal factor con-
+sistency. 2) Based on our causal analysis, we present a
+wavelet transform-based backbone network that effectively
+optimizes the recovery of frequency information, ensuring
+precise enhancement tailored to the specific attributes of
+wavelet transforms. Extensive experiments demonstrate
+that CWNet significantly outperforms current state-of-the-
+art methods across multiple datasets, showcasing its robust
+performance across diverse scenes. Code is available at
+CWNet.
+1. Introduction
+LLIE is essential in computer vision, addressing chal-
+lenges like dimness and detail loss that degrade image qual-
+ity. While traditional methods like gamma correction [29],
+Retinex theory [31], and histogram equalization [32] strug-
+*Corresponding author
+gle with non-uniform lighting and extreme darkness, deep
+learning approaches [3, 47, 48, 53, 54, 61] offer improved
+adaptability and performance. However, they often fail to
+fully exploit feature modeling and semantic information.
+Frequency-based methods present a promising avenue
+for LLIE by effectively separating and enhancing high- and
+low-frequency information, improving detail and bright-
+ness while isolating noise. Nonetheless, existing meth-
+ods [14, 19, 38, 53, 61] treat frequency features uniformly,
+which limits their potential. Additionally, maintaining color
+and semantic consistency is a significant challenge, as many
+advanced methods [2, 17, 39, 56] often overlook these as-
+pects, leading to visually unnatural or semantically inaccu-
+rate results. This paper addresses these gaps by exploring
+two key questions:
+Firstly, how can we ensure consistency in color and se-
+mantic information while improving lighting conditions?
+Current methods [43, 59] often rely on color histogram-
+based losses to maintain color consistency, while SCL-
+LLE [23] utilize downstream semantic segmentation con-
+sistency loss to enhance semantic brightness and color con-
+sistency. SKF [43] further improves semantic consistency at
+the feature level by extracting intermediate features through
+a semantic segmentation network. In contrast, the visual-
+language pre-trained model CLIP [33] demonstrates supe-
+rior performance in maintaining color and semantic consis-
+tency. Many methods [17, 49, 55] leverage CLIP to learn di-
+verse features, achieving semantically guided enhancement.
+However, these approaches primarily focus on global se-
+mantic and color consistency, lacking the ability to ensure
+instance-level consistency.
+Secondly, how can we establish a robust model that
+fully exploits frequency domain features? The two com-
+monly used frequency domain transformations are Fourier
+transform and wavelet transform. Fourier-based methods
+[14, 38] excels in capturing global information by ampli-
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+8789
+
+
+---PAGE---
+
+Intervention
+Figure 1. Structural causal model (SCM) for LLIE.
+fying low-frequency components, enhancing overall bright-
+ness. However, its lack of spatial locality limits its abil-
+ity to preserve high-frequency details like edges and tex-
+tures, often resulting in brighter but less detailed images.
+Recent works[19, 53] have improved detail preservation by
+incorporating phase processing, but challenges remain in
+achieving fine-grained detail enhancement and spatial co-
+herence. In contrast, wavelet transforms provide superior
+spatial locality, effectively separating image content from
+noise and enhancing edge and texture details. However,
+wavelet-based methods [17, 61] do not fully leverage the
+unique characteristics of the frequency domain, which lim-
+its their recovery potential.
+To address these limitations, we propose a Structural
+Causal Model (SCM) [35] for Low-Light Image Enhance-
+ment (LLIE) based on causal inference, as shown in Fig. 1.
+Within this framework, we establish the core objective of
+the LLIE task: to maintain consistency in causal factors
+S (semantic information). Meanwhile, non-causal factors
+U (color and brightness anomalies) need to be filtered out.
+This causal perspective enables us to effectively distinguish
+meaningful semantic content from confounding degrada-
+tions. Building on this causal analysis, we propose a two-
+level strategy. At the global level, we obtain non-causal fac-
+tors U through intervention procedures. Subsequently, we
+employ a causally-guided metric learning approach to fil-
+ter out non-causal factors in the latent space. At the local
+level, we introduce an instance-level CLIP semantic loss
+to maintain fine-grained semantic consistency for each in-
+stance, achieving the objective of ensuring that causal fac-
+tors S remain consistent.
+Based on the SCM, we meticulously propose a wavelet-
+based backbone network to support this causal concept,
+referred to as the Causal Wavelet Network (CWNet).
+CWNet incorporates a Hierarchical Feature Restoration
+Block (HFRB) after each sampling layer, consisting of three
+components: a Feature Extraction (FE), a High-Frequency
+Enhancement Block (HFEB), and a Low-Frequency En-
+hancement Block (LFEB). The FE adaptively extracts
+wavelet frequency domain features and compensates for
+missing information through interaction. HFEB, inspired
+by State Space Models (SSM) [9, 56, 61], employs a 2D
+Selective Scanning Module (2D-SSM) aligned with the
+scanning order of wavelet high-frequency components, en-
+abling accurate recovery of high-frequency details. For low-
+frequency information, we develop the LFEB module for
+comprehensive recovery.
+In summary, our main contributions are as follows:
+• We introduce a novel causal framework for LLIE, sep-
+arating causal and non-causal factors to enhance image
+quality while preserving semantics.
+• We propose a two-level consistency strategy, combining
+causally-guided metric learning for global consistency
+and instance-level CLIP loss for local semantic and color
+consistency.
+• We develop the Causal Wavelet Network (CWNet) with
+a Hierarchical Feature Restoration Block (HFRB) to
+model wavelet frequency features, enabling precise high-
+frequency recovery and robust low-frequency handling.
+• Extensive experiments validate CWNet’s state-of-the-art
+performance across diverse datasets, demonstrating its ro-
+bustness and scalability.
+2. Related Work
+Low-Light Image Enhancement (LLIE): LLIE methods
+can be categorized into non-learning-based and learning-
+based approaches. Traditional techniques, such as his-
+togram equalization (HE) [32] and Retinex theory [31], en-
+hance images by improving contrast or adjusting illumina-
+tion and reflectance maps. With the advent of deep learn-
+ing, methods like LLNet [26] and Deep Retinex Decompo-
+sition [42] combined Retinex theory with neural networks,
+leading to significant advancements. Recent approaches,
+such as FourLLIE [38] and DMFourLLIE [53], leverage
+frequency domain features to enhance brightness, while
+Retinexformer [3] integrates transformers to address long-
+range dependencies. Advanced frameworks like UHD-
+former [39] and LightDiff [20] tackle ultra-high-definition
+restoration and unpaired low-light enhancement, respec-
+tively, expanding LLIE’s scope to more complex tasks.
+State Space Models (SSM): State Space Models
+(SSMs) have emerged as efficient alternatives to CNNs and
+Transformers for handling long-range dependencies, with
+linear scalability [8]. Mamba, a structured SSM, has been
+applied to tasks like super-resolution [16], image classifica-
+tion [36], and restoration [9]. In LLIE, Retinexmamba [2]
+integrates SSMs into Retinexformer for faster processing,
+while Wave-Mamba [61] explores UHD low-light enhance-
+ment. Recent innovations include LocalMamba [15], which
+uses localized scanning for detail preservation, and LLE-
+Mamba [56], which employs bidirectional scanning to bal-
+ance local and global focus. These advancements highlight
+the growing role of SSMs in LLIE.
+Causal Inference: Causal inference focuses on identify-
+ing and quantifying causal relationships, with growing ap-
+plications in computer vision. CIIM [46] removes modality
+8790

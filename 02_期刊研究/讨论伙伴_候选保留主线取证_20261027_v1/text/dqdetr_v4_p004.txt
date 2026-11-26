@@ -1,0 +1,43 @@
+4 Y. Huang et al.
+learnable queries to probe and pool features from images. While DETR achieves
+comparable results with the previous classical CNN-based detectors [16,19], it
+suffers severely from the problem of slow training convergence, needing 500
+epochs of training to perform well. Many follow-up works have attempted to
+address the slow training convergence of DETR from different perspectives.
+Some argue that DETR’s slow convergence stems from the instability of
+Hungarian matching and the cross-attention mechanism in the transformer de-
+coder. [18] proposes an encoder-only DETR, discarding the transformer decoder.
+Dynamic DETR [3] designs an ROI-based dynamic attention mechanism in the
+decoder that can focus on regions of interest from a coarse-to-fine manner.
+Deformable-DETR [30] proposes an attention module that only attends to a
+few sampling points around a reference point. DN-DETR [7] introduces denois-
+ing training to reduce the difficulty of bipartite graph matching.
+Another series of works makes improvements in decoder object queries. Since
+the object queries are just a set of learnable embedding in DETR, [11,13,22]
+imputes the slow convergence of DETR to the implicit physical explanation of
+object queries. Conditional DETR [13] decouples the decoder’s cross-attention
+formulation and generates conditional queries based on reference coordinates.
+DAB-DETR [11] formulates the positional information of object queries as 4-
+D anchor boxes (x, y, w, h) that are used to provide ROI (Region of Interest)
+informationforprobingandpoolingfeatures.AlthoughDETR-likemethodshave
+improved the formulation of queries, they are constrained in their ability to
+handle tiny objects and datasets with widely varying numbers of objects. The
+object queries in these methods are learned from the training data and the
+number of queries remains the same across different input images.
+Our proposed DQ-DETR stands out as the first DETR-like model specifically
+designed to detect tiny objects and dynamically adjust the number of queries to
+enhance precision in imbalanced datasets.
+3 Method
+3.1 Overview
+The overall structure of DQ-DETR is shown in Fig. 1. As a DETR-like
+method, DQ-DETR is an end-to-end detector that contains a CNN backbone,
+a deformable encoder and decoder [30], and several prediction heads. We fur-
+ther implement a new categorical counting module, a counting-guided feature
+enhancement module, and dynamic query selection based on DETR’s architec-
+ture. Given an input image, we first extract multi-scale features with a CNN
+backbone and feed them into the transformer encoder to attain visual features.
+Afterward, our categorical counting module determines how many object queries
+are used in the transformer decoder, as shown in Fig. 1(a). Besides, we propose
+a novel counting-guided feature enhancement module, as illustrated in Fig. 1(b),
+to strengthen the encoder’s visual features with spatial information of tiny ob-
+jects. Last, the object queries are refined with additional information about the

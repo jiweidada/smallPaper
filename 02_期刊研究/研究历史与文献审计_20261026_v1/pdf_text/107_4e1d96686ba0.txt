@@ -1,0 +1,134 @@
+Published as a conference paper at ICLR 2018
+BREAKING THE SOFTMAX BOTTLENECK :
+A H IGH -R ANK RNN L ANGUAGE MODEL
+Zhilin Yang∗, Zihang Dai∗, Ruslan Salakhutdinov, William W. Cohen
+School of Computer Science
+Carnegie Mellon University
+{zhiliny,dzihang,rsalakhu,wcohen}@cs.cmu.edu
+ABSTRACT
+We formulate language modeling as a matrix factorization problem, and show
+that the expressiveness of Softmax-based models (including the majority of neu-
+ral language models) is limited by a Softmax bottleneck. Given that natural lan-
+guage is highly context-dependent, this further implies that in practice Softmax
+with distributed word embeddings does not have enough capacity to model nat-
+ural language. We propose a simple and effective method to address this issue,
+and improve the state-of-the-art perplexities on Penn Treebank and WikiText-2 to
+47.69 and 40.68 respectively. The proposed method also excels on the large-scale
+1B Word dataset, outperforming the baseline by over 5.6 points in perplexity.1
+1 I NTRODUCTION
+As a fundamental task in natural language processing, statistical language modeling has gone
+through signiﬁcant development from traditional Ngram language models to neural language mod-
+els in the last decade (Bengio et al., 2003; Mnih & Hinton, 2007; Mikolov et al., 2010). Despite
+the huge variety of models, as a density estimation problem, language modeling mostly relies on a
+universal auto-regressive factorization of the joint probability and then models each conditional fac-
+tor using different approaches. Speciﬁcally, given a corpus of tokens X = (X1,...,X T ), the joint
+probabilityP (X) factorizes asP (X) = ∏
+tP (Xt| X<t) = ∏
+tP (Xt| Ct), whereCt = X<t is
+referred to as the context of the conditional probability hereafter.
+Based on the factorization, recurrent neural networks (RNN) based language models achieve state-
+of-the-art results on various benchmarks (Merity et al., 2017; Melis et al., 2017; Krause et al., 2017).
+A standard approach is to use a recurrent network to encode the context into a ﬁxed size vector,
+which is then multiplied by the word embeddings (Inan et al., 2016; Press & Wolf, 2017) using dot
+product to obtain the logits. The logits are consumed by the Softmax function to give a categorical
+probability distribution over the next token. In spite of the expressiveness of RNNs as universal
+approximators (Schäfer & Zimmermann, 2006), an unclear question is whether the combination
+of dot product and Softmax is capable of modeling the conditional probability, which can vary
+dramatically with the change of the context.
+In this work, we study the expressiveness of the aforementioned Softmax-based recurrent language
+models from a perspective of matrix factorization. We show that learning a Softmax-based recurrent
+language model with the standard formulation is essentially equivalent to solving a matrix factoriza-
+tion problem. More importantly, due to the fact that natural language is highly context-dependent,
+the matrix to be factorized can be high-rank. This further implies that standard Softmax-based lan-
+guage models with distributed (output) word embeddings do not have enough capacity to model
+natural language. We call this the Softmax bottleneck.
+We propose a simple and effective method to address the Softmax bottleneck. Speciﬁcally, we
+introduce discrete latent variables into a recurrent language model, and formulate the next-token
+probability distribution as a Mixture of Softmaxes (MoS). Mixture of Softmaxes is more expressive
+than Softmax and other surrogates considered in prior work. Moreover, we show that MoS learns
+∗Equal contribution. Ordering determined by dice rolling.
+1Code is available at https://github.com/zihangdai/mos.
+1
+arXiv:1711.03953v4  [cs.CL]  2 Mar 2018
+
+---PAGE---
+
+Published as a conference paper at ICLR 2018
+matrices that have much larger normalized singular values and thus much higher rank than Softmax
+and other baselines on real-world datasets.
+We evaluate our proposed approach on standard language modeling benchmarks. MoS substantially
+improves over the current state-of-the-art results on benchmarks, by up to 3.6 points in terms of
+perplexity, reaching perplexities 47.69 on Penn Treebank and 40.68 on WikiText-2. We further
+apply MoS to a dialog dataset and show improved performance over Softmax and other baselines.
+Our contribution is two-fold. First, we identify the Softmax bottleneck by formulating language
+modeling as a matrix factorization problem. Second, we propose a simple and effective method that
+substantially improves over the current state-of-the-art results.
+2 L ANGUAGE MODELING AS MATRIX FACTORIZATION
+As discussed in Section 1, with the autoregressive factorization, language modeling can be reduced
+to modeling the conditional distribution of the next tokenx given the contextc. Though one might ar-
+gue that a natural language allows an inﬁnite number of contexts due to its compositionality (Pinker,
+1994), we proceed with our analysis by considering a ﬁnite set of possible contexts. The unbound-
+edness of natural language does not affect our conclusions, which will be discussed later.
+We consider a natural language as a ﬁnite set of pairs of a context and its conditional next-token
+distribution2L = {(c1,P∗(X|c1)),··· , (cN,P∗(X|cN))}, where N is the number of possible
+contexts. We assume P∗ > 0 everywhere to account for errors and ﬂexibility in natural language.
+Let{x1,x 2,··· ,xM} denote a set of M possible tokens in the language L. The objective of a
+language model is to learn a model distributionPθ(X|C) parameterized byθ to match the true data
+distributionP∗(X|C).
+In this work, we study the expressiveness of the parametric model class Pθ(X|C). In other words,
+we are asking the following question: given a natural language L, does there exist a parameter θ
+such thatPθ(X|c) =P∗(X|c) for allc inL?
+We start by looking at a Softmax-based model class since it is widely used.
+2.1 S OFTMAX
+The majority of parametric language models use a Softmax function operating on a context vector
+(or hidden state) hc and a word embedding wx to deﬁne the conditional distributionPθ(x|c). More
+speciﬁcally, the model distribution is usually written as
+Pθ(x|c) = exp h⊤
+c wx∑
+x′ exp h⊤c wx′
+(1)
+where hc is a function ofc, and wx is a function ofx. Both functions are parameterized by θ. Both
+the context vector hc and the word embedding wx have the same dimension d. The dot product
+h⊤
+c wx is called a logit.
+To help discuss the expressiveness of Softmax, we deﬁne three matrices:
+Hθ =
+
+
+h⊤
+c1
+h⊤
+c2
+···
+h⊤
+cN
+
+ ; Wθ =
+
+
+w⊤
+x1
+w⊤
+x2
+···
+w⊤
+xM
+
+ ; A =
+
+
+logP∗(x1|c1), logP∗(x2|c1) ··· logP∗(xM|c1)
+logP∗(x1|c2), logP∗(x2|c2) ··· logP∗(xM|c2)
+... ... ... ...
+logP∗(x1|cN), logP∗(x2|cN) ··· logP∗(xM|cN)
+
+
+where Hθ∈ RN×d, Wθ∈ RM×d, A∈ RN×M , and the rows of Hθ, Wθ, and A correspond to
+context vectors, word embeddings, and log probabilities of the true data distribution respectively.
+We use the subscriptθ because (Hθ, Wθ) is effectively a function indexed by the parameterθ, from
+the joint function family U. Concretely, Hθ is implemented as deep neural networks, such as a
+recurrent network, while Wθ is instantiated as an embedding lookup.
+We further specify a set of matrices formed by applying row-wise shift to A
+F (A) ={A + ΛJN,M|Λ is diagonal and Λ∈ RN×N},
+2We use capital letters for variables and small letters for constants.
+2

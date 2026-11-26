@@ -1,0 +1,187 @@
+arXiv:2506.18520v1  [cs.CV]  23 Jun 2025
+Enhancing Image Restoration Transformer via
+Adaptive Translation Equivariance
+JiaKui Hu1,2,3, Zhengjian Yao1,2,3, Lujia Jin4, Hangzhou He1,2,3, Yanye Lu1,2,3*
+1Institute of Medical Technology, Peking University Health Science Center, Peking University
+2Biomedical Engineering Department, College of Future Technology, Peking University
+3National Biomedical Imaging Center, Peking University
+4China Mobile Research Institute
+jkhu29@stu.pku.edu.cn, yanye.lu@pku.edu.cn
+Abstract
+Translation equivariance is a fundamental inductive bias
+in image restoration, ensuring that translated inputs pro-
+duce translated outputs. Attention mechanisms in modern
+restoration transformers undermine this property, adversely
+impacting both training convergence and generalization. To
+alleviate this issue, we propose two key strategies for in-
+corporating translation equivariance: slide indexing and
+component stacking. Slide indexing maintains operator re-
+sponses at fixed positions, with sliding window attention
+being a notable example, while component stacking en-
+ables the arrangement of translation-equivariant operators
+in parallel or sequentially, thereby building complex archi-
+tectures while preserving translation equivariance. How-
+ever, these strategies still create a dilemma in model design
+between the high computational cost of self-attention and
+the fixed receptive field associated with sliding window at-
+tention. To address this, we develop an adaptive sliding
+indexing mechanism to efficiently select key-value pairs for
+each query, which are then concatenated in parallel with
+globally aggregated key-value pairs. The designed network,
+called the Translation Equivariance Adaptive Transformer
+(TEAFormer), is assessed across a variety of image restora-
+tion tasks. The results highlight its superiority in terms of
+effectiveness, training convergence, and generalization.
+1. Introduction
+Image restoration aims to reconstruct high-quality (HQ) im-
+ages from their low-quality (LQ) counterparts, which are
+often affected by degradations resulting from the imaging
+system or environment. As a constituent of the imaging
+system, image restoration methods should satisfy the fol-
+lowing fidelity property: the restoration results for the target
+region should remain equivariant under geometric transfor-
+*Corresponding author.
+mations of the input. This fidelity property is termed trans-
+lation equivariance, which is one of the inherent inductive
+biases in image restoration.
+SA( T(x)) W A( T(x)) TEA( T(x))
+T(SA( x)) T(W A( x)) T(TEA( x))
+≠≠=Test error
+Train error
+(1) Convergence
+(2) Generalization
+w TEw/o TE
+errorerror
+Figure 1. T (·) means the translation function. ”SA” and ”W A” are
+commonly used for self-attention and window attention, respec-
+tively, but disrupt translation equivariance (TE) due to position en-
+coding and feature shifting. ”TEA” is our proposed translation
+equivariance adaptive attention, which satisfies TE. TE promotes
+faster convergence and better generalization.
+Attentions TE Performance NTK [25] SRGA [33]ComplexityPSNR↑/ SSIM↑ Condition↓ Value↓
+SA ✘ 28.21 / 0.8435 11140.44 4.075 O(N2)
+W A ✘ 27.45 / 0.8254 1746.49 3.655 O(N)
+TEA (Ours)✔ 28.67/0.8489 236.78 3.275 O(N)
+Table 1. In 4× image super-resolution, we study performance,
+NTK [8] convergence speed, SRGA [33] generalization, and com-
+putation complexities. We replace W A in SwinIR with SA and
+TEA for testing. TEA shows fast convergence, better generaliza-
+tion, and linear complexity. The results are tested on Urban100.
+In restoration networks [32, 62, 68, 71] based on convo-
+lution neural networks (CNNs), the paradigm of sliding in-
+formation extraction inherent to convolutions [18] imparted
+a natural translation equivariance (TE)1 property in restora-
+tion networks. However, as shown in Figure 1 and Table 1,
+1Translation equivariance and translation invariance are concepts that
+are frequently misconstrued. Our paper is dedicated to the analysis of
+equivariance. We have provided a clear delimitation and discussion con-
+cerning these concepts in the supplementary material.
+1
+
+---PAGE---
+
+the advent of Self Attention (SA) [51] and Window Atten-
+tion (W A) [34] within Transformers has broken this fidelity
+property, leading to slow convergence and poor generaliza-
+tion in restoration transformers.
+In this paper, we propose two fundamental strategies to
+bring TE back into the restoration transformers: (1) slide
+indexing and (2) component stacking. The slide indexing
+strategy employs a fixed container, e.g., a fixed rectangu-
+lar window, to globally extract the input in a sliding fash-
+ion. This method requires the operators to calculate in-
+stantaneously, thereby maintaining the consistency of po-
+sitional coordinates between the input and output of the
+model, which facilitates the integration of TE. The compo-
+nent stacking strategy involves stacking modules that sat-
+isfy the TE property in parallel or in series, thus enhancing
+architectures while ensuring TE in complex networks.
+However, these foundational strategies present a persis-
+tent challenge in the design of restoration transformers. Se-
+lecting SA to achieve superior performance involves accept-
+ing its substantial computational complexity [63]; alterna-
+tively, opting for sliding window attention provides linear
+complexity but results in a fixed receptive field [48] and
+reduced performance. To break this dilemma, we replace
+the global key-value pair indexing mechanism in vanilla
+SA with an adaptive slide indexing mechanism to design
+the Translation Equivariance Adaptive (TEA) attention. To
+retain the extraction of global information, TEA incorpo-
+rates a downsampling self-attention branch without position
+encoding, which reduces the key-value pair’s resolution by
+aggregating them, thereby providing TEA with coarse, yet
+effective global information.
+In summary, our contributions are threefold. First, we
+investigate TE in image restoration, analyzing its impact on
+convergence and generalization. The results indicate that
+the integration of TE is essential in the design of restora-
+tion networks. Second, we propose TEA, which uses adap-
+tive slide indexing methods to incorporate the TE property
+while preserving linear complexity and ensuring a global
+receptive field, thereby enhancing restoration transform-
+ers. Third, we introduce TEA to the vanilla Vision Trans-
+former to design TEAFormer. Experiments show that TEA
+achieves State-of-The-Art (SoTA) performance in various
+image restoration tasks, while having faster convergence
+and more robust generalization.
+2. Related Work
+Vision Transformers with inductive bias. Following the
+pioneering introduction of the Transformer [51] into vision
+tasks by ViT [16], SA has emerged as a key component in
+vision networks. However, ViT is challenging to train, ex-
+hibits slow convergence, and requires substantial data sup-
+port [49]. Previous works, such as ViTAE [59, 70], at-
+tributed this to a lack of inductive bias and advocated in-
+tegrating inductive bias with ViT to develop more efficient
+ones. AACNet [4] emphasized the importance of trans-
+lation equivariance for visual tasks. The Swin [34] and
+CSwin [15] Transformers incorporated local processing into
+the vision Transformer, thus proposing window attention.
+CVT [56] and FasterViT [21] sequentially stack convolu-
+tions and attention layers, resulting in a hybrid architecture.
+PVT [52, 53] used average pooling for downsampling to
+achieve weak translation equivariance. Both DAT [57] and
+BiFormer [74] dynamically determined the windows acces-
+sible to each token. Recently, some studies have introduced
+translation equivariance into ViT by modifying position en-
+coding [4, 58] and attention calculation logic [44, 46].
+Recent image restoration Transformers. Similar to the
+development of vision transformers, the design of image
+restoration models also focuses on how to better design
+local global information processors [9, 31, 61, 63, 73].
+Since the resolution of the input image is generally high
+in the image restoration task, directly using SA will re-
+sult in a huge computation cost. To address this issue,
+SwinIR [31] introduced window attention [34]. HAT [9]
+enlarged the receptive field of the restoration transformers
+with the squeeze-excitation module [22] and the overlap-
+ping mechanism. Restormer [63] and DAT [10] performed
+channel-wise attention, thereby facilitating more efficient
+feature re-weighting. GRL [61] extracted the feature on lo-
+cal, regional, and global scales by integrating the attention
+of the anchor window. IPG [48] exploited the flexibility of
+the network by proposing the degree-variant graph solution,
+breaking the rigidity of the previous methods.
+3. Translation Equivariance
+In this section, we define the translation equivariance and
+propose two fundamental strategies for integrating transla-
+tion equivariance into restoration networks.
+Definition 3.1. Translation Equivariance. We call func-
+tion Φ(·) is translation equivariant to translation operation
+T (·), if Φ(T (x)) = T (Φ(x)), where x is the input signal.
+In image restoration tasks, x is an image or a feature in
+the latent space typically,T (·) refers to a shift in pixels [20].
+Based on this definition, two theorems are derived:
+Theorem 3.2. If Φ(x)i is transformed from xj = [i − b, i+
+b], where b is the sliding boundary, the functionΦ(·) fulfills
+Definition 3.1.
+Theorem 3.3. If the functions Φ1(·) and Φ2(·) fulfill Defi-
+nition 3.1, the functions Φ2(Φ1(·)) and Φ1(·) + Φ2(·) also
+fulfill Definition 3.1.
+Reformulating the existing operators in line with The-
+orem 3.2 gives them the translation equivariance property.
+By stacking these operators, either in parallel or in serial, as
+specified in Theorem 3.3, more complex architectures are
+also capable of translation equivariance. Consequently, the
+model can be further enhanced via translation equivariance.
+2

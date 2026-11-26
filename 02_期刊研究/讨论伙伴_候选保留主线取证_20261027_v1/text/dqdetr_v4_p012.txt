@@ -1,0 +1,43 @@
+12 Y. Huang et al.
+Main ablation experiment. Table 5 shows the performance of our con-
+tributions separately on AI-TOD-V2. The results demonstrate that each com-
+ponent in DQ-DETR contributes to performance improvement. We attain an
+improved +2.2 AP over the baseline with the categorical counting module and
+dynamic query selection. Furthermore, with feature enhancement refining the en-
+coder’s feature, it gains an extra improvement of +4.3, +2.6, +5.2 on AP, APvt,
+and APt over the baseline. Besides, the experiment with the counting module
+and feature enhancement together but without dynamic query selection further
+shows that introducing an additional counting-guided feature-enhancing task
+improves performance, even when query numbers remain static. Consequently,
+we prove the power of each component in DQ-DETR on AI-TOD-V2.
+Table 5:Overall ablation for our architecture on AI-TOD-V2test split.
+Categorical Counting (CC) Dynamic Query Selection (DQS) Feature Enhancement (FE) AP APvt APt APs APm
+25.9 12.7 25.3 32.0 39.7
+✓ ✓ 28.1 12.3 27.8 34.6 44.1
+✓ ✓ 29.1 14.4 29.3 35.2 44.1
+✓ ✓ ✓ 30.2 15.3 30.5 36.5 44.6
+Ablation of DQ-DETR with different number of instances in images.
+We explore our DQ-DETR’s performance under different numbers of instances
+in an image. We classify the AI-TOD-V2 dataset into 4 levels based on the
+number of instances N in the image as in the categorical counting module,
+i.e., N ≤ 10, 10 < N ≤ 100, 100 < N ≤ 500, and 500 < N . Our proposed
+DQ-DETR’s performance is analyzed under these four situations. The results
+are shown in Table 6 compared with DINO-DETR as the baseline. Our DQ-
+DETR dynamically adjusts the number of object queries based on the number
+of instances in the image, while DINO-DETR always uses 900 queries in all
+situations.
+We can observe that in the situations ofN ≤ 10, and 10 < N ≤ 100, our
+DQ-DETR uses fewer numbers of queries and outperforms the baseline by 16%,
+and 16.4% in terms of AP. The performances in terms of APvt, APt surpass the
+baseline by 19.8%, and 20.8% as well. Moreover, it is noteworthy that DINO-
+DETR performs poorly whenN > 500. Under these circumstances, there might
+be over 900 instances in some of the images, which is beyond the detection
+capability of DINO-DETR. In dense images, the detection limitation of DINO-
+DETR with only 900 queries, leads to many objects undetected (FN), resulting
+in a lower AP. Our DQ-DETR dynamically selects more queries for dense images,
+remarkably surpassing the baseline by 42.1% in terms of APvt.
+Ablation of Categorical Counting Module. Table 7 demonstrates the
+accuracy of the classification task in our categorical counting module. The per-
+formance is analyzed under four situations, whereN is the number of instances
+per image. The total classification accuracy is about 94.6%, which means our
+categorical counting module can accurately estimate the number of objectsN in

@@ -1,0 +1,103 @@
+contextual information as well as mutual relation between
+boxes into a Determinantal Point Process (DPP) [
+10] loss
+function. This DPP loss ﬁnds a subset of diverse bound-
+ing boxes using the outputs of the other two loss functions
+(namely, the probability of each proposal to belong to each
+object category as well as the location information of the
+proposals) and will reinforce them in ﬁnding more accurate
+object instances in the end, as illustrated in Figure 1. We
+employ our DPP loss to maximize the likelihood of an accu-
+rate selection given the pool of overlapping background and
+non-background boxes over multiple categories.
+Inference in state-of-the-art detection methods [ 18, 6,
+16, 14] is generally based on Non-Maximum Suppression
+(NMS), which considers only the overlap between candidate
+boxes per class label and ignores their semantic relationship.
+We propose a DPP inference scheme to select a set of non-
+repetitive high-quality boxes per image taking into account
+spatial layout, category-level analogy between proposals, as
+well as their quality score obtained from deep trained model.
+We call our proposed model as “Learning Detection with
+Diverse Proposals Network – LDDP-Net”.
+Our proposed loss function for representation enhance-
+ment and more accurate inference can be applied on any
+deep network architecture for object detection. In our exper-
+iments below we focus on the Faster R-CNN model to show
+the signiﬁcant performance improvement added by our DPP
+model. We demonstrate the effect of our proposed DPP loss
+layer in accurate object localization during training as well
+as inference on the benchmark detection data sets PASCAL
+VOC and MS COCO based on average precision and average
+recall detection metrics.
+To sum up, we make following contributions in this work:
+• We propose to explicitly pursue diversity on generated
+object proposals and introduce the strategy of learning
+detection with diverse proposals.
+• We introduce a DPP layer that is able to maximize diver-
+sity favorably in an end-to-end trainable way. Besides
+it is compatible with many existing state-of-the-art de-
+tection architectures and thus able to augment them
+effectively.
+• Experiments on Pascal VOC and MS COCO data sets
+clearly demonstrate the superiority of diverse proposals
+and effectiveness of our proposed method on producing
+diverse detections.
+LDDP Code is available at https://github.com/
+azadis/LDDP.
+2. End-to-End LDDP Model
+Faster R-CNN [16] as a uniﬁed deep convolutional frame-
+work for generating and reﬁning region proposals alternates
+between ﬁne-tuning for proposals using a fully convolutional
+Region Proposal Network (RPN) and ﬁne-tuning for object
+detection by Fast R-CNN model. Keeping the object pro-
+posals generated from RPN ﬁxed, they will be mapped into
+convolutional features through several convolutional and
+max-pooling layers. An RoI pooling layer converts the fea-
+tures inside each region of interest (RoI) into a ﬁxed-length
+feature vector afterwards, which will be fed into a sequence
+of fully connected layers.
+The loss function on the top layer of detection model is
+a multi-task loss dealing with both classiﬁcation and local-
+ization of object proposals: the softmax loss layer outputs a
+discrete probability distribution over the K + 1 categories
+of objects in addition to the background for each object
+proposal, and the bounding box regressor layer determines
+location offsets per object proposal for all categories.
+Applying a diversity-ignited model can reinforce the net-
+work to limit the boxes around each object while they have
+minimum overlap with other object bounding boxes in the
+image. It will also “select” boxes in such a way to make
+their collection as informative as possible given the mini-
+mum possible number of proposals. We deﬁne such a model
+through a DPP loss layer added to the other two loss func-
+tions introduced in the Faster R-CNN architecture.
+On the other hand, inference in Region-based CNN mod-
+els as well as other state-of-the-art networks is done through
+NMS which selects boxes with highest detection scores for
+each category. Giving a priority to the detection scores,
+it might ﬁnally end up in selecting overlapping detection
+boxes and miss the best possible set of non-overlapping ones
+with acceptable score. Besides, NMS neglects the semantic
+relations between categories as its selection is done category-
+wisely. We address all such problems through a probabilistic
+DPP inference scheme which jointly considers all spatial
+layout, contextual information, and semantic similarities be-
+tween object candidates and selects the best probable ones.
+In the following section, we deﬁne our learn-able DPP loss
+layer, show how to back-propagate through this layer while
+training the model (summarized in Alg. 1), and then clar-
+ify how to infer the best non-overlapping boxes from the
+predicted proposals.
+2.1. Learning with Diverse Proposals
+Determinantal Point Processes (DPPs) are natural models
+for diverse subset selection problems [ 10]. In the selection
+problem, there is a trade-off between two inﬂuential metrics:
+The selected subset of items, or in other words their summary,
+should be “representative” and cover signiﬁcant amount of
+information from the whole set. Besides, the information
+should be passed “efﬁciently” through this selection; the
+selection should be diverse and non-repetitive. We brieﬂy
+explain a determinantal point process here and refer the
+readers to [ 10] for an in-depth discussion.
+7150

@@ -1,0 +1,122 @@
+Enhanced YOLOv11n for small 
+object detection in UAV imagery: 
+higher accuracy with fewer 
+parameters
+Hongkai Zhu1 & Xianghua Xie2
+Object detection in UAV imagery faces several challenges due to high-altitude aerial capture: targets 
+are densely distributed, small objects account for a large proportion, and onboard computing 
+power is limited, leading to low detection accuracy and high rates of false and missed detections. To 
+address these issues, this paper proposes an improved YOLOv11 model. First, we design a Multiscale 
+Edge-Feature Adaptive Selection (MSEAF) module in the backbone to effectively cope with the 
+predominance of small objects and weak edge information. Second, we use the ScalCat and Scal3DC 
+modules to reconstruct the neck and add a P2 small-object detection head, alleviating feature 
+degradation in multiscale processing and improving the utilization of high-resolution information. 
+Finally, we design a shared, reparameterized lightweight detection head (SRepD) to resolve the 
+computational redundancy and insufficient feature fusion of conventional heads. On the VisDrone2019 
+dataset, compared with the YOLOv11n baseline, our model increases mAP50 and Precision by 4.6% 
+while reducing the number of parameters by approximately 8.5%. On the TinyPerson dataset, which 
+contains only two extremely small categories, our model improves mAP50 and Precision by 5.5% 
+and 5.6%, respectively, with a 7.7% reduction in parameters relative to YOLOv11n. Compared with 
+the larger YOLOv11s, our model achieves gains of 3.8% in mAP50 and 3.2% in Precision while using 
+only 25% of its parameters, demonstrating cross-scale performance superiority. On the HazyDet 
+dataset, the first UAV-perspective hazy scene dataset, our model also demonstrates superior detection 
+performance compared to the YOLOv11n baseline.
+Over the past decade, unmanned aerial vehicle (UAV) technology has developed rapidly and has become an 
+indispensable tool in modern society. According to a market research report1, the global UAV market is expected 
+to grow from USD 36.4 billion in 2024 to USD 125.9 billion by 2032, with a compound annual growth rate 
+of 17.3%. UAVs show application potential in both military and civilian domains. Civilian scenarios already 
+cover aerial surveillance, parcel delivery, precision agriculture, intelligent transportation (including traffic 
+monitoring), search and rescue, post-disaster and wildfire management, and remote sensing 2. When equipped 
+with imaging payloads, UAVs can conduct real-time monitoring over large areas and accurately capture key 
+indicators such as crowd density in critical regions and road traffic flow, thereby providing technical support 
+for public safety assurance 3. However, the typical operating altitude of UAVs–generally between 100 and 500 
+m–has a marked impact on imagery. In the collected images, approximately 60–80% of targets are smaller than 
+32 × 32 pixels, and more than 70% are even smaller than 16 pixels4–6. Such small targets commonly suffer from 
+scarce feature information, low contrast, and a limited number of effective keypoints. Because the pixel scale is 
+extremely small, visual details are heavily compressed and it is difficult to stand out from complex backgrounds, 
+making it hard for models to capture sufficient discriminative cues and increasing the difficulty of accurate 
+localization and classification. During flight, airflow-induced, high-frequency vibrations, abrupt illumination 
+changes between day and night, and environmental interference from diverse ground objects further exacerbate 
+the detection challenge. Lightweight models deliver fast inference. However, when handling extremely small 
+objects, their limited capacity hinders the retention of shallow fine-grained details and the extraction of deep 
+semantic features, leaving substantial room for improving detection accuracy.
+The mainstream object detection algorithms can be broadly divided into two categories: Transformer-based 
+and CNN-based. The Transformer14, proposed in 2017, is a neural-network architecture built on self-attention; 
+its core innovation is multi-head self-attention, which computes in parallel the relationships between any two 
+1Shanghai DianJi University, Shanghai 201306, China. 2Innovation Academy for Microsatellites of Chinese Academy 
+of Sciences, Shanghai 201306, China. email: xiexh@microsate.com
+OPEN
+Scientific Reports |         (2026) 16:5536 1| https://doi.org/10.1038/s41598-026-35301-2
+www.nature.com/scientificreports
+
+
+---PAGE---
+
+positions in a sequence, enabling strong long-range dependency modeling and efficient parallelism. After 
+first achieving great success in natural-language processing, its outstanding performance in NLP motivated 
+researchers to apply Transformers to computer vision, especially object detection. DETR 15 was the first to 
+introduce the Transformer into end-to-end object detection, eliminating region proposals and non-maximum 
+suppression (NMS), but it suffers from slow convergence, low inference speed, and poor accuracy on small 
+objects. RT-DETR16 mitigates these drawbacks through a CNN–Transformer hybrid architecture, IoU-aware 
+query selection, and an efficient hybrid encoder, improving convergence and inference efficiency; nevertheless, 
+it still shows strong hardware dependence and a large parameter count, which restricts its use in lightweight 
+and real-time scenarios.CNN-based object-detection methods can be further divided into two-stage and one-
+stage approaches. Two-stage methods first generate candidate regions and then perform classification and 
+bounding-box regression. R-CNN17, the pioneering two-stage method, was the first to successfully apply deep 
+learning to object detection. Its pipeline uses Selective Search to propose regions, extracts features for each 
+region with a CNN, and finally applies an SVM classifier together with a bounding-box regressor to complete 
+detection. Although R-CNN achieved a breakthrough in accuracy, it suffers from slow detection speed, complex 
+training, and heavy storage overhead. To address these issues, Faster R-CNN 18 replaces hand-crafted proposal 
+generation with a region-proposal network (RPN) and shares features to enable end-to-end training, improving 
+efficiency while maintaining accuracy. Overall, two-stage methods such as R-CNN and Faster R-CNN deliver 
+high accuracy and are easy to extend to multitask settings, but processing many proposals leads to slow inference 
+and high computational complexity. Consequently, for UAV imagery it is difficult for these approaches to 
+simultaneously meet the requirements of accuracy, real-time performance, and lightweight deployment.By 
+contrast, one-stage object-detection algorithms make a single prediction of location and category directly on 
+feature maps at preset anchors or object centers. They offer fast inference but typically sacrifice some accuracy. 
+Representative one-stage methods include SSD, RetinaNet, and the YOLO family. SSD 19 extracts feature maps 
+from different network layers and realizes multi-scale detection by detecting small objects on shallow layers 
+and large objects on deeper layers. It uses predefined default boxes as prior knowledge and predicts, at each 
+feature-map location, multiple bounding boxes of different sizes and aspect ratios. This design allows SSD to 
+retain relatively fast inference while handling objects of different scales, making it a milestone among one-stage 
+detectors. However, SSD performs poorly on small objects; its default-box hyperparameters require careful 
+manual design; and shallow-layer features offer limited semantic information. RetinaNet 20 introduces Focal 
+Loss to address the severe class-imbalance problem: training in traditional one-stage detectors is dominated by 
+many easy negatives, which hampers learning on hard examples. By dynamically reweighting the loss, Focal Loss 
+reduces the contribution of easy negatives and focuses the model on hard samples. RetinaNet also uses an FPN to 
+fuse multi-scale features and was the first to show that a one-stage detector can match the accuracy of two-stage 
+methods. Y et the FPN increases model complexity and computational cost, resulting in relatively slow inference 
+and limiting its suitability where strict real-time performance is required.
+The YOLO series began in 2016 with YOLOv1 21 by Redmon et al., which reformulated object detection as 
+a single regression problem that predicts an object’s location and category in one forward pass, fundamentally 
+changing the traditional detection paradigm. Subsequent versions–YOLOv2 22 , YOLOv3 23 , and YOLOv4 24 
+–continued to refine the architecture and algorithms; while preserving the advantages of fast detection and 
+lightweight design, they gradually approached the accuracy of two-stage methods 25. Mature versions in recent 
+years include YOLOv526, YOLOv87 , and YOLOv1111 . They all comprise three components: a backbone for feature 
+extraction, a neck for multiscale feature fusion, and a detection head that outputs the final predictions, delivering 
+strong performance in real-time applications. Among these, YOLOv8–released in 2023 as a mainstream version–
+introduced the C2f module and a decoupled detection head, achieving a notable balance between speed and 
+accuracy. For aerial small-object detection, many researchers have improved upon YOLOv8. For example, FBRT-
+YOLO8, ESOD-YOLO9, and GAM-YOLOv810 are listed in Table 1. Taking FBRT-YOLO[22] as an example, the 
+FCM module integrates shallow and deep feature information, and MKP replaces the downsampling operation 
+to simplify the network structure while removing the P5 detection head. Using YOLOv8n as the baseline on the 
+VisDrone2019 dataset, the parameter count is reduced by 72%, and the small-object detection performance is 
+slightly improved. On the basis of YOLOv8, YOLOv11 was further optimized: first, the C3K2 module replaces 
+the C2f module, using double small convolutions instead of large convolutions to improve feature aggregation 
+efficiency; second, the C2PSA mechanism is introduced to enhance spatial attention, improving small-object 
+detection in complex scenes; third, the detection head uses deep convolutions to reduce computational load, 
+achieving a balance between speed and accuracy. These improvements make YOLOv11 significantly reduce 
+the model’s parameter count while maintaining detection accuracy, making it more suitable as a baseline for 
+research improvements. Researchers have made improvements to YOLOv11, such as HFC-YOLOv11 12 and 
+Impr.YOLOv1113. For ease of comparison, we place the mentioned improved models in Table  1 for comparison. 
+We observe in the last column of Table 1 (Results of the Model), these approaches exhibit a clear trade-off: one 
+class markedly boosts detection performance at the cost of a large increase in parameters, while the other greatly 
+reduces parameters but delivers only modest gains. Balancing detection accuracy with model parameter quantity 
+therefore remains a core challenge for small-object detection in UAV imagery.Using YOLOv11n as our baseline, 
+we introduce targeted modifications that significantly improve small-object detection while reducing model 
+complexity. Our improvements are summarized as follows:
+• MSEAF (Multi-Scale Edge Adaptive Fusion) replaces C3K2 in the backbone. The module extracts multi-di -
+mensional features from five spatial scales, concatenates them, and then performs adaptive feature selection 
+to precisely focus on key information.
+Scientific Reports |         (2026) 16:5536 2| https://doi.org/10.1038/s41598-026-35301-2
+www.nature.com/scientificreports/

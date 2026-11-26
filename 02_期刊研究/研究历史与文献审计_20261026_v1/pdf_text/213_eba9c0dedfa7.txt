@@ -1,0 +1,217 @@
+1
+Scale-Aware Relay and Scale-Adaptive Loss for
+Tiny Object Detection in Aerial Images
+Jinfu Li , Yuqi Huang , Hong Song , Ting Wang , Jianghan Xia , Yucong Lin , Jingfan Fan , Jian Yang
+Abstract—Recently, despite the remarkable advancements in
+object detection, modern detectors still struggle to detect tiny
+objects in aerial images. One key reason is that tiny objects carry
+limited features that are inevitably degraded or lost during long-
+distance network propagation. Another is that smaller objects re-
+ceive disproportionately greater regression penalties than larger
+ones during training. To tackle these issues, we propose a Scale-
+Aware Relay Layer (SARL) and a Scale-Adaptive Loss (SAL)
+for tiny object detection, both of which are seamlessly compatible
+with the top-performing frameworks. Specifically, SARL employs
+a cross-scale spatial-channel attention to progressively enrich the
+meaningful features of each layer and strengthen the cross-layer
+feature sharing. SAL reshapes the vanilla IoU-based losses so as
+to dynamically assign lower weights to larger objects. This loss is
+able to focus training on tiny objects while reducing the influence
+on large objects. Extensive experiments are conducted on three
+benchmarks (i.e.,AI-TOD, DOTA-v2.0 and VisDrone2019), and
+the results demonstrate that the proposed method boosts the
+generalization ability by 5.5% Average Precision (AP) when
+embedded in YOLOv5 (anchor-based) and YOLOx (anchor-free)
+baselines. Moreover, it also promotes the robust performance with
+29.0% AP on the real-world noisy dataset (i.e.,AI-TOD-v2.0).
+Index Terms—Tiny object detection, discriminative features,
+scale-aware attention network, scale-adaptive loss.
+I. INTRODUCTION
+T
+INY object detection (TOD) is always a fundamental
+task in aerial image processing, aiming to categorize and
+locate highly structured objects with fewer than 16×16 pixels,
+such as persons, ships and vehicles. These tiny objects appear
+everywhere in practical applications, where their accurate de-
+tection is beneficial to automated interpretation and informed
+decision-making [1]–[4]. However, the shooting angle and
+imaging altitude enable the size, shape, and orientation of
+objects to vary so much that extracting sufficient appearance
+information is extremely difficult [5]. Meanwhile, changes in
+light and weather further complicate the backgrounds, leading
+to a low signal-to-noise ratio (SNR) [6]. The cumulative effects
+of these factors pose significant challenges for TOD, making
+it a hotspot in both academia and industry circles.
+With the rapid development of deep neural networks [7]–[9],
+generic object detection has made great progress. Many studies
+This work was supported in part by the National Natural Science Foundation
+of China (No. 62025104, 62171039 and U22A2052) and in part by the
+Natural Science Foundation of Beijing, China (No. L242024). (Correspond-
+ing authors: Hong Song and Jian Yang; E-mail: songhong@bit.edu.cn and
+jyang@bit.edu.cn.)
+Jinfu Li, Yuqi Huang, Hong Song, Ting Wang and Jianghan Xia are with the
+School of Computer Science and Technology, Beijing Institute of Technology,
+Beijing 100081, China.
+Yucong Lin, Jingfan Fan and Jian Yang are with the School of Optics and
+Photonics, Beijing Institute of Technology, Beijing 100081, China.
++
+Cls.
+Input Reg.
+𝐿𝑜𝑠𝑠𝑇𝑜𝑡𝑎𝑙 = 𝜆1𝐿𝑜𝑠𝑠𝐶𝑙𝑠 +𝜆2𝐿𝑜𝑠𝑠𝑂𝑏𝑗 +𝜆3𝐿𝑜𝑠𝑠𝑅𝑒𝑔
+Cls.
+Input Reg.
+𝐿𝑜𝑠𝑠𝑇𝑜𝑡𝑎𝑙 = 𝜆1𝐿𝑜𝑠𝑠𝐶𝑙𝑠 +𝜆2𝐿𝑜𝑠𝑠𝑂𝑏𝑗
+(a) Prevailing Framework
+Backbone Neck Head
+(b) Our Framework 𝛌𝟑𝐋𝐨𝐬𝐬′𝐑𝐞𝐠+
+SARL
+Fig. 1. Schematic illustration of the comparison between the prevailing
+framework and our framework. (a) Prevailing Framework. (b) Our Framework.
+suggested that general detectors, even the most advanced ones,
+will not produce satisfactory results if directly applied to the
+TOD task [10]. The alternatives usually assemble some special
+design and/or mechanisms into the top of general detectors. A
+common strategy is to increase the number of tiny objects in
+the dataset, thereby enhancing the model’s ability to learn their
+representations. These data augmentation techniques include
+Generative adversarial networks (GAN)-based object synthesis
+[11], image pyramid [12], aggregated-mosaic [13], copy-paste
+[14], and so on. However, these methods entail a compromise
+in computational costs. Given the scarcity of visual cues, it is
+necessary to mine and exploit extra semantic and contextual
+information. For instance, Chenget al.[15] employed cross-
+attention and self-attention network (RCSANet) to match key
+points with regional backgrounds. Chenet al.[16] utilized
+multiple kernel dilated convolution to expand the receptive
+field without reducing the spatial resolution. Moreover, a
+lot of efforts have been made on bottom-up and top-down
+structures [17]–[19]. Recently, researchers began exploring
+new similarity metrics to replace IoU in NMS (Non-Maximum
+Suppression), loss functions, and label assignment [20]–[23].
+In [20], the Sig-NMS is proposed to adjust the threshold by a
+fraction reset function, which mitigates the problem of tiny
+objects being suppressed in original NMS. Xuet al.[21]
+projected high-dimensional features into 2D Gaussian distribu-
+tions and adopted the normalized Wasserstein distance (NWD)
+to represent the location relationship. Later, Xuet al.[22]
+also proposed a receptive field-based label assignment (RFLA)
+strategy, which took a Gaussian receptive field distance to
+arXiv:2511.09891v1  [cs.CV]  13 Nov 2025
+
+---PAGE---
+
+2
+calculate the similarity between predictions and ground truths.
+While the preceding methods have shown promise, there is still
+plenty of room for improvement on two issues.
+(i)Discriminative features degrade or get lost as they
+propagate through the detection network.Current mainstream
+detectors typically consist of three key parts: the backbone,
+neck, and head. The backbone mainly employs a cascade
+of convolutional and pooling layers to generate hierarchical
+feature maps. As the layers deepen, these maps increasingly
+contain semantic information, which helps recognize objects
+with diverse scales and contexts. However, this downsampling
+procedure inevitably reduces the spatial resolution and discards
+spatial details that are crucial for distinguishing tiny objects
+from their backgrounds and from one another. Additionally,
+the neck (e.g., FPN [24], PANet [25], and BiFPN [26]) directly
+utilizes a series of operations like upsampling, concatenation,
+and skip/lateral connections to aggregate low-layer and high-
+layer feature maps. Ideally, it should work in harmony with
+the backbone, with each part leveraging its unique strengths
+to build a comprehensive feature pyramid. However, the neck
+largely relies on the quality and completeness of the input to be
+effective. Weak or incomplete feature maps prevent the neck
+from refining them, causing a cascading effect that exacerbates
+the performance of the entire detection network.
+(ii)Unfair regression penalties are imposed on tiny objects
+in bounding box predictions.As we all know, IoU is the most
+familiar metric for evaluating the accuracy of predictions. The
+regression losses based on IoU and its derivatives (e.g., GIoU
+[27], DIoU and CIoU [28]) have been proven effective in
+guiding the model to learn precise bounding box coordinates.
+Nevertheless, when these losses are implemented in TOD,
+a significant disparity in penalty arises. Concretely, large
+objects, due to larger pixels areas, exhibit a higher tolerance
+for deviations in localization without sharp drops in IoU
+values. This means that the model prioritizes optimizing its
+performance on large objects since they contribute less to
+the regression loss. In contrast, tiny objects have a greater
+sensitivity to localization deviations. Even minor positional
+shifts can decay IoU values rapidly. As a result, these values
+translate into disproportionate penalties in the calculation of
+the regression loss, focusing the model less on tiny objects.
+To mitigate the above issues, this paper introduces a Scale-
+Aware Relay Layer (SARL) and a Scale-Aware Loss (SAL)
+for tiny object detection. Both can be smoothly integrated into
+previous methods. SARL incorporates a cross-scale spatial-
+channel attention mechanism that refines and enhances the
+hierarchical feature maps extracted by the backbone before
+feeding them into the neck. This mechanism exploits high-
+level semantic information to reweight low-level spatial in-
+formation from adjacent layers. By dong so, SARL preserves
+and amplifies the fine-grained details that are often weakened
+or lost during network traversal while suppressing redundant
+information. Additionally, SAL is a dynamically scaled IoU-
+based regression loss, where the scaling factor decreases fast as
+the object’s area increases. In fact, this scaling factor automat-
+ically reduces the penalty of larger objects during training, en-
+abling the model focus more on tiny objects. To validate SARL
+and SAL, we conducted extensive experiments on four public
+datasets and compared their performance when integrated with
+anchor-based (YOLOv5) and anchor-free (YOLOx) object
+detection frameworks. Our results demonstrate the effective-
+ness of this approach in improving the overall performance,
+particularly in challenging noise scenarios.
+The main contributions are summarized as follows:
+•We design the scale-aware relay layer (SARL), positioned
+between the backbone and neck, to selectively emphasize
+the regions of interest while suppressing irrelevant fea-
+tures, thereby preventing the loss of fine-grained details.
+•We design the scale-adaptive loss (SAL), which dynami-
+cally assigns regression penalties to objects based on their
+scale, ensuring a robust training against scale variations.
+•We incorporate SARL and SAL into the popular anchor-
+based YOLOv5 and anchor-free YOLOx object detection
+algorithms, respectively, and demonstrate their perfor-
+mance improvement on four major benchmarks.
+The rest of this paper is organized as follows. In Section II,
+we provide a brief overview of related work in object detection
+and tiny object detection. In Section III, we describe the
+architecture and design of the SARL and SAL in detail. In
+Section IV, we present our experimental setup and results,
+including a comparison with state-of-the-art detection models.
+Finally, in Section V, we conclude our findings and discuss
+potential future directions for research in this area.
+II. RELATEDWORK
+A. Generic Object Detection
+Object detection methods can be roughly grouped into
+anchor-based and anchor-free detectors, depending on whether
+the pre-defined anchor boxes are used. The former utilizes one-
+stage or two-stage networks to generate region proposals and
+perform classification. Instead, the latter directly predicts the
+bounding boxes by keypoint-based or center-based networks.
+1) Anchor-based Detectors:One-stage networks, such as
+SSD [29], RetinaNet [30], and YOLO family [31]–[33], priori-
+tized speed and real-time performance. They accomplished this
+by classifying and regressing bounding boxes in a single pass
+through the network, making them ideal for applications where
+latency is a critical factor. In contrast, two-stage networks, ex-
+emplified by FPN [24], R-CNN family [7], [8], [34], [35], and
+TridentNet [36], emphasized higher accuracy by first creating
+a set of region proposals and then refining these proposals
+through a second stage of classification and bounding box
+regression. This two-step process allowed for more precise
+localization and classification of objects, making two-stage
+networks effective in scenarios requiring high accuracy.
+2) Anchor-free Detectors:Keypoint-based networks in-
+ferred bounding boxes from the geometrical relationships of
+multiple key points. CornerNet [37] detected the top-left and
+bottom-right corners with embedding vectors, while CenterNet
+[38] added the center point into the detection. Other repre-
+sentative works included Grid R-CNN [39], RepPoints [40],
+and FoveaBox [41]. In contrast, center-based networks mainly
+identified the center point. FCOS [42] computed distances
+from the center to the box boundaries, and TOOD [43]
+optimized anchor points via a task alignment learning strategy.

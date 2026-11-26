@@ -1,0 +1,37 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 9
+(a) Detection Performance.
+ (b) Instance Segmentation Performance.
+Fig. 4: Comparison across models on COCO. Weight of each error type compared
+across models. This has the same data as Fig. 3.
+general qualities of the ground truth, such as object size, and ﬁnd a number of useful
+insights. To further explain complicated error cases, we provide more granular analysis
+into certain error types. All modes of analysis used in this paper are available in our
+toolkit.
+Models We choose various object detectors and instance segmenters based on their
+ubiquity and/or unique qualities which allows us to study the performance trade-offs
+between different approaches and draw several insights. We use Mask R-CNN [13] as
+our baseline, as many other approaches build on top of the standard R-CNN framework.
+We additionally include three such models: Hybrid Task Cascades (HTC) [5], Trident-
+Net [18], and Mask Scoring R-CNN (MS-RCNN) [13]. We include HTC due to its strong
+performance, being the 2018 COCO challenge winner. We include TridentNet [18] as
+it speciﬁcally focuses on increasing scale-invariance. Finally, we include MS R-CNN
+as a method which speciﬁcally focuses on ﬁxing calibration based error. Distinct from
+the two-stage R-CNN style approaches, we also include three single-stage approaches,
+YOLACT/YOLACT++ [3,2] to represent real-time models, RetinaNet [19] as a strong
+anchor-based model, Fully Convolutional One-Stage Object Detection (FCOS) [23] as a
+non anchor-based approach. Where available, we use the ResNet101 versions of each
+model. Exact models are indicated in the Appendix.
+Datasets We present our core cross-model analysis on MS-COCO [20], a widely used
+and active benchmark. In addition, we seek to showcase the power of our toolbox to
+perform cross-dataset analysis by including three additional datasets: Pascal VOC [10]
+as a relatively simple object detection dataset, Cityscapes [6] providing high-res, densely
+annotation images with many small objects, and LVIS [12] using the same images at
+COCO but with a massive diversity of annotated objects with 1200+ mostly-rare class.
+3.1 Validating Design Choices
+The authors of each new object detector or instance segmenter make design choices
+they claim to affect their model’s performance in different ways. While the goal is
+almost always to increase overallmAP , there remains the question: does the intuitive
+justiﬁcation for a design choice hold up? In Fig. 3 we present the distribution of errors
+for all object detectors and instance segmenters we consider on COCO [20], and in this
+section we’ll analyze the distribution of errors for each detector to see whether our errors
+line up with the intuitive justiﬁcations.

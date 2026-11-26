@@ -1,0 +1,48 @@
+6 Senthivel and Vu
+detection effectiveness. The output queriesQl
+CA are computed as:
+Ql
+CA = Ql
+SA + CA(Que(Ql
+SA), Key(F), Val(F)) (2)
+Remark. The output queriesQl
+CA are obtained by combining the self-attended
+queries Ql
+SA with the cross-attention features derived from the input embedding
+F, enabling the incorporation of relevant information from the input data into
+the object queries. In this layer, object queries interact with the feature map to
+retrieve position-specific information [25,52]. However, due to Hungarian match-
+ing, query-to-ground truth assignments vary across epochs, leading to different
+queries encoding the same content over time.
+c. Feed Forward Networks (FFN).Finally, allQl
+CA are fed into a FFN and pro-
+cessed to form the queries for next stack:
+Ql+1 = FFN(Ql
+CA) (3)
+The FFN layer independently processes each query, without inducing specific
+query communication in this layer.
+3.3 Impact of Varying Object Query Numbers
+Visual inspection of detected objects indicates that certain object queries expe-
+rience a deterioration in their alignment with assigned ground truth instances
+across transformer layers, likely due to the propagation of redundant or conflict-
+ing features through SA and CA mechanisms [51]. To assess if object queries can
+be skipped from the SA and CA layers without impacting performance, and to
+determine the number that can be skipped, we progressively compute the mean
+Average Precision (mAP) on a trained Deformable DETR model with varying
+numbers of queries. Specifically, we evaluate three configurations:1○ only SA
+layers, 2○ only CA layers, and 3○ both SA and CA layers, initially using 300
+queries. We then gradually reduce the number of queries and observe the mAP
+a. Effect of different components on AP.As can be seen in Fig. 2a, using only
+the SA layers results in null AP performance. This is expected, as in the SA lay-
+ers, object queries interact solely with each other to share information. The SA
+mechanism helps establish and communicate initial content representations, but
+without interacting with image features, the queries fail to align with the image,
+leading to zero AP performance. Conversely, CA layers allow queries to refine
+predictions by accessing image features, enabling precise information extraction.
+ThishighlightstheimportanceofCA.Thebestresultsareachievedbycombining
+both SA and CA layers, as they collaboratively refine the object representations.
+b. Effect of number of queries on AP.As shown in Fig. 2b, reducing the number
+of object queries results in a moderate decline in AP performance, contrary to
+the anticipated substantial drop. Reducing the object query count of a trained
+Deformable-DETR model from 300 to 50 results in a maximum AP drop of
+359

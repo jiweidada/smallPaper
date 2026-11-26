@@ -1,0 +1,89 @@
+"""Publish a completed synthetic-or-real stage and require a matching local ack.
+
+This file neither imports a model nor runs a training loop. The training loop
+must call the barrier at the correct point and must abort on every exception.
+"""
+from pathlib import Path
+import math
+import os
+import secrets
+import time
+
+import epoch_backup_guard as guard
+
+
+def publish_manifest(stage, run_id, arm, protocol_sha256, epoch, restored, nonce=None):
+    stage = Path(stage)
+    if nonce is None:
+        nonce = secrets.token_hex(16)
+    data = guard.build_manifest(stage, run_id, arm, protocol_sha256, epoch, restored, nonce)
+    final = stage / 'manifest.json'
+    temp = stage / 'manifest.uploading'
+    guard.require(not final.exists() and not temp.exists(), 'Manifest output already exists')
+    with temp.open('xb') as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    guard.require(not final.exists(), 'Manifest appeared during publication')
+    os.replace(temp, final)
+    if os.name != 'nt':
+        descriptor = os.open(str(stage), os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    return data
+
+
+def await_ack(stage, run_id, arm, protocol_sha256, epoch, timeout_seconds=600,
+              poll_seconds=2, monotonic=time.monotonic, sleep=time.sleep):
+    """Wait for a complete marker, validate its ack and rehash source files.
+
+    A timeout or any validation error raises; the caller must stop without
+    beginning the next epoch. No automatic retry or resume is performed.
+    """
+    guard.require(type(timeout_seconds) in (int, float) and math.isfinite(timeout_seconds) and timeout_seconds > 0,
+                  'Invalid timeout')
+    guard.require(type(poll_seconds) in (int, float) and math.isfinite(poll_seconds) and poll_seconds > 0,
+                  'Invalid poll interval')
+    guard.require(type(epoch) is int and 0 <= epoch < guard.EPOCHS, 'Invalid epoch')
+    stage = Path(stage)
+    guard.require(stage.is_dir() and not stage.is_symlink() and
+                  not getattr(stage, 'is_junction', lambda: False)(), 'Invalid stage directory')
+    manifest_path = stage / 'manifest.json'
+    guard.require(guard.regular_file(manifest_path).st_size <= guard.MAX_MANIFEST_BYTES, 'Manifest too large')
+    manifest_data = manifest_path.read_bytes()
+    manifest = guard.parse_manifest(manifest_data, run_id, arm, protocol_sha256)
+    guard.require(manifest['epoch_index'] == epoch, 'Wrong stage epoch')
+    marker, ack_path = stage / 'ack.ready', stage / 'ack.uploading'
+    started = monotonic()
+    while not marker.exists():
+        elapsed = monotonic() - started
+        if elapsed >= timeout_seconds:
+            raise TimeoutError('Local backup was not acknowledged before timeout')
+        sleep(min(poll_seconds, timeout_seconds - elapsed))
+    guard.require(not marker.is_symlink() and not getattr(marker, 'is_junction', lambda: False)() and
+                  marker.is_file() and marker.stat().st_size == 0, 'Invalid acknowledgement marker')
+    guard.require(guard.regular_file(ack_path).st_size <= guard.MAX_MANIFEST_BYTES, 'Acknowledgement too large')
+    ack_data = ack_path.read_bytes()
+    guard.validate_ack(ack_data, manifest_data, manifest)
+    expected = {item['name'] for item in manifest['files']} | {'manifest.json', 'ack.uploading', 'ack.ready'}
+    guard.require({p.name for p in stage.iterdir()} == expected, 'Unexpected stage files')
+    for item in manifest['files']:
+        path = stage / item['name']
+        before = guard.regular_file(path)
+        guard.require(before.st_size == item['bytes'], 'Source file size changed')
+        digest = guard.digest_file(path)
+        after = guard.regular_file(path)
+        guard.require((before.st_size, before.st_mtime_ns) == (after.st_size, after.st_mtime_ns),
+                      'Source file changed during verification')
+        guard.require(digest == item['sha256'], 'Source file digest changed')
+    guard.check_phase_record(stage, manifest)
+    guard.require(manifest_path.read_bytes() == manifest_data and ack_path.read_bytes() == ack_data,
+                  'Manifest or acknowledgement changed during verification')
+    guard.require(marker.is_file() and not marker.is_symlink() and
+                  not getattr(marker, 'is_junction', lambda: False)() and marker.stat().st_size == 0,
+                  'Marker changed during verification')
+    return {'status': 'ACKNOWLEDGEMENT_VERIFIED', 'epoch_index': epoch,
+            'manifest_sha256': guard.digest_bytes(manifest_data), 'ack_sha256': guard.digest_bytes(ack_data),
+            'wait_seconds': monotonic() - started}

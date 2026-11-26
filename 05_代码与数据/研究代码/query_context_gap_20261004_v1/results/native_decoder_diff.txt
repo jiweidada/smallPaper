@@ -1,0 +1,45 @@
+--- upstream/native/engine/deim/dfine_decoder.py
++++ candidate/native/engine/deim/dfine_decoder.py
+@@ -446,7 +446,7 @@
+                 reg_scale,         # 回归缩放因子
+                 attn_mask=None,    # 注意力掩码（可选）
+                 memory_mask=None,  # 内存掩码（可选）    
+-                dn_meta=None):     # 去噪元数据（可选）
++                dn_meta=None, query_context_update=None):     # 去噪元数据（可选）
+         """
+         前向传播
+         返回:     
+@@ -481,7 +481,9 @@
+                 output_detach = output.detach()   
+ 
+             # 通过解码器层更新 output
+-            output = layer(output, ref_points_input, value, spatial_shapes, attn_mask, query_pos_embed)   
++            output = layer(output, ref_points_input, value, spatial_shapes, attn_mask, query_pos_embed)
++            if i == 0 and query_context_update is not None:
++                output = query_context_update(output, ref_points_detach)   
+ 
+             if i == 0:     
+                 # 第一层：使用逆sigmoid精炼初始边界框预测
+@@ -1016,10 +1018,12 @@
+             out['o2m_t_outputs'] = o2m     
+         return out 
+ 
+-    def forward(self, feats, targets=None):     
++    def forward(self, feats, targets=None, query_context_update=None):     
+         # 前向传播   
+         memory, spatial_shapes = self._get_encoder_input(feats)  # 获取编码器输入
+      
++        if query_context_update is not None and (self.mgsa_groups or self.o2m_t):
++            raise ValueError("Query-context prototype does not implement RTDETRv3 group branches")
+         if self.training and (self.mgsa_groups or self.o2m_t):    
+             return self._forward_rtdetrv3(memory, spatial_shapes, targets) 
+ 
+@@ -1055,7 +1059,7 @@
+             self.up,   
+             self.reg_scale,     
+             attn_mask=attn_mask,  
+-            dn_meta=dn_meta)
++            dn_meta=dn_meta, query_context_update=query_context_update)
+ 
+         # 如果有去噪训练，分割去噪和正常输出 
+         if self.training and dn_meta is not None:

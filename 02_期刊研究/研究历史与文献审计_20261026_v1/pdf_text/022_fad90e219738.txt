@@ -1,0 +1,111 @@
+Academic Editor: Douglas
+O’Shaughnessy
+Received: 21 July 2026
+Revised: 14 August 2026
+Accepted: 18 August 2026
+Published: 21 August 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+Enhancing End-to-End Graphite Ore Grade Detection via
+Boundary-Aware Refinement, Bidirectional Fusion,
+and Difficulty-Aware Distillation
+Yanwu Yi 1,2, Binghui Wei 3, Zeyang Qiu 4
+ , Chen Yang 2 and Xueyu Huang 1,5,*
+1 Yichun Lithium New Energy Industry Research Institute, Jiangxi University of Science and Technology,
+Yichun 336000, China; 6720251745@mail.jxust.edu.cn
+2 School of Industrial Software, Jiangxi University of Science and Technology, Nanchang 330013, China;
+6720251785@mail.jxust.edu.cn
+3 School of Information Engineering, Gannan University of Science and Technology, Ganzhou 341000, China;
+weibinghui510@sohu.com
+4 School of Metallurgical Engineering, Jiangxi University of Science and Technology, Ganzhou 341000, China;
+qq2462218642@163.com
+5 School of Information Engineering, Jiangxi University of Science and Technology, Ganzhou 341000, China
+* Correspondence: 6120190561@mail.jxust.edu.cn
+Abstract
+Graphite ore grade sorting is a key step toward intelligent mineral processing; however, it
+faces three representational contradictions: ambiguous classification posteriors at grade
+boundaries, asymmetric multi-scale feature interaction, and the mismatch between class-
+agnostic self-distillation assignment and sample-level difficulty. Targeting these, this
+paper adopts D-FINE as the baseline and introduces three decoupled improvements at its
+decoder, encoder, and criterion layers. (1) Boundary-Grade-aware Distribution Refinement
+(BG-FDR) online identifies boundary samples via the Top-2 classification score gap and
+modulates regression-distribution refinement, yielding +2.69 percentage points in mAP@0.5
+with zero additional trainable parameters. (2) Bidirectional Feature Pyramid with Global–
+Local Spatial Attention (BiFPN-GLSA) builds a learnable weighted bidirectional multi-
+scale fusion path. (3) Difficulty-Aware Decoupled Distillation with Wise-Inner-Shape-IoU
+(DADD+Wise-IoU) imposes class- and sample-level difficulty-aware constraints. In the
+integrated full model, this increases Precision from 66.21% to 71.43% (+5.22 pp), F1 from
+73.57% to 77.57%, and mean IoU from 97.81% to 98.35%, while false positives drop by
+19.6%; the only parameter overhead (+3.84M) comes from BiFPN-GLSA, with BG-FDR
+and DADD adding effectively no network weights. Ablation on a self-built 3800-image
+dataset reveals a non-monotonic AP–Precision relationship: the mAP-optimal configuration
+(BG-FDR+BiFPN-GLSA, 94.17%) and the Precision-optimal one (DADD+Wise-IoU, 77.54%)
+do not coincide, providing a quantitative basis for objective-driven module selection in
+industrial sorting.
+Keywords: graphite ore sorting; object detection; D-FINE; boundary-aware distribution
+refinement; bidirectional feature pyramid; difficulty-aware distillation; global–local
+spatial attention
+1. Introduction
+As a strategic non-metallic mineral resource, graphite ore plays an irreplaceable role
+in industrial fields such as new-energy batteries, refractory materials, and lubricants. The
+Appl. Sci. 2026, 16, 8332 https://doi.org/10.3390/app16168332
+
+---PAGE---
+
+Appl. Sci. 2026, 16, 8332 2 of 43
+sorting accuracy of graphite ore grade (carbon content) directly determines the subsequent
+smelting efficiency and the quality of the final product. Traditional graphite ore grade
+sorting relies on manual visual inspection, which suffers from inherent drawbacks such as
+high labor intensity, strong subjectivity, and low efficiency, making it difficult to meet the
+urgent demand for the intelligent upgrading of modern mines.
+In recent years, deep learning-driven object detection has opened new technical path-
+ways for intelligent mineral sorting. Our research group has conducted systematic studies
+on graphite ore grade detection, and its technical route exhibits a clear paradigm evolu-
+tion from coarse-grained classification to fine-grained localization. Early work adopted
+image-level classification as the mainstream paradigm, where Huang et al. [1] achieved
+high-accuracy grade classification based on an improved Inception-ResNet-v2 with LDP-
+Conv and SE attention; subsequently, Qiu et al. [2] proposed GS-YOLO-seg to extend the
+paradigm to instance-level segmentation, achieving a lightweight design with GSConv
+and C3k2-Faster; more recently, GOG-RT-DETR [3] marks our group’s formal shift to the
+end-to-end detection paradigm, raising mAP@0.5 to 83.7% through a Faster-Rep-EMA back-
+bone and a BiFPN-GLSA feature pyramid; in parallel, DW-YOLO [4] and Stellar-YOLO [5]
+improved the YOLO series through multi-branch receptive-field enhancement and extreme
+lightweighting, respectively. Furthermore, the group has extended this task-aware design
+methodology to general ore detection [6].
+However, examining the above evolution reveals that prior work has been highly
+concentrated on the feature extraction and fusion stage—whether represented by the Faster-
+Rep-EMA backbone replacement and BiFPN-GLSA feature enhancement of GOG-RT-DETR
+or by the lightweight backbone designs of Stellar-YOLO and DW-YOLO—with their essence
+belonging to the “stronger feature representation” paradigm. The common limitation of
+these works lies in insufficient attention to several deep-seated questions—notably, how
+the refinement mechanism of the regression distribution in the detection head responds
+to sample discriminative uncertainty, and how the distillation signal in the loss function
+perceives the inter-class detection difficulty discrepancy. In other words, our work does
+not simply replace the baseline framework from RT-DETR with D-FINE—although D-
+FINE’s Fine-grained Distribution Refinement (FDR) and GO-LSD mechanism provide the
+necessary technical premise for solving the above problems—but rather introduces targeted
+methodological adaptations at the two underlying logics of boundary-aware optimization
+and difficulty-decoupled distillation.
+Starting from the visual representation characteristics of graphite ore images, the
+reason the above “feature-representation-centric” paradigm hits a performance ceiling lies
+in a fundamental representational conflict between its uniform optimization strategy and
+the three types of visual heterogeneity of graphite ore:
+Contradiction I: Representational mismatch between ambiguous classification pos-
+terior and uniform regression constraints. Graphite ore grades are discretized by carbon
+content into three tiers: low (0–10%), medium (10–20%), and high (20%+). In the grade-
+boundary neighborhood (low–medium boundary 9–11%, medium–high boundary 18–22%),
+the visual representations of samples are highly coupled—texture, color, and particle mor-
+phology are nearly indistinguishable, causing the classifier’s output posterior P(y|x) to
+approach a uniform distribution. However, both D-FINE’s FDR mechanism [7] and GOG-
+RT-DETR’s regression constraints [3] impose distribution refinement iterations of equal
+strength on all samples; their implicit assumption—“samples with higher classification
+confidence also have higher localization accuracy”—systematically fails in the boundary
+neighborhood. This mismatch between posterior ambiguity and optimization uniformity
+leads to significantly insufficient convergence of the regression distribution for boundary
+samples, constituting the root cause of grade misjudgment.
+https://doi.org/10.3390/app16168332

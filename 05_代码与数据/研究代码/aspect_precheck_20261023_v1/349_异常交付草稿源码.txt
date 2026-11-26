@@ -1,0 +1,94 @@
+"""Build a reviewable protocol-disposition draft; no model forward or evaluation."""
+import importlib.util
+from pathlib import Path
+p=Path(r'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\aspect_precheck_20261023_v1')
+sp=importlib.util.spec_from_file_location('aspect349',p/'349_precheck.py')
+C=importlib.util.module_from_spec(sp)
+sp.loader.exec_module(C)
+C.sys.stdout.reconfigure(encoding='utf-8')
+binding=C.read_sealed(p/'349_inputs.json')
+bs=C.sha(p/'349_inputs.json')
+reports=[C.verified_completion(seed,arm,bs) for seed in (1,2) for arm in C.SHAPES if (seed,arm)!=(2,'A3')]
+invalid=C.read_sealed(p/'349_A3_seed2_异常与原始前向完成.json')
+for f,h in invalid['artifact_sha256'].items():
+    C.check(C.sha(f)==h,'Recovery artifact SHA')
+checks,effects=[],[]
+for seed in (1,2):
+    rr={r['arm']:r for r in reports if r['seed']==seed}
+    a0,a1,a2=rr['A0'],rr['A1'],rr['A2']
+    t0,t1,t2=[r['cohorts']['T']['TP_at_0p5'] for r in (a0,a1,a2)]
+    s0,s1=[r['cohorts']['S']['TP_at_0p5'] for r in (a0,a1)]
+    v={'seed':seed,
+       'T_TP_strict_increase':{'A0':t0,'A1':t1,'delta':t1-t0,'satisfied':t1>t0},
+       'APs_strict_increase':{'A0':a0['stats12']['APs'],'A1':a1['stats12']['APs'],
+          'delta':a1['stats12']['APs']-a0['stats12']['APs'],'satisfied':a1['stats12']['APs']>a0['stats12']['APs']},
+       'S_TP_drop_at_most_1_percent':{'A0':s0,'A1':s1,'minimum_allowed':.99*s0,'delta':s1-s0,
+          'relative_change':(s1-s0)/s0,'satisfied':s1>=.99*s0},
+       'mechanism_A1_gt_A0_gt_A2':{'A1':t1,'A0':t0,'A2':t2,'satisfied':t1>t0>t2}}
+    v['main_pass']=all(v[k]['satisfied'] for k in ('T_TP_strict_increase','APs_strict_increase','S_TP_drop_at_most_1_percent'))
+    checks.append(v)
+    old,new=set(a0['T_matched_ids']),set(a1['T_matched_ids'])
+    effects.append({'seed':seed,'new_T_matches_A1_over_A0':len(new-old),'lost_T_matches_A1_vs_A0':len(old-new),
+                    'new_T_ids':sorted(new-old),'lost_T_ids':sorted(old-new)})
+    assert len(new-old)-len(old-new)==t1-t0
+assert not any(v['main_pass'] for v in checks)
+assert all(v['mechanism_A1_gt_A0_gt_A2']['satisfied'] for v in checks)
+sources={}
+for r in reports:
+    sources.update(r['source_sha256'])
+sources.update(invalid['source_sha256'])
+for f in (p/'349_A3异常收尾源码.txt',p/'349_异常交付草稿源码.txt'):
+    sources[str(f)]=C.sha(f)
+for f,h in {**binding['input_sha256'],**sources}.items():
+    assert C.sha(f)==h, 'Input/source changed: '+f
+counts={'model_loads':len(list(p.glob('349_model_load_*.json'))),
+        'forwards':sum(r['executed_counts']['forwards'] for r in reports)+invalid['total_seed2_A3_raw_forwards'],
+        'COCO_evaluations':sum(r['executed_counts']['COCO_evaluations'] for r in reports),
+        'optimizer_steps':0}
+assert counts=={'model_loads':9,'forwards':4384,'COCO_evaluations':7,'optimizer_steps':0}
+draft={'status':'execution_finished_pending_descriptive_arm_disposition','generated_utc':C.now(),
+       'conclusion':'mixed/未通过','mechanism_conclusion':'方向与 x 压缩假设一致',
+       'criteria_per_seed':checks,'A1_vs_A0_T_gain_loss':effects,'A3_descriptive_only':True,
+       'A0_consistency':{str(r['seed']):r['A0_consistency'] for r in reports if r['arm']=='A0'},
+       'per_seed_arm':reports+[invalid],'executed_counts':counts,
+       'actual_CPU_forward_seconds':sum(r['CPU_forward_seconds'] for r in reports)+invalid['CPU_forward_seconds'],
+       'actual_COCO_evaluation_seconds':sum(r['COCO_evaluation_seconds'] for r in reports),
+       'cohort_n':{'T':4952,'S':22197},'cohort_SHA256':binding['cohort_files'],
+       'all_input_sha256':binding['input_sha256'],'all_source_sha256':sources,
+       'protocol_exception':{'arm':'A3','seed':2,'images_with_invalid_predictions':len(invalid['invalid_images']),
+         'invalid_selected_predictions':invalid['invalid_selected_row_count'],
+         'details':invalid['invalid_images'],
+         'strict_rule':'349 section1 requires exact 343_fusion.fuse; line24 calls G._boxes, which asserts positive xyxy edges.',
+         'unavailable_outputs':['349_predictions_seed2_A3.json (valid full COCO predictions)',
+            'A3 seed2 COCO stats12','A3 seed2 TP@0.5 and matched prediction width median'],
+         'already_complete':'A3 seed2 raw548, Geo0 and forward timing; other 7 complete COCO units; A0-A2 all frozen criteria.'},
+       'pending_disposition':'Preserve frozen protocol and declare A3 seed2 invalid, or user explicitly authorizes an A3-only invalid-box rule.',
+       'interpretation_limit':'权重在640拉伸图上训练；零训练未通过不能否定保持宽高比重训方向。',
+       'training_commands_generated':False,'training_started':False}
+C.sealed_json(p/'349_异常交付草稿.json',draft)
+cols=['seed','臂','W×H']+C.E.NAMES+['T_Geo0','T_TP@0.5','S_Geo0','S_TP@0.5','宽[0,2) Geo0/TP','宽[2,3) Geo0/TP','宽[3,4) Geo0/TP','T匹配框宽中位数(px)','CPU前向秒']
+lines=['# 349 零训练预检：交付草稿（A3 seed2 待裁定）','','| '+' | '.join(cols)+' |','| '+' | '.join(['---']*len(cols))+' |']
+all_reports=sorted(reports+[invalid],key=lambda r:(r['seed'],r['arm']))
+for r in all_reports:
+    g=r['cohorts'];valid=r['stats12'] is not None
+    row=[str(r['seed']),r['arm'],'×'.join(map(str,r['shape_WH']))]
+    row += [f'{r["stats12"][k]:.12f}' if valid else 'N/A' for k in C.E.NAMES]
+    row += [str(g[a][k]) if g[a][k] is not None else 'N/A' for a in ('T','S') for k in ('Geo0','TP_at_0p5')]
+    row += [f'{g[b]["Geo0"]}/'+str(g[b]['TP_at_0p5']) if valid else f'{g[b]["Geo0"]}/N/A' for b in ('[0,2)','[2,3)','[3,4)')]
+    row += [str(r['T_matched_prediction_width_orig_median']) if valid else 'N/A',f'{r["CPU_forward_seconds"]:.6f}']
+    lines.append('| '+' | '.join(row)+' |')
+lines += ['','T=4952；S=22197。T 宽度三段数量：536、1894、2517；另有5个T的GT宽度≥4，仍计入T总计。','']
+for v,ef in zip(checks,effects):
+    lines += [f'seed{v["seed"]}：','']
+    for k in ('T_TP_strict_increase','APs_strict_increase','S_TP_drop_at_most_1_percent','mechanism_A1_gt_A0_gt_A2'):
+        lines.append('- '+k+'：'+C.json.dumps(v[k],ensure_ascii=False))
+    lines += [f'- T新增={ef["new_T_matches_A1_over_A0"]}；丢失={ef["lost_T_matches_A1_vs_A0"]}。','']
+lines += ['A0 两个 seed 的 boxes、logits、12项指标最大差均为0。',
+          '主比较结论：mixed/未通过。','方向判据：两个seed均满足A1>A0>A2。A3不参与判据。',
+          'A3 seed2：image_id=362，query=114；选中类别9、2；归一化宽度=-0.00016695261001586914；原图宽度=-0.22698974609375 px。',
+          '343_fusion.py 第24行的正宽高断言拒绝该组；COCO指标及TP未计算。未删框、未截断、未改精度。',
+          f'已执行：model_loads=9；forwards=4384；COCO_evaluations=7；optimizer_steps=0。CPU前向总秒数={draft["actual_CPU_forward_seconds"]:.6f}。',
+          draft['interpretation_limit'],'全部原始前向已完成；异常交付待主控裁定；未生成训练命令或启动重训。']
+C.write_text(p/'349_中文汇总_待裁定.md','\n'.join(lines)+'\n')
+C.say({'event':'reviewable_draft_ready','counts':counts,'conclusion':draft['conclusion'],
+       'CPU_forward_seconds':draft['actual_CPU_forward_seconds'],'criteria':checks})

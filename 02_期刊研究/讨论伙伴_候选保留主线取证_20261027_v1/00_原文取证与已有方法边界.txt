@@ -1,0 +1,57 @@
+候选保留主线：原始方法已覆盖什么、哪些差异尚不能称新意
+2026-10-27（America/Los_Angeles）。本对话负责原文、代码和真实共同讨论；机制缓存检验由“诊断数据失败并筛选创新问题”执行，未重复评价。
+
+读取与版本
+9篇不同论文、11个PDF版本完成结构预检，原文件SHA前后相同。只声称sources_and_reading.json列明的实际页码已读，不把全页提取当作全文阅读。Rank-DETR本地v1另与NeurIPS出版社版本的方法页比较；DQ-DETR本地v4另与最新v6的方法页比较。其余使用核验的出版版或明确标注的预印本。MDS-DETR保留IEEE模板页眉，不据此冒称已经IEEE Access发表。
+
+一、最直接的覆盖关系
+
+1. 当前模型：已有质量调整，然后再展平选query-class pair
+本地engine/deim/dfine_decoder.py的LQE把reg_conf输出的[B,L,1]质量调整加到[B,L,C]类别logit，解码器在推理层使用该结果；postprocessor.py先sigmoid，再把query×class展平topK。代码SHA见local_code_sources.json。这个实际模型已经不是完全未利用质量的裸分类排序。
+在固定原类别logit条件下，加同一个query标量保持该query内类别顺序。这是代码结构与单调性的数学推论，不是训练后整个模型的能力结论。D-FINE出版论文实际读PDF pp4–6、9，主述FDR/GO-LSD；LQE具体结构在本报告中以代码为证，不伪称论文已明确推导同一性质。
+原始来源：https://openreview.net/pdf?id=MFZjrTFE7h
+
+2. Rank-DETR：排名信息和定位质量不是未涉足的方向
+NeurIPS2023出版PDF pp3–5明确区分encoder初始化的top-query与最终n×class候选排序；在解码过程中利用排名更新query，并使用按类别维度的偏置调整分类logit。它还通过训练中的定位—分类一致性设计改善高IoU排序。本地v1不是唯一依据，出版14页版已另存并读方法页。
+因此，‘把置信度与定位质量对齐’、‘利用排名调整类别分数’都不能作为未经限定的新意。其C维偏置也不受query共享标量的固定类序限制。该论文没有直接回答当前两个短训练状态、10类UAV、固定导出300和指定cap下的剩余可达性，但‘未做该完全相同实验’不等于方法无法覆盖。
+来源：https://proceedings.neurips.cc/paper_files/paper/2023/file/34074479ee2186a9f236b8fd03635372-Paper-Conference.pdf
+
+3. DDQ/DQS：去重既覆盖训练也覆盖推理，不能缩成只在encoder处理
+arXiv2303.12776v2 PDF pp3–5：DQS用class-agnostic NMS选distinct queries，在训练和推理都采用；DDQ-DETR在每个refining stage之前使用，正文配置K=900，阈值0.8。DDQ R-CNN正文另有300-query设置，不能混成DETR配置。
+因此‘密集候选会重复、应保留不同目标代表’已有直接先例。其操作对象是query及后续refinement，不应与当前固定最终query-class对、全部已有框分数不变的诊断混同；但只改操作位置也不自动形成新意。DDQ同时报告拥挤场景，不能用‘我们是密集场景’一句排除它。
+来源：https://openaccess.thecvf.com/content/CVPR2023/html/Zhang_Dense_Distinct_Query_for_End-to-End_Object_Detection_CVPR_2023_paper.html
+
+4. DQ-DETR与PaQ-DETR：两种‘动态’不同
+DQ-DETR最新arXiv2404.03507v6 PDF pp7–8：按图像计数等级使用300/500/900/1500个decoder query，并从增强encoder特征中选topK形成内容和位置先验。它改变进入decoder的数量与信息，不能从本次最终缓存读出诊断直接声称其方案无效。
+PaQ-DETR CVPR2026出版PDF pp3–5：动态指图像相关的共享pattern组合及质量相关监督；实验配置用300或900个query。不是看到‘dynamic’就声称它和DQ一样逐图改变输出条数。两者都覆盖query利用/适应性的大方向，未直接构成当前最终pair预算问题的实证反例，也不能据实验口径不同宣称不相关。
+来源：https://arxiv.org/abs/2404.03507v6
+https://openaccess.thecvf.com/content/CVPR2026/html/Kang_PaQ-DETR_Learning_Pattern_and_Quality-Aware_Dynamic_Queries_for_Object_Detection_CVPR_2026_paper.html
+
+5. CLSC DETR：UAV、跨层几何与分类可靠度保护已有非常近的2026先例
+arXiv2608.21457v1 PDF pp1–4：跨层局部几何支持用于质量估计，分类最高分、margin和entropy用于可靠度，再校准最终类别分数；数据正是VisDrone/UAVDT。不能把‘小目标单query几何证据弱’、‘跨层支持校准排序’或‘分类可靠度保护’作为宽泛的新意。PDF p3式(5)对一个candidate的所有类别施加同一个质量因子；在给定p_i,c且因子有限为正时保留类序，但整套模型重新训练可改变p_i,c，不能据此断言整个方法不可达。
+来源：https://arxiv.org/abs/2608.21457v1
+
+6. MDS-DETR：最终只处理分类/重复而不再修框，也已经有直接近邻
+arXiv2605.23507v1 PDF pp3–4：最后one-to-one阶段去掉cross-attention与进一步定位refinement，利用confidence排序与单向候选交互处理重复。因而‘固定框之后在末端选择/重评分’也不是足够差异；这比简单说encoder侧方法不同更接近当前对象。本报告不复现或背书其性能数字。
+来源：https://arxiv.org/abs/2605.23507v1
+
+7. Learning NMS与Soft-NMS：更早的候选集合与类别条件近邻不可遗漏
+Learning NMS，CVPR2017 PDF pp2–4、6–7，只用已有box和score联合处理邻近detections；多类情形每条detection带固定类别/one-hot分数，通过个体重评分允许其关闭，并不必须修改框或读取图像特征。所以‘类别感知的最终候选上下文重排’也不能单靠换名认作新意。
+Soft-NMS，ICCV2017 PDF pp3–4，对各类别检测作重叠相关的连续分数衰减，是不需额外训练、可在既有候选上执行的强反证参照。按类运行可能改变同query不同类别pair的相对优先级，因此不属于下述共享类序族。若某残差已能由标准class-wise Soft-NMS解释，不能声称发现全新的类别竞争机制。
+来源：https://openaccess.thecvf.com/content_cvpr_2017/papers/Hosang_Learning_Non-Maximum_Suppression_CVPR_2017_paper.pdf
+https://openaccess.thecvf.com/content_ICCV_2017/papers/Bodla_Soft-NMS_--_Improving_ICCV_2017_paper.pdf
+
+二、现在可以关闭的宽泛新意说法
+‘首次做质量/排名对齐’：Rank-DETR、当前LQE及CLSC均构成近邻。
+‘首次利用候选间重复和上下文’：DDQ、Learning NMS、MDS已有直接覆盖。
+‘首次在最终阶段保留有效候选/不修框只重评分’：Learning NMS、MDS直接覆盖。
+‘只因UAV小目标或多类而新’：CLSC和多类Learning NMS使这种差异不充分。
+关闭这些说法只针对新意论证，不否认本项目已经观察到的候选保留问题。
+
+三、尚未被证实的方法空白
+本次没有证明‘无人研究固定pair预算’或‘上述方法一定解决不了当前残差’。聚焦检索仍可能漏掉相关方法；论文没有报告本项目特定约束，不等于不存在覆盖。源记录中，S2对7篇返回429，采用官方出版/arXiv与作者原文替代核验；PaQ与Learning NMS的成功API返回已核对题名/作者/年份。
+具体可保留的是一个待反证的静态机制命题：固定候选宇宙及原类别分数后，保持每query类序的校准族是否受‘类序前缀’预算成本限制。它不是对整个端到端方法的否定，也不是已确认的新方法。完整定义、证伪条件和其他竞争解释见01号记录。
+
+范围与透明度
+这是定向近邻取证，不是系统综述。所有PDF先结构预检；公式关键页CLSC p3、MDS p4、PaQ p4另外视觉核对。完整版本、SHA和实际阅读页在sources_and_reading.json；新下载均为已核验的官方原文，未替换原文库。检索遇到的错误ID和访问失败保留在search_log.json，均未进入引用结论。
+原文提取和综合由AI辅助完成；没有独立复现论文性能，本对话没有新增模型前向、评价或训练。

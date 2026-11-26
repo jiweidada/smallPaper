@@ -1,0 +1,79 @@
+﻿MPSMA-DEIM 英文会议稿修订说明与未解决问题
+更新日期：2026-11-03；目标月份：2026年12月；会议尚未选择。
+当前结论：已完成本轮内容与证据修订。稿件尚不能作为已达到投稿要求的版本提交；关键公平对照和复现证据仍未闭合。未运行新训练、推理、重评、profiling、时延测试或远程任务。
+
+一、继续维护的文件
+修订稿：C:\Users\jiwei\Desktop\小论文投稿\01_会议论文\稿件\MPSMA-DEIM_conference_EN_revised.docx
+原稿：C:\Users\jiwei\Desktop\小论文投稿\01_会议论文\稿件\MPSMA-DEIM_conference_EN.docx
+原稿备份：C:\Users\jiwei\Desktop\小论文投稿\01_会议论文\稿件\备份_20261103\MPSMA-DEIM_conference_EN_original.docx
+原稿和备份SHA256相同：ebd5159bd09d122367fd683c431c7b297800af7080504f4c5effeaaa4ef6c323
+本轮修订稿SHA256：a0ee9ccc377f22323a4b8a9059da613299a4b464c4d9fad75b14ca5e96ade1c4
+本轮只更新英文修订稿，原英文稿、中文稿、历史实验和训练源码均保留。保留原作者、单位与联系信息；盲审及具体模板等选会后处理。
+后续继续维护 MPSMA-DEIM_conference_EN_revised.docx，并按日期追加修订记录。revise_manuscript.py 是本轮从原稿重建的脚本；后续有人工编辑时不要直接重跑覆盖，应先备份并合并更改。
+
+二、本轮已落到稿件的主要修改
+1. 原消融表改为配置对照：新增N0–N4明确标识、stem、stage aggregation/gates、activation、batch及训练参数；精度单列为Table 2，取各自最高AP同一行的完整指标，不逐指标挑选峰值。
+2. 原基线N0使用batch16，其余使用batch4；N1/N3还将代码特有的se双卷积聚合路径改成ESE聚合。已撤回“只换SiLU”“只加MPS”“模块独立收益”和“协同增益”的归因。
+3. N0到N3增加1,597,430参数，四阶段分别增加4,094、53,246、557,052、983,038；stem/encoder/decoder张量形状一致。该差异不能由无参数的激活替换解释。
+4. n完整配置N4的AP=0.226957240816；相对N0的AP/AP50/AP75/APs/AR100差值按未舍入日志计算为3.75/5.91/3.87/2.66/4.08个百分点。正文将其限定为配置差异。N1的大目标AP高于N4，移除“所有指标都最优”的泛化。
+5. n与s分开报告：两者骨干均为B0；s增加stride8输入、宽度128→256、采样点[6,6]→[3,6,3]，学习率和参数组也不同。s精度不能作为“仅扩大骨干”或独立模块效应。
+6. 移除外部test-dev结果与本地val结果混排的优越性排名；移除由这些跨协议数值推导的精度/参数优势。表中保留本地单次训练结果。
+7. 重画图1–5，并保存可编辑SVG：MPS补齐28→32→16融合及末次stride2；MSCA-Lite没有先GAP，三尺度平均后算空间能量门，再乘原F；Dilated使用d=1/2/4、ratio8及C/8分组产生C通道，其两路门都乘原F。图6保留原稿数据集样图。
+8. 六条公式与上述结构统一：Lite/Dilated方差分母HW，stage2 SimAM实现分母HW−1；Dilated有效核大小3/5/9，空间门保留C通道。SiLU只替换可配置骨干块，Dilated内部ReLU仍在。
+9. 重写摘要、引言、相关工作、贡献段、实验分析和结论，保留可以说明的结构设计及单运行观察；不再声称新的SiLU/SimAM原理、统计显著性、种子稳定性或机载实时保证。
+10. 将训练参数与部署参数分开。44.30 FPS明确为RTX3090/FP32/batch1/640输入的网络加后处理计时，输入已经位于GPU；不包含图像解码、预处理和传输。保留计时加载权重不完整可追溯的限制。
+11. 清理参考文献，最终10条均与正文对应；补正D-FINE题名，加入ESE的CenterMask来源。删掉未在修订正文使用的条目，不把删掉的原19条全部称作已完成全文核查。
+
+三、精度结果的直接来源
+原始运行根目录：C:\Users\jiwei\Desktop\DEIM\outputs
+以下文件均已复制到本记录的source_snapshot/N0…N4、S1；source_manifest.json保留原路径与SHA256。run_audit.json保存完整12项指标、args、checkpoint元信息；configuration_differences.json保存配置差异。
+N0: deim_hgnetv2_n_custom320
+  日志第 316 行，epoch 315（从0起）；AP=0.189489310713，APs=0.125139095218；训练参数=3,737,611；train/val batch=16/16。
+N1: deim_hgnetv2_EnhancedStem_NOMSCA_NOSilu_n_visdrone_320
+  日志第 307 行，epoch 306（从0起）；AP=0.218169455236，APs=0.143902603965；训练参数=5,340,366；train/val batch=4/4。
+N2: deim_hgnetv2_EnhancedStemNO_MSCA_NOSilu_n_visdrone_320
+  日志第 301 行，epoch 300（从0起）；AP=0.207784767289，APs=0.129279278103；训练参数=7,535,617；train/val batch=4/4。
+N3: deim_hgnetv2_EnhancedStemNO_NOMSCA_Silu_n_visdrone_320
+  日志第 302 行，epoch 301（从0起）；AP=0.211722651507，APs=0.133272971941；训练参数=5,335,041；train/val batch=4/4。
+N4: deim_hgnetv2_MSCA_EnhancedStem_SiLU_320
+  日志第 307 行，epoch 306（从0起）；AP=0.226957240816，APs=0.151750230571；训练参数=7,540,942；train/val batch=4/4。
+S1: deim_hgnetv2_s_MSCA_EnhancedStem_SiLU_320
+  日志第 303 行，epoch 302（从0起）；AP=0.287587387729，APs=0.212269188138；训练参数=14,035,326；train/val batch=4/4。
+
+表4、表5来源：source_snapshot/archived_benchmark，包括原latency_FP32.json、模块参数量分解.txt、零训练数据汇总.md及原latency.py。该JSON文件内同时有FP32和FP16记录，本稿只取precision=FP32两行。
+原始时延记录的e2e标签已改称Combined，以匹配脚本实际范围。22.572/19.011对应约18.7%的延迟增加；不把两次独立均值的差当作直接测出的后处理延迟。
+
+四、方法证据与边界
+方法快照在source_snapshot/current_code。核心路径：
+engine/backbone/hgnetv2_MSCA_EnhancedStem.py：EnhancedStemBlock及HG块聚合、B0分阶段配置。
+engine/extre_module/custom_nn/attention/MSCA.py：MSCA_Dilated（89行起）、MSCA_Lite（157行起）。
+engine/extre_module/custom_nn/attention/simam.py：SimAM能量门。
+engine/backbone/hgnetv2.py、hgnetv2_silu.py、hgnetv2_MSCA.py：不同运行变体的聚合及激活。
+engine/solver/det_solver.py：恢复best_stg1的控制流；不是原训练版本认证。
+当前源码、args和checkpoint张量形状相互支持结构描述；无参数行为（dilation、激活、插值、lambda等）不能仅靠checkpoint形状确定。当前代码哈希不得冒充训练时代码哈希。
+
+五、投稿前必须处理的问题
+P0 公平主对照：现有六组不能隔离方法收益。仅修改文字无法使batch16/4及聚合结构不同的比较成为单因素消融。至少需要同条件基线与完整方法，或找到可证明同条件的既有记录。
+P0 历史实现与数据评价版本：尚未把运行绑定到不可变源码版本、实际训练/验证标注文件哈希、VisDrone转换和ignore处理、评价器版本/参数及运行环境清单。正文已去掉原“统一Windows11/RTX4080”的无充分依据断言。
+P0 权重与最优日志对应：N2/N4/S1的best_stg2元信息last_epoch分别296/305/294，最高日志AP索引分别300/306/302。当前solver恢复逻辑说明last_epoch不能直接当作保存时日志索引，但不能据此认证已复现最优权重。需要原保存回执/控制台记录，或另行授权后重评指定SHA权重。N3的配置记录resume到自身last，不能只凭pretrained:false断言完整训练从头未中断。
+P1 部署测量链：旧表GFLOPs为24.86/29.63，另一树为25.37/30.14；不能把两个版本混写。旧时延脚本先deploy再strict=False加载，原JSON未保存missing/unexpected keys；baseline resume为null。精度权重与已测时延结构的严格同一性尚未认证。若保留准确率—时延联合结论，应补固定版本、正确加载且可验证的部署测量。
+P1 稳定性：末20轮AP均值/标准差只说明单运行后期变化。没有多seed结果，不声称显著性、可重复稳定性或泛化。
+P1 图6：原稿示例图保留；投稿前应补具体数据集文件标识或可核实的原始图来源，不能把该拼图当作检测效果证据。
+P2 会议：尚未指定会议、截稿日、页数、盲审和格式；当前为内容工作版，未宣称符合任一会议模板。
+
+六、最小补实验方案（方案已具体化，尚未授权和运行）
+A. 回答“完整方法在公平训练条件下是否优于宿主基线”。最低两组：相同n规模的宿主原始聚合基线和完整MPSMA；固定batch4、seed0、数据/标注哈希、评价器、640输入、320epoch、增强和学习率、优化器/EMA以及预先确定的端点选择。两组均fresh；结构相同的部分采用可核验的共同初始化，新增结构独立但固定初始化规则。完整方法包含聚合结构变化，其收益只能称整个组合的收益，不能归因到MPS或MSCA单项。
+为何不能只补一条基线就默认成立：历史N4缺少冻结源码/数据/评价关联，且训练控制流/保存元信息待核清。只有该链路先补齐并能严格复用时，才可能只新训一个匹配基线；否则两组新跑才可比。
+B. 若仍要单模块归因：在统一ESE聚合、标准stem、ReLU的共同控制上，最少五组为控制、仅MPS、仅hierarchical attention、仅SiLU、完整组合。改变某因素时其余因素固定；每组同seed同预算。这个控制不同于原始SE-path宿主，若还要证明对原宿主的收益，需加原宿主对照，或与A共用对应组。五组不足以证明三因素协同；若坚持协同，需要完整2^3设计并定义交互项，当前建议撤掉协同主张。
+C. 解决权重与指标链：优先只读找保存回执；不足时，申请对指定SHA checkpoint进行固定评价器验证，并保存加载键检查、预测文件及评价结果。这仍属于新重评，需要明确授权。
+D. 解决部署结论：如保留速度结论，另行申请两模型同设备同软件版本测量，先在非deploy结构严格加载已核验权重，再转换并核对输出，预先固定输入和计时范围；此处只列方案，未实施。
+不把两组单seed结果等同于显著性证据；多seed是后续增强证据的选择，不能以“最小方案”之名声称完成稳定性验证。
+
+七、修改与验证记录
+revision_patch.json：逐段旧文/新文、图表操作、原稿及输出哈希；不宣称ARS机器完整性PASS。
+validation_report.json：原稿/备份相同、表格数字与来源、10条引用对应、6图6式、4个问题批注及22份源码/运行快照核验（具体计数以JSON为准）。
+acronym_report.json：摘要和正文独立的辅助缩写核查；部分复合/大小写缩写不被脚本识别，人工核对MSCA/SiLU/NMS/ESE/ReLU/IoU/FLOP/GFLOP的定义。品牌、硬件名、HW数学量及正文已说明的AP50/AP75见allowlist；“no findings”不等于完整自动认证。
+visual_qa.json：最终DOCX用Word导出并经Poppler逐页检查；包内render_docx.py因缺少soffice不可用，采用本机Word只读导出作为替代。PDF/PNG仅为内部排版核查材料。
+citation_archive.json及引用核查记录.txt：文献链接、版本、下载状态、哈希及实际阅读范围。8篇PDF已在原文库复用/归档，2篇仅核查出版社页面/摘要，明确不称已读全文。
+
+本轮验收：主要数值可追到日志；已暴露并纠正比较与归因问题；当前可取得实现对应的图文已统一；贡献表述已收敛；论文结构完整。实验公平性及历史运行复现链仍有重要缺口，因此整体“达到投稿要求”的目标尚未完成。

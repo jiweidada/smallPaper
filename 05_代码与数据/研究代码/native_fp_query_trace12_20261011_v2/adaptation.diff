@@ -1,0 +1,32 @@
+--- v1/analyze.py
++++ v2/analyze.py
+@@ -18,10 +18,10 @@
+ 
+ def analyze(seed,tag):
+     spec=read(HERE/'protocol.json');assert sha(__file__)==spec['analysis_sha256']
+-    assert seed in (1,2) and tag in ('BASE12','Warm12')
++    assert seed==2 and tag in ('backbone_silu','p2_skip')
+     for p,h in spec['dependencies_sha256'].items():assert sha(ROOT/p)==h,p
+-    upstream=module('native_FP_trace_upstream',ROOT/'英文小论文/code/native_fp_geometry12_20261011_v1/analyze.py')
+-    prior=ROOT/f'outputs/native_fp_geometry12_20261011_v1/seed{seed}_{tag}'
++    upstream=module('native_FP_trace_upstream',ROOT/'英文小论文/code/native_fp_geometry12_20261011_v2/analyze.py')
++    prior=ROOT/f'outputs/native_fp_geometry12_20261011_v2/seed{seed}_{tag}'
+     for n,h in read(prior/'manifest.json')['files'].items():assert sha(prior/n)==h,n
+     r=read(prior/'report.json');assert r['analysis_sha256']==sha(Path(upstream.__file__))
+     assert r['native_TP_counts_exact'] and r['native_FP_counts_exact'] and r['all_native_TP_geometry_supported_by_at_least_one_admissible_query']
+@@ -120,7 +120,7 @@
+                     native_FP=int((c!=0).sum()),all_FP_with_other_category_TP_same_query=int(((other[ti,:n]==1)&(c!=0)).sum())))
+             by_iou.append(dict(IoU=float(t),prefixes=prefix))
+         classes.append(dict(class_id=cid,name=r['classes'][cid]['name'],by_IoU=by_iou))
+-    dest=ROOT/f'outputs/native_fp_query_trace12_20261011_v1/seed{seed}_{tag}';dest.parent.mkdir(exist_ok=True);dest.mkdir(exist_ok=False)
++    dest=ROOT/f'outputs/native_fp_query_trace12_20261011_v2/seed{seed}_{tag}';dest.parent.mkdir(exist_ok=True);dest.mkdir(exist_ok=False)
+     np.savez_compressed(dest/'within_run_query_FP_trace.npz',**arrays)
+     result=dict(status='NATIVE_FP_WITHIN_RUN_QUERY_AND_SAME_OCCUPIED_GT_STAGE_TRACE_DESCRIPTION',seed=seed,tag=tag,identity=r['identity'],
+         classes=classes,multi_label_query_observations=multi_label_images,
+@@ -135,5 +135,5 @@
+     print(json.dumps(dict(status=result['status'],seed=seed,tag=tag,people50_prefix1000=next(x for x in classes[1]['by_IoU'][0]['prefixes'] if x['rank']==1000))))
+ 
+ if __name__=='__main__':
+-    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--tag',choices=('BASE12','Warm12'),required=True)
++    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--tag',choices=('backbone_silu','p2_skip'),required=True)
+     args=p.parse_args();analyze(args.seed,args.tag)

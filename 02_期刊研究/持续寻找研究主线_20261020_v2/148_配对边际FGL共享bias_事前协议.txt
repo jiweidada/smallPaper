@@ -1,0 +1,45 @@
+148：配对边际FGL的共享末头bias局部对应性首检（执行前协议）
+本轮仅新增协议148与脚本149，由root审查后执行，默认输出150_C0_coupled_marginal_bias。当前尚未执行。137的完整PMF纠偏约束已失败并停止；本检验不修改或补救137，不涉及矩形扩域oracle145/146/147。
+
+1. 唯一候选与范围
+候选M保持原l/t/r/b预测、原33节点、原解码、原可行域不变，只把原FGL中的独立边距CE换成141定义的成对边距推前边际CE。O为原FGL，C为同样例/同IoU权重的连续t/s L1。三臂只是该辅助监督项的局部方向，不与其他loss合成后冒称完整训练方向。
+M的底层仍是独立p_l乘p_r，只监督两个推前边际；不学习边距协方差，不建模完整T/S联合分布。连续C等价于对原几何中心/尺寸L1作参考尺寸相关重权：|t-t*|=R/ref_w*|cx-GTcx|，|s-s*|=R/(2ref_w)*|w-GTw|（纵向同理）。它不是新监督信息，正是必须胜过的强简单重权对照。
+作用对象为 decoder.dec_bbox_head.2.layers.2.bias，132维，对普通query共享。实际recipe num_layers=3、eval_idx=-1，所以末层索引2。dfine_decoder构造在列表推导内逐次新建MLP，MLP内部逐次新建Linear；MLP末层没有激活；final corners为该MLP输出加此前层corners残差。113采用普通load_state_dict(strict=True)，未deploy/assign=True/重绑参数；因此在固定输入、其他参数不动时，实际末层bias增量db对每query末层corners的增量是db，前层残差不依赖这个末层bias。
+这是对已核源码/recipe/113的静态作用对象核验，不是加载模型后的storage alias实验。149以114已记录源码哈希和明确recipe字段锁定该论证；若哈希或字段不符则停止，不推测别名。原bias亦经LQE影响分类，本次只审几何，不宣称分类不变，不等价末头weight、其他参数或完整网络更新。
+
+2. 已核实资产，禁止补造字段
+只读127_C0_attention_template_registration/01_cache.pt与127执行/哈希清单、104元数据、114的四张01_image_i.json及执行/源码哈希清单、recipe/指定源码。只加载上述127缓存的pt，不加载checkpoint，不构建model/criterion/optimizer。
+114实际四图union配对数及原分母为172/290/300/70；每图final_union_query_indices、final_union_GT_indices、final_native_denominator均已存在。hard_GT_indices数量36/104/237/9，关联hard_union_pairs为41/105/124/13；原GT总数146/280/418/58，原sub4数46/121/271/15。
+按原image_index/event/input_sha256对齐127，并核eval_selected_indices、GT数量、original_sub4及hard GT身份。原hard组为C0自身114 eval的原sub4且全部普通300框均无IoU.5几何覆盖的GT；固定这些GT，不按新loss/权重重新选组。
+配对来自114 decoder.train的native union，corners/ref来自127 eval。114已记录普通train/eval差，本检验沿用记录配对和原分母，在127固定读出点评价；不重新匹配，不称完整native criterion原样复现。全部组使用原完整union分母，不按组大小重归一。
+
+3. 三个辅助损失的精确定义
+先在FP32、长度1的tensor up/reg_scale接口下调用原weighting_function与bbox2distance，获得33节点v及原两bin目标。以原label.long()和相邻bin、原左右权重构造y；边界裁切完全沿用native。不用FP64输入调用原translate_gt。
+实际cached corners/ref先保存原值，计算梯度时将这些值和FP32生成的节点/目标提升为FP64。p=softmax(corners)。权重alpha为127原FP32 pred_boxes与配对GT的原native IoU，固定detach；三臂完全共用。系数lambda_FGL=.15，分母N为114原union分母。
+O=.15/N * sum_pairs alpha * sum_(l,t,r,b) CE(y_edge,p_edge)。首图核该公式与原unimodal_distribution_focal_loss在同FP64 logits、同FP32目标/权重下的值和bias梯度一致；不拿114 train模式历史loss值冒充同点真值。
+M：每轴原边距对(l,r)或(t,b)，T_ij=(v_j-v_i)/2，S_ij=(v_i+v_j)/2。B_k(u)为向相邻原节点的线性重心分配，sum B=1且sum vB=u。由原p_left*p_right推前得到p_T,p_S；由原y_left*y_right同样推前得到y_T,y_S。M=.15/N*sum_pairs alpha*[CE(y_Tx,p_Tx)+CE(y_Sx,p_Sx)+CE(y_Ty,p_Ty)+CE(y_Sy,p_Sy)]。通过外积/推前的真实链式法则求原corners/bias梯度，不把派生边际当独立logits使用p-y。
+C：mu_edge=sum p_edge*v；t_x=(mu_r-mu_l)/2、s_x=(mu_l+mu_r)/2，纵向同理。连续真GT目标为t_x*=R*(GT_cx-ref_cx)/ref_w，s_x*=R/2*(GT_w/ref_w-1)，纵向同理，R=abs(reg_scale)。C=.15/N*sum_pairs alpha*sum_(tx,sx,ty,sy)|prediction-target|。C使用未裁切的真实GT连续t/s；O/M沿用原生裁切的两bin标签。这是更强的直接几何控制，差异必须明报，不事后改成裁切目标。
+M无新增节点、温度、8px下限、置信度门控或新GT。若边际概率出现非正/非有限值则实现失败停止，不临时加epsilon平滑救它。
+
+4. 真正评价目标与分组
+用相同cached logits经原distance2bbox、原节点期望读出，评价真实GT的G=5*L1(normalized cxcywh)+2*(1-GIoU)，仍除原完整union分母。FP64原点解码对127 FP32 pred_boxes最大误差需<=1e-6并记录；硬组/IoU权重仍取冻结127原框，不因微小数值差重选。
+报告四组：all_ordinary、all_sub4、hard_sub4（主要组）、other_ordinary=hard_sub4的补集。保存每组原G及L1/GIoU分量、三臂辅助loss原值、配对数、唯一GT数、IoU正权重配对数及权重和，均不重归一。
+先核hard_sub4存在alpha>0配对的图数>=3。若不足3，直接资源判据不通过，保留四图原loss值但不做缓存梯度/LOO；不得给IoU0样例新增权重或换组挽救。
+
+5. 缓存梯度与LOO
+为每图建立一个132维零增量bias变量，z_q=z_cached_q+db；不加载/修改实际参数。三臂用全ordinary union样例构成每图辅助损失梯度g_i^O/g_i^M/g_i^C。另取四组G对同db的梯度。实际末层bias局部偏导成立，但未包含LQE分类、aux、DN、DDF或其他参数联动。
+四图leave-one-development-image-out：对每个留出图i，仅平均其他三图辅助梯度得方向D_i^arm。原始方向和范数均报告；主要比较将M、C方向分别乘||D_i^O||/||D_i^arm||，O不变。只匹配132维真实bias方向范数，不能用输入梯度或各query独立归一替代。评价gain=<grad G_i,D_i>，正值表示沿-db方向的局部SGD预测下降。报告每折每组raw/normmatched gain、方向范数/配平因子、四图平均与逐图胜负。不是独立heldout验证，也没有实际SGD/Adam步。
+每折三个方向范数均须>0；否则原值保留，配平结果记为不可用，门槛失败。数值严格比较容差为1e-6*max(abs(a),abs(b),1e-12)。
+
+6. 唯一事前继续端点
+只有M可继续，必须同时满足：
+(a) hard_sub4正IoU权重有效图>=3；(b)所有折O/M/C方向可配平；
+(c) normmatched的hard_sub4平均gain>0，且严格胜O与C；
+(d)四图中至少3图hard_sub4 gain严格胜O；
+(e) normmatched的all_ordinary平均gain不低于O。
+3/4是继续机制首检的资源规则，不是显著性。任一失败停止这个固定节点、固定目标推前、固定权重的精确M版本，不改组/节点/配比，不事后选C作新候选。通过也只支持继续完整共享权重与分类/优化器核查，不是训练授权、新颖性或AP证明。
+
+7. 合成检查、计数、资源与留痕
+root执行149时先检查推前质量守恒、t/s期望与边距期望关系、目标推前质量、左右两个方向的有限差分链式梯度、softmax常数平移不变性；给出同一固定目标下改变右PMF会改变M的左侧梯度、但不会改变O左侧梯度的反例；检验M梯度不只是O的标量缩放。另核“每query同bias增量”梯度等于query梯度求和。这些是合成或缓存autograd，不计作模型VJP，但逐次单独计数，不隐藏。
+预期若有效组门槛通过：四图每图3个辅助项+4个评价组，共28次缓存autograd，另首图native O梯度一致性1次，共29次；上限32。合成autograd单独计数上限16。零model forward、零model VJP、零checkpoint load、零model/optimizer实例、零更新。
+CPU2线程/interop1、BelowNormal、affinity[13,15]，加载缓存前与每次autograd前RAM>8GiB；不使用CUDA/远端。输入缓存、四图记录、源码、协议和脚本哈希运行前后核对。只在新150目录输出，不覆盖已存在目录，不写权重/优化器；CP/state SHA仅引用127已验证元数据，不声称本次重新计算模型state哈希。

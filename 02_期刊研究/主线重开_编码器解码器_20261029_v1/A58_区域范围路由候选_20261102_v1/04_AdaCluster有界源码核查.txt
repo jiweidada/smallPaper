@@ -1,0 +1,25 @@
+结论：已完成预定最多4个选定源码文件的核查。所读源码没有识别出本候选的双侧区域min/max四端点公式；允许推进一次工程可行性和预定短测，不能据此宣称新颖性已经排除全部重合。
+
+固定版本：USTC-MLSys/Adacluster，commit e7bed1c475a596ca6057fa7da2e5b3c37909b536。下载文件均以Git树blob SHA与SHA256双重记录，只阅读，没有导入或执行作者代码。
+
+实际阅读范围与事实
+1. runcog/modify_cogvideox/cog_video_attn_processor_kvclus_new.py：选读237–254、528–633、661–689行。237–254行的topk_from_qkv_minmax将传入的query/key向量各自按正负号截断，再作两次矩阵乘法；592–611行先对Q和KV调用聚类，633行把聚类输出向量送入上述打分。函数名和注释含minmax，但所读函数没有对Q或K的token集合计算逐通道amin/amax；不能仅凭名称认定等价于本候选。
+2. triton_kernel/flashinfer_cluster_sparse_attn_v3.py：下载内容仅15字节，不能承担关键selector的实现证据。记录此限制，没有把空壳当作排重通过。
+3. runcog/modify_cogvideo.py：全文仅约110行，已读取。实际入口给CogVideoX注册SparseAttentionMeansim，调用inner_attention，而不是上一个实验分支；因此上一分支不代表所有实际路径。
+4. runcog/spas_sage_attn/autotune.py：选读导入、SparseAttentionMeansim构造/调参、forward及335–362行。该入口导向spas_sage_attn_meansim_cuda或spas_sage2_attn_meansim_cuda，设置自相似/累积质量阈值并可回退完整注意力。未继续展开其内核；这条路径的核心算法依据仍以已选读的SpargeAttn原文为限。
+
+原文与代码不能混同
+AdaCluster论文选读3.1–3.3与算法2–3，涉及Q聚类、适应性K聚类及TensorQuest；简略伪代码不足以证明Q代表向量的全部实现细节。当前仓库存在不同分支及占位文件，不能声称已逐行复现论文或阅读全部实现。
+BiFormer的区域均值粗路由、Quest的单query对K范围打分、SpargeAttn对异质块的完整计算均是明确先例。候选只保留“在相同空间区域/细注意力预算下，将query区域均值替换成Q/K两侧范围上界”的窄差异；区间上界本身不是新数学方法。
+
+推断与尚待验证
+推断：所读聚类代表向量/自相似阈值路线与当前固定空间块的双侧范围公式存在可比较的操作差异，足以支持有限最小验证。
+待验证：该差异是否在VisDrone上保留了少数小目标的有用关系；是否改善APs而非只选入高方差背景；是否超过单侧范围强对照并保持可接受成本；是否仍有未覆盖的直接先例。
+这不是新颖性清除证明，也没有把原生ECDet-S已有模块称为使用均值路由的瓶颈。假设针对拟加入的区域上下文读法；B负责检验增加该类上下文是否有用，M/Q负责检验路由差异。
+
+停止扩读的原因：选题允许保留可界定的重合风险；不再无限查证后才做小验证。若后续发现公式与直接先例相同，应撤回该候选的新颖性主张；不得把短测收益自动当作创新成立。
+
+核验链接
+论文：https://arxiv.org/html/2604.18348v1
+仓库：https://github.com/USTC-MLSys/Adacluster/tree/e7bed1c475a596ca6057fa7da2e5b3c37909b536
+文件哈希与URL：sources/AdaCluster_selected_v1/receipt.json、sources/AdaCluster_entry_v2/receipt.json、sources/AdaCluster_active_v3/receipt.json。

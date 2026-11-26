@@ -1,0 +1,70 @@
+A31：语义读出最近工作与否定性验证
+记录时间（UTC）：2026-10-31T02:17:52.470482+00:00
+
+当前判断：尚未找到可正式立项的小论文算法主线。保留“已有定位覆盖却低置信漏检”的观察；淘汰“把分类概率读取位置直接移到预测框中心”这一具体方案。不得把该观察直接解释为编码器丢信息、分类定位错位或分配错误，也不据此宣称新模块。
+
+1. 检索策略与记录
+采用定向前期调研，检索分类/定位任务对齐、预测框中心采样、端到端一对一检测及局部竞争。6条查询、3批浏览记录归档于web_discovery_raw.json；优先CVF/arXiv原文和作者仓库。原始下载记录primary_download_receipt.json；8个作者源码blob经Git/SHA验证，静态阅读且未导入执行。仅为此次算子查重，不是穷尽文献或新颖性证明。
+
+2. 核心文献矩阵与阅读范围
+TOOD: Task-aligned One-stage Object Detection
+原文方法：Task-interactive features and layer-attention task decomposition; aligned classification sqrt(P*M); learned offsets resample four decoded box-coordinate maps; task-aligned assignment/soft targets.
+已读范围：Selected complete Sec3.1 and Sec3.2.1-3.2.2; method figures/equations visually inspected in saved PDF renders pages3-5. Author-code selected head/assigner/config statically inspected at pinned commit. Not whole-paper/experiments/supplement/code execution.
+版本与链接：ICCV2021; official CVF PDF；https://openaccess.thecvf.com/content/ICCV2021/html/Feng_TOOD_Task-Aligned_One-Stage_Object_Detection_ICCV_2021_paper.html
+
+End-to-End Object Detection with Fully Convolutional Network
+原文方法：Global one-to-one Hungarian assignment with spatial prior and class/IoU quality; 3D Max Filtering over adjacent FPN levels; auxiliary one-to-many supervision.
+已读范围：Existing local arXiv2012.03544v3,26Mar2021; selected Sec3.2.1-3.2.3 and4.2.1 text; PDFpage5 Fig3/Eq5-6 visually inspected. Selected .3dmf.aux author code statically inspected; not whole paper/experiments or author implementation run. Published CVPR2021 metadata verified separately; local PDF bytes are arXivv3.
+版本与链接：CVPR2021; inspected local arXivv3 bytes；https://arxiv.org/abs/2012.03544v3
+
+Consistent-Teacher: Towards Reducing Inconsistent Pseudo-targets in Semi-supervised Object Detection
+原文方法：For inconsistent SSOD pseudo-targets: learned 3D spatial/scale offsets resample regression features to align classification features; spatial bilinear and cross-scale interpolation.
+已读范围：Selected full Sec3.3 from extracted primary text,includingEq5-6 and following cross-page interpolation explanation. Saved render ConsistentTeacher_page3 shows introduction andSec3.1,notEq5-6; no visualEq5-6 verification claimed. Not full method/experiments/supplement or author-code audit.
+版本与链接：CVPR2023; official CVF PDF；https://openaccess.thecvf.com/content/CVPR2023/html/Wang_Consistent-Teacher_Towards_Reducing_Inconsistent_Pseudo-Targets_in_Semi-Supervised_Object_Detection_CVPR_2023_paper.html
+
+3. 与最接近工作的逐项对比
+TOOD：已有任务交互特征与层注意力，分类为sqrt(P*M)，偏移重采样四个框坐标图；并不是将分类概率读取点固定移到预测框中心。
+DeFCN/POTO：已有全局一对一分配及跨尺度3D最大过滤。此次选定作者配置在框分支特征上学习过滤，再与分类概率相乘；不能简化为直接在分类概率上做局部最大值，也不能把“局部竞争”本身列为创新。
+Consistent-Teacher：已有学习的空间与尺度偏移，用于回归特征对齐；其半监督伪标签语境不能直接证明本任务缺陷。
+本次控制只改冻结模型分类场的读取点，既不是上述方法复现，也不是新的可训练对齐算子。
+
+4. 文献支持的边界与尚未证明的空白
+文献足以排除把一般任务对齐、空间尺度重采样、质量评分或局部竞争作为独立创新。已有框覆盖但低分的现象有缓存证据，却尚无证据确定原因或证明现有方法没有解决。目前没有经确认的、可支持投稿的研究空白；不能从“我们还没有方法”推导“领域没有方法”。
+
+5. 候选增量、可行性与风险
+直接预测中心分数迁移：不继续；全部7个预设门槛失败。固定候选池仍明显下降，排除了仅以新增候选或候选上限解释全部下降。
+学习式特征对齐、实例竞争、编码器替换：尚未批准新方案；须先找到可复现的具体失效及区别于最近工作的算子。本地CPU缓存诊断可运行；这不能证明新架构单卡24GB训练可行。100张开发图已反复使用，存在选择偏差，任何后续方法均需独立数据确认。
+
+6. 最小验证：已执行的冻结缓存控制
+VisDrone官方训练集留出的100张开发图，D0固定YOLO26s检查点；未用官方验证集作为本次确认集。固定模型和框，比较9组读取/池控制，1000次配对图像bootstrap；无新模型前向、无训练。
+忽略区域采用固定官方toolkit源码规则：类0区域并集覆盖>=0.5时过滤GT/预测；类11不计分类，预测先截断500再过滤且不补足。过滤后GT4489，小目标4127。
+AP为COCO101@500，配合官方源码对齐的忽略区预处理；不称官方VisDrone完整评测复现。主小目标按网络输入面积<1024，另报原图面积小目标。不得与A30旧内部crowd口径直接作差。
+主同误报预算926，取自原生one-to-one在置信度0.25时的FP；全局阈值按同分整块处理。
+
+组名 | 总体AP(%) | 输入小目标AP(%) | 原图小目标AP(%) | FP=926时小目标TP | 重复FP
+M_NATIVE_NMS_REFERENCE | 27.462360 | 24.341365 | 14.809194 | 2295 | 141
+O_CACHED_NATIVE | 27.296009 | 24.449438 | 15.376705 | 2297 | 156
+ZERO_GRID | 27.296009 | 24.449438 | 15.376705 | 2297 | 156
+CENTER_FLOW | 6.736725 | 6.182112 | 3.346233 | 355 | 656
+REVERSE_FLOW | 22.054606 | 20.063748 | 11.602352 | 1940 | 159
+HALF_CENTER_FLOW | 21.209440 | 19.284892 | 11.941291 | 1629 | 601
+HALF_REVERSE_FLOW | 25.707885 | 23.124658 | 14.473932 | 2231 | 145
+CENTER_KEEP_POOL | 18.622429 | 16.940158 | 9.213708 | 1227 | 430
+REVERSE_KEEP_POOL | 23.772396 | 21.715762 | 13.050573 | 2101 | 136
+CENTER_FLOW__minus__ZERO_GRID：输入小目标AP差的配对95%区间 [-20.093652, -16.383272] 个百分点。
+CENTER_FLOW__minus__REVERSE_FLOW：输入小目标AP差的配对95%区间 [-16.039922, -12.093121] 个百分点。
+CENTER_KEEP_POOL__minus__O_CACHED_NATIVE：输入小目标AP差的配对95%区间 [-8.415767, -6.213143] 个百分点。
+原生one-to-one与零位移对照AP完全相同。中心迁移相对零位移下降18.267326个百分点；固定候选池中心迁移相对原生下降7.509280个百分点。7个事先固定的推进门槛全部不通过。
+独立复算通过：4491个GT过滤检查、345227条保留预测的区域检查、76726条原生预过滤预测、1800个标量读取、全部9组AP和固定FP结果、1000个bootstrap抽样索引及3个抽样的独立重聚合；AP最大误差0。
+【实测】上述缓存分数操作有害。【推断】几何框中心不能直接当作已训练分类场的正确语义读取位置。【未验证假设】学习式特征对齐、实例判别或编码器传递机制可能仍可改善检测；本次没有验证这些假设。
+本阶段不自动安排训练、不调节alpha挽救失败方案；无新增模型调用预算。下一项工作是重新筛查具体架构缺陷及算子差异。
+
+7. 可核验参考文献、原始证据与状态
+三篇原文链接和阅读范围见第2项；完整条目见new_core_records.json。TOOD作者源码：https://github.com/fcjian/TOOD/tree/1bda27c6f290c5b828c566eb95ea50fed75a53cb
+DeFCN作者源码：https://github.com/Megvii-BaseDetection/DeFCN/tree/bd7e24d7408d63edc878d175d9cf798974095049
+VisDrone忽略区源码：https://github.com/VisDrone/VisDrone2018-DET-toolkit/tree/005445782213e20cb91bc50a597db3dd949e749a
+冻结协议：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A31_空间语义读出最近工作与缓存控制_v1\cache_protocol_FROZEN.json
+结果：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A31_空间语义读出最近工作与缓存控制_v1\cache_result.json
+独立核验：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A31_空间语义读出最近工作与缓存控制_v1\independent_verification.json
+源码与方法对比：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A31_空间语义读出最近工作与缓存控制_v1\closest_operator_comparison.json
+当前目标保持active，未找到可验证主线；累计架构分支完整前向2466、优化器更新528、完整DETR解码器重放48，均未增加。

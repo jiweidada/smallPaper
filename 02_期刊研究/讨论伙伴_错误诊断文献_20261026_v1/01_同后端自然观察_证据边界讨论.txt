@@ -1,0 +1,59 @@
+同后端CPU重放：自然观察能定位什么
+日期：2026-10-26（America/Los_Angeles）
+身份：共同讨论者的解释边界；不作审稿评分，不增加模型或训练操作。
+
+当前证据范围
+本轮直接阅读了同后端重放的protocol.json、analysis_protocol.json、replay.py中的Observer/输入绑定部分，及实际NATIVE路径下dfine_decoder.py的选择与decoder计算顺序。重放发起方已报告16次预检通过，其中raw分支boxes/logits与旧缓存逐项一致；我没有把这视为全548图已完成复现。本文件不读取或预报尚未提交的阶段统计，不新增forward、oracle、评价器计算或训练。原协议和原结果均未改。
+
+1. 同CPU对照能增强哪一层证据
+全量复现、输入/源码绑定和state完整性门槛通过后，同CPU raw/EMA对照可以把端点差异归到两个已保存模型状态在该固定CPU流程下的作用。这里改变的是整个state_dict，含参数与缓冲量；不能继续把该受控差异全部归因于CPU/GPU切换，也不能据此指定某一层或证明EMA训练机制在一般情形有效。
+旧原生EMA与新CPU EMA的比较则量化执行上下文敏感性；若原生batch、算子或预处理细节不同，仍无法把差异进一步单变量归因于某一个后端因素。命中集合一致也不代表所有中间张量逐位一致。
+
+2. 最终G/S/K/C/M/T仍是操作阶段定位
+完整末端候选池能区分几何缺口、真类分数阈值、top300、每类100上限和一对一匹配的顺序状态。这能回答某GT在这个模型状态的哪个已观测操作环节失去检出条件。各格不是独立原因贡献，K仍不能自动改名为分类器根因，M也不是训练assignment的证据。
+所有GT与原分层应作为主统计。旧10504个共同漏检GT可作为固定追踪集合，同时保留恢复、反向丢失、共同命中的参照，避免只在持续漏检组中解释全部机制。
+
+3. 三个自然观察点最多定位到观测区间
+当前源码顺序是：
+selected encoder memory/anchors -> enc_bbox_head后的未激活reference -> sigmoid reference -> 第一个decoder block -> pre预测 -> 同一第一层的分布式框细化 -> 后续decoder block/框细化 -> final。
+dfine_decoder.py第824-831行先计算encoder logits、选择topK，再只对入选memory调用enc_bbox_head；第470-490行先使用reference执行第一层，再生成pre；第493-494行还会执行该层的框细化；第497-506行只在eval_idx输出最终带LQE分数并结束。
+因此：
+- reference有覆盖、pre无覆盖：缺口出现在包含第一层block与pre预测的区间，尚不能归咎某个子部件。
+- pre有覆盖、final无覆盖：证明该GT的合格几何在pre这个观测点存在、末端池中消失。区间包含第一层pre之后的框细化及后续计算，不是“某一后续层已被确认破坏定位”。
+- reference/pre无覆盖而final有覆盖：说明所观测后续计算形成了合格几何，不能说reference缺覆盖就必然不可恢复。
+- 三个观测点均无覆盖：只能称“三处均无”，不能写成全decoder始终无；未观察的中间层仍可能短暂形成并失去覆盖。
+reference是中间参考，pre也不是实际导出的最终检测；逐GT存在合格框还可能由同一个框重复覆盖多个GT，不能替代一对一检出或AP。
+
+4. 身份与分类分数边界
+同branch内query槽位顺序保持，可报告固定initial-best/pre-best槽位的真实几何轨迹与全池maxIoU，两者分开。GT条件下选出的最佳槽位不是已知训练分配身份。跨branch相同query序号也不能视为同一对象。
+selected encoder token ID的重合表示相同空间网格入口，不能证明相同特征内容或对象。只保留入选身份/分数时，尚无未入选位置的反事实比较；而源码本来只对入选memory生成编码器回归框，不能虚构被丢弃的好回归框。
+pre_scores在第489行计算，末端LQE在第499行应用；不以假想pre AP比较实际阶段性能。某GT的末端真类分数超过.001也只说明通过阈值，不等于其类别证据足以正确排序。
+
+5. 仍不可区分的上游因素
+三点观察无法区分：输入分辨率/可见信息与标注语义限制；backbone/encoder是否保留可区分信息；encoder候选排名与选择；入选后编码器框回归；decoder内容、位置嵌入、注意力取样与框细化；训练监督/assignment与优化历史。初始reference无覆盖只说明在第一个观察点已有缺口，不能把它唯一归到输入、特征或选择。
+当前未观察实际attention采样位置，reference框中心不能替代它。自然轨迹能确定几何属性变化的观测区间，尚不提供冻结某个部件后改变它的局部因果效应，也不能推出可训练收益。
+
+本轮建议的解释约束
+先完成“模型状态差异—末端操作状态—自然几何变化区间”的证据链；若有pre有/final无，只将这一观测区间作为下一轮解释对象。问题规模、最终AP代价、机制可识别性仍分别报告。完整96/132轮迁移性仍待另证。
+本文件的具体保留：不要因最早可见缺口在reference，就给它冠以“encoder选择失败”。该边界之前同时包含特征、encoder得分/选择和入选框回归，当前观察尚不能拆开。
+
+本轮直接读取的源码与协议
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\raw_EMA逐GT对照_20261026_v1\同后端CPU重放_20261026_v1\protocol.json
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\raw_EMA逐GT对照_20261026_v1\同后端CPU重放_20261026_v1\analysis_protocol.json
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\raw_EMA逐GT对照_20261026_v1\同后端CPU重放_20261026_v1\replay.py
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\dn_pre_frozen_diagnostic_20261020_v1\native\engine\deim\dfine_decoder.py
+源码阅读范围：decoder第470-514、818-849、884-905、1038-1074行及相关定义检索；replay主要读取Observer第38-66行、前82行与后续静态位置检索，不声称完整执行审查。
+
+第七轮文献原文与阅读记录确切路径
+TIDE作者更新版（23页，含附录E）：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\文献_相关原始论文_20261004\236_TIDE_ECCV2020_author_updated_appendixE.pdf
+Hoiem等，ECCV2012作者原文（14页）：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\讨论伙伴_错误诊断文献_20261026_v1\sources\hoiem2012_author.pdf
+Hoiem，2014工具v2说明（3页）：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\讨论伙伴_错误诊断文献_20261026_v1\sources\hoiem_analysis_v2_author.pdf
+逐篇来源、版本、SHA与阅读/未读范围：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\讨论伙伴_错误诊断文献_20261026_v1\sources_and_reading.json
+第七轮讨论要点：
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\讨论伙伴_错误诊断文献_20261026_v1\00_第七轮讨论要点.txt
+
+本轮只新增本txt；没有修改前述源码、协议、PDF、检查点或旧报告。

@@ -1,0 +1,63 @@
+细尺度邻域残差定位：单一候选实验代码
+2026-10-08
+
+状态
+一个主候选fine_residual，加原生baseline和同结构fused_residual对照；三组各seed1/seed2，共6份配置。
+44项合成CPU工程检查通过，6份配置的原训练设置与源码绑定检查通过。
+prepared_local下6组均为PREPARED_NOT_TRAINED，runs训练目录未创建。
+未训练、未构造优化器、未加载检查点到模型、未更新或扰动模型参数；没有AP提升结果。
+
+主候选做什么
+对原Top300中来自P3的候选，保留原编码器框预测，再用原语义向量和融合前3×3细尺度邻域预测四维修正。
+新头零输出初始化；保留原分类、Top300、原融合上下文、decoder memory、框坐标公式、MAL/L1/GIoU/FGL/DDF和DN。
+新增35,396个参数。预测时不使用GT，不另设筛选分数或新增后处理。
+fused_residual使用完全相同结构和损失，只把局部邻域来源改为融合后P3，以检验额外容量和空间处理能否解释收益。
+
+主要文件
+residual.py：只收集所选候选的邻域、残差小头、独立初始化随机源。
+geometry.py：保留原encoder计算的特征出口，及decoder入口的P3框修正。
+runtime.py：原生接口注册、源码绑定、共同初始化的严格key/shape/dtype检查。
+experiment.py：check、prepare及明确的train子命令；后者本轮没有执行。
+configs和prepared_local：三组×双seed的计划及本机路径配置。
+00_单一候选设计与实施前自审.txt：假说、作用范围、对照、成本与否决条件。
+02_实施后自审与失败记录.txt：工程边界、真实归档作用范围及保留的失败。
+
+已验证范围
+engineering_20261008_194658.json：44项PASS。
+- 所选3×3邻域与独立循环/分组卷积一致，越界补零和梯度路径通过。
+- 公共参数、全局随机状态、零残差完整预测及全部原生损失逐位一致。
+- 原查询选择、语义向量、原坐标表达、DN前缀、辅助输出、矩形网格和batch2入口保留。
+- 在P3实际入选并承担回归的合成完整decoder/criterion中，新输出层收到有限非零梯度。
+- 参数在所有前向/反向后未改变；训练源码绑定仍一致。
+delivery_check_20261008_194830.json：6组设置与旧基线完整配置一致，未授权学习率/邻域变更被拒绝；468份原生训练源码绑定通过。
+preparation_20261008_194840.json：6份本机配置均完成只读验证和准备，未导入torch。
+
+未验证范围
+本机此前已确认缺少原训练要求的自定义pycocoeval；本轮没有用标准pycocotools替换它，也没有重复运行完整训练导入来冒充修复。
+完整训练入口、实际共同初始化加载、新头的优化器运行时覆盖、CUDA AMP、EMA/恢复、实际速度/显存和完整AP评估均未实测。
+原本地AP与训练端日志的复现差异仍未解决。不能用本轮工程PASS替代这些关口。
+
+本机静态检查（只读，不训练）
+在本目录运行：
+python -B experiment.py check --native-root "C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\p2_candidate_seed1_full132_20261007_v1"
+python -B check_delivery.py
+check_delivery会另存回执，不会构造模型。
+
+未来获授权、且原生训练/评价环境已验证后，才执行训练命令，例如：
+python -B experiment.py train --bundle prepared_local/baseline_seed1
+python -B experiment.py train --bundle prepared_local/fused_residual_seed1
+python -B experiment.py train --bundle prepared_local/fine_residual_seed1
+seed2使用对应同名目录。以上只是命令说明，本轮未执行。
+
+迁移环境时，重新prepare，不直接复用本机绝对路径：
+python -B experiment.py prepare --plan configs/fine_residual_seed1.json --native-root /path/to/bound_native_snapshot --train-images /path/to/train/images --train-ann /path/to/train.json --val-images /path/to/val/images --val-ann /path/to/val.json --common-init /path/to/common_init_seed0.pth --output /path/to/new_run --bundle /path/to/new_bundle
+另外5组同理。prepare只校验文件和生成配置，不开始训练。
+共同初始化SHA固定为85497586487a507923404da886d52c1054999111ce6be1df92532b4998956f91。
+旧实验与本实验的模型身份不同，不能交叉恢复检查点或覆盖目录。
+
+效果判定
+主候选必须同时与原生基线及同结构对照比较；保留各seed完整结果。
+报告整体AP50:95、十类别AP、APs/AP75、中大目标表现、原成功目标损伤、早期框与最终检测的变化以及成本。
+前期诊断已使用验证集，正式确认必须明确探索性结果与封存确认流程的区别。
+若只改善早期框而最终无净收益，或者与fused_residual相当，不支持目前的细尺度读取机制主张。
+目前这是可以审查和准备实验的单一候选代码，不是已经成立的创新或效果最优结论。

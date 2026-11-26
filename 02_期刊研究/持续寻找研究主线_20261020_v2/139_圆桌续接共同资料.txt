@@ -1,0 +1,223 @@
+
+===== 16_补答核心资产摘要.txt =====
+核心资产摘要，原始完整来源在03/09及其链接；仅压缩材料，不改变新目标、原判据或原始结果。
+新目标：找到至少一条有实质创新且值得申请训练的具体方法线。三Astra/xhigh+一Claude Opus5.5轮流，不限轮数/无训练核查次数，不因候选失败结束，也不硬凑。当前不训练、不远程、不监测。专家只读文件/公开原文，不运行脚本模型，主助手核查。
+
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A6 attention采样集中在已失败tiny群体0/85、0/93，未过25%门槛。不主张所有attention无用。
+A7 骨干stem的随机/预训相混不能归因结构；late-downsample原有，不能再提作创新。旧fine_residual局部高分辨率encoder几何残差被用户停于10/17轮，没有完整正证据，当前不恢复。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D2 BASE12 EMA548val离线CPU原N vs每queryargmax删D/补R：N AP6.128496/7.908137；R5.190986/6.738981，R-N-.937510/-1.169156pp，停止该版。删除secondary-class TP3333/3361，新增query TP432/545，补入大量背景。不能把重复query类全当无用。pipeline CPU另登记，不称复现原GPU1e-8。
+D3 BASE24两dev批原损失历史Adam端点，ordered变化2081/2400、1855/2400，但成员仅换38/19，约99%保留。已覆盖tiny bestsite都没换出，分母小；逆序槽换框差<2.8e-6，不能把排序当巨大集合不稳定。
+D4 分布方差U已有partialrank-.0898/-.1146，16批均负但效应弱；GFLv2/GaussianYOLOv3/D-FINE先例强，不为加方差评分再训练。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+
+当前可用：data08 isolated_v3/A(seed1)、B(seed2) development00–07保存640增强输入、GT、同前向原生匹配、普通所有层pred_boxes/pred_corners/ref_points。data10保存BASE24 online native fullmodel梯度、Adam状态、可供隔离重建。已反复开发，不叫独立验证。可使用CPU2线程低优先级少量冻结前向/反传及独立Adam虚拟端点，不累计更新、不写模型、不伪装训练。现成范围、topK、DDF表不再说待统计。
+
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+===== 118_C0轴路由冻结首检_完整回交.txt =====
+112事前协议、113代码→114实际结果。C0 online best_stg2（last_epoch94），固定四张all_count开发图902GT/453原sub4，单训练seed。原代码/online权重801张量严格加载，CPU2线程/affinity13,15/below-normal；实际8次forward、21次VJP、零更新，用时8.125秒。CP SHA和整个state_dict/BN前后相同。不是Adam端点、训练或AP。
+
+候选只改16384个restore参数中的普通final cx/cy加权L1梯度方向，其他损失和前向保留。原native matcher/union/分母/DN均记录。没有用BASE12的旧漏检组：按C0自身eval框分组，四图漏检sub4数36/104/237/9，原union配对41/105/124/13。eval与decoder.train输出最大boxes差约1.2e-7–1.8e-7、logits差2.1e-5–4.6e-5，已保留，不伪称数值全等。
+
+四图LOO平均gain，完整W方向范数已配平；gain越大表示-epsilon*D的局部SGD预测下降越多：
+               O             axis          M             S_axis        swap          rot45
+center         .0020240301   .0020327287   .0020325683   .0020299908   .0020324073   .0020328250
+total          .1244750431   .1233428695   .1232866386   .1236093825   .1232302151   .1232369985
+classification .0326198970   .0323179135   .0323282059   .0323897881   .0323384615   .0323026823
+hard_geometry  .0006708288   .0006890481   .0006881825   .0006844653   .0006873142   .0006885557
+
+axis对O的中心gain在3/4图更好；平均中心gain也严格高于O/M/S_axis/swap，hard geometry为正且高于O。这些正向事实保留。但axis未胜rot45，total/classification均低于O，故112原门槛false，不申请此精确轴路由版本训练。不能因旋转差很小便断言整条相位机制无效；也不能删掉分类/total代价改判。没有把其他投影事后选成新胜者。
+
+初步含义：局部中心监督的削弱/方向限制可能改变几何—分类取舍，但当前数据没有支持横坐标必须对应Hx、纵坐标必须对应Hy这一独占解释；更没有实际优化器更新或检测收益证据。按协议，本首检不足不等于Adam永久无效，但没有根据继续为这个精确版本申请训练。
+
+已保存03_eval_predictions_and_queries.pt：同四图C0 eval预测、真实原native selected_indices、GT/original_sub4及来源SHA，可作下一次零前向作用面统计。114全部逐图loss、union、梯度、方向及门槛在02_direction_results.json、04_execution.json和输出SHA清单，可复核。
+
+另一个前向奇偶中心头也不能仅凭D4反射性质立新：共享四点softmax期望本身已具相同局部排列等变性；共享线性分数去均值与原softmax严格相同。新的提议若只是Haar换基/分解softmax或删掉混合项，需先明确新的作用变量及其真实数据依据，不能换名复活。
+
+总研究目标未完成。继续给真正不同的可实施修订/设计，不停于本次阴性，也不重复追加不改变取舍的资格条件。先不新增训练，不操作远端或监测，不改旧证据。
+
+===== 134_LK完整结果与圆桌续接说明.txt =====
+本轮实际进展与圆桌接口恢复记录（2026-10-21）
+
+目标仍ACTIVE。上一场不是人为暂停整个目标，而是UI明确报告“专家调用超时，局部输出未保存”，第1轮仅Claude/A两条完整回答，B失败、C未回答。133保存完整JSON，不能当成四人共识。沿用设置继续，不归档或修改旧场。
+
+125/126→127 注意力模板局部配准：实际4次C0 online eval前向，零VJP、零更新；四图902GT/453原sub4。原输出相对114的boxes/logits误差核查、selected_indices、top300排序及原8计数全部通过。CP、完整state和BN哈希前后相同。
+
+计数，顺序 original / GN / trace / barycenter：
+all_geo05       370 / 290 / 299 / 365
+sub4_geo05       66 /  35 /  35 /  62
+all_geo075      184 / 118 / 116 / 168
+sub4_geo075      15 /   3 /   2 /  11
+all_class05     324 / 248 / 261 / 321
+sub4_class05     51 /  25 /  26 /  48
+all_class075    162 / 104 / 103 / 153
+sub4_class075    10 /   2 /   1 /  10
+
+GN四个条件全未通过；停止固定模板、±2差分、固定ridge的精确版本。不得事后选重心、反向GN或调lambda救结果；也不宣称所有注意力/局部读取无效。
+127/01_cache.pt已真实生成，含C0同次前向的final_corners、ref_points_initial、reduce(P2)、真实末层采样和权重。121不含corners/ref，但127含；现在不再存在C0分布资产缺失，不拼BASE24或旧BASE12。
+
+128/129 PMF共同平移兼容质量：原门槛未改变。首次导入CPU runtime缺失在读数据前失败；root补项目现有runtime和[13,15]/RAM>8限制。随后130在weighting_function标量shape失败，132在translate_gt FP64输入/FP32目的张量不匹配失败。两次都有完整错误和原缓存/源码前后SHA。它们不是统计阴性、没有PMF质量均值可供改门槛。131存档129首次执行代码，B受托追加135/136修正原生精度接口，再由root执行137，不覆盖旧失败证据。
+
+实际原生数学（本地dfine_utils.py和decoder.py已读）：
+up=nn.Parameter(torch.tensor([.5]),requires_grad=False)，reg_scale同为tensor[1]；weighting_function在FP32 eval生成33个非均匀节点，端点±2*abs(up[0])*abs(reg_scale)，中点0。
+原生distance2bbox使用R=abs(reg_scale)：
+x1=c_ref-(.5*R+l)*w_ref/R，x2=c_ref+(.5*R+r)*w_ref/R。
+故c_final=c_ref+(r-l)*w_ref/(2R)，halfwidth=w_ref*(.5+(l+r)/(2R))。
+原first-layer pre_bboxes.detach()是所有后层FDR固定reference；corners累加残差logits。首层/其他直接监督仍存在，不能说小GT没有几何监督。
+translate_gt先用float索引建立FP32权重目的张量，索引赋值要求右侧同dtype；不能声称其可直接接受FP64 boxes得到FP32权重。
+
+对133两条回答的必要纠正（构造推理，不是新实测）：
+1. 51/55/89/223是不同干预域的独立最大匹配，不能推出“所有漏检主要是中心”或“多数修正必须>2px”。只能说明本面板存在可恢复的中心作用面。
+2. max(w_ref,8px)不保证所有中大目标不变：大GT也可能由小reference表示，且训练共享参数/其他loss会改变。只能说对同一输入reference且w_ref>=8px的给定解码公式不变；APl代价本就未确立。
+3. 支持域改变不能只靠端bin概率判断；不要事后加“必须超过89”门槛比较不同干预集合。支持扩展的oracle可证明作用面，不能证明可学或创新。
+4. 原边距l,r in[a,b]，t=(r-l)/2,s=(l+r)/2，给定s时 |t|<=min(s-a,b-s)。独立t/s矩形是具体变量，但中心/尺寸分布已有先例，须比较原公式；range×2和同预算直接中心残差头是强简单控制。
+
+本轮原文阅读范围（主助手实际网页原文，摘要不是已读全文）：
+Deep Lucas-Kanade Homography for Multimodal Image Alignment，arXiv2104.11693v1，§3.1 Eq6–9：特征残差/Jacobian求逆；其§3使用专门训练的配准特征及收敛性质，不应把这种条件借给原C0 reduce或注意力模板。https://arxiv.org/html/2104.11693v1
+RefineBox，Enhancing Your Trained DETRs with Box Refinement，arXiv2307.11828v1 §4.1：冻结检测器，另训FPN和ROIAlign/Residual/MLP框细化器，L1/GIoU，分类不变。冻结后细化、只改几何不新。https://arxiv.org/html/2307.11828v1
+DAVNet，Distribution Aware VoteNet for 3D Object Detection，AAAI2022，原论文Distribution calculation Eq1–4和邻段：学习中心、尺寸、方向偏移的离散分布，积分读出。不是2D D-FINE有限支持解耦的直接实现，但中心尺寸分布参数化与期望读出不能称首次。https://ojs.aaai.org/index.php/AAAI/article/download/20049/19808
+LCB-Net Electronics2025 14(22)4487仅检索摘要线索，出版社页面429，尚未读方法，不作为已排除创新的证据。
+
+继续真实设计讨论；先不新增训练、不远程/监测、不修改旧实验。失败只停止精确候选，总目标没有完成。
+
+===== 115_本轮原文与既有资产边界补核.txt =====
+2026-10-21。仅记录实际阅读范围，不将搜索未命中当新颖性证明。
+
+1. DSNT，Numerical Coordinate Regression with Convolutional Neural Networks。
+原文 https://arxiv.org/html/1801.07372v2 ，本轮独立读§4–5相关方法段。归一化非负热图与固定X/Y坐标矩阵内积得到连续坐标，可直接受坐标损失；无须GT热图监督。当前四点softmax期望是其2×2局部支持的特殊读出形式。查询条件打分、输出残差和取值地址是实现差别，不是新坐标期望原理。
+
+2. SAM-DETR，CVPR2022。
+原文 https://openaccess.thecvf.com/content/CVPR2022/papers/Zhang_Accelerating_DETR_Convergence_via_Semantic-Aligned_Matching_CVPR_2022_paper.pdf ，直接open失败；通过同CVF原文的搜索索引实际读§3.2和§3.2.1式2–3/图3文字，不声称完整PDF成功归档。reference box先RoIAlign出7×7特征，再Resample生成query内容与位置，接后续cross-attention。当前末框局部P2读取只改最终中心，不重建每层query；这是真实作用位置差别，局部取样本身已有。
+
+3. Efficient On-Device Training via Gradient Filtering，CVPR2023。
+原文 https://openaccess.thecvf.com/content/CVPR2023/papers/Yang_Efficient_On-Device_Training_via_Gradient_Filtering_CVPR_2023_paper.pdf ，本轮通过CVF索引独立读§3.3及式2、§3.4部分：将activation输出梯度按r×r块取均值，结合空间求和的输入/卷积核简化反传。当前restore参数的cx/cy固定相位方向投影不是这个低通近似算法；但后向固定滤波本身不是新原理，任务特定固定投影尚需实际对应性证据。
+
+4. StarRoute-DBNet / PhaseRoute，Remote Sensing2026，18(11),1731，DOI10.3390/rs18111731。
+原文 https://www.mdpi.com/2072-4292/18/11/1731 ，本轮官方索引读§3.3含式29–34：相位descriptor经1×1生成温度缩放logits，可加Gumbel，top2 mask后softmax，四相位加权合成再3×3投影。phase明确是空间采样偏移。动态phase gate/softmax feature fusion已有直接先例；这里没有读到中心损失按Haar参数分量路由，不能因此宣布整个文献无同法。
+
+5. 查到更多已有本项目P2资产，不得当本轮新方法。
+code/p2_subspace_diagnostic12_20261011_v1/protocol.json明确旧forward干预dc16_norm与svd16_norm：只改已训restore权重，等rank16及权重Frobenius范数，不匹配特征能量/近似误差。
+outputs/p2_subspace_geometry_class12_20261011_v1/report.json本轮只读：seed2 fixed12 parent，548val/26586 COCOsmall。SVD小目标final几何存在性IoU.5 16077→16338(+261)，.75 6102→6241(+139)，nativeTP净+217/+114；DC对应几何−2647/−2459，nativeTP−2520/−2300。不是C96，不是重训，不是本轮运行，也非APs分解或跨seed证明。它应作为learned-subspace强控制的已有依据；不能把普通低秩/SVD压缩换名当新线。
+
+当前两候选的关键未决：最终框小残差有真实几何作用面，但局部采样/坐标期望已有；坐标损失—共享相位参数方向路由尚未实测，不能借用残差oracle作为监督路由证据。目标继续，先不新增训练。
+
+===== 117_更近梯度调控原文_GraDual核验.txt =====
+2026-10-21，本轮原生B发现，主助手随后独立取得同DOI出版社索引方法正文，非只读摘要。
+
+GraDual: Resolving the Semantic–Frequency Trade-Off via Gradient-Regulated Dual-Branch Multimodal Manipulation Detection。
+IEEE Access14,95360–95377，2026-06-22，DOI https://doi.org/10.1109/ACCESS.2026.3706107 。本轮主助手实际阅读Gradient Regulation via Scaling段、式4和其解释；直接IEEE页面可能机器人验证，未声称本地正式PDF已归档。
+
+式4对共享encoder的三种任务梯度分别给1、lambda、0，其中图像定位lambda=.8，文本grounding stop-gradient，检测保留全部。它已有根据语义—频率任务取舍预先分配梯度的明确规则；不是按每次冲突内积动态求投影。因此“forward不改、按频率/语义先验分配梯度、区别PCGrad动态冲突”这组宽泛主张不能作为本项目新颖性。
+
+当前候选仅对restore参数上普通final中心L1作cx→Hx/cy→Hy的空间相位方向投影，既非该式的整任务标量，也尚未证明更好。若自己的等范数标量/交换方向/同子空间控制复制效果，就不能拿固定空间先验这个名称回避。原文未显示此精确轴向规则，不等于已排除所有文献。
+
+下一项必须检验坐标对应是否提供简单降权或任意分流之外的真实信息；本条原文核查本身不是该候选失败或成立的实验。
+
+=====133上场完整两条回答（非共识，错误已在134纠正）=====
+Claude · 设计与证据整合
+## 当前主张：为极小目标解耦末层平移的尺度
+
+我这次只推一条线：D-FINE/FDR 的边距在解码时乘以参考框宽高。参考框极小时，中心可平移的范围随之塌缩。我提议对中心平移分量单独设尺度下限，宽高分量保持原样。
+
+这条线不是 C0 路由的延续，也不是局部重采样。它改的是框参数化中的一个具体变量。
+
+## 独立依据
+
+已知事实（121，C0 实测，sub4 真类 IoU.5）：
+
+- 原值 51，GT 尺寸替换只到 55，中心 ±2 残差到 89，自由中心到 223。
+- 在 IoU.75 下对应为 10 / 24 / 40 / 137。
+- 25 个常数平移中最佳就是 (0,0)。
+
+由此可以推出三点：失败主要在中心而非尺寸；不存在整体偏置，需要逐 query 修正；多数可行修正超过 2px。
+
+条件性推论：A5 中短边 <4 的 own 固定支持外 1077/1223，可能部分来自参数化范围。D-FINE 中 x1 = cx − (½·reg_scale + l)·w/reg_scale，平移量正比于 w。对 2–3px 宽的框，即使边距 bin 很宽，绝对平移也很小。
+
+这一公式和 up / reg_scale 常数需要先核对本项目的 distance2bbox 和 weighting_function 源码，我本轮未读。
+
+## 设计
+
+令 t = (r−l)/2 为平移，s = (l+r)/2 为尺寸，w_t = max(w, τ)，τ 取 P3 stride（8px，换算成归一化值）：
+
+```
+cx' = cx + t·w_t/reg_scale          # 仅平移用下限尺度
+half_w' = (½·reg_scale + s)·w/reg_scale
+# 纵向同理；FGL 目标用同一逆映射：
+t* = (cx*−cx)·reg_scale/w_t,  s* = 由 GT 半宽按 w 求，l* = s*−t*,  r* = s*+t*
+```
+
+w ≥ τ 的框前向与目标严格等同原方案，所以中/大目标不受影响。这正针对 A2 中 APl 代价的顾虑。新增参数为 0，DN / matcher / 分母都不动。
+
+## 强控制与剩余增量
+
+A5 的全局 range×2 已失败，它是必须面对的直接对照。两种结果对应不同解释：
+
+- 若本设计的首检结果与 range×2 同形，就撤回这条线。
+- 若它只在"仅平移受限"的子群上有作用面，才有区别于 range×2 的依据。
+
+另设两个对照：
+
+- 平移和尺寸都用 max(w, τ) 的全下限臂，检验解耦是否必要。
+- 常数 τ 改为可学习标量的臂，检验固定 stride 是否特殊。
+
+原文边界：YOLO / FCOS 用格子或 stride 归一化，DETR 系用框相对归一化。"尺寸条件的平移尺度下限 + 在分布式边距中保持 FGL 可逆"是可能的增量，但很薄，必须查 D-FINE、DEIM 及其后续是否已有。我未检索，不宣称新颖。
+
+## 冻结首检（零新 forward）
+
+用 121 的 C0 缓存和 data08 已存的 pred_corners / ref_points 做三项统计：
+
+1. **饱和率**：sub4 漏检匹配 query 末层边距分布的端 bin 质量占比，与 ≥32px 目标对比。
+2. **可达性上界**：在原 / 解耦 / 全下限三种映射下，用末层参考框加最大可表示位移，统计 sub4 真类 IoU.5 和 .75 的可达数。
+3. **A5 复分类**：1077/1223 这组在 BASE12 下属于"仅平移超界"还是"尺寸也超界"。
+
+事前取舍规则：
+
+- 若漏检 sub4 的饱和率不高于大目标，或解耦可达数不超过原映射加 ±2 残差的 89，则不申请训练。
+- 若全下限臂可达数等于解耦臂，则撤回"解耦"表述。
+
+缺口：
+
+- 源码常数尚未核对。
+- 只有单个 C0 和四张图。
+- 可达不等于可学，也不等于 AP。
+
+是否申请训练由用户决定。
+
+Codex A · 结构与信息路径
+我回应 **Claude“只给平移尺度设下限”及“以端点饱和率决定去留”**。118改变了我此前的优先级：轴向路由未过原门槛，我撤回主推，不追加角度挽救。121确认C0有逐query中心修正空间，但51/55/89/223是不同干预的匹配上界，不能直接推出全部漏检主要由中心造成。
+
+**主推荐：把尺度解耦改为分布支持域解耦**
+
+Claude方案仍有一个限制。条件性地采用其待源码核对的仿射解码，设左右距离支持为\([a,b]\)，则
+\[
+t=(r-l)/2,\quad s=(r+l)/2,\qquad
+|t|\leq\min(s-a,b-s).
+\]
+可行域是菱形。即使放大平移尺度，尺寸对应的\(s\)接近端点时，平移仍受限。例如\(s=a\)时只能有\(t=0\)；乘任何尺度都不能解锁。这是结构反例，不是当前数据的诊断。
+
+我的修订是：末层直接预测独立的平移、尺寸分布，分别支持于\([-d,d]\)、\([a,b]\)，其中\(d=(b-a)/2\)，保持四组分布及原bin数：
+\[
+c_x'=c_x+\frac{\max(w,8{\rm px})}{R}E[t_x],\qquad
+\frac{w'}2=w\left(\frac12+\frac{E[s_x]}R\right).
+\]
+纵向同理；像素尺度须归一化。普通与DN末层使用一致的逆映射生成分布目标，匹配算法和分母规则保留。新变量是**给定尺寸下的平移支持**，不再由两侧边距共同挤压。
+
+这不能包装成“中心—宽高参数化首次”。据所贴原文摘要，DSNT已解决期望坐标读出；剩余候选增量只能是FDR有限支持中平移与尺寸的解耦及一致监督，仍须核对近邻原文。
+
+**强控制与一次首检**
+
+必须比较Claude原尺度下限、已失败的range×2，以及等参数预算的直接中心残差头。若直接残差头复制收益，就不能归功于分布支持结构。
+
+最低成本首检用data08已有BASE24同源末层距离、参考框和预测，固定当前宽高、类别与每query容量一，比较菱形支持和矩形支持下的最大匹配；不训练、不新增forward。事前取舍：两seed都须出现“矩形新增、尺度下限仍不可达”的sub4真类匹配增量，否则放弃这项结构改造。阳性仅保留候选，不能申请训练或充当创新证明。
+
+我不同意端点质量不高便否决：支持约束与实际概率是否堆在端点不是同一命题；两方案上界相同也不能否定尺寸保留价值。另外，121所列C0缓存未确认含末层参考框和PMF，不能拼接BASE24资产后与89比较。当前缺口是准确解码边界、对应分布缓存及近邻方法全文；这些尚未解决。

@@ -1,0 +1,93 @@
+TinyFormer: Preserving Tiny Objects in
+YOLO-DETR Hybrid Real-time Detectors
+Jun-Wei Hsieh1∗ Meng-Yu Kao1 Ghufron Wahyu Kurniawan1 Kuan-Chuan Peng2
+1College of Artificial Intelligence, National Yang Ming Chiao Tung University, Taiwan
+2Mitsubishi Electric Research Laboratories
+{jwhsieh, kobekao.ai12, Ghufron.ai13}@nycu.edu.tw kpeng@merl.com
+Abstract
+Both YOLO-series and DETR-based object detectors exhibit systematic limitations
+in detecting tiny objects. YOLO-style detectors typically rely on backbones with a
+total downsampling factor of 32×, causing tiny objects to vanish at deep feature
+levels and resulting in ambiguous grid assignments. In contrast, DETR-based
+detectors perform global self-attention on coarse feature maps, where tiny objects
+correspond to only a few low-energy tokens and are thus disadvantaged during
+bipartite matching. To address these challenges, we propose TinyFormer, a unified
+YOLO–DETR hybrid real-time detector that combines ViTs, the NMS-free set
+prediction of DETRs, and the YOLO neck for accurate detection of small objects.
+TinyFormer introduces a Parallel Bi-fusion Module (PBM) that establishes multi-
+ple high-resolution shortcuts from shallow layers to the pyramid neck, preserving
+fine-grained spatial details during multi-scale fusion. In addition, to mitigate spatial
+information loss caused by stride-16 tokenization in standard DETR architectures,
+we propose a Spatial Semantic Adapter (SSA) that extracts high-resolution cues
+from early network stages and injects them into transformer token embeddings,
+enhancing tiny-object localization. Extensive experiments on MS COCO demon-
+strate that TinyFormer outperforms the state-of-the-art (SoTA) detectors, including
+the latest YOLO-series, as well as the strong baseline DEIMv2. Specifically,
+TinyFormer-X achieves an impressive 58.4% AP without the PBM. Integrating
+PBM pushes the overall performance to 58.5% AP and maximizes the utility of the
+supplemented spatial features, yielding a remarkable 1.6% AP boost in small object
+APS. Moreover, when pre-trained on Objects365, TinyFormer-X-PBM reaches
+60.2% AP, surpassing other Objects365-pretrained methods like RF-DETR while
+needing much fewer parameters and lower compute. These results validate that
+TinyFormer offers a superior trade-off between accuracy and efficiency. The code
+is available athttps://github.com/mmpmmpmmpjosh/TinyFormer.
+1 Introduction
+Real-time object detection is often seen as solved, with near-saturated benchmarks. Yet small object
+detection remains difficult. In safety-critical tasks like autonomous driving [13] and surveillance [27],
+small objects dominate long-range and crowded scenes, but their accuracy lags behind larger ones. We
+argue this stems not from optimization or heuristics, but from structural biases in dominant paradigms.
+CNN detectors (e.g., YOLO [6, 20, 23]) lose fine spatial detail via aggressive downsampling, while
+grid assignment and Non-Maximum Suppression (NMS) further hurt performance on small objects.
+DETRs [2, 17, 30] remove NMS and use global attention, but they introduce the token competition
+∗*Corresponding author.
+Preprint.
+arXiv:2605.25046v1  [cs.CV]  24 May 2026
+
+---PAGE---
+
+(a) Performance v.s. Params.
+ (b) Performance v.s. FLOPs.
+ (c) Performance on VisDrone.
+Figure 1:Comparison of TinyFormer with the state-of-the-art detectors on COCO [ 14] and
+VisDrone [31].By effectively recovering spatial priors, TinyFormer explicitly surpasses CNN-based
+YOLOs in small object detection while maintaining higher overall AP than ViT-based DETRs.
+bias in favor of large instances, suppressing small ones. Despite architectural differences, both
+CNN and Transformer detectors share a key bottleneck: early compression to stride-32 features.
+This downsampling irreversibly removes high-frequency spatial cues, causing tiny objects to vanish
+before high-level reasoning. Once lost, such detail cannot be recovered by deeper layers or better
+matching. We argue this early information loss is the main barrier to small-object detection and must
+be addressed by preserving spatial detail from the earliest stages.
+To address this limitation, we proposeTinyFormer, a YOLO–DETR hybrid combining Vision
+Transformer (ViT) semantics, DETR’s NMS-free prediction, and a YOLO-style neck with explicit
+spatial preservation. Since FPNs use heavily downsampled features where small objects occupy
+few cells, we propose theParallel Bi-fusion Module (PBM)to add parallel high-resolution paths
+from shallow layers to the feature pyramid neck, preserving fine-grained spatial details during
+multi-scale fusion. As DETR tokenizes stride-32 features, small objects have few tokens and weak
+localization. We thus propose theSpatial Semantic Adapter (SSA)to extract fine-grained spatial
+features from shallow representations and inject them into transformer tokens, complementing
+ViT semantics with minimal computational overhead. By preventing early spatial loss in both
+convolutional and transformer pipelines, TinyFormer preserves fine detail while remaining real-time,
+achieving SoTA results (Fig. 1): 60.2% AP / 43.0% APS on COCO [14], and 34.7% AP / 24.7% APS
+on VisDrone2019 [31], outperforming recent YOLO [6, 20, 23] and DETR [18] detectors.
+Our main contributions are summarized as follows: (1) We proposeTinyFormer, a hybrid YOLO-
+DETR architecture that improves tiny object detection by combining the global contextual modeling
+of Vision Transformers with an enhanced YOLO-style neck. TinyFormer outperforms all recent
+YOLO-based [6, 20, 23] and DETR-based detectors [18] on both COCO and VisDrone2019 datasets.
+(2) We introduce theParallel Bi-fusion Module (PBM)to break the irreversible spatial degradation
+of traditional FPNs. By establishing multiple direct high-resolution shortcuts to the fusion neck, the
+PBM ensures pixel-level localization for tiny targets. (3) We design theSpatial Semantic Adapter
+(SSA)to explicitly recover the early-stage spatial details typically lost during the ViT tokenization
+process, seamlessly fusing high-resolution spatial priors with deep semantic features. (4) TinyFormer
+is the first real-time detector to surpass 60% AP and 40.5% APS on the COCO benchmark without
+relying on pretraining from external datasets.
+2 Related Work
+Convergences of YOLO and DETR.Object detection is dominated by CNN-based YOLO [1, 5, 11]
+and Transformer-based DETR [ 2, 30]. YOLO is fast but 32× downsampling loses tiny objects,
+while grid assignment and NMS further hurt them in crowded scenes. DETR [ 2, 17, 30] removes
+NMS and uses global attention, but token competition favors large instances, suppressing small ones.
+Recently, both paradigms are converging toward a balance of efficiency and end-to-end learning.
+YOLO26 [20] adds Hungarian matching for NMS-free detection, bridging YOLO’s localization and
+DETR’s simplicity. TinyFormer follows this trend, combining both to improve real-time detection.
+Backbone Bottleneck for Tiny Object Detection.Both YOLO and DETR are limited by aggressive
+backbone downsampling. Modern models use stride-32 features, where each cell covers a large input
+2

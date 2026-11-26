@@ -1,0 +1,32 @@
+Material Passport
+类型：ARS experiment-agent / run，单助手。
+状态：目标active，正式原版已启动，区域蒸馏M和实例query监督Q顺序排队。尚无本候选AP结论。
+
+当前问题：相同冻结教师下，以最终匹配query监督早期空间特征，是否比普通区域特征蒸馏更有效提升小目标APs？
+三组均为VisDrone + ECDet-S，每组最多12轮，统一固定第12轮EMA；B为fresh原版，不续训A42。
+教师固定A42原版B的第12轮EMA，sha256 bbd5712fe42bc7b11e3b01d46e930f7baa3992dd76832a913b367a58626a6ad6。教师eval/no_grad，全参数冻结。
+M/Q同一教师、同一增强输入、同一最终Hungarian匹配实例、同一48→192学生投影和实例平均1-cosine（固定权重1）。
+M目标为教师hybrid encoder的stride16区域特征，Q目标为匹配实例的最终query。学生均读已有stride4 stem的GT3×3 ROIAlign均值。GT仅训练期使用。
+推理时物理移除辅助模块及采集hook；模型预测架构保持原版。原生decoder源码逐字节不变，原生检测loss与LQE/GO-LSD保留。
+
+已完成接口/容量验收：
+- CPU严格装载及投影器初始化一致；参数B9803112，M/Q9812520，额外9408为训练期参数。
+- 附加/删除投影器后原生预测逐位一致；辅助梯度可到达stem；教师参数/状态不变；M/Q实际匹配和两类目标摘要一致。
+- 同一个固定dense batch8，GT数902/512/462/431/370/351/348/346；B1次更新、M/Q各2次。
+- 峰值allocated GiB：B15.5598/M15.6456/Q15.6456，低于22GiB；未搜索batch或回退。
+- 容量合计8次学生前向、4次教师前向、5次更新、2次辅助梯度探针；这些权重均丢弃，正式训练重新装载公共初始化。
+- 密集batch教师最多匹配2400个实例，1322个GT受300query上限未匹配；M/Q使用相同集合。该覆盖限制保留并按轮计数，不偷偷增加query。
+
+正式冻结条件：seed20261101，单卡RTX3090 24GiB，640stretch，batch8，不累计；确定性翻转；AdamW backbone2.5e-5/其他及投影5e-4，clip0.1，500warmup及12轮cosine。BF16模型前向，FP32损失，无GradScaler。
+各组6471训练图、548验证图；预定第4/8/12轮验证，评价与延时均去辅助模块；终点checkpoint的model/EMA为原版键，训练投影状态另存。
+评价COCO-style：原图裁剪GT面积small≤1024、maxDet300、class0矩形并集IoA≥0.5排除GT/预测；others11不计类。不是VisDrone官方榜单分数。
+去留门槛：Q-B APs≥0.5pp、Q-M APs≥0.3pp、Q-B总AP≥-0.2pp，三项同时满足；APs75与实际原生延时也报告。门槛是资源判断，非显著性检验。
+若Q未超过普通区域蒸馏，停止直接query目标主张；不扫层数、权重、教师或阈值。三组结束后只准备下一候选，不自动另开训练。
+
+实际启动核查：B第1轮551/809步，累计551次更新，loss29.743601；supervisor21467/start_ticks105744454，B21562/start_ticks105744796与/proc一致。
+启动证据9个归档成员以及冻结91个文件与本地来源SHA核验通过。完整正式M/Q配对与指标核验尚待运行完成，不能把容量检查当效果证据。
+所有进度计数为保存时的观测下界；总完整前向同时包含学生和新加入的冻结教师调用，教师调用单独记账。
+
+A42阴性结果已保留，旧草案仍在原路径作为历史；本次执行协议在：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A43_ECDet三组蒸馏最小验证_20261031_v1\startup_evidence\execution_protocol_FROZEN.json
+当前目标：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\主线重开_编码器解码器_20261029_v1\A43_ECDet三组蒸馏最小验证_20261031_v1\explicit_goal_creation_receipt.json
+研究边界：当前没有证明语义瓶颈、算法有效、新颖性或期刊价值。单seed12轮即使过门槛也仅表示值得下一阶段验证。

@@ -1,0 +1,103 @@
+DISCRIMINATIVEFLOWMATCHING VIALOCALGENERATIVE
+PREDICTORS
+A PREPRINT
+Om Govind Jha
+Indian Institute of Science Education and Research
+Bhopal, India
+om22@iiserb.ac.in
+Manoj Bamniya
+Indian Institute of Technology
+Guwahati, India
+manojbamniya832@gmail.com
+Ayon Borthakur
+Indian Institute of Technology
+Guwahati, India
+ayon.borthakur@iitg.ac.in
+March 17, 2026
+ABSTRACT
+Traditional discriminative computer vision relies predominantly on static projections, mapping input
+features to outputs in a single computational step. Although efficient, this paradigm lacks the iterative
+refinement and robustness inherent in biological vision and modern generative modelling. In this
+paper, we propose Discriminative Flow Matching, a framework that reformulates classification and
+object detection as a conditional transport process. By learning a vector field that continuously
+transports samples from a simple noise distribution toward a task-aligned target manifold - such
+as class embeddings or bounding box coordinates - we are at the interface between generative and
+discriminative learning. Our method attaches multiple independent flow predictors to a shared
+backbone. These predictors are trained using local flow matching objectives, where gradients are
+computed independently for each block. We formulate this approach for standard image classification
+and extend it to the complex task of object detection, where targets are high-dimensional and spatially
+distributed. This architecture provides the flexibility to update blocks either sequentially to minimise
+activation memory or in parallel to suit different hardware constraints. By aggregating the predictions
+from these independent flow predictors, our framework enables robust, generative-inspired inference
+across diverse architectures, including CNNs and vision transformers.
+KeywordsTransformer · Flow Matching · Image Classification · Object Detection · Representation
+Learning
+1 Introduction
+For the past few years, the dominant paradigm in discriminative computer vision has beenstatic projection. Architectures
+such as ResNets [[He et al. [2016]] and vision transformers (ViTs) [[Dosovitskiy et al. [2021]] function as fixed mappings
+that project input features directly onto a set of logits or coordinates in a single computational step. While highly
+optimised, this static approach stands in contrast to biological vision and modern generative modelling, both of which
+rely on dynamic, iterative refinement to resolve ambiguity and generate high-fidelity structures.
+The success of Denoising Diffusion Probabilistic Models (DDPMs) [Ho et al. [2020] has sparked interest in bringing
+these "dynamic" capabilities to discriminative tasks. Recent works like DiffusionDet [[Chen et al. [2023]] have
+demonstrated that object detection can be formulated as a denoising process, where random boxes are progressively
+refined into precise detections. More recently, Flow Matching [Lipman et al. [2023]] has emerged as an alternative to
+diffusion, offering simulation-free training and straighter transport trajectories. However, adapting these continuous-
+arXiv:2603.13928v1  [cs.CV]  14 Mar 2026
+
+---PAGE---
+
+Discriminative Flow Matching via Local Generative PredictorsA PREPRINT
+time processes to discriminative tasks introduces computational bottlenecks. Training a deep network to approximate a
+global vector field typically requires backpropagating through ODE solvers[[Shah [2018]] or massive unrolled graphs,
+causing memory usage to scale linearly with depth and making optimisation notoriously unstable.
+To mitigate the costs of global backpropagation (BP), theLocal Learningalternatives have been explored, such as
+the Forward-Forward (FF) algorithm [Hinton [2022]]. While FF and its variants (e.g., CFF [Aghagolzadeh and Ezoji
+[2025]], SFF [Zhu et al. [2025]]) effectively decouple layer training, they have struggled to scale beyond global
+image classification. Their reliance on scalar “goodness” objectives makes extending them to dense prediction tasks
+challenging [Zhao et al. [2019]], as they struggle to preserve the high-dimensional spatial information required for
+precise localisation. A closely related approach, NoProp [Li et al. [2025]], takes a more principled step by eliminating
+both forward and backward propagation entirely: each block independently learns to denoise a noisy version of the
+target label embedding, drawing directly on diffusion and flow-matching theory. While NoProp represents a compelling
+advance in credit-assignment-free learning and demonstrates competitive accuracy on image classification benchmarks,
+it is designed around fixed, pre-noised label targets broadcast uniformly to every block. This architectural choice, while
+effective for classification, does not naturally extend to structured output spaces where targets are high-dimensional
+and spatially distributed, precisely the setting our work addresses. Our approach follows the spirit of NoProp by using
+block-local flow matching objectives without requiring full end-to-end backpropagation through the diffusion steps.
+In this paper, we proposeDiscriminative Flow Matching, a framework that leverages the representational strength
+of continuous flows to build robust, generative-inspired classifiers and detectors. Flow Matching learns a vector field
+that continuously transports samples from a source distribution toward a target, offering a smooth, tractable alternative
+to diffusion-based generation. Instead of treating the network with a single static projection head, we conceptualise
+inference as a consensus-driven transport process. We use an ensemble of independent flow predictors, where multiple
+parallel heads learn distinct local vector fields to transport a noisy latent state toward a task-aligned target manifold
+- whether a class embedding or a set of bounding box coordinates. By aggregating these independent generative
+trajectories, our method achieves highly robust single-step inference, effectively bridging the gap between generative
+continuous-time dynamics and fast, accurate discrimination.
+Our contributions are as follows:
+1. We extend conditional flow matching to discriminative vision tasks, showing that both image classification and
+object detection can be formulated as transporting Gaussian noise to task-aligned target manifolds, such as
+class embeddings and sets of bounding box coordinates.
+2. We introduce aGenerative Flow Ensemblethat departs from standard static projection. Instead of training
+multiple independent models as in traditional ensembles, we attach multiple vector-field predictors to a shared
+backbone. Aggregating their predictions provides a robust consensus for task inference while avoiding the
+memory and computational cost of training multiple full networks.
+3. We demonstrate experimentally that this framework scales to both image classification and object detec-
+tion across CNN and Vision Transformer (ViT) architectures, with models trained both from scratch and
+using pretrained backbones, achieving competitive accuracy while providing a generative interpretation of
+discriminative inference.
+4. We provide an empirical analysis of generative inference dynamics across architectures. Our results show that
+aggregating predictions from multiple flow predictors enable robust single-step ensemble inference, while
+multi-step ODE integration can become unstable when predictors are not specialised for specific time intervals,
+leading to trajectory drift, particularly in convolutional architectures [Chen et al. [2018], Lipman et al. [2023]].
+2 Related Work
+2.0.1 Flow Matching and Neural ODEs.
+Flow Matching [Lipman et al. [2023]] was introduced as a scalable method for training Continuous Normalising Flows
+(CNFs) [Chen et al. [2018]] by regressing a vector field directly onto a conditional probability path. While it is primarily
+dominant in generative tasks (e.g., image synthesis), its utility for discrimination remains underexplored. Closely related
+to our work isNoProp[Li et al. [2025]], from which we draw inspiration. NoProp demonstrates that classification can
+be achieved without global forward or backward propagation by having independent network blocks learn to denoise
+targets using localised flow matching objectives.
+While we share the core motivation of utilising decoupled generative objectives to circumvent global optimisation
+bottlenecks, we distinguish our work in two key dimensions. First, we extend the formulation beyond global classifica-
+tion to the more complex task ofObject Detection, which requires transporting noise to permutation-invariant sets of
+2

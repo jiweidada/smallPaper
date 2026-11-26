@@ -1,0 +1,222 @@
+On the Properties of the Softmax Function with Application in
+Game Theory and Reinforcement Learning
+Bolin Gao and Lacra Pavel
+Abstract—In this paper, we utilize results from convex analysis
+and monotone operator theory to derive additional properties of
+the softmax function that have not yet been covered in the existing
+literature. In particular, we show that the softmax function is
+the monotone gradient map of the log-sum-exp function. By
+exploiting this connection, we show that the inverse temper-
+ature parameter λ determines the Lipschitz and co-coercivity
+properties of the softmax function. We then demonstrate the
+usefulness of these properties through an application in game-
+theoretic reinforcement learning.
+I. I NTRODUCTION
+The softmax function is one of the most well-known func-
+tions in science and engineering and has enjoyed widespread
+usage in ﬁelds such as game theory [1], [2], [3], reinforcement
+learning [4] and machine learning [5], [6]. From a game theory
+and reinforcement learning perspective, the softmax function
+maps the raw payoff or the score (or Q-value) associated
+with a payoff to a mixed strategy [1], [2], [4], whereas
+from the perspective of multi-class logistic regression, the
+softmax function maps a vector of logits (or feature variables)
+to a posterior probability distribution [5], [6]. The broader
+engineering applications involving the softmax function are
+numerous; interesting examples can be found in the ﬁelds of
+VLSI and neuromorphic computing, see [35], [36], [37], [39].
+The term “softmax” is a portmanteau of “soft” and
+“argmax” [5]. The function ﬁrst appeared in the work of
+Luce [12], although its coinage is mostly credited to Bridle
+[13]. Depending on the context in which the softmax function
+appears, it also goes by the name of Boltzmann distribution
+[1], [4], [34], Gibbs map [22], [46], logit map, logit choice
+rule, logit response function [1], [2], [3], [19], [14], [23], [57]
+or (smooth) perturbed best response function [44], [56]. The
+reader should take care in distinguishing the softmax function
+used in this paper from the log-sum-exp function, which is
+often also referred to as the “softmax” (since the log-sum-exp
+is a soft approximation of the vector-max function [7], [24]).
+There are many factors contributing to the wide-spread
+usage of the softmax function. In the context of reinforcement
+learning, the softmax function ensures a trade-off between ex-
+ploitation and exploration, in that every strategy in an agent’s
+possession has a chance of being explored. Unlike some
+other choice mechanisms such as ϵ-greedy [4], the usage of
+B. Gao and L. Pavel are with the Department of Electrical and
+Computer Engineering, University of Toronto, Toronto, ON, M5S
+3G4, Canada. Emails: bolin.gao@mail.utoronto.ca,
+pavel@ece.utoronto.ca
+softmax selection rule1 is favorably supported by experimental
+literature in game theory and reinforcement learning as a
+plausible model for modeling real-life decision-making. For
+instance, in [20], the authors noted that the behavior of mon-
+keys during reinforcement learning experiments is consistent
+with the softmax selection rule. Furthermore, the input-output
+behavior of the softmax function has been compared to lateral
+inhibition in biological neural networks [5]. For additional
+discussions on the connections between softmax selection rule
+and the neurophysiology of decision-making, see [30], [31],
+[32], [33]. From the perspective of game theory, the softmax
+function characterizes the so-called “logit equilibrium”, which
+accounts for incomplete information and random perturbation
+of the payoff during gameplay and has been noted for having
+better versatility in describing the outcomes of gameplay as
+compared to the Nash equilibrium [3], [14].
+game
+learning
+rule softmax
+payoﬀ
+score
+strategy
+Fig. 1: High-level representation of a game-theoretic multi-agent
+reinforcement learning scheme with the softmax selection rule. In
+this learning scenario, the players each choose some strategy, play
+the game and receive real-valued payoffs. The players then use some
+learning rule to independently convert the payoffs into scores. Finally,
+each player uses the softmax to select the next strategy.
+Despite the intuitions that researchers have acquired with
+respect to the usage of the softmax function, it is apparent
+that the understanding of its mathematical properties is still
+lacking. For instance, in the analysis of stateless multi-agent
+reinforcement learning schemes (Figure 1), when the action
+selection rule is taken as the softmax function, it is of
+interest which, if any, properties of softmax can allow us
+to conclude convergence of the learning algorithm towards
+a solution of the game (e.g., a Nash or logit equilibrium).
+Although the desired properties that can be used to conclude
+such convergence are fairly mundane, virtually no reference
+to these properties can be found within the existing body
+of literature. With regard to applications in the context of
+1In this paper, we refer to the softmax function interchangeably as the
+softmax operator, softmax map, softmax choice, softmax selection rule, or
+simply, the softmax.
+1
+arXiv:1704.00805v4  [math.OC]  21 Aug 2018
+
+---PAGE---
+
+reinforcement and machine learning, the adjustment of the
+temperature constant of the softmax function is still performed
+on a rule-of-thumb basis. It has also been brieﬂy speculated
+in [42] that proper adjustment of the temperature constant can
+be used for game-theoretic reinforcement learning algorithms
+to achieve higher expected payoff. Therefore, an adaptive
+mechanism for scheduling the temperature constant would be
+desirable for many applications. Clearly, these questions can
+only be afﬁrmatively answered by uncovering new properties
+of the softmax function.
+The goal of this paper is to expand on the known mathe-
+matical properties of the softmax function and demonstrate
+how they can be utilized to conclude the convergence of
+learning algorithm in a simple application of game-theoretic
+reinforcement learning. For additional examples and more
+involved applications, see our related paper [21]. We perform
+our analysis and derive new properties by using tools from
+convex analysis [7], [24] and monotone operator theory [25],
+[26]. It has been known that stateless multi-agent reinforce-
+ment learning that utilizes the softmax selection rule has close
+connections with the ﬁeld of evolutionary game theory [9],
+[10], [22], [23], [54], [20], [58]. Therefore, throughout this
+paper, we motivate some of the results through insights from
+the ﬁeld of evolutionary game theory [15], [16], [17]. It is our
+hope that researchers across various disciplines can apply our
+results presented here to their domain-speciﬁc problems.
+The organization of this paper is as follows. Section II intro-
+duces notation convention for the rest of the paper. Section III
+introduces the deﬁnition of the softmax function, its different
+representations as well as a brief survey of several of its known
+properties from the existing literature. Section IV provides the
+background to convex optimization and monotone operator
+theory. In Section V , we derive additional properties of the
+softmax function. Section VI provides an analysis of a stateless
+continuous-time score-based reinforcement learning scheme
+within a single-player game setup to illustrate the application
+of these properties. Section VII provides the conclusion and
+some open problems for further investigation.
+II. N OTATIONS
+The notations used in this paper are as follows:
+• The p-norm of a vector is denoted as ∥·∥ p, 1≤ p≤∞ .
+• The n− 1 dimensional unit simplex is denoted by ∆n−1,
+where, ∆n−1 :={x∈ Rn|∥x∥1 = 1, xi≥ 0}.
+• The (relative) interior of ∆n−1 is denoted by int(∆n−1),
+where, int(∆n−1) :={x∈ Rn|∥x∥1 = 1, xi > 0}.
+• ei∈ Rn denotes the ith canonical basis of Rn, e.g., ei =[0, . . . ,1, . . . ,0]⊤
+, where 1 occupies the ith position.
+• The vector of ones is denoted as 1 :=
+[1, . . . ,1]⊤
+and the
+vector of zeros is denoted as 0 :=
+[
+0, . . . ,0
+]⊤
+.
+• Matrices are denoted using bold capital letters such as A.
+In general, a vector in the unconstrained space Rn will be
+denoted using z, while a vector in the n− 1 dimensional unit
+simplex will be denoted using x. All logarithms are assumed
+to be base e.
+III. R EVIEW OF THE SOFTMAX FUNCTION AND ITS
+KNOWN PROPERTIES
+While the softmax function may take on different appear-
+ances depending on the application, its base model is that of a
+vector-valued function, whose individual component consists
+of an exponential evaluated at an element of a vector, which
+is normalized by the summation of the exponential of all the
+elements of that vector. In this section, we present several well-
+known and equivalent representations of the softmax function,
+and review some of its properties that are either immediate
+based on its deﬁnition or have been covered in the existing
+literature.
+A. Representations of the Softmax function
+The most well-known and widely-accepted version of the
+softmax function is as follows [5], [37], [40], [41], [43], [59].
+Deﬁnition 1. The softmax function is given by σ : Rn →
+int(∆n−1),
+σ(z) := 1
+n∑
+j=1
+exp(λzj)
+
+
+exp(λz1)
+...
+exp(λzn)
+
+ , λ > 0, (1)
+where λ is referred to as the inverse temperature constant.
+Remark 1. The softmax function is commonly presented in
+the literature as the individual components of (1),
+σi(z) := exp(λzi)
+n∑
+j=1
+exp(λzj)
+, 1≤ i≤ n. (2)
+When λ = 1 , we refer to (1) as the standard softmax
+function. As λ → 0, the output of σ converges point-
+wise to the center of the simplex, i.e., a uniform probability
+distribution. On the other hand, as λ→∞ , the output of σ
+converges point-wise to ej ∈ Rn, where j = argmax
+1≤i≤n
+e⊤
+i z,
+provided that the difference between two or more components
+of z is not too small [23], [37]. We note that elsewhere in the
+literature, the reciprocal of λ is also commonly used.
+Remark 2. In R2, (2) reduces to the logistic function in terms
+of zi− zj,
+σi(z) = exp(λzi)
+exp(λzi) + exp(λzj) = 1
+1 + exp(−λ(zi− zj)) , j̸= i.
+(3)
+Furthermore, we note that (2) can be equivalently represented
+as,
+σi(z) = exp(λzi− log(∑n
+j=1 exp(λzj))). (4)
+While (4) is seldom used as a representation of the softmax
+function, in [53], the author noted that (4) represents an
+exponential family , which is the solution of the replicator
+dynamics of evolutionary game theory [2], [16], [17]. We will
+expand on the connections between the replicator dynamics
+and the softmax function in section V .
+2

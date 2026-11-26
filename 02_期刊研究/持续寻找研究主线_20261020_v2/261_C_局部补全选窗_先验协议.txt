@@ -1,0 +1,32 @@
+261：既有预测条件化局部补全的选窗必要筛查（执行前冻结）
+仅写供root审后执行；默认262→新263_BASE24_residual_window_probe。没有新头、训练、模型/CP加载、新forward、criterion forward、autograd、更新或heldout。不是160分数交换、GO owner重配的重启。
+
+1. 固定输入与原预测
+复用237的冻结16个BASE24 development batch00–07、双seed、原recipe、228实际shape、输入SHA、native own/votes/saved GO兼容校验；只调用其定义，不调用旧main。每seed32输入曝光，两个模型评同一开发输入，非独立heldout。使用缓存普通final/pre/aux_0/aux_1/enc_0，DN不参与。
+亲读native PostProcessor：F.sigmoid→跨query×class flatten top300→score严格大于score_threshold。recipe指定PostProcessor、top300、focal=true、10类；score_threshold未覆盖，使用原源码构造器默认0.001。原始P是这个真实(q,c)集合，可同q多类，保留原native topk顺序；本轮不改score。借原forward纯函数做缓存后处理parity，不实例化模型。框按当前实际W/H映射到增强画布，resize_pad=None，不额外clip；不冒充原图验证集后处理。
+P100为P内稳定按score降序、同分沿native输出顺序、每类保留最多100个候选；主覆盖图用P100，符合原recipe evaluator max_dets=100。P仍完整保留，残差novelty用完整P；两者不混称。
+
+2. 覆盖、遗漏与固定窗口
+原真实候选实例(q,c)各容量1（同q不同c仍为不同候选），连向同真类且native FP32 pixel-box IoU≥.5/.75的GT。两个阈值分别报最大匹配计数；actual_input_sub4=min(wGT*W,hGT*H)<4组另做组内独立匹配，不混成全GT匹配中的tiny数。另报逐类score greedy、cap100的匹配描述，不称AP，不包含COCO ignore/crowd/area/PR全流程。
+自然遗漏固定为.5全GT图的确定性最大匹配未匹配GT：候选沿P100顺序，GT沿原target index，使用固定Kuhn遍历。其身份依赖择解，不是唯一自然漏检。另报degree0（不存在任意同类IoU边）和有边却未匹配的GT；.75独立列出，不据结果切换主遗漏定义。四槽净最大匹配差才是与旧owner无关的资源统计。
+网格步长固定64真实输入像素，从(0,0)开始，不重叠。右/下余块裁至画布边界：544输入最后一格为32像素，不补齐、不滑动。中心归属左闭右开，恰在画布右/下外缘的中心归最后一格；画布外中心不计格。完整可见指GT四边均在窗口闭矩形内；中心可见按上述唯一中心归属；面积比例为GT与窗交面积/原GT面积。严格按缓存浮点边比较，不另加边界容差。
+
+3. 三个固定选窗规则
+A density：300个final query原预测中心的格计数最大，不按P中多类重复计数。
+B residual（唯一GT-free主规则）：池固定pre300+aux_0 300+aux_1 300+enc_0 selected300，共1200条stage记录；不是全encoder池。不同stage重复query记录原样保留，不去重或再选择top池。
+每条有效池框权重=max_c sigmoid(z_c)×[1−max_{p∈P} IoU(poolbox,p.box)]，类别不参与第二项。P为空时maxIoU=0。无效/非正宽高池框不参与，数量保留；P无效框保留候选身份但IoU边为0。native FP32 IoU后maxIoU仅为数值安全截至[0,1]，乘积和格内加和用FP64。证据只投到token预测中心所属格，等价于离散中心点测度配以boxcar格窗κ；不是把框面积向多格扩散。没有温度、rho、另调grid或分类残差臂。
+A/B均选最大分数格，同分依y再x的固定生成顺序；没有正证据时NA，不任取左上格。选窗函数不接收GT。
+C oracle：用GT，在相同网格选择“完整可见且自然遗漏”的GT总数最多窗（全部类别/尺寸，非事后tiny择窗），同分y/x；所有格为0时NA。C仅为GT知情参考，其所报理想槽是该窗资源面。由于外部增广链和遗漏身份择解，不能声称“遗漏数最多窗”必是四槽净增最大的窗，不额外搜索另一oracle规则。
+
+4. 每窗记录与四槽图
+三个选窗均记录坐标、选择分数、所有相交/中心可见/完整可见GT及面积比例、自然遗漏与degree0/有边未匹配计数、actual_sub4计数。
+主理想槽可连接窗口完整可见GT；中心可见另作描述性敏感表。向原真实图追加4个容量1理想候选行，每行能选择一个可见GT的真实框和单一真实类别；保留所有原候选及边，重新求全GT和tiny组独立最大匹配，再减原最大匹配。它允许原候选通过增广链补到窗外GT，不能仅用min(4,窗口旧未匹配数)替代。没有用GT生成实际部署候选；四行是资源诊断的oracle连接，不是新头输出。
+这指定的是4个新增单类候选实例，不是任意4个query×10class模型的严格检测上界。没有实现新增score/再top300/再每类cap100/融合去重校准；新增行只是保留原P100边后的理想资源。条件化与无条件同crop四槽头均有相同理想面，不能据此证明条件输入必要。后续最强简单控制须为无条件同crop四槽头加完全相同融合去重校准；选窗规则本身不作为创新。
+
+5. 唯一必要screen与边界
+主统计为B residual所选窗、完整可见、IoU.5、actual_input_sub4组独立四槽净最大匹配增量。每seed累计至少1即该seed存在必要作用面；两个seed均≥1才both，单seed为mixed，双0为neither。NA贡献0，分母/NA数保留。不能结果后改用中心可见/.75/A/C、换grid或调整“接近”门槛来救B。
+通过只允许继续检验实际补全候选/条件输入的必要性；没有训练许可，不证明可学习性、迁移、新颖性、AP或条件化优于无条件。A/B差及C只完整描述，不添加胜率门槛。
+
+6. 执行、自检与存证
+先合成后真实内容：flatten同query多类、严格score阈值、每类100、两候选争一GT、最大匹配优于greedy的增广链、窗口内旧已覆盖GT可释放原候选去覆盖窗外GT、64边界/544余块/空图与NA、匹配数与独立SciPy函数核对。后处理纯函数输出labels/boxes/scores须与显式flatten实现逐项exact。
+CPU threads2/interop1、affinity[13,15]、BelowNormal、freeRAM>8GiB、MKL SEQUENTIAL。固定16次缓存读取/237 validation，不重新加载模型/CP，不调用criterion forward、autograd或optimizer。源/协议/输入和输出SHA全部记录前后；失败保留FAILED，不覆盖历史。预计仅小型缓存IoU和匹配，约几十秒至数分钟，root决定调度。263保存逐batch JSON与总汇，无需重复保存原PT/图像。所有完整补全模型与部署指标均标未测。

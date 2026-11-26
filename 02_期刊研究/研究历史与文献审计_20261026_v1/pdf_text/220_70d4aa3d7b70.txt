@@ -1,0 +1,70 @@
+Unbiased Regression Loss for DETRs
+Edric1, Ueta Daisuke2, Kurokawa Yukimasa2, Karlekar Jayashree1, and Sugiri
+Pranata1
+1 Panasonic R&D Center Singapore
+2 Panasonic Connect Co., Ltd. R&D Division
+Abstract. In this paper, we introduce a novel unbiased regression loss
+for DETR-based detectors. The conventionalL1 regression loss tends to
+bias towards larger boxes, as they disproportionately contribute more
+towards the overall loss compared to smaller boxes. Consequently, the
+detection performance for small objects suffers. To alleviate this bias, the
+proposed new unbiased loss, termed SizedL1 loss, normalizes the size of
+all boxes based on their individual width and height. Our experiments
+demonstrate consistent improvements in both fully-supervised and semi-
+supervised settings using the MS-COCO benchmark dataset.
+Keywords: Object Detection · DETR · SSOD · Semi-DETR · Co-
+DETR · Normalized Loss
+1 Introduction
+Object detection models traditionally necessitate numerous hand-crafted com-
+ponents to facilitate training, including non-max suppression (NMS) [1], a set
+of predefined anchor boxes, label matching, etc. Conversely, DETR (DEtection
+TRansformer [2])-based detectors [25,7,11,13,19] largely eliminate the need for
+such components, while maintaining or even enhancing the detection capabilities
+compared to traditional detectors. Notably, both traditional and DETR-based
+detectors exhibit significant disparities in their detection capability of objects of
+varying sizes, as highlighted in fig. 1. This issue is partly due to the inherent
+bias in the loss function, where identical deviations in smaller boxes contribute
+less to the overall loss, i.e., the loss is scale-variant. To address this, traditional
+detectors employ scale-invariant losses in the regression head or normalize the
+boxes with respect to their anchor boxes. DETR-based detectors utilize a re-
+gression loss comprisingL1 loss and IoU loss [22,15,21]. Although theIoU loss
+is scale-invariant, theL1 loss is not. Thus, we aim to mitigate any bias towards
+larger boxes by unbiasing theL1 regression loss and normalizing each boxes with
+their respective dimensions — width and height — to ensure equal contribution
+of smaller boxes as that of larger ones. We term our proposed normalized loss
+as Sized L1 loss.
+We apply this loss to two different scenarios of DETR-based object detection:
+(1) fully-supervised and (2) semi-supervised.
+arXiv:2410.22638v1  [cs.CV]  30 Oct 2024
+
+---PAGE---
+
+2 Edric et al.
+Fig. 1. Discrepancy in COCO mAP for small, medium, and large boxes with Semi-
+DETR
+In fully-supervised scenario, we utilize Co-DETR [26] as the baseline and
+replace theL1 loss with SizedL1 loss in the main DETR head while maintaining
+the original losses of the auxiliary heads.
+In semi-supervised scenario, we utilize Semi-DETR [20] as our baseline. In a
+teacher-student framework, the performance is highly influenced by the student’s
+abilitytolearnfrombothsupervisedandunsuperviseddataaswellastheteacher
+model’s capability to generate accurate pseudo-labels. Any bias learned by the
+student model is propagated back to the teacher in a negative feedback loop.
+Therefore, we replace the L1 regression loss with Sized L1 loss. The loss can
+be replaced across both training branches, supervised and unsupervised, or only
+within the supervised branch.
+Experimental results show that the proposed Sized L1 loss improves the
+baseline performance in both scenarios, particularly for smaller objects.
+2 Related Work
+2.1 Scale Invariant Regression Loss
+In most object detectors, L1 loss or its variants are commonly used for the
+bounding box regression. In some anchor-based detectors, the L1 loss is cal-
+culated after the normalization of both predicted and ground-truth boxes with
+therespective anchorboxes, causingitto be somewhatscale-invariant.Moreover,
+complete scale-invariant losses, particularlyIoU (Intersection over Union)-based
+losses, have also been used in traditional detectors. Zhou etal [22] replacesL1
+loss and simply utilizes the overlap between prediction and label as the loss.
+Additionally, [15] and [21] introduce an extra penalty term to address the issue
+of non-overlapping boxes.
+Although IoU-based loss is used as a component of the regression loss in
+DETR-based detectors, the scale-sensitive L1 loss is still used, often assigned

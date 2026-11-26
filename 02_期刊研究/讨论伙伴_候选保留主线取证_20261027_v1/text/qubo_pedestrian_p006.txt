@@ -1,0 +1,80 @@
+(a) (b) (c)
+Figure 7. Plots of miss rate vs FPPI (lower curves are better). (a) Comparison between Tabu search, Greedy, and Quadratic programming
+methods using foreground shape covering. (b) Comparison of three QUBO variants and two baseline methods on the EPFL dataset. (c)
+Comparison on the PETS 2009 dataset.
+Figure 7(a) shows a quantitative comparison between
+Tabu Search, greedy algorithm, and quadratic programming
+results when candidates are generated based on foreground
+shape covering. Both greedy algorithm and quadratic pro-
+gramming perform reasonably well. They have lower miss
+rate and fewer false positives than Tabu search. The over-
+all accuracy of greedy method is 0.6849, slightly lower than
+quadratic programming’s overall accuracy of 0.6925.
+Based on this result, we decided to use quadratic pro-
+gramming to evaluate our three options for generating can-
+didates and unary conﬁdence scores (foreground shape cov-
+ering, detector conﬁdence, conﬁdence+foreground shape
+cover). These three approaches are compared by plot-
+ting Miss Rate vs False Positives Per Image (FPPI) for
+two datasets, EPFL (Fig. 7(b)) and PETS 2009 (Fig. 7(c)).
+Lower curves are better. Two other approaches compared
+in those plots are OpenCV’s HOG-based human detector
+[1] and the PLS detector of [ 20], both using their default
+non-maximum suppression methods.
+Approach 1 based on ﬁnding shape covering of a fore-
+ground mask works surprisingly well given the simplicity
+of the approach compared to the sophisticated appearance-
+based detectors it is being compared against. Comparing
+approaches 1 and 2, using detector conﬁdence scores yields
+better results on the EPFL dataset, whereas foreground
+shape covering gives the better result on PETS. This can
+be explained by the size/resolution of pedestrians in those
+two datasets. In EPFL, people are large, with clearly visi-
+ble edge appearance information, whereas the small / low-
+resolution crowds in PETS is a situation where ﬁtting body
+shapes to cover foreground blobs yields better results. In
+approach 3 we attempt to improve results using a hybrid of
+detector conﬁdence combined with foreground covering as
+a second unary term, but with mixed results. However, it
+demonstrates that the QUBO framework is ﬂexible enough
+to be applied to a variety of detectors or combinations of
+unary and pairwise information.
+Table 1 shows quantitative results of the ﬁve methods
+tested. The ﬁrst three are all variants of our proposed
+QUBO approach, and all of them have higher numbers of
+true positives and higher accuracy than the state-of-the-
+art HOG and PLS detectors. Here, accuracy is deﬁned as
+accuracy =( tp +tn)/(tp +tn +fp +fn ).
+Figure 8 shows several illustrative results from the three
+QUBO variants and two baseline methods HOG and PLS.
+Y ellow ellipses in the images represent true positives, blue
+boxes are false positives, and red boxes are false negatives.
+5. Conclusion
+We have presented a framework for improving pedes-
+trian detection performance in cases where there are mul-
+tiple, overlapping objects. A QUBO framework is adopted
+where a quadratic objective function is formed from unary
+conﬁdence scores and pairwise overlap penalties. The unary
+terms are not limited to a speciﬁc type of detector and can
+be applied to various types of detection conﬁdence scores
+with some adjustment. Solving for the binary solution vec-
+tor that maximizes this quadratic objective function auto-
+matically balances the trade off between encouraging mul-
+tiple, high-quality detections, while discouraging excessive
+amounts of overlap. Since ﬁnding exact solutions for large-
+scale QUBO problems is not possible, we evaluate three ap-
+proximate methods: heuristic Tabu search, greedy forward
+search, and relaxation to a continuous quadratic program.
+All three variants ﬁnd good quality approximate solutions
+in the experiments, however the last two methods quantita-
+tively outperform the ﬁrst.
+Our results show that the use of binary quadratic op-
+timization to explicitly reason about pedestrian candi-
+date conﬁdences and overlaps yields a performance im-
+provement over existing detection methods that use non-
+maximum suppression, in terms of lower miss rates and
+lower false positives. Furthermore, the proposed method
+can be used to improve the performance of any existing
+3693
+3693
+3695

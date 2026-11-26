@@ -1,0 +1,93 @@
+Figure 6. Using quadratic binary optimization to ﬁnd the best set
+of detection candidates.
+weights determined as described in the following section,
+withw1 +w2 =1 . Both U andP are normalized to be val-
+ues between 0 and 1. Furthermore, we can extend Eq. 2 by
+adding a second unary term that represents the score from a
+second detector or other additional information. For exam-
+ple, in our experiments we have explored combining unary
+scores computed from foreground shapes with scores com-
+puted from a detector conﬁdence map. In this case, the ma-
+trixQ is formed as
+Q = w1 U1 −w2 P +w3 U2 (5)
+withw1 +w2 +w3 =1 .
+3.2.2 Weight Parameter Estimation
+Even though the unary and pairwise scores are both normal-
+ized values between 0 and 1, they represent very different
+types of information, one being an appearance-based detec-
+tion conﬁdence and the other being an area ratio. Further-
+more, the amount of “acceptable” bounding box overlap for
+a given situation may depend on the expected density of
+people in the scene as well as on the camera viewpoint. For
+this reason, it is better to weight the relative contributions
+of the unary and pairwise terms with weighting parameters
+learned from representative training data.
+We use the Pattern Search algorithm [ 15] to ﬁnd appro-
+priate weight values w1 + w2 =1 that maximize detec-
+tion performance on a separate training dataset. During the
+search, different proposed weight values are evaluated by
+plugging them into Eq 4, solving the resulting QUBO prob-
+lem, and comparing the results against known ground truth.
+The pattern search algorithm is ideal for use with an algo-
+rithmic objective function like this because it requires no
+knowledge of the gradient of a function, nor even that the
+function be differentiable.
+3.2.3 Solving QUBO
+Although QUBO is NP-hard, several methods are available
+for efﬁciently ﬁnding good approximate solutions. In this
+paper we compare three algorithms: Tabu search, Greedy
+forward search, and quadratic programming.
+Tabu search is an efﬁcient stochastic local search ap-
+proach for handle QUBO problems of large size, and has
+been successfully used in many applications [ 5, 12, 17].
+An important concept of Tabu search is the use of adaptive
+memory; starting with an initial solution point, the method
+sequentially adjusts the value of a small subset of variables
+in an attempt to ﬁnd an improved solution in a local neigh-
+borhood, while maintaining a “tabu” list to make sure that
+previously searched locations are not soon revisited.
+Greedy algorithms can also yield good approximate so-
+lutions in practice [ 2]. We test the greedy forward search
+method used in current state-of-the-art papers [ 2, 18]. The
+single candidate that gives the highest unary score is ﬁrst se-
+lected. Then, given a set of previously selected candidates,
+each remaining candidate is tentatively added to the set, and
+the set yielding the highest new objective function value be-
+comes the new current solution set. The process stops when
+adding any single candidate to the solution set will reduce
+the objective function value.
+As a third approach, we relax the binary variable con-
+straints into 0 ≤xi ≤ 1 to transform QUBO into a contin-
+uous quadratic programming problem. We used Matlab’s
+trust-region method to solve for the maximization [ 16]. A
+subsequent rounding procedure forces the continuous vec-
+tor result into a binary solution vector.
+4. Experimental Results
+In this section we evaluate our proposed quadratic bi-
+nary optimization framework to detect overlapping pedes-
+trians. Three methods are tested for generating candidates
+and forming the quadratic objective function: shape cover-
+ing of a foreground pixel mask, sampling from a conﬁdence
+map produced by a multi-scale sliding window detector, and
+a hybrid approach that generates candidates from a detec-
+tor conﬁdence map but also incorporates foreground shape
+covering information into the objective function as a second
+unary conﬁdence term. We also evaluate three methods for
+solving the constructed QUBO optimization problem: Tabu
+search, greedy algorithm, and relaxation into a continuous
+quadratic program. We use the ITS Multistart Tabu algo-
+rithm by Palubeckis [ 17]1. We follow the Greedy approach
+used in [ 2, 18]. We use Matlab’s trust-region method to
+solve the relaxed quadratic programming problem.
+Dataset We perform quantitative evaluation of our ap-
+proach using a pedestrian dataset from EPFL called the Ter-
+race sequences2 and on the PETS 2009 dataset. These two
+datasets were chosen because of the large number of occlu-
+sions, a challenging issue in pedestrian detection.
+1The Iterated Tabu Search (ITS) code provided by Palubeckis is avail-
+able for research use
+2from CVLab, Ecole Polytechnique Federale de Lausanne
+(http://cvlab.epﬂ.ch/data/pom/)
+3692
+3692
+3694

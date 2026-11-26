@@ -1,0 +1,29 @@
+--- 343_development.py
++++ 343_development_v2.py
+@@ -37,13 +37,17 @@
+     seals={(r['seed'],r['image_id']):r['current_340_file_sha256'] for r in pre['entries']}
+     cp=idx['checkpoints'][seed-1];assert C.sha(cp['path'])==cp['expected_SHA256_from_288']
+     folder=entry_path(seed,ids[0]).parent;folder.mkdir(exist_ok=True)
+-    count={'old_cache_loads':0,'new_cache_loads':0,'verified_skips':0,'cache_writes':0,'M0_solves':0,
++    count={'known_failed_entries':0,'old_cache_loads':0,'new_cache_loads':0,'verified_skips':0,'cache_writes':0,'M0_solves':0,
+            'image_decodes':0,'image_SHA_reads':0,'global_model_loads':0,'global_forwards':0,'head_forwards':0,'optimizer_steps':0}
+     rows=[];start=time.perf_counter();status='已生成，待独立验收';error=None
+     try:
+         for n,iid in enumerate(ids,1):
+             source=C.WORK/f'340_cache_seed{seed}'/f'{iid:06d}.pt';sealed=seals[seed,iid]
+             assert C.sha(source)==sealed
++            if seed==2 and iid==1466:
++                count['known_failed_entries']+=1
++                rows.append({'image_id':iid,'status':'实现失败','reason':'冻结fullP含非正框；未生成该条，不改变候选或标签规则'})
++                continue
+             p=entry_path(seed,iid)
+             if p.exists():
+                 e=torch.load(p,map_location='cpu',weights_only=True);count['new_cache_loads']+=1
+@@ -67,6 +71,7 @@
+             if limit is not None and count['cache_writes']>=limit:break
+     except Exception as ex:
+         status='实现失败';error={'exception':repr(ex),'traceback':traceback.format_exc()};print(error['traceback'],flush=True)
++    if seed==2 and not error:status='实现失败（#1466未生成；其余条目继续收集，完整数据集不通过）'
+     C.write(f'343_result_3b构建_seed{seed}_{tag}.json',{'status':status,'seed':seed,'tag':tag,'rows':rows,
+         'new_entries_on_disk':len(list(folder.glob('343_*.pt'))),'counts':count,'已执行':count,
+         'elapsed_seconds':time.perf_counter()-start,'error':error,'未执行':['真实训练','GPU','新global前向','阶段5'],

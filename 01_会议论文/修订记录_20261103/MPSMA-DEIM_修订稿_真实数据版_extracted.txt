@@ -1,0 +1,150 @@
+B000: 面向无人机影像的渐进式细节保护与多尺度语义增强小目标检测
+B001: 盛鹏*  方基伟  江文豪  胡骏  汪子星
+B002: (合肥大学人工智能与大数据学院  安徽 合肥 230601)
+B003: 针对无人机航拍图像中小目标细节易在早期下采样阶段丢失、复杂背景下多尺度上下文利用不足的问题，提出一种MPSMA-DEIM检测方法。该方法以DEIM-D-FINE为基线，在浅层构建多分支渐进式Stem（MPS），通过多分支并行卷积与跨尺度融合保留细粒度信息；在中后层分层部署多尺度上下文感知注意力（MSCA），以轻量池化注意力与空洞卷积扩展感受野；并将骨干网络的激活函数替换为SiLU。在VisDrone2019验证集上，以完全一致的训练配置对MPS、MSCA和SiLU三个因素进行五组消融实验：模型AP由基线的0.1895提升至0.2270，相对提高19.8%；AP50由0.3351提升至0.3941，AP75由0.1844提升至0.2231，APs由0.1251提升至0.1518，AR@100由0.3401提升至0.3809，指标变化方向一致。将该结构应用于更大尺度后，s尺度模型的AP达到0.2876。s尺度模型参数量为13.99 M，计算量为29.63 GFLOPs，在640×640输入下端到端推理速度为44.3 FPS。结果表明，所提结构在保持可控复杂度的前提下能够稳定改善密集小目标的检测性能。
+B004: 无人机图像　小目标检测　多分支渐进式Stem　多尺度上下文感知注意力
+B005: 中图分类号  TP391.41　　　　文献标志码  A
+B006: PROGRESSIVE DETAIL PRESERVATION AND MULTI-SCALE SEMANTIC ENHANCEMENT FOR UAV SMALL OBJECT DETECTION
+B007: Sheng Peng*  Fang Jiwei  Jiang Wenhao  Hu Jun  Wang Zixing
+B008: (School of Artificial Intelligence and Big Data, Hefei University, Hefei 230601, Anhui, China)
+B009: Small objects in UAV imagery tend to lose fine-grained information during early downsampling, while complex backgrounds make multi-scale context difficult to exploit. To address these issues, an MPSMA-DEIM detector is proposed on the DEIM-D-FINE baseline. A Multi-branch Progressive Stem (MPS) is constructed in shallow layers to preserve fine details through parallel convolution and cross-scale fusion. A Multi-scale Context-aware Attention (MSCA) is hierarchically deployed in middle and deep layers to enlarge the receptive field with lightweight pooling attention and dilated convolution. The activation function of the backbone is further replaced with SiLU. On the VisDrone2019 validation set, five ablation configurations over MPS, MSCA and SiLU are trained under an identical recipe: AP increases from 0.1895 to 0.2270 (19.8% relative), AP50 from 0.3351 to 0.3941, AP75 from 0.1844 to 0.2231, APs from 0.1251 to 0.1518, and AR@100 from 0.3401 to 0.3809, with all metrics moving in the same direction. Applied at a larger scale, the s-variant reaches an AP of 0.2876. The s-variant contains 13.99 M parameters, requires 29.63 GFLOPs, and runs at 44.3 FPS end-to-end at 640x640 input. The results indicate that the proposed structure consistently improves dense small-object detection with controllable complexity.
+B010: UAV imagery  Small object detection  Multi-branch progressive stem  Multi-scale context-aware attention
+B011: 
+B012: 0 引 言
+B013: 无人机具有部署灵活、机动性强和覆盖范围广等特点，已应用于环境监测、公共安全和低空巡检等场景[1]。目标检测是无人机视觉感知的重要基础[2-3]。与自然图像相比，无人机航拍影像通常存在目标尺度变化大、背景干扰强、遮挡频繁和小目标密集等特点[4]，使检测模型难以同时兼顾定位精度、计算开销和部署需求[5]。
+B014: 针对上述难点，现有研究主要从轻量化结构、多尺度融合和全局建模等方向展开。Ou等提出Drone-TOOD，在轻量骨干与任务对齐之间进行折中[6]；Liang等利用Swin Transformer与局部上下文增强改善航拍小目标检测[7]。DEIM通过改进匹配机制加快DETR训练收敛[8]，D-FINE则以细粒度分布细化提高边界框定位精度[9]。国内相关研究也通过视觉机制、多尺度融合或改进YOLOv7增强小目标表征[10-11]。然而，快速下采样仍可能在网络前端削弱小目标纹理与边缘，固定尺度的特征建模也难以兼顾高分辨率局部细节和低分辨率语义上下文。因此，如何协同实现浅层细节保护与分层上下文建模仍需进一步研究。
+B015: 针对上述问题，本文以DEIM-D-FINE为基线提出MPSMA-DEIM。首先，设计多分支渐进式Stem（MPS），通过多分支并行特征提取与渐进式跨尺度融合保留浅层细粒度信息；其次，构建分层多尺度上下文感知注意力（MSCA），依据特征分辨率和语义层级配置轻量注意力与空洞卷积；此外，将骨干网络的激活函数由ReLU替换为SiLU。最后，通过VisDrone2019上的五组受控消融实验、与主流检测器的对比以及复杂度与时延分析，量化各组成部分的作用。
+B016: 1 改进MPSMA-DEIM算法设计
+B017: 本文以DEIM-D-FINE[8-9]为基线构建MPSMA-DEIM。DEIM提供面向DETR的高效训练与匹配机制，D-FINE检测器主要由HGNetv2主干网络、特征融合编码器和级联优化解码器组成。针对无人机小目标场景，本文关注两个问题：传统Stem的快速下采样容易削弱浅层细节，固定尺度的特征建模难以充分利用不同层级的上下文信息。为此，引入多分支渐进式Stem（MPS）保留浅层细粒度特征，并构建多尺度上下文感知注意力（MSCA）增强中后层语义表达。改进后的整体网络结构如图1所示。
+B018: 
+B019: 图1 MPSMA-DEIM 网络结构图
+B020: 1.1 Multi-branch Progressive Stem模块
+B021: 在无人机小目标检测任务中，浅层细粒度特征是小目标识别与定位的关键，但在网络早期下采样过程中容易丢失。为此，设计了多分支渐进式Stem（Multi-branch Progressive Stem, MPS）模块。与传统单路径快速下采样的Stem不同，MPS通过多分支并行特征提取、渐进式跨尺度融合以及轻量化注意力增强，在浅层构建多尺度特征表征能力，最大限度保留小目标细节，其整体结构如图2所示。
+B022: 
+B023: 图2 Multi-branch Progressive Stem结构图
+B024: MPS在保持输入分辨率的前提下构建三条并行路径。细节保留分支由两个连续的3×3卷积构成，用于提取细粒度纹理；主分支由步长为2的3×3卷积与步长为1的3×3卷积串联构成，承担下采样并提取中尺度结构；高频增强分支先由输入减去3×3均值滤波结果得到高频分量，再经1×1卷积与深度可分离3×3卷积强化边缘响应。随后采用渐进式跨尺度融合：细节分支经2×2平均池化下采样至与主分支相同的分辨率，高频分支经双线性插值对齐，三条路径在同一分辨率下拼接。融合特征进一步经轻量级空间注意力加权，该注意力由1×1卷积降维、7×7卷积与Sigmoid激活构成，并以残差形式作用于融合特征，以强化目标区域响应。最后经步长为2的3×3卷积输出4×下采样特征。
+B025: MPS通过浅层多尺度建模、渐进式融合和空间注意力，为后续语义建模保留更充分的细粒度信息，其实际贡献将在消融实验中进行量化。
+B026: 1.2 多尺度上下文感知注意力机制
+B027: 多尺度上下文感知注意力（MSCA）按照网络阶段配置不同的注意力形式。前部高分辨率特征分别采用计算开销较低的ESE Attention[12]和无参数的SimAM Attention[13]，以保留局部空间信息；进入中后部较低分辨率阶段后，依次部署MSCA-Lite和MSCA-Dilated，其中前者进行轻量多尺度聚合，后者利用空洞卷积扩展感受野。该分层配置使注意力形式与特征分辨率、语义层级相对应，其整体结构如图3所示。
+B028: 
+B029: 图3 MSCA框架图
+B030: 1.2.1 轻量级多尺度上下文感知注意力（MSCA-Lite）
+B031: MSCA-Lite用于中后部较低分辨率特征的轻量增强，通过多尺度池化与无参数注意力聚合上下文信息，在不引入额外可学习参数的情况下改善特征区分能力，其结构如图4所示。
+B032: 
+B033: 图4  MSCA-Lite结构图
+B034: 利用多尺度平均池化与上采样进行特征聚合：
+B035: Fscale1=Finput #1
+B036: Fscale2=UpsampleAvgPoolstride=2Finput#2
+B037: Fscale3=UpsampleAvgPoolstride=4Finput#3
+B038: Fagg=Fscale1+Fscale2+Fscale3#4
+B039: 特征聚合后经全局平均池化（GAP），其注意力计算遵循SimAM风格的能量函数：
+B041: Mattention=SimAMGAPFagg#5
+B042: Foutput=Fagg⊗Mattention#6
+B043: 这种方法在零额外参数的情况下实现多尺度上下文聚合，将计算复杂度保持在O(CHW)，同时为小目标检测提供有效的注意力机制。
+B045: 1.2.2 带空洞卷积的多尺度上下文感知注意力（MSCA-Dilated）
+B046: MSCA-Dilated采用不同空洞率的空洞卷积捕获多尺度上下文信息，同时保持空间分辨率，其结构如图5所示。
+B047: 
+B048: 图5 MSCA-Dilated结构图
+B049: 该模块通过并行分支处理特征：
+B050: Fmsi=Conv3×3diδBNConv1×1Finput#7
+B051: di∈1,2,3
+B052: Fcontext=Conv1×1ConcatFms1,Fms2,Fms3#8
+B053: 其中，输入特征先经1×1卷积降维，di表示3×3空洞卷积的空洞率，δ表示ReLU激活函数。空间注意力分支的计算如下：
+B054: MS=σConvk×kFcontext#9
+B055: 通道注意力分支采用全局平均池化和多层感知机：
+B056: MC=σMLPGAPFinput#10
+B057: 最终输出结合了两种注意力机制：
+B058: Foutput=Fcontext⊗MS⊗MC#11
+B059: 每个分支的有效卷积核尺寸计算如下：
+B060: keff=k+k-1di-1#12
+B061: 当k=3时，keff=2di+1。该设计在不引入下采样的条件下完成多尺度特征聚合。
+B062: 此外，本文将骨干网络的激活函数由ReLU替换为SiLU，以改善不同分辨率特征的表达。需要说明的是，该替换作用于整个HGNetv2骨干网络，而非仅限于新增模块；DEIM-D-FINE的检测头与训练框架保持不变。SiLU不作为独立结构创新，其影响通过消融实验量化。
+B063: 2 数据集与评估指标
+B064: 2.1 实验环境和评价指标
+B065: 实验在同一平台上完成：NVIDIA RTX 4080 GPU、AMD 9700X CPU、48 GB DDR5内存和Windows 11 64-bit操作系统；软件环境为Python 3.10.16、PyTorch 2.5.1和CUDA 12.1。所有模型均从头训练，不加载主干预训练权重；训练与验证输入尺寸均为640×640，批量大小为4，共训练320轮。为保证消融实验中各配置的训练预算完全一致，五组消融统一在n尺度（HGNetv2-B0）上完成，骨干学习率为4×10−4、其余部分为8×10−4；尺度扩展实验采用骨干学习率2×10−4、其余4×10−4。优化器均为AdamW，权重衰减为1×10−4，β1和β2分别为0.9和0.999。数据增强包括Mosaic（概率0.5）、随机光度扰动、随机水平翻转和随机裁剪，最后24轮关闭强数据增强。检测性能采用MS COCO官方评估协议[14]，报告AP、AP50、AP75以及APs、APm和APl；模型复杂度在640×640输入下统一统计参数量（Params）和浮点运算量（FLOPs）。需要说明的是，表2中标注为文献的行引自公开基准测试[20]：该基准在VisDrone2019 test-dev（1 610张）上评测，且模型加载了预训练权重；本文结果则为从头训练、在548张验证集上评测，两者协议不同，横向对比仅供参考。
+B066: 2.2 VisDrone2019数据集
+B067: 实验在VisDrone2019数据集[15]上评估所提方法。其目标检测子集包含10类目标，划分为6,471张训练图像、548张验证图像和1,610张test-dev图像，另有1,580张test-challenge图像。本文使用训练集训练，并在验证集上报告消融与模型对比结果。该数据集具有目标尺度小、密度高、遮挡多和背景复杂等特点，样例如图6所示。
+B068: 
+B069: 图6 VisDrone2019数据集样例
+B070: 3 实验结果与分析
+B071: 3.1 模块消融实验
+B072: 为量化MPS、MSCA和SiLU的独立作用，在VisDrone2019验证集上以DEIM-D-FINE为基线进行组合消融。五组配置采用完全相同的数据划分、模型尺度、优化器超参数与训练轮数，结果如表1所示。
+B073: 表1 各模块组合的消融结果
+B074 TABLE:
+序号 | MPS | MSCA | SiLU | AP | AP50 | AP75 | APs | AR@100
+1 | — | — | — | 0.1895 | 0.3351 | 0.1844 | 0.1251 | 0.3401
+2 | √ | — | — | 0.2182 | 0.3808 | 0.2134 | 0.1439 | 0.3670
+3 | — | √ | — | 0.2078 | 0.3606 | 0.2048 | 0.1293 | 0.3552
+4 | — | — | √ | 0.2117 | 0.3702 | 0.2054 | 0.1333 | 0.3572
+5 | √ | √ | √ | 0.2270 | 0.3941 | 0.2231 | 0.1518 | 0.3809
+B075: 由表1可见，基线模型的AP、AP50和AP75分别为0.1895、0.3351和0.1844。单独加入MPS、MSCA和SiLU后，AP分别提高到0.2182、0.2078和0.2117，对应绝对增量0.0287、0.0183和0.0222；其中MPS的贡献最为明显，说明浅层多分支建模与跨尺度融合对缓解早期细节损失有效。三者的APs分别为0.1439、0.1293和0.1333，均高于基线的0.1251，表明各模块均能改善小目标表征。
+B076: 三个因素同时启用时，模型的AP、AP50、AP75和APs分别达到0.2270、0.3941、0.2231和0.1518，较基线绝对提高0.0375、0.0590、0.0387和0.0267，相对提高19.8%、17.6%、21.0%和21.3%；AR@100由0.3401提高到0.3809，APm由0.2651提高到0.3171。五项指标的变化方向一致，完整组合在全部五组配置中表现最好，说明浅层细节保护、分层上下文建模与骨干激活函数替换三者互补。本文只报告这五组配置，未对三个因素的全部两两组合进行穷举。
+B077: 3.2 模型对比与复杂度分析
+B078: 在VisDrone2019验证集上，将所提模型与YOLO8s、YOLO10s、YOLO11s、D-Fine-S和DEIM-D-Fine-S进行比较，结果列于表2；模型复杂度列于表3。其中YOLO与D-Fine系列为文献[20]的引用值，MPSMA-DEIM的全部结果均在本文统一训练设置下获得。
+B079: 表2 VisDrone2019验证集上的检测精度对比
+B080 TABLE:
+模型 | 数据来源 | AP | AP50 | APs | APm | APl
+YOLO8s | 文献[20] | 0.173 | 0.307 | 0.078 | 0.269 | 0.372
+YOLO10s | 文献[20] | 0.179 | 0.323 | 0.086 | 0.278 | 0.361
+YOLO11s | 文献[20] | 0.176 | 0.313 | 0.080 | 0.272 | 0.364
+D-Fine-S | 文献[20] | 0.227 | 0.394 | 0.128 | 0.331 | 0.468
+DEIM-D-Fine-S | 文献[20] | 0.219 | 0.384 | 0.122 | 0.321 | 0.397
+MPSMA-DEIM（n） | 本文实测 | 0.2270 | 0.3941 | 0.1518 | 0.3171 | 0.3794
+MPSMA-DEIM（s） | 本文实测 | 0.2876 | 0.4744 | 0.2123 | 0.3803 | 0.4837
+B081: 
+B082: 由表2可见，n尺度MPSMA-DEIM的AP和AP50分别为0.2270和0.3941，参数量为7.54 M；与文献[20]中参数量为10.18 M的D-Fine-S（AP 0.227）和DEIM-D-Fine-S（AP 0.219）相比，在参数量明显更少的情况下达到了相近的精度水平，其APs由0.122～0.128提高到0.1518，说明改进结构对小目标的增益更为集中。将同一结构应用于s尺度后，AP进一步提高到0.2876。需要指出，文献[20]的数值在VisDrone2019 test-dev（1 610张）上评测且模型加载了预训练权重，本文为从头训练、在548张验证集上评测，因此表2不构成严格意义上的同条件对比。
+B083: 表3 模型复杂度对比（输入尺寸为640×640）
+B084 TABLE:
+模型 | GFLOPs | Params/M
+DEIM-D-FINE-S | 24.86 | 10.18
+MPSMA-DEIM（s） | 29.63 | 13.99
+B085: 注：GFLOPs与Params均按部署模型、批量大小为1统计。
+B086: 
+B087: 由表3可见，s尺度MPSMA-DEIM的参数量为13.99 M，计算量为29.63 GFLOPs；相较DEIM-D-FINE-S分别增加3.81 M（37.4%）和4.77 GFLOPs（19.2%）。参数量增幅主要来自MSCA中的瓶颈式空洞卷积分支，计算量增幅相对有限。
+B088: 图7给出了VisDrone2019上的可视化对比。夜间密集人群场景中，基线模型对低对比度小行人存在漏检，改进模型检出了更多目标；密集车辆场景中，改进模型对遮挡车辆的检测更完整。该现象与APs的定量变化一致，为MPS与MSCA的作用提供了直观补充。
+B089: 
+B090: 图7 可视化结果对比图
+B091: 3.3 推理效率与训练稳定性
+B092: 在RTX 3090上按统一协议（640×640输入、批量大小为1、预热50次、计时200次）测量推理时延，结果如表4所示。s尺度MPSMA-DEIM的端到端时延为22.57 ms（44.3 FPS），较基线的19.01 ms增加约18.7%，与计算量增幅基本一致，仍满足无人机实时检测的需求。由于DETR类检测器无需非极大值抑制，两者的后处理开销分别为0.86 ms和0.38 ms，占总时延的比例均低于5%。
+B093: 表4 推理时延对比（RTX 3090，640×640，批量大小为1）
+B094 TABLE:
+模型 | 纯网络时延/ms | 端到端时延/ms | 端到端FPS | 后处理/ms
+DEIM-D-FINE-S | 18.15 | 19.01 | 52.6 | 0.86
+MPSMA-DEIM（s） | 22.20 | 22.57 | 44.3 | 0.38
+B095: 此外，为考察训练稳定性，统计了s尺度模型最后20轮的验证精度：AP为0.2871±0.0003，最优轮（第302轮）与末轮（第319轮）仅相差0.0006，共有58个轮次的AP落在最优值0.002以内。这表明该配置在训练后期进入稳定平台期，所报告的精度不是单点随机波动的结果。
+B096: 4 结 语
+B097: 针对无人机航拍场景中浅层细节易丢失和多尺度上下文利用不足的问题，本文以DEIM-D-FINE为基线提出MPSMA-DEIM。该方法通过多分支渐进式Stem保留浅层细粒度信息，通过分层多尺度上下文感知注意力增强中后层语义表达，并将骨干网络激活函数替换为SiLU。在VisDrone2019验证集上，五组受控消融实验表明，完整模型的AP、AP50、AP75和APs分别为0.2270、0.3941、0.2231和0.1518，较基线分别提高0.0375、0.0590、0.0387和0.0267，AR@100由0.3401提高到0.3809，各项指标变化方向一致；将结构应用于s尺度后AP达到0.2876。s尺度模型的参数量与计算量分别为13.99 M和29.63 GFLOPs，端到端推理速度为44.3 FPS，末20轮验证精度为0.2871±0.0003。本文工作仍存在不足：消融实验在n尺度上完成，未在s尺度上重复全部组合；对比实验中除同源基线外的模型数值来自文献，训练协议不完全一致；实验仅在单一数据集上进行。后续将补充跨尺度消融、同条件对比实验与跨数据集验证。
+B098: 参 考 文 献
+B099: [1] CAZZATO D, CIMARELLI C, SANCHEZ-LOPEZ J L, et al. A survey of computer vision methods for 2D object detection from unmanned aerial vehicles[J]. Journal of Imaging, 2020, 6(8): 78.
+B100: [2] LECUN Y, BENGIO Y, HINTON G E. Deep learning[J]. Nature, 2015, 521(7553): 436-444.
+B101: [3] TANG G, NI J, ZHAO Y, et al. A survey of object detection for UAVs based on deep learning[J]. Remote Sensing, 2023, 16(1): 149.
+B102: [4] RAMACHANDRAN A, SANGAIAH A K. A review on object detection in unmanned aerial vehicle surveillance[J]. International Journal of Cognitive Computing in Engineering, 2021, 2: 215-228.
+B103: [5] ZHANG X, WANG C, JIN J, et al. Object detection of VisDrone by stronger feature extraction FasterRCNN[J]. Journal of Electronic Imaging, 2023, 32(1): 013018.
+B104: [6] OU K, DONG C, LIU X, et al. Drone-TOOD: A lightweight task-aligned object detection algorithm for vehicle detection in UAV images[J]. IEEE Access, 2024, 12: 41999-42016.
+B105: [7] LIANG W, TAN J, HE H, et al. Detection of small objects from UAV imagery via an improved Swin transformer[C]//IEEE. 2024 IEEE International Geoscience and Remote Sensing Symposium Proceedings. Athens: IEEE, 2024: 9134-9138.
+B106: [8] HUANG S, LU Z, CUN X, et al. DEIM: DETR with improved matching for fast convergence[C]//IEEE. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. Nashville: IEEE, 2025: 15162-15171.
+B107: [9] PENG Y, LI H, WU P, et al. D-FINE: Redefine regression task of DETRs as fine-grained distribution refinement[C]//International Conference on Learning Representations. 2025.
+B108: [10] 武德彬, 刘笑楠, 刘振宇, 等. 融合视觉机制和多尺度特征的小目标检测算法[J]. 电讯技术, 2024, 64(2): 200-206.
+B109: WU D B, LIU X N, LIU Z Y, et al. Small object detection algorithm integrating visual mechanism and multi-scale features[J]. Telecommunication Engineering, 2024, 64(2): 200-206.
+B110: [11] 赵青, 察豪, 牟伟琦, 等. 一种基于改进YOLOv7的无人机多目标光学检测方法[J]. 电讯技术, 2024, 64(8): 1213-1218.
+B111: ZHAO Q, CHA H, MOU W Q, et al. An improved YOLOv7-based multi-target optical detection method for UAV[J]. Telecommunication Engineering, 2024, 64(8): 1213-1218.
+B112: [12] XU S, WANG X, LV W, et al. PP-YOLOE: An evolved version of YOLO[EB/OL]. (2022-03-30)[2026-07-13]. arXiv:2203.16250.
+B113: [13] YANG L, ZHANG R Y, LI L, et al. SimAM: A simple, parameter-free attention module for convolutional neural networks[C]//MEILA M, ZHANG T. Proceedings of the 38th International Conference on Machine Learning. Madison: PMLR, 2021: 11863-11874.
+B114: [14] LIN T Y, MAIRE M, BELONGIE S, et al. Microsoft COCO: Common objects in context[C]//FLEET D, PAJDLA T, SCHIELE B, et al. Computer Vision-ECCV 2014. Cham: Springer, 2014: 740-755.
+B115: [15] DU D, ZHU P, WEN L, et al. VisDrone-DET2019: The vision meets drone object detection in image challenge results[C]//IEEE. Proceedings of the IEEE/CVF International Conference on Computer Vision Workshops. Seoul: IEEE, 2019: 213-226.
+B116: [16] YU X, GONG Y, JIANG N, et al. Scale match for tiny person detection[C]//IEEE. Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision. Snowmass Village: IEEE, 2020: 1257-1265.
+B117: [17] JOCHER G, QIU J. Ultralytics YOLOv8[CP/OL]. (2023-01-10)[2026-07-13]. https://github.com/ultralytics/ultralytics.
+B118: [18] WANG A, CHEN H, LIU L, et al. YOLOv10: Real-time end-to-end object detection[C]//Advances in Neural Information Processing Systems 37. Vancouver: NeurIPS Foundation, 2024: 107984-108011.
+B119: [20] VisDrone2019 testset benchmark[EB/OL]. [2026-09-27]. https://github.com/z1069614715/objectdetection_script/tree/master/visdrone2019-benchmark.
+B120: [19] JOCHER G, QIU J. Ultralytics YOLO11, version 11.0.0[CP/OL]. (2024-09-30)[2026-07-13]. https://github.com/ultralytics/ultralytics.
+B121: 
+B122: 作者简介及联系方式
+B123: 通信作者：盛鹏；电子邮箱：CppJava@163.com；联系电话：13965012593
+B124: 通信地址：合肥大学人工智能与大数据学院，安徽 合肥 230601
+B125: 盛鹏 男，1979年生于山东临沂，博士，教授，硕士生导师，主要研究方向为多目机器视觉探测与车联网领域、工业物联网、射频离子源智能测控技术方面的研究。
+B126: 方基伟 男，2000年生于安徽肥东县，合肥大学2024级人工智能与大数据专业硕士研究生，主要从事目标检测方面的研究。
+B127: 江文豪 男，1998年生于安徽安庆市，合肥大学2023级人工智能与大数据专业硕士研究生，主要从事目标检测方面的研究。
+B128: 胡骏 男，2003年生于安徽庐江县，合肥大学2025级人工智能与大数据专业硕士研究生，主要从事智能驾驶感知方面的研究。
+B129: 汪子星 女，2002年生于安徽望江县，合肥大学2025级人工智能与大数据专业硕士研究生，主要从事智能驾驶感知方面的研究。
+B130: 
+B131: 

@@ -1,0 +1,1502 @@
+                                                                      Neural Sheaf Diffusion:
+                                               A Topological Perspective on Heterophily and Oversmoothing in GNNs
+
+
+                                        Cristian Bodnar† 1 Francesco Di Giovanni‡ 2 Benjamin P. Chamberlain 2 Pietro Liò 1 Michael M. Bronstein 2 3
+
+
+                                                                   Abstract
+                                              Cellular sheaves equip graphs with “geometrical”
+arXiv:2202.04579v1 [cs.LG] 9 Feb 2022
+
+
+
+
+                                              structure by assigning vector spaces and linear
+                                              maps to nodes and edges. Graph Neural Net-
+                                              works (GNNs) implicitly assume a graph with a
+                                              trivial underlying sheaf. This choice is reflected
+                                              in the structure of the graph Laplacian operator,                 Figure 1. A sheaf (G, F) illustrated for a single edge of the graph.
+                                              the properties of the associated diffusion equation,              The stalks F(v), F(u), F(e) are isomorphic to R2 . The restric-
+                                              and the characteristics of the convolutional mod-                 tion maps FvEe , FuEe and their adjoints move the vector features
+                                                                                                                between these spaces. In practice, we learn the sheaf from data via
+                                              els that discretise this equation. In this paper, we
+                                                                                                                a parametric function Φ as indicated by the red dotted lines .
+                                              use cellular sheaf theory to show that the underly-
+                                              ing geometry of the graph is deeply linked with
+                                              the performance of GNNs in heterophilic settings                  2017; Gilmer et al., 2017) have recently become very popu-
+                                              and their oversmoothing behaviour. By consider-                   lar in the ML community as a model of choice to deal with
+                                              ing a hierarchy of increasingly general sheaves,                  relational and interaction data due to their multiple success-
+                                              we study how the ability of the sheaf diffusion                   ful applications in domains ranging from social science and
+                                              process to achieve linear separation of the classes               particle physics to structural biology and drug design.
+                                              in the infinite time limit expands. At the same                   We focus on two main problems often observed in GNNs:
+                                              time, we prove that when the sheaf is non-trivial,                their poor performance in heterophilic graphs (Zhu et al.,
+                                              discretised parametric diffusion processes have                   2020) and their oversmoothing behaviour (Nt & Maehara,
+                                              greater control than GNNs over their asymptotic                   2019; Oono & Suzuki, 2020). The former arises from the
+                                              behaviour. On the practical side, we study how                    fact that GNNs are usually built on the strong assumption of
+                                              sheaves can be learned from data. The result-                     homophily, i.e., that nodes tend to connect to other similar
+                                              ing sheaf diffusion models have many desirable                    nodes. The latter refers to a phenomenon of deeper GNNs
+                                              properties that address the limitations of classi-                producing features that are too smooth to be useful.
+                                              cal graph diffusion equations (and corresponding
+                                              GNN models) and obtain state-of-the-art results in                In this work, we show that these two fundamental problems
+                                              heterophilic settings. Overall, our work provides                 are linked by a common cause: the underlying “geometry”
+                                              new connections between GNNs and algebraic                        of the graph (used here in a very loose sense). When this ge-
+                                              topology and would be of interest to both fields.                 ometry is trivial, as is typically the case, the two phenomena
+                                                                                                                described above emerge. We make these statements precise
+                                                                                                                through the lens of cellular sheaf theory (Curry, 2014), a
+                                        1. Introduction                                                         subfield of algebraic topology (Hatcher, 2000). Intuitively,
+                                                                                                                a cellular sheaf associates a vector space to each node and
+                                        Graph Neural Networks (GNNs) (Sperduti, 1994; Goller                    edge of a graph, and a linear map between these spaces for
+                                        & Kuchler, 1996; Gori et al., 2005; Scarselli et al., 2008;             each incident node-edge pair (Figure 1).
+                                        Bruna et al., 2014; Defferrard et al., 2016; Kipf & Welling,
+                                                                                                                In Section 4 we analyse how by considering a hierarchy of
+                                          †
+                                            Work done as a research intern at Twitter ‡ Proved the results in   increasingly general sheaves, starting from a trivial one, a
+                                        Section 3 1 Department of Computer Science, University of Cam-          diffusion equation based on the sheaf Laplacian (Hansen
+                                        bridge, Cambridge, UK 2 Twitter, UK 3 Department of Computer            & Ghrist, 2019) can solve increasingly more complicated
+                                        Science, University of Oxford, Oxford, UK. Correspondence to:
+                                        Cristian Bodnar <cb2015@cam.ac.uk>.                                     node-classification tasks in the infinite time limit. In this
+                                                                                                                regime, we show that oversmoothing can be avoided by
+                                                                                                                equipping the graph with the right sheaf structure for a task.
+                                                    Neural Sheaf Diffusion
+
+In Section 5, we study the behaviour of a non-linear, para-      The space formed by all the spaces associated to the nodes of
+metric, and discrete version of this process. This results in    the graph is called the space of 0-cochains and is denoted by
+a Sheaf Convolutional Network (Hansen & Gebhart, 2020)           C 0 (G, F). Similarly, C 1 (G, F) – the space of 1-cochains –
+that generalises GCN of Kipf & Welling (2017). We prove          contains the data associated with all the edges of the graph.
+that this discrete diffusion process does not necessarily con-   Definition 2. For a sheaf (F,
+verge to the harmonic space of the sheaf Laplacian, even                                     L G) we define the space
+                                                                               C 0 (G; F) :=
+                                                                 of 0-cochains L              v∈V F(v) and 1-cochains
+when the norm of the weights is controlled from above,           C 1 (G; F) := e∈E F(e).
+in contrast to GCNs (Cai & Wang, 2020; Oono & Suzuki,
+2019). In other words, the weights can steer the diffusion       For a 0-cochain x ∈ C 0 (G; F), we use xv to refer to the
+process to a larger extent, which is important when the          vector in F(v) of node v and similarly for 1-cochains. From
+underlying sheaf is only approximately correct.                  an opinion dynamics perspective (Hansen & Ghrist, 2021),
+                                                                 xv can be thought of as the private opinion of node v, while
+All these results are based on the properties of the harmonic
+                                                                 FvEe expressed how that opinion manifests publicly in a
+space of the sheaf Laplacian. We begin by studying these
+                                                                 discourse space formed by F(e). It is natural to define a lin-
+properties from a spectral perspective in Section 3. We
+                                                                 ear co-boundary map δ between C 0 (G, F) and C 1 (G, F),
+provide a new Cheeger-type inequality for the spectral gap
+                                                                 which measures the disagreement between all nodes in the
+of the sheaf Laplacian and note that these results might be
+                                                                 discourse space.
+of independent interest for spectral sheaf theory.
+                                                                 Definition 3. For some arbitrary choice of orientation for
+Finally, in Section 6, we apply our theory for designing         each edge e = u → v ∈ E, δ : C 0 (G, F) → C 1 (G, F),
+simple and practical GNN models. We describe how to con-         δ(x)e := FvEe xv − FuEe xu .
+struct such models by learning sheaves from data. The
+resulting sheaf models obtain state-of-the-art results in        Given a cellular sheaf (G, F), using the co-boundary opera-
+heterophilic graphs and show strong performance in ho-           tor δ, one can define a Sheaf Laplacian operator associated
+mophilic ones.                                                   with the sheaf (Hansen & Ghrist, 2019).
+                                                                 Definition 4. The sheaf Laplacian of a sheaf (G, F) is a
+  To summarise our contributions: We (1) introduce a
+                                                                 map LF : C 0 (G, F) → C 0 (G, F) given by LF := δ > δ.
+  novel Graph ML framework based on cellular sheaves;
+  (2) Prove new results about the spectral properties of the            LF (x)v :=
+                                                                                    X
+                                                                                          >
+                                                                                        FvEe (FvEe xv − FuEe xu )
+  sheaf Laplacian that improve our understanding of its                             v,uEe
+  harmonic space; (3) Study the linear separation power
+  of sheaf diffusion equations in node classification tasks      The sheaf Laplacian is a positive semi-definite block matrix.
+                                                                                                             >
+                                                                                                    P
+  and demonstrate it can avoid oversmoothing; (4) Prove          The diagonal blocks are LF vv = vEe FvEe        FvEe , while
+                                                                                                          >
+  that a nonlinear sheaf-based GCN-like operator can             the non-diagonal blocks LF vu = −FvEe         FuEe . A nor-
+  steer the diffusion process, unlike in the classical case;     malised version of this Laplacian can also be defined. Let
+  (5) Show how to learn sheaves from data and construct          D be the block-diagonal of LF . Then the normalised-sheaf
+  sheaf diffusion-based GNN models that obtain state-of-         Laplacian ∆F := D−1/2 LF D−1/2 .
+  the-art results on heterophilic datasets.                      For simplicity, we assume from now on that all the stalks
+                                                                 have dimension d. In that case, the sheaf Laplacian is a
+                                                                 nd × nd real matrix, where n is the number of nodes of G.
+2. Background                                                    When the vector spaces are set to R and the linear maps to
+                                                                 id, the underlying sheaf is trivial, d = 1 and one recovers
+A cellular sheaf (Curry, 2014) over a graph (Figure 1) is a
+                                                                 the well-known n × n (normalised) graph Laplacian matrix.
+mathematical object associating a space with each node and
+edge in the graph and a map between these spaces for each        The harmonic space of LF is characterised by the global
+incident node-edge pair. We define this formally below:          sections of the sheaf.
+Definition 1. A cellular sheaf (G, F) on an undirected           Definition 5. The global sections of a sheaf form the set:
+graph G = (V, E) consists of:
+                                                                   H 0 (G; F) := {x ∈ C 0 (G; F) | FvEe xv = FuEe xu }
+ • A vector space F(v) for each v ∈ V .
+                                                                 This set corresponds to the signals that agree with the re-
+ • A vector space F(e) for each e ∈ E.
+                                                                 striction maps globally (i.e. along all edges of the graph).
+ • A linear map FvEe : F(v) → F(e) for each incident
+                                                                 The central theorem of discrete Hodge theory says that the
+   v E e node-edge pair.
+                                                                 space formed by all these 0-cochains is isomorphic to the
+The vector spaces of the nodes and edges are called stalks,      kernel of the sheaf Laplacian.
+while the linear maps are referred to as restriction maps.       Theorem 6. H 0 (G; F) and ker(LF ) are isomorphic.
+                                                          Neural Sheaf Diffusion
+
+                                                                        ration power of sheaf diffusion, we investigate below when
+                                                                        this space is non-empty and derive to what extent the graph
+                                                                        structure affects that. Key to our analysis is studying trans-
+                                                                        port operators induced by the restriction maps of the sheaf.
+                                                                        Given nodes v, u ∈ V and a path γv→u = (v, v1 , . . . , v` , u)
+                                                                        from v to u, we consider a notion of transport from the
+                                                                        stalk F(v) to the stalk F(u) via map composition:
+                                                                                   >
+                                                                        Pγv→u := (FuEe FvL Ee ) . . . (Fv>1 Ee FvEe ) : F(v) → F(u).
+
+                                                                        In general then, transport maps act on node stalks and are
+Figure 2. Analogy between parallel transport on a sphere and trans-
+                                                                        constructed by composing single restriction maps (and their
+port on a discrete vector bundle. A tangent vector is moved from
+F(w) → F (v) → F (u) and back. In this particular case, the
+                                                                        transpose) along edges.
+transport is not path-independent because the vector arrives back       For general sheaf structures, the graph transport is path
+in a different position from where it started. In the continous case,   dependent, meaning that how the vectors are transported
+this happens because of the curvature of the surface. In the sheaf      across two nodes depends on the path between them (see
+case, this is purely a consequence of the restriction maps.
+                                                                        Figure 2). In fact, we show that this property characterises
+                                                                        the spectral gap of a sheaf Laplacian (we note again that,
+The sheaves (G, F) with orthogonal restriction maps (i.e.
+                                                                        differently from the classical case, the kernel of ∆F may be
+FvEe ∈ O(d) the Lie group of d × d orthogonal matrices),
+                                                                        trivial, so by ‘spectral gap’ we refer here to the value of the
+will play an important role in our analysis. Such sheaves
+                                                                        smallest eigenvalue of ∆F ).
+are called discrete O(d)-bundles since they can be seen as
+a discrete equivalent of vector bundles from differential ge-           Proposition 7. If F is a discrete O(d) bundle over a con-
+                                                                                                                            0
+ometry (Tu, 2011). Intuitively, these are objects describing            nected graph and r := maxγv→u ,γv→u0  ||Pγv→u − Pγv→u ||,
+                                                                                             2
+how vector spaces are attached to the points of a manifold.             then we have λF    r
+                                                                                      0 ≤ 2 .
+In our case, the role of the manifold is played by the graph.
+                                                                        A consequence of the previous result is that there is al-
+The sheaf Laplacian of a discrete O(d)-bundle is equivalent
+                                                                        ways a non-trivial harmonic space (i.e. λF 0 = 0) if the
+to a connection Laplacian (Singer & Wu, 2012), describ-
+                                                                        transport maps generated by an orthogonal sheaf are path-
+ing how the elements of a vector space are transported via
+                                                                        independent. Next, we address the opposite direction.
+rotations in another neighbouring vector space. This is
+analogous to how tangent vectors are transported across a               Proposition 8. If F is a discrete O(d) bundle over a con-
+manifold (see Figure 2).                                                nected graph and x ∈ H 0 (G, F), then for any cycle γ
+                                                                        based at v ∈ V we have xv ∈ ker(Pγv→v − I).
+3. Harmonic Space of Sheaf Laplacians                                   The previous proposition highlights the interplay between
+In this section we study general properties of the harmonic             the graph and the sheaf structure. In fact, a simple conse-
+space ker(∆F ) of the normalised sheaf Laplacian. As with               quence of this result is that for any cycle-free subset S ⊂ V ,
+the normalised graph Laplacian, the normalised sheaf Lapla-             we have that any connection Laplacian restricted to S al-
+cian is preferred for most practical purposes because its               ways admits a non-trivial harmonic space.
+spectrum is bounded. Since a major role in the analysis                 A natural question connected to the previous result is
+below is played by discrete vector bundles, we focus on this            whether a Cheeger-like inequality holds in the other direc-
+case. We note though, that our results below generalise to              tion. This turns out to be the case.
+the general linear group FvEe ∈ GL(d), the Lie group of
+d × d invertible matrices, provided we can also control the             Proposition 9. Let F be a discrete O(d) bundle over
+norm of the restriction maps from below.                                a connected graph G with n nodes and let ||(Pγv→v −
+                                                                        I)x|| ≥ ||x|| for all cycles γv→v . Then λF   0  ≥
+Given a discrete O(d)-bundle, the block diagonal of LF                  2 (2diam(G)n dmax )−1 .
+has a block structure since LF vv = dv Id , where dv is the
+degree of node v. Accordingly,
+                         √       if a signal x̃ ∈ ker(LF ),             While the bound above is of little use in practice, it shows
+then the signal x : v 7→ dv xv ∈ ker(∆F ) and similarly                 how the spectral gap of a sheaf Laplacian is indeed re-
+for the inverse transformation. In general the harmonic                 lated to the deviation of the transport maps from being
+space may be trivial: this happens when the constraints                 path-independent. We note that the Cheeger-like inequality
+FvEe xv = FuEe xu are not compatible with each other.                   presented here is not unique and other types of bounds on
+Since the harmonic space will be related to the linear sepa-            λF0 have been derived by Bandeira et al. (2013).
+                                                     Neural Sheaf Diffusion
+
+We conclude this section by further analysing the dimen-          interest since it includes those graph Laplacians typically
+sionality of the harmonic space of discrete O(d)-bundles.         used by graph convolutional models such as GCN (Kipf &
+Lemma 10. Let F be a discrete O(d) bundle over a con-             Welling, 2017) and ChebNet (Defferrard et al., 2016).
+nected graph G. Then dim(H 0 ) ≤ d and dim(H 0 ) = d iff          We first show that this class of sheaf Laplacians can linearly
+the transport is path-independent.                                separate the classes in binary classification settings under
+                                                                  certain homophily assumptions:
+4. The Separation Power of Sheaf Diffusion                        Proposition 13. Let G be the set of connected graphs G =
+                                                                  (V, E) with two classes A, B ⊂ V such that for each v ∈ A,
+Preliminaries Let G = (V, E) be a graph and consider                                                                1
+                                                                  there exists u ∈ A and an edge (v, u) ∈ E. Then Hsym   has
+that all nodes have features that are d-dim vectors xv ∈
+                                                                  linear separation power over G.
+F(v). The features of all nodes are represented as a single
+vector x ∈ C 0 (G; F) stacking all the individual d-dim           In contrast, under certain heterophilic conditions, this hy-
+vectors. Additionally, if we allow for f feature channels,        pothesis class is not powerful enough to linearly separate
+everything can be represented as a matrix X ∈ R(nd)×f ,           the two classes no matter what the initial conditions are:
+whose columns are vectors in C 0 (G; F).
+                                                                  Proposition 14. Let G be the set of connected bipartite
+In this section, we are interested in the spatially discretised   graphs G = (A, B, E), with partitions A, B forming two
+sheaf difusion process governed by the PDE:                                                       1
+                                                                  classes and |A| = |B|. Then Hsym   cannot linearly separate
+             X(0) = X,       Ẋ(t) = −∆F X(t)              (1)    any graph in G for any initial conditions X(0) ∈ Rn×f .
+
+It can be shown that in the time limit, each feature channel      We now consider a larger hypothesis class that also includes
+is projected into the harmonic space of the sheaf Laplacian       non-symmetric relations.
+ker(∆F ) (Hansen & Ghrist, 2019). Up to a D−1/2 normal-           Definition 15. The the class of sheaves with invertible maps
+isation, this space contains the signals that agree with the      and d-dimensional stalks:
+restriction maps of the sheaf along all the edges. Thus, sheaf                Hd := {(F, G) | det(FvEe ) 6= 0}
+diffusion can be seen as a global ‘synchronisation’ process.
+We now analyse the ability of certain classes of sheaf Lapla-     Proposition 16. Let G contain all the connected graphs
+cian operators to linearly separate the features in the limit     with two classes. Then, H1 has linear separation power
+of the diffusion processes they induce. We consider this a        over G.
+proxy for the capacity of certain diffusion processes to avoid
+                                                                  These results show that heterophilic settings require an
+oversmoothing.
+                                                                  asymmetric transport of the features between neighbouring
+Definition 11. A hypothesis class of sheaves with d-              nodes belonging to different classes. This provides a sheaf-
+dimensional stalks Hd has linear separation power over            theoretic explanation for why a recent body of work (Yan
+a set of graphs G if for any labelled graph G = (V, E) ∈ G,       et al., 2021; Chien et al., 2021; Bo et al., 2021) has found
+there is a sheaf (F, G) ∈ Hd that can linearly separate           negatively-weighted edges to help in heterophilic settings.
+the classes of G in the time limit of Equation 1 for a dense      From this perspective, negatively-signed edges constrain
+subset XF ⊂ Rnd×f of initial conditions.                          the product FvEe FuEe of an implicit underlying sheaf to be
+                                                                  negative and hence FvEe 6= FuEe . As the next result shows,
+The restriction to a set of initial conditions that is dense in   in d = 1, signed relations are a particularly important way
+the ambient space is necessary because, in the limit, diffu-      to achieve this asymmetry:
+sion behaves like a projection in the harmonic space and
+there will always be degenerate initial conditions that will      Definition 17. The class of sheaves over G with non-zero
+yield a zero projection.                                          maps, one-dimensional stalks, and similarly signed restric-
+                                                                  tion maps:
+Definition 12. Consider the class of sheaves with symmetric                    1
+and invertible transport maps and d-dimensional stalks.                       H+ := {(F, G) | FvEe FuEe > 0}
+
+    d                                                             Proposition 18. Let G be the connected graph with two
+   Hsym := {(F, G) | FvEe = FuEe , det(FvEe ) 6= 0}                                                                1
+                                                                  nodes belonging to two different classes. Then H+  cannot
+                                                                  linearly separate the two nodes for any initial conditions
+We note that for d = 1, the sheaf Laplacians induced by this      X ∈ R2×f .
+class of sheaves coincides with the set of the well-known
+weighted graph Laplacians with strictly positive weights,         This shows that even the simplest heterophilic graph still
+which also includes the usual graph Laplacian (see proof in       cannot be distinguished in this case even with asymmetric
+Appendix B). Therefore, this hypothesis class is of particular    transport maps unless FvEe , FuEe have opposite signs.
+                                                    Neural Sheaf Diffusion
+
+So far we have only studied the effects of changing the type       In summary, we showed that: (1) Sheaf diffusion on a
+of sheaves in dimension one. We now consider the effects           trivial sheaf with symmetric (scalar) restriction maps
+of adjusting the dimension of the stalks and begin by stating      (as implicitly used in standard graph convolutions) has
+a fundamental limitation of (sheaf) diffusion when d = 1.          linear separation power only in certain (homophilic)
+Proposition 19. Let G be a connected graph with C ≥ 3              settings. (2) Dealing with heterophilic data and over-
+classes. Then H1 cannot linearly separate any X ∈ Rn×f .           smoothing requires non-symmetric restriction maps. (3)
+                                                                  Higher-dimensional stalks and more complex restric-
+This is essentially a consequence of dim ker(∆F ) being            tion maps lead to stronger separation power.
+at most one in this case, as described by Lemma 10. From
+a GNN perspective, this means that in the infinite depth
+setting, sufficient stalk width (i.e., dimension) is needed in
+                                                                 5. Asymptotics of Sheaf Convolutions
+order to solve tasks involving more than two classes. Note
+that this notion of width given by d is different from the       In Section 4 we analysed the ability of sheaf diffusion to lin-
+classical notion given by the number of feature channels f .     early separate the node-classes in the limit. However, when
+As the result above shows, the latter has no effect on the       considering a discrete, parametric and non-linear version of
+linear separability of the classes. Next, we will see that the   this process, it is important to know how much the weights
+former does.                                                     can steer it. This is particularly relevant if the underlying
+Definition 20. Consider the class of sheaves with diagonal       sheaf is only approximately correct for the task to be solved.
+invertible maps and d-dimensional stalks:                        The continous diffusion process from Equation 1 has the
+ d
+Hdiag := {(F, G) | FvEe =       invertible diagonal matrix}      following Euler discretisation with unit step-size:
+
+Proposition 21. Let G be the set of connected graphs with           X(t + 1) = X(t) − ∆F X(t) = (Ind − ∆F )X(t)             (2)
+                                                     d
+nodes belonging to C ≥ 3 classes. Then for d ≥ C, Hdiag          Assuming X ∈ Rnd×f1 , we can equip the right side with
+has linear separation power over G.                              weight matrices W1 ∈ Rd×d , W2 ∈ Rf1 ×f2 and a non-
+This proposition illustrates the benefits of using higher-       linearity σ to arrive at the following model originally pro-
+dimensional stalks, while maintaining a simple and compu-        posed by Hansen & Gebhart (2020):
+tationally convenient class of diagonal restriction maps.
+                                                                                                         
+                                                                   Y = σ Ind − ∆F (In ⊗ W1 )XW2 ∈ Rnd×f2 , (3)
+                                                                                         
+
+By using more complex restriction maps, we can show that
+lower-dimensional stalks can be used to achieve linear sepa-     where f1 , f2 are the number of input and output feature
+ration in the presence of even more classes.                     channels, and ⊗ denotes the Kronecker product. Here, W1
+                                                                 multiplies from the left the vector feature of all the nodes
+Definition 22. The class of discrete O(d)-bundles:
+                                                                 in all channels (i.e. W1 xiv for all v and channels i), while
+             d                                                   W2 multiplies the features from the right and can adjust the
+            Horth := {(F, G) | FvEe ∈ O(d)}
+                                                                 number of feature channels, just like in GCNs.
+We show that for stalks of dimension d ∈ {2, 4}, one can         It is natural to call this model a Sheaf Convolutional Net-
+classify at least C = 2d classes.                                work (SCN) since when ∆F is the usual normalised graph
+Theorem 23. Let G be the class of connected graphs with          Laplacian, W1 becomes a scalar and one recovers GCN of
+                                           d
+C ≤ 2d classes. Then, for all d ∈ {2, 4}, Horth has linear       Kipf & Welling (2017). To study this prototypical nonlinear
+separation power over G.                                         and parametric discrete diffusion model in the limit of an
+                                                                 infinite number of layers, we adapt the proof technique of
+This shows that orthogonal maps are able to make more            Cai & Wang (2020) to track the sheaf Dirichlet energy as
+efficient use of the space available to them than diagonal       the signal is passed through multiple SCN layers.
+restriction maps. Our proof relies on the algebra of quater-
+                                                                 Definition 24. The sheaf Dirichlet energy EF (x) of a sig-
+nions and their generalisations and also shows the result
+                                                                 nal x ∈ C 0 (G, F) is defined as:
+cannot be extended to other dimensions. We note that with
+the additional assumption that the graph is regular, this hy-                  1 X
+                                                                 x> ∆F x =                kFvEe Dv−1/2 xv − FuEe Du−1/2 xu k22
+pothesis class can distinguish an arbitrary number of classes                  2
+                                                                                e:=(v,u)
+(see Appendix B).
+We conclude this section by highlighting that the limitations    Similarly, for multiple channels the energy is
+of symmetric relations persist even in higher dimensions         trace(X> ∆F X). It is easy to see that x ∈ ker(∆F ) ⇔
+                                          d
+and that Proposition 14 also extends to Horth,sym  , the class   EF (x) = 0. Therefore, we can use the energy of a signal as
+of O(d)-bundles where for all v, u E e, FvEe = FuEe .            a metric to measure its distance from the harmonic space.
+                                                    Neural Sheaf Diffusion
+
+We begin by studying the sheaves for which the features          6. Sheaf Learning
+end up asymptotically in ker(∆F ). The first such example
+is for O(d)-bundles with symmetric    relations. Let λ∗ =        In the previous sections we discussed the various advan-
+                                
+max (λmin − 1)2 , (λmax − 1)2 , where λmin , λmax are the        tages one obtains from using the right sheaf-structure for a
+smallest and largest non-zero eigenvalues of ∆F .                particular node classification task. However, in general, this
+                                                                 ground truth sheaf is unknown or unspecified. Therefore,
+                                             d
+Theorem 25. Let (F, G) be an O(d)-bundle in Horth,sym            we aim to learn the underlying sheaf from data.
+and assume σ = ReLU or LeakyReLU. Then EF (Y) ≤
+λ∗ kW1 k22 kW2> k22 EF (X).                                      6.1. Sheaf-based GNN Model
+
+In particular, this means that if λ∗ kW1 k22 kW2> k22 < 1, the   We consider the following diffusion-type equation, which
+signal converges exponentially fast to ker(∆F ). In some         contains the sheaf diffusion equation as a particular case.
+sense, this is not surprising because when we have sym-                                                           
+metric relations along all edges (i.e. Fv≤e = Fu≤e ) and                 Ẋ(t) = −σ ∆F (t) (In ⊗ W1 )X(t)W2 ,              (4)
+hence the conditions in Theorem 25 are satisfied, then the
+                                                                 Crucially, the sheaf Laplacian ∆F (t) is that of a sheaf
+harmonic space ker(∆F ) contain the same information as
+                                                                 (G, F(t)) that evolves over time. More specifically, the
+the kernel of the classical normalised Laplacian ∆0 .
+                                                                 evolution of the sheaf structure is described by a learnable
+                                            d                    function of the data (G, F(t)) = g(G, X(t); θ).
+Proposition 26. If F is an O(d)-bundle in Horth,sym , then
+                          k
+x ∈ ker∆F if and only if x ∈ ker ∆0 for all 1 ≤ k ≤ d.           We also consider a discrete version of this equation, using a
+                                                                 new set of weights at each layer t.
+Importantly, the symmetry of the relations along all edges is                                                      
+a necessary condition in Theorem 25. As soon as we have an              Xt+1 = Xt − σ ∆F (t) (I ⊗ W1t )Xt W2t ,            (5)
+asymmetric transport map, we can find an arbitrarily small
+linear transformation W that increases the energy.               For both, models we use an initial MLP to compute X(0)
+Proposition 27. For any connected graph G and ε > 0,             from the raw features and a final linear layer to perform the
+there exist a sheaf (G, F), W with kWk2 < ε and feature          node classification.
+vector x such that EF ((I ⊗ W)x) > EF (x).
+                                                                   Overall, this represents an entirely new framework for
+                                                                   learning on graphs, which does not only evolve the fea-
+Beyond O(d)-bundles, we also have the following result             tures at each new layer, but also evolves the underlying
+for general sheaves with stalks of dimension d = 1 which           ‘geometry’ of the graph (i.e., the sheaf structure).
+generalises that of Cai & Wang (2020); Oono & Suzuki
+(2019) for GCNs:
+                                      1
+Theorem 28. Let (F, G) be a sheaf in H+ and as-                  6.2. Learning the restriction maps
+sume σ is ReLU or LeakyReLU. Then EF (Y) ≤                       The advantage of learning a sheaf is that one does not re-
+λ∗ kW1 k22 kW2> k22 EF (X).                                      quire any sort of embedding of the nodes in an ambient
+                                                                 space (as e.g. done in (Chamberlain et al., 2021a)). Instead,
+As before, having positively-signed relations is a necessary     everything can be learned locally. Each d × d matrix FvEe
+condition in the non-linear case to ensure oversmoothing         is learned via a parametric function Φ : Rd×2 → Rd×d :
+happens. However, in this case, the proof also holds for
+negatively-signed relations when using a linear model (i.e.                       FvEe:=(v,u) = Φ(xv , xu )                (6)
+when σ is the identity). Due to this result, we note that
+Propositons 14 and 19 also generalise to GCNs. Any GCN           For simplicity, the equation above uses a single feature chan-
+using a weighted graph Laplacian that oversmooths as in          nel, but in practice, all channels are supplied as input. This
+Theorem 28 cannot linearly separate more than two classes.       function retains the inductive bias of locality specific to
+Furthermore, such a GCN cannot separate the classes of a         GNNs since it only utilises the features of the nodes form-
+bipartitie graph with equally-sized partitions.                  ing the edge. At the same time, it is important that this
+                                                                 function is non-symmetric in order to be able learn asym-
+  We have two main takeaways: (1) Discrete sheaf dif-            metric transport maps along each edge. In what follows, we
+  fusion models can avoid (in general) the kernel of the         distinguish between several types of functions Φ depending
+  diffusion operator even in the deep linear case. (2)           on the type of matrix they learn.
+  The asymmetry of the transport maps play (again) an
+  important role in that.                                        Diagonal The main advantage of this parametrization is
+                                                                 that fewer parameters need to be learned per edge and the
+                                                    Neural Sheaf Diffusion
+
+sheaf Laplacian ends up being a matrix with diagonal blocks,
+which also results in fewer operations in sparse matrix mul-
+tiplications. The main disadvantage is that the d dimensions
+of the stalks do not interact.
+
+Orthogonal In this case, the model effectively learns a
+discrete vector bundle. Orthogonal matrices provide several
+advantages: (1) they are able to mix the various dimension
+of the stalks, (2) the orthogonality constraint prevents over-   Figure 3. (Left) Test accuracy as a function of diffusion time.
+fitting while reducing the number of parameters, (3) they        (Right) Histogram of the learned scalar transport maps. The perfor-
+have better understood theoretical properties, and (4) the       mance of the sheaf diffusion model is superior to that of weighted-
+resulting Laplacians are easier to normalise numerically         graph diffusion. The model correctly learns to invert the features
+since the diagonal entries correspond to the degrees of the      of the two classes via the transport maps.
+nodes. In our model, we build orthogonal matrices from a
+                                                                 butions in order to make the classes linearly non-separable
+composition of Householder reflections (Mhammedi et al.,
+                                                                 at initialisation time. From Proposition 14 we know that
+2017).
+                                                                 diffusion models using symmetric restriction maps cannot
+                                                                 separate the classes in the limit, while a diffusion process
+General Finally, we consider the most general option of          using asymmetric maps should be able to.
+learning arbitrary matrices. The maximal flexibility pro-
+vided by these maps can be useful, but it also comes with        Therefore, we consider two simple versions of the model
+the danger of overfitting. At the same time, the sheaf Lapla-    from Equation 4, where we set W1 = Id , W2 = If and
+cian is more challenging to normalise numerically since          σ = id. In the first, the maps FvEe=(v,u) are learned by a
+one has to compute D−1/2 for a positive semi-definite ma-        simple layer of the form σ(w> [xv ||xu ]), where σ = tanh.
+trix D. To perform this at scale, one has to rely on SVD,        For the second model, we use a similar layer but constraint
+whose gradients can be infinite if D has repeated eigenval-      FvEe = FuEe > 0, which results in a weighted graph
+ues. Therefore, this model is more challenging to train.         Laplacian.
+                                                                 Figure 3 presents the results of this experiment across five
+Computational Complexity Treating the number of                  seeds. As expected, for diffusion time zero (i.e. no dif-
+channels and layers as constant, a typical message pass-         fusion), we see that a linear classifier cannot separate the
+ing GNN scales with O(n + m), where n is the number              classes. Also as expected, the diffusion process using sym-
+of nodes and m is the number of edges. A sheaf diffusion         metric maps cannot perfectly fit the data. In contrast, with
+model with diagonal maps has complexity O(d(n + m))              the more general sheaf diffusion, as more diffusion is per-
+because the matrix multiplication required to compute the        formed and the signal approaches the harmonic space, the
+transport maps reduces to a scalar multiplication. When          model gets better and the features become linearly separa-
+learning orthogonal or general d × d matrices, the complex-      ble. In the second subfigure we take a closer look at the
+ity becomes O(d3 (n + m)) because matrix multiplication          sheaf that the model learns in the time limit by plotting a
+is O(d3 ). We note that additional costs for the latter meth-                                                   >
+                                                                 histogram of all the transport (scalar) maps FvEe  FuEe . In
+ods such as that of SVD for computing D−1/2 for general          accordance with Propositions 16 and 18, the model learns
+matrices and that of parametrising the orthogonal group can      a negative transport map for all edges. We discuss this in
+be done in O(d3 ), so the overall complexity is not affected.    more detail together with additional synthetic experiments
+                                                                 in higher-dimensions in Appendix E.
+In practice, we use 1 ≤ d ≤ 5 and all the operations above
+benefit from batched GPU computations in PyTorch (Paszke
+et al., 2019) which effectively results in a constant over-      Real-world experiments We test our models on real-
+head. For learning orthogonal matrices, we rely on the           world datasets proposed by Rozemberczki et al. (2021);
+library Torch Householder (Obukhov, 2021) which provides         Pei et al. (2020) to evaluate heterophilic learning. These
+support for fast transformations with very large batch sizes.    datasets have an edge homophily coefficient h ranging from
+                                                                 h = 0.11 (very heterophilic) to h = 0.81 (very homophilic)
+7. Experiments                                                   and therefore offer a view of how a model performs in both
+                                                                 regimes. We evaluate our models on the 10 fixed splits pro-
+Synthetic experiments We first consider a simple syn-            vided by Pei et al. (2020) and report the mean accuracy and
+thetic setup given by a connected bipartite graph, where the     standard deviation. Each split contains 48%/32%/20% of
+two partitions form two equally sized classes. We sample         nodes per class for training, validation and testing, respec-
+the features from two overlapping isotropic Gaussian distri-     tively.
+                                                                   Neural Sheaf Diffusion
+
+                                Texas      Wisconsin       Film        Squirrel    Chameleon     Cornell       Citeseer     Pubmed        Cora
+               Hom level         0.11        0.21          0.22          0.22         0.23        0.30           0.74         0.80        0.81
+               #Nodes            183         251          7,600         5,201         2,277       183           3,327        18,717       2,708
+               #Edges            295         466          26,752       198,493       31,421       280           4,676        44,327       5,278
+               #Classes            5           5             5             5            5          5               7            3           6
+               Diag-SD        85.67±6.95   88.63±2.75   37.79±1.01    54.78±1.81   68.68±1.73   86.49±7.35    77.14±1.85   89.42±0.43   87.14±1.06
+               O(d)-SD        85.95±5.51   89.41±4.74   37.81±1.15    56.34±1.32   68.04±1.58   84.86±4.71    76.70±1.57   89.49±0.40   86.90±1.13
+               Gen-SD         82.97±5.13   89.21±3.84   37.80±1.22    53.17±1.31   67.93±1.58   85.68±6.51    76.32±1.65   89.33±0.35   87.30±1.15
+               GGCN           84.86±4.55   86.86±3.29   37.54±1.56    55.17±1.58   71.14±1.84   85.68±6.63    77.14±1.45   89.15±0.37   87.95±1.05
+               H2GCN          84.86±7.23   87.65±4.98   35.70±1.00    36.48±1.86   60.11±2.15   82.70±5.28    77.11±1.57   89.49±0.38   87.87±1.20
+               GPRGNN         78.38±4.36   82.94±4.21   34.63±1.22    31.61±1.24   46.58±1.71   80.27±8.11    77.13±1.67   87.54±0.38   87.95±1.18
+               FAGCN          82.43±6.89   82.94±7.95   34.87±1.25    42.59±0.79   55.22±3.19   79.19±9.79       N/A          N/A          N/A
+               MixHop         77.84±7.73   75.88±4.90   32.22±2.34    43.80±1.48   60.50±2.53   73.51±6.34    76.26±1.33   85.31±0.61   87.61±0.85
+               GCNII          77.57±3.83   80.39±3.40   37.44±1.30    38.47±1.58   63.86±3.04   77.86±3.79    77.33±1.48   90.15±0.43   88.37±1.25
+               Geom-GCN       66.76±2.72   64.51±3.66   31.59±1.15    38.15±0.92   60.00±2.81   60.54±3.67    78.02±1.15   89.95±0.47   85.35±1.57
+               PairNorm       60.27±4.34   48.43±6.14   27.40±1.24    50.44±2.04   62.74±2.82   58.92±3.15    73.59±1.47   87.53±0.44   85.79±1.01
+               GraphSAGE      82.43±6.14   81.18±5.56   34.23±0.99    41.61±0.74   58.73±1.68   75.95±5.01    76.04±1.30   88.45±0.50   86.90±1.04
+               GCN            55.14±5.16   51.76±3.06   27.32±1.10    53.43±2.01   64.82±2.24   60.54±5.30    76.50±1.36   88.42±0.50   86.98±1.27
+               GAT            52.16±6.63   49.41±4.09   27.44±0.89    40.72±1.55   60.26±2.50   61.89±5.05    76.55±1.23   87.30±1.10   86.33±0.48
+               MLP            80.81±4.75   85.29±3.31   36.53±0.70    28.77±1.56   46.21±2.99   81.89±6.40    74.02±1.90   75.69±2.00   87.16±0.37
+               Cont Diag-SD   82.97±4.37   86.47±2.55   36.85±1.21    38.17±9.29   62.06±3.84   80.00±6.07    76.56±1.19   89.47±0.42   86.88±1.21
+               Cont O(d)-SD   82.43±5.95   84.50±4.34   36.39±1.37    40.40±2.01   63.18±1.69   72.16±10.40   75.19±1.67   89.12±0.30   86.70±1.24
+               Cont Gen-SD    83.78±6.62   85.29±3.31   37.28±0.74    52.57±2.76   66.40±2.28   84.60±4.69    77.54±1.72   89.67±0.40   87.45±0.99
+               BLEND          83.24±4.65   84.12±3.56   35.63±0.89    43.06±1.39   60.11±2.09   85.95±6.82    76.63±1.60   89.24±0.42   88.09±1.22
+               GRAND          75.68±7.25   79.41±3.64   35.62±1.01    40.05±1.50   54.67±2.54   82.16±7.09    76.46±1.77   89.02±0.51   87.36±0.96
+               CGNN           71.35±4.05   74.31±7.26   35.95±0.86    29.24±1.09   46.89±1.66   66.22±7.69    76.91±1.81   87.70±0.49   87.10±1.35
+
+
+Table 1. Results on node classification datasets sorted by their homophily level. The first section includes discrete GNN models, while the
+second section includes continuous models. Top three models are coloured by First, Second, Third. Our models are marked -SD.
+
+
+Baselines As baselines, we use an ample set of GNN                                 8. Discussion and Conclusion
+models that can be placed in four categories: (1) classical:
+GCN (Kipf & Welling, 2017), GAT (Veličković et al., 2018),                       Sheaf Neural Networks Sheaf Neural Networks with a
+GraphSAGE (Hamilton et al., 2017); (2) models specifically                         fixed sheaf Laplacian were originally introduced by Hansen
+designed for heterophilic settings: GGCN (Yan et al., 2021),                       & Gebhart (2020) in a toy experimental setting. Since then,
+Geom-GCN (Pei et al., 2020), H2GCN (Zhu et al., 2020),                             they have remained completely unexplored. We hope that
+GPRGNN (Chien et al., 2021), FAGCN (Bo et al., 2021),                              this paper will fill this lacuna. In contrast to their work, we
+MixHop (Abu-El-Haija et al., 2019); (3) models addressing                          provide an ample theoretical analysis justifying the use of
+oversmoothing: GCNII (Chen et al., 2020), PairNorm (Zhao                           sheaves in Graph ML. On the practical side, we study for the
+& Akoglu, 2020); (4) continuous models: CGNNs (Xhon-                               first time how sheaves can be learned from data using neural
+neux et al., 2020), GRAND (Chamberlain et al., 2021b),                             networks. Finally, this is the first successful application of
+and BLEND (Chamberlain et al., 2021a). For (4) we fine-                            sheaf-based neural networks in a real-world setting.
+tune and evaluate the models ourselves. The other results                          Limitations One of the main limitations of our theoreti-
+are taken from Yan et al. (2021), except for FAGCN and                             cal analysis is that it does not discuss the learnability and
+MixHop, which come from Lingam et al. (2021) and Zhu                               generalisation properties of sheaves, only their existence.
+et al. (2020), respectively. All of these were evaluated on                        Nonetheless, this setting was sufficient to produce many
+the same set of splits as ours.                                                    valuable insights about heterophily and oversmoothing and
+                                                                                   a basic understanding of what various types of sheaves can
+                                                                                   do. Much more theoretical work remains to be done in this
+Results From the results in Table 1 we see that the discrete
+                                                                                   direction, and we expect to see further cross-fertilization
+version of our models are first in 5/6 benchmarks with high
+                                                                                   between ML and algebraic topology research in the future.
+heterophily (h < 0.3) and second-ranked in the other 1/6.
+At the same time, the models exhibit strong performance                            Conclusion In this work, we used cellular sheaf theory to
+on the homophilic graphs (Cora, Pubmed, Citeseer) being                            provide a novel topological perspective on heterophily and
+within approximately 1% of the top-performing model. The                           oversmoothing in GNNs. We showed that the underlying
+second part of Table 1 includes continuous models, which                           sheaf structure of the graph is intimately connected with
+our model outperforms on 7/9 benchmarks with particularly                          both of these important factors affecting the performance
+large improvements on Chameleon and Squirrel. Among the                            of GNNs. To mitigate this, we proposed a new paradigm
+discrete diffusion models, the O(d)-vector bundle diffusion                        for graph representation learning where models do not only
+model performs best overall confirming the intuition that                          evolve the features at each layer but also the underlying
+it can better avoid overfitting, while also transforming the                       geometry of the graph. In practice, we demonstrated that
+vectors in sufficiently complex ways. We also remark the                           this framework can achieve state-of-the-art results in het-
+strong performance of the model learning diagonals maps.                           erophilic settings.
+                                                 Neural Sheaf Diffusion
+
+Acknowledgements                                              Chien, E., Peng, J., Li, P., and Milenkovic, O. Adaptive
+                                                                universal generalized pagerank graph neural network. In
+We are grateful to Iulia Duta, Dobrik Georgiev and Jacob        International Conference on Learning Representations,
+Deasy for valuable comments on an earlier version of this       2021. URL https://openreview.net/forum?
+manuscript. CB would also like to thank the Twitter Cortex      id=n6jl7fLxrP.
+team for making the research internship a fantastic experi-
+ence. This research was supported in part by ERC Consol-      Curry, J. M. Sheaves, cosheaves and applications. Univer-
+idator grant No. 724228 (LEMAN).                                sity of Pennsylvania, 2014.
+
+                                                              Defferrard, M., Bresson, X., and Vandergheynst, P. Con-
+References
+                                                                volutional neural networks on graphs with fast localized
+Abu-El-Haija, S., Perozzi, B., Kapoor, A., Haru-                spectral filtering. In NIPS, 2016.
+  tyunyan, H., Alipourfard, N., Lerman, K., Steeg,
+  G. V., and Galstyan, A.       Mixhop: Higher-order          Dwivedi, V. P., Joshi, C. K., Laurent, T., Bengio, Y.,
+  graph convolutional architectures via sparsified neigh-      and Bresson, X. Benchmarking graph neural networks.
+  borhood mixing. In The Thirty-sixth International            arXiv:2003.00982, 2020.
+ Conference on Machine Learning (ICML), 2019.
+                                                              Ghrist, R. and Riess, H. Cellular sheaves of lattices and the
+  URL http://proceedings.mlr.press/v97/
+                                                                tarski laplacian. arXiv:2007.04099, 2020.
+  abu-el-haija19a/abu-el-haija19a.pdf.
+                                                              Gilmer, J., Schoenholz, S. S., Riley, P. F., Vinyals, O., and
+Bandeira, A. S., Singer, A., and Spielman, D. A. A Cheeger
+                                                                Dahl, G. E. Neural message passing for quantum chem-
+  inequality for the graph connection laplacian. SIAM Jour-
+                                                                istry. In ICML, 2017.
+  nal on Matrix Analysis and Applications, 34(4):1611–
+  1630, 2013.                                                 Goller, C. and Kuchler, A. Learning task-dependent
+                                                                distributed representations by backpropagation through
+Bishop, C. M. Pattern Recognition and Machine Learning          structure. In ICNN, 1996.
+  (Information Science and Statistics). Springer-Verlag,
+  Berlin, Heidelberg, 2006. ISBN 0387310738.                  Gori, M., Monfardini, G., and Scarselli, F. A new model for
+                                                                learning in graph domains. In IJCNN, 2005.
+Bo, D., Wang, X., Shi, C., and Shen, H. Beyond low-
+  frequency information in graph convolutional networks.      Hamilton, W. L., Ying, R., and Leskovec, J. Representation
+  In AAAI. AAAI Press, 2021.                                    learning on graphs: Methods and applications. IEEE
+                                                                Data Engineering Bulletin, 2017.
+Bruna, J., Zaremba, W., Szlam, A., and LeCun, Y. Spectral
+  networks and locally connected networks on graphs. In       Hansen, J. and Gebhart, T. Sheaf neural networks. In
+  ICLR, 2014.                                                   NeurIPS 2020 Workshop on Topological Data Analysis
+                                                                and Beyond, 2020.
+Cai, C. and Wang, Y. A note on over-smoothing for graph
+  neural networks. arXiv:2006.13318, 2020.                    Hansen, J. and Ghrist, R. Toward a spectral theory of cellular
+                                                                sheaves. Journal of Applied and Computational Topology,
+Chamberlain, B. P., Rowbottom, J., Eynard, D., Di Giovanni,     3(4):315–358, 2019.
+  F., Xiaowen, D., and Bronstein, M. M. Beltrami flow and
+  neural diffusion on graphs. In NeurIPS, 2021a.              Hansen, J. and Ghrist, R. Opinion dynamics on discourse
+                                                                sheaves. SIAM Journal on Applied Mathematics, 81(5):
+Chamberlain, B. P., Rowbottom, J., Goronova, M., Webb,          2033–2060, 2021.
+  S., Rossi, E., and Bronstein, M. M. Grand: Graph neural
+  diffusion. In ICML, 2021b.                                  Hatcher, A. Algebraic topology. Cambridge Univ. Press,
+                                                                Cambridge, 2000.
+Chen, M., Wei, Z., Huang, Z., Ding, B., and Li,
+                                                              Kingma, D. P. and Ba, J. Adam: A method for stochastic
+  Y. Simple and deep graph convolutional networks.
+                                                                optimization. In ICLR, 2015.
+  In III, H. D. and Singh, A. (eds.), Proceedings of
+  the 37th International Conference on Machine Learn-         Kipf, T. N. and Welling, M. Semi-supervised classification
+  ing, volume 119 of Proceedings of Machine Learn-              with graph convolutional networks. In ICLR, 2017.
+  ing Research, pp. 1725–1735. PMLR, 13–18 Jul
+  2020. URL https://proceedings.mlr.press/                    Lee, H. D. On some matrix inequalities. Korean Journal of
+  v119/chen20v.html.                                            Mathematics, 16(4):565–571, 2008.
+                                                   Neural Sheaf Diffusion
+
+Lingam, V., Ragesh, R., Iyer, A., and Sellamanickam, S.         Sperduti, A. Encoding labeled graphs by labeling RAAM.
+  Simple truncated svd based model for node classification        In NIPS, 1994.
+  on heterophilic graphs. arXiv preprint arXiv:2106.12807,
+  2021.                                                         Tu, L. W. Manifolds. In An Introduction to Manifolds, pp.
+                                                                  47–83. Springer, 2011.
+Mhammedi, Z., Hellicar, A., Rahman, A., and Bailey, J.
+ Efficient orthogonal parametrisation of recurrent neu-         Veličković, P., Cucurull, G., Casanova, A., Romero, A., Lio,
+ ral networks using householder reflections. In Interna-          P., and Bengio, Y. Graph attention networks. In ICLR,
+ tional Conference on Machine Learning, pp. 2401–2409.            2018.
+ PMLR, 2017.                                                    Xhonneux, L.-P., Qu, M., and Tang, J. Continuous graph
+Nt, H. and Maehara, T. Revisiting graph neural net-               neural networks. In ICML, 2020.
+  works: all we have is low pass filters. arXiv preprint        Yan, Y., Hashemi, M., Swersky, K., Yang, Y., and Koutra,
+  arXiv:1812.08434v4, 2019.                                       D. Two sides of the same coin: Heterophily and
+Obukhov, A. Efficient householder transformation in               oversmoothing in graph convolutional neural networks.
+  pytorch, 2021. URL www.github.com/toshas/                       arXiv:2102.06462, 2021.
+  torch-householder.        Version: 1.0.1, DOI:                Zhao, L. and Akoglu, L. Pairnorm: Tackling oversmooth-
+ 10.5281/zenodo.5068733.                                          ing in gnns. In International Conference on Learning
+Oono, K. and Suzuki, T. Graph neural networks expo-               Representations, 2020. URL https://openreview.
+  nentially lose expressive power for node classification.        net/forum?id=rkecl1rtwB.
+  arXiv:1905.10947, 2019.                                       Zhu, J., Yan, Y., Zhao, L., Heimann, M., Akoglu, L., and
+Oono, K. and Suzuki, T. Graph neural networks exponen-            Koutra, D. Beyond homophily in graph neural networks:
+  tially lose expressive power for node classification. In        Current limitations and effective designs. Advances in
+ International Conference on Learning Representations,            Neural Information Processing Systems, 33, 2020.
+  2020.
+
+Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J.,
+  Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga,
+  L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z., Rai-
+  son, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang,
+  L., Bai, J., and Chintala, S. Pytorch: An imperative
+  style, high-performance deep learning library. In Wal-
+  lach, H., Larochelle, H., Beygelzimer, A., d'Alché-Buc,
+  F., Fox, E., and Garnett, R. (eds.), Advances in Neural In-
+  formation Processing Systems 32, pp. 8024–8035. Curran
+  Associates, Inc., 2019.
+
+Pei, H., Wei, B., Chang, K. C.-C., Lei, Y., and Yang, B.
+  Geom-gcn: Geometric graph convolutional networks.
+  arXiv preprint arXiv:2002.05287, 2020.
+
+Rozemberczki, B., Allen, C., and Sarkar, R. Multi-scale at-
+  tributed node embedding. Journal of Complex Networks,
+  9(2):cnab014, 2021.
+
+Scarselli, F., Gori, M., Tsoi, A. C., Hagenbuchner, M., and
+  Monfardini, G. The graph neural network model. IEEE
+  Trans. Neural Networks, 20(1):61–80, 2008.
+
+Schafer, R. D. An introduction to nonassociative algebras.
+  Courier Dover Publications, 2017.
+
+Singer, A. and Wu, H.-T. Vector diffusion maps and the con-
+  nection laplacian. Communications on pure and applied
+  mathematics, 65(8):1067–1144, 2012.
+                                                       Neural Sheaf Diffusion
+
+A. Harmonic Space Proofs
+Proof of Proposition 7. We first note that on a discrete O(d) bundle the degree operator Dv = dv I since by orthogonality
+  >
+FvEe FvEe = I. We can use the Rayleigh quotient to characterize λF 0 as
+
+
+                                                                        hx, ∆F xi
+                                                      λF
+                                                       0 = min                    .
+                                                               x∈Rnd      ||x||2
+                                                                                                                  γ
+Fix v ∈ V and√choose a minimal path γv→u for all u ∈ V . For an arbitrary non-zero zv , consider the signal zu = Pv→u zv
+and we set z̃u du = zu .
+                   zu       zw               >                                  >
+           ||FuEe √ − FwEe √ ||2 = ||z̃u − (FuEe                    γ
+                                                 FwEe )z̃w ||2 = ||Pv→u z̃v − (FuEe FwEe )Pγv→w z̃v ||2 ,
+                    du       dw
+                                                                                                                  0
+                                                                      >
+where we have again used that the maps are orthogonal. Since (FuEe        FwEe )Pγv→w = Pγv→u we find that the right hand
+side can be bound from above by r2 ||z̃v ||2 . Therefore, by using Definition 24 we finally obtain
+
+                                                                               √zu − FwEe √zw ||2
+                                                            P
+                                                                u∼w ||FuEe                          r2 u∼w ||z̃v ||2
+                                                                                                      P
+                         hx, ∆F xi   hz, ∆F zi   1                                du        dw
+            λF
+             0 =    min            ≤           =                                                  ≤                  .
+                   x∈Rnd   ||x||2      ||z||2    2                              ||z||2              2   ||z||2
+
+Since the transport maps are all orthogonal we get
+                                            X                           X                     X
+                                 ||z||2 =        du ||Pγv→u z̃v ||2 =        du ||z̃v ||2 =         ||z̃v ||2 .
+                                             u                           u                    u∼w
+
+We conclude that
+                                                                             2
+                                                          r2                    r2
+                                                               P
+                                                                 u∼w ||z̃v ||
+                                                  λF
+                                                   0 ≤                 2
+                                                                               = .
+                                                          2       ||z||         2
+
+
+
+Proof of Proposition 8. Assume that x ∈ H 0 (G, F) and consider v ∈ V and any cycle based at v denoted by γv→v =
+(v0 = v, v1 , . . . , vL = v). According to Theorem 6 we have that
+
+                         Fvi+1 Ee xvi+1 = Fvi Ee xvi =⇒ xvi+1 = (Fv>i+1 Fvi )xvi := ρvi →vi+1 xvi .
+
+By composing all the maps we find:
+
+                                            xv = ρvL−1 →vL · · · ρv0 →v1 xv = Pγv→v xv
+
+which completes the proof.
+
+Proof of Proposition 9. If  = 0 there is nothing to prove. Assume that  > 0. By Proposition 8 we derive that the harmonic
+space is trivial and hence λF                                                        F
+                            0 > 0. Consider a unit eigenvector x ∈ ker(∆F − λ0 I) and let v ∈ V such that ||xv || ≥ ||xu ||
+for u 6= v. There exists a cycle γ based at v such that Pγv xv 6= xv for otherwise we could extend xv 6= 0 to any other node
+independently of the path choice and hence find a non-trivial harmonic signal. In particular, we can assume this cycle to be
+non-degenerate, otherwise if there existed a non-trivial degenerate loop contained in γ that does not fix x we could consider
+this√loop instead of γ for our argument. Let us write this path as (v0 = v, v1 , . . . , vL = v) and consider the rescaled signal
+x̃v dv = xv . By assumption we have
+
+                 ||x̃v || ≤ ||(Pγv→v − I)x̃v || = ||(ρvL−1 →vL · · · ρv0 →v1 − I)x̃v ||
+                        = ||FvL−1 ρvL−2 →vL−1 · · · ρv0 →v1 x̃v − FvL =v x̃v ||
+                        = ||FvL−1 ρvL−2 →vL−1 · · · ρv0 →v1 x̃v − FvL−1 x̃vL−1 + FvL−1 x̃vL−1 − FvL =v x̃v ||
+                        ≤ ||ρvL−2 →vL−1 · · · ρv0 →v1 x̃v − x̃vL−1 || + ||FvL−1 x̃vL−1 − FvL =v x̃v ||.
+                                                          Neural Sheaf Diffusion
+
+By iterating the approach above we find:
+
+                                   L                                            L
+                                                                                                                  ! 21
+                                   X                                      √     X
+                     ||x̃v || ≤         ||Fvi x̃vi − Fvi+1 x̃vi+1 || ≤       L   ||Fvi x̃vi − Fvi+1 x̃vi+1 ||2
+                                   i=0                                            i=0
+
+                                           L
+                                                                                        ! 21
+                                   √       X          xv          xv
+                             =         L        ||Fvi p i − Fvi+1 p i+1 ||2                    .
+                                            i=0
+                                                       dvi         dvi+1
+
+                                                                              p           p
+From Definition 24 we derive that the last term can be bounded from above by 2LEF (x) = 2Lhx, ∆F xi. Therefore,
+we conclude:
+                                ||xv || p
+                                                          q                 q
+                               √      ≤ 2Lhx, ∆F xi = 2LλF      0 ||x|| ≤ 2  diam(G)λF
+                                                                                      0 .
+                                   dv
+                                    √
+By construction we get ||xv || ≥ 1/ n, meaning that
+
+                                                                   2     1
+                                                        λF
+                                                         0 ≥                   .
+                                                               2diam(G) n dmax
+
+
+
+Proof of Lemma 10. We first note that the argument below extends to weighted O(d)-bundles as well. Let x ∈ H 0 (G, F).
+According to Proposition 8, given v, u ∈ V , we see that xu = Pγv→u xv for any path γv→u . It means that the harmonic
+space is uniquely determined by the choice of xv ∈ F(v). Explicitly, given any cycle γ based at v, we know that
+xv ∈ ker(Pγv→v − I). If the transport is everywhere path-independent, then the kernel coincides with the whole stalk
+F(v) and hence we can extend any basis {xvi } ∈ F(v) ∼      = Rd to a basis in H 0 (G, F) via the transport maps, i.e.
+       0
+dim(H (G, F)) = d. If instead there exists a transport map over a cycle γv→v with non-trivial fixed points, then
+ker(Pγv→v − I) < F(v) ∼ = Rd and hence dim(H 0 (G, F)) < d.
+
+B. Proofs for the Power of Sheaf Diffusion
+Definition 29. Let G = (V, W) be a weighted graph, where W is a matrix with wvu = wuv ≥ 0 for all v 6= u ∈ V ,
+wvv = 0 for all v ∈ V , and (v, u) is an edge if and only if wvu > 0.
+
+The graph
+     P Laplacian of a weighted graph      is L = D − W, where D is the diagonal matrix of weighted degrees (i.e.
+                                        e = D−1/2 LD−1/2 .
+dv = u wvu ). Its normalised version is L
+                                                          1
+Proposition 30. Let G be a graph. The set {∆F | (G, F) ∈ Hsym } is isomorphic to the set of all possible weighted graph
+Laplacians over G.
+
+Proof. We prove only one direction. Let W be a choice of valid weight matrix for the graph G. We can construct a
+                1                                                                  √
+       P F) ∈ Hsym
+sheaf (G,           such that for all edges v, u E e we have that FvEe = FuEe = ± wvu . Then, Lvu = −wvu and
+Lvv = e kFvEe k2 = u wvu . The equality for the normalised version of the Laplacians follows directly.
+                     P
+
+
+We state the following Lemma without proof based on Theorem 3.1 in Hansen & Ghrist (2021).
+Lemma 31. Solutions X(t) to the diffusion in Equation 1 converge as t → ∞ to the orthogonal projection of X(0) onto
+ker(∆F ).
+
+Due to this Lemma, the proofs below rely entirely on the structure of ker(∆F ) that one obtains for certain (G, F).
+
+Proof of Proposition 13. Let G = (V, E) be a graph with two classes A, B ⊂ V such that for each v ∈ A, there exists
+u ∈ A and an edge (v, u) ∈ E. Additionally, let x(0) be any channel of the feature matrix X(0) ∈ Rn×f .
+                                     1
+We can construct a sheaf (F, G) ∈ Hsym                                                       ∼      ∼
+                                                 √ For all nodes v ∈ V and edges e ∈ E, F(v) = F(e) = R. For all
+                                        as follows.
+v, u ∈ A and edge (u, v) ∈ E, set FvEe = FuEe = α > 0. Otherwise, set FvEe = 1.
+                                                    Neural Sheaf Diffusion
+
+Denote by hv the number of neighbours of node v in the same class as v . Note that based on the assumptions, hv > 1 if
+v ∈ A. Then the only harmonic eigenvector of ∆F is:
+                                              (p
+                                                  dv + hv (α − 1), v ∈ A
+                                        av = √                                                                    (7)
+                                                  dv ,               v∈B
+                                           a
+Denote its unit-normalised version a
+                                   e := kak                                                                               eie
+                                             . In the limit of the diffusion process, the features converge to h = hx(0), a a by
+                                          ⊥
+Lemma 31. Assuming, x(0) ∈    / ker(∆F ) , which is nowhere dense in Rn and, without loss of generality, that hx(0), a   ei > 0,
+                               eu for all v ∈ A, u ∈ B.
+                          ev ≥ a
+for sufficiently large α, a
+
+Proof of Proposition 14. Let G = (A, B, E) be a bipartite graph with |A| = |B| and let x(0) ∈ Rn be any channel of the
+feature matrix X(0) ∈ Rn×f .
+                                       1
+Consider an arbitrary sheaf (G, F) ∈ Hsym . Since the graph is connected, the only harmonic eigenvector of ∆F is y ∈ Rn
+           qP
+                             2
+with yv =        vEe kFvEe k (i.e. the square root of the weighted degree). Based on Lemma 31, the diffusion process
+converges in the limit (up to a scaling) to hx, yiy. For the features
+                                                                   Pto be linearly separable                        6 0 and,
+                                                                                             we require that hx, yi =
+without loss of generality, for all v ∈ A, u ∈ B that yv < yu ⇔ vEe kFvEe k2 < uEe kFuEe k2 .
+                                                                                     P
+
+                                                               1
+Suppose for the sake of contradiction there exists a sheaf in Hsym with such a harmonic eigenvector. Then, because
+|A| = |B|:
+  XX                 XX                   XX                  XX                     X
+         kFvEe k2 <          kFuEe k2 ⇔            kFvEe k2 −        kFuEe k2 < 0 ⇔      kFvEe k2 − kFuEe k2 < 0
+  v∈A vEe              u∈B uEe                v∈A vEe              u∈B uEe                    e∈E
+
+                           1
+However, because (F, G) ∈ Hsym , we have FvEe = FuEe and the sum above is zero.
+
+Proof of Proposition 16. Let G = (V, E) be a connected graph with two classes A, B ⊂ V . Additionally, let x(0) be any
+channel of the feature matrix X(0) ∈ Rn×f .
+                                                                                       = F(e) ∼
+We can construct a sheaf (F, G) ∈ H1 (G) as follows. For all nodes v and edges e, F(v) ∼      = R. For all v ∈ A, set
+FvEe = α. For all u ∈ B, set FuEe = β. Additionally, let α < 0 < β.
+Since the graph is connected, by Lemma 10, the only harmonic eigenvector of ∆F is:
+                                                                    √
+                                         qP                  (
+                                        β              2
+                                                 vEe α          β|α| dv , v ∈ A
+                                   yv =      q             =        √                                                       (8)
+                                                                α|β| dv , v ∈ B
+                                               P        2
+                                        α
+                                                  vEe β
+
+
+Assume x(0) ∈/ ker(∆F )⊥ , which is nowhere dense in Rn and, without loss of generality, that hx(0), yi > 0. Then,
+yv > 0 > yu for all v ∈ A, u ∈ B.
+
+                                                                                                                      1
+Proof of Proposition 18. Let G be the connected graph with two nodes V = {v, u}. Then any sheaf (F, G) ∈ H+             (G)
+has restriction maps of the form FvEe = α, FuEe = β and (without loss of generality) α, β > 0. As before, the only
+(unormalised) harmonic eigenvector for a sheaf of this form is y = (|α|β, α|β|) = (αβ, αβ). Since this is a constant vector,
+the two nodes are not separable in the diffusion limit.
+
+We state the following result without proof (see Exercise 4.1 in Bishop (2006)).
+Lemma 32. Let A and B be two sets of points in Rn . If their convex hulls intersect, the two sets of points cannot be linearly
+separable.
+
+Proof of Proposition 19. If the sheaf has a trivial global section, then all features converge to zero in the diffusion
+limit. Suppose H 0 (G, F) is non-trivial. Since G is connected and all the restriction maps are invertible, by Lemma 10,
+dim(H 0 ) = 1.
+In that case, let h be the unit-normalised harmonic eigenvector of ∆F . By Lemma 31, for any node v, its scalar feature in
+channel k ≤ f is given by xkv (∞) = hxk (0), hihv . Note that we can always find three nodes v, u, w belonging to three
+                                                         Neural Sheaf Diffusion
+
+different classes such that hv ≤ hu ≤ hv . Then, there exists a convex combination hu = αhv + (1 − α)hw , with α ∈ [0, 1].
+Therefore:
+
+            xku (∞) = hxk (0), hihu = αhxk (0), hihv + (1 − α)hxk (0), hihw = αxkv (∞) + (1 − α)xkw (∞).                   (9)
+
+Since this is true for all channels k < f , it follows that xu (∞) = αxv (∞) + (1 − α)xw (∞). Because xu (∞) is in the
+convex hull of the points belonging to other classes, by Lemma 32, the class of v is not linearly separable from the other
+classes.
+
+Proof of Proposition 21. Let G = (V, E) be a connected graph with C classes and (F, G), an arbitrary sheaf in HC (G).
+Because F has diagonal restriction maps there is no interaction during diffusion between the different dimensions of the
+stalks. Therefore, the diffusion process can be written as d independent diffusion processes, where the i-th process uses
+                                                  i
+a sheaf F i with all stalks isomorphic to R and FvEe   = FvEe (i, i) for all v ∈ V and incident edges e. Therefore, we can
+                       i      1
+construct d sheaves F ∈ H (G) with i < d as in Proposition 16, where (in one vs all fashion) the two classes are given by
+the nodes in class i and the nodes belonging to the other classes.
+It remains to restrict that the projection of x(0) on any of the harmonic eigenvectors of ∆F in the standard basis is non-zero.
+Formally, we require xi (0) ∈   / ker(∆F i )⊥ for all positive integers i ≤ d. Since ker(∆F i )⊥ is nowhere dense in Rn , x(0)
+belongs to the direct sum of dense subspaces, which is dense.
+Lemma 33. Let G = (V, E) be a graph and (F, G) a (weighted) orthogonal vector bundle over G with path-independent
+parallel transport and edge weights αe . Consider an arbitrary node v ∗ ∈ V and denote by ei the i-th standard basis vector
+of Rd . Then {h1 , . . . , hd } form an orthogonal eigenbasis for the harmonic space of ∆F , where:
+                                                             qP
+                                                                                       v = v∗
+                                        ( p                                 2
+                                                            ei
+                                         ei dvF                        vEe αe ,
+                                  hiv =          p       =               qP                                            (10)
+                                         Pv→w ei dF  v
+                                                            Pv∗→w ei            αe2 , otherwise
+                                                                                  vEe
+
+
+Proof. First, we show that hiv is harmonic.
+                       1       X      1               1
+         EF (hiv ) =               k p Fv≤e hv − p FuEe hu k22                                                            (11)
+                       2              d F
+                                        v             dFu
+                      v,u,e:=(v,u)
+                    1     X
+                  =                kFv≤e Pv∗ →v ei − FuEe Pv∗ →u ei k22                                                   (12)
+                    2
+                           v,u,e:=(v,u)
+                       1       X
+                  =                       kFv≤e Pu→v Pv∗ →u ei − FuEe Pv∗ →u ei k22           By path independence        (13)
+                       2
+                           v,u,e:=(v,u)
+                       1       X
+                                                 >
+                  =                       kFv≤e FvEe FuEe Pv∗ →u ei − FuEe Pv∗ →u ei k22     By definition of Pu→v        (14)
+                       2
+                           v,u,e:=(v,u)
+                    1          X
+                  =                       kFuEe Pv∗ →u ei − FuEe Pv∗ →u ei k22 = 0           Orthogonality of FvEe        (15)
+                    2
+                           v,u,e:=(v,u)
+
+For orthogonality, notice that for any i, j ≤ d and v ∈ V , it holds that:
+                                                 q                 q        q q
+                         hhiv , hjv i = hPv∗→w ei dF v , Pv∗→w ej     dF
+                                                                       v i=  dF
+                                                                              v dF
+                                                                                 v hei , ej i = 0                         (16)
+
+
+
+Lemma 34. Let R1 , R2 be two 2D rotation matrices and e1 , e2 the two standard basis vectors of R2 . Then hR1 e1 , R2 e2 i =
+−hR1 e2 , R2 e1 i.
+
+Proof. The angle between e1 and e2 is π2 . Letting φ, θ be the positive rotation angles of the two matrices, the first inner
+product is equal to cos(π/2 + (φ − θ)) while the second is cos(π/2 − (φ − θ)). The result follows from applying the
+trigonometric identity cos(π/2 + x) = − sin x.
+                                                         Neural Sheaf Diffusion
+
+
+
+
+                     (a) Aligning the features of each class                 (b) Separating an arbitrary number of
+                     with the axis of coordinates in a 2D                    classes when the graph is regular. Dotted
+                     space. Dotted lines indicate linear deci-               line shows an example decision boundary
+                     sion boundaries for each class.                         for one of the classes.
+
+                                         Figure 4. Proof sketch for Lemma 35 and Proposition 36.
+
+
+We first prove Theorem 23 in dimension two in the following lemma and then we will look at the general case.
+                                                                            2
+Lemma 35. Let G be the class of connected graphs with C ≤ 4 classes. Then, Horth (G) has linear separation power over
+G.
+
+Proof. Idea: We can use rotation matrices to align the harmonic features of the classes with the axis of coordinates as in
+Figure 4a. Then, for each side of each axis, we can find a separating hyperplane separating each class from all the others.
+Let G be a connected graph with C ≤ 4 classes. Denote by P the following set of rotation matrices together with their
+signed-flipped counterparts:
+                                                                    
+                                                1 0              0 −1
+                                        R1 =          , R2 =                                                     (17)
+                                                0 1              1 0
+
+and by C = {1, . . . , C} the set of all class labels. Then, fix a node v ∗ ∈ V and construct an injective map g : C → P
+assigning each class label one of the signed basis vectors such that g(c(v ∗ )) = R1 , where c(v ∗ ) denotes the class of node
+v∗ .
+                                              2
+Then, we can construct an sheaf (G, F) ∈ Horth    (G) in terms of certain parallel transport maps along each edge, that will
+depend on P. For all nodes v and edges e, F(v) ∼   = F(e) ∼ = R2 . For each u ∈ V , we set Pv∗ →u = g(c(u)). Then for all
+                                 −1
+v, u ∈ V , set Pv→u = Pv∗ →v Pu→v∗ . It is easy to see that the resulting parallel transport is path-independent because it
+depends purely on the classes of the endpoints of the path.
+                                                                                          √
+Based on Lemma 33, the i-th eigenvector of ∆F is hi ∈ R2×n with hiu = Pv∗ →u ei du . Now we will show that the
+projection of x(0) in this subspace will have a configuration as in Figure 4a up to a rotation.
+Let u, w be two nodes belonging to two different classes. Denote by αi = hx(0), hi i. Then the inner product between the
+features of nodes u, w in the limit of the diffusion process is:
+              X        p               X        p
+     hPv∗ →u      αi ei du , Pv∗ →w        αj ej dw i =
+                 i                          j
+         p           hX                                        X                               i
+     =       du dw          αi αj hPv∗ →u ei , Pv∗ →w ej i +       αk2 hPv∗ →u ek , Pv∗ →w ek i
+                     i6=j                                      k
+         p           hX                                                              X                              i
+     =       du dw          αi αj hPv∗ →u ei , Pv∗ →w ej i + hPv∗ →u ej , Pv∗ →w ei i +  αk2 hPv∗ →u ek , Pv∗ →w ek i             (18)
+                     i<j                                                                       k
+         X
+     =        αk2 hPv∗ →u ek , Pv∗ →w ek i                                                                               (by Lemma 34)
+         k
+                                                      Neural Sheaf Diffusion
+
+It can be checked that by substituting the transport maps Pv∗ →u , Pv∗ →w with any Ra , Rb from P√such that          P Ra2 6=
+±R√ b , the inner product above    is zero. Similarly, substituting any Ra = −R b , the inner product is −   d u d w  k αk =
+− du dw kx(0)k2 , which is equal to the product of the norms of the two vectors. Therefore, the diffused features of different
+classes are positioned at π2 , π, 3π
+                                   2 from each other, as in Figure 4a.
+
+
+Proof of Theorem 23. To generalise the proof, we need to find a set P of size d containing rotation matrices that make
+the projected features of different classes be pairwise orthogonal for any projection coefficients α. For that, each term in
+Equation 18 must be zero for any coefficients α.
+Therefore, P = {P0 , . . . , Pd−1 } must satisfy the following requirements:
+
+  1. P0 = I ∈ P, since transport for neighbours in the same class must be the identity. Therefore, P0 Pk = Pk P0 = Pk
+     for all k.
+  2. Since hP0 ei , Pk ei i = 0 for all i and k 6= 0, it follows that the diagonal elements of Pk are zero.
+  3. From hP0 ei , Pk ej i = −hP0 ej , Pk ei i for all i 6= j, k 6= 0 and point (2) it follows that P−1   >
+                                                                                                     k = Pk = −Pk . Therefore,
+     Pk Pk = −I for all k 6= 0.
+  4. We have hPk ei , Pl ei i = 0 for all i and k 6= l. Together with (3), it follows that the diagonal elements of Pk Pl are
+     zero.
+  5. We have hPk ei , Pl ej i = −hPk ej , Pl ei i for all i 6= j, and k 6= l, with k, l 6= 0. Together with point (4) it follows that
+     (Pk Pl )> = −Pk Pl . Similarly, from point (3) we have that (Pk Pl )> = P>            >
+                                                                                       l Pk = (−Pl )(−Pk ) = Pl Pk . Therefore,
+     the two matrices are anti-commutative: Pk Pl = −Pl Pk .
+
+We remark that points (1), (3), (5) coincide with the defining algebraic properties of the algebra of complex numbers,
+quaternions, octonions, sedenions and their generalisations based on the Cayley-Dickson construction (Schafer, 2017).
+Therefore, the matrices in P must be a representation of one of these algebras. Firstly, such algebras exist only for d that are
+powers of two. Secondly, matrix representations for these algebras exist only in dimension two and four. This is because the
+algebra of octonions and their generalisations, unlike matrix multiplication, is non-associative. As a sanity check, note that
+the matrices R1 , R2 from Lemma 35 are a classic representation of the unit complex numbers.
+We conclude this section by giving out the matrices for d = 4, which are the real matrix representations of the four unit
+quaternions:
+                                                                                                           
+           1 0 0 0                   0 −1 0 0                      0 0 −1 0                      0 0 0 −1
+                                                                                    , R4 = 0 0 −1 0  .
+          0 1 0 0                1 0 0 0                     0 0         0 1                               
+   R1 =  0 0 1 0 , R2 = 0 0 0 −1 , R3 = 1 0
+                                                              
+                                                                              0 0              0 1 0          0
+           0 0 0 1                   0 0 1 0                       0 −1 0 0                      1 0 0          0
+It can be checked that these matrices respect the properties outlined above. Thus, in d = 4, we can select the transport maps
+from the set {±R1 , ±R2 , ±R3 , ±R4 } containing eight matrices, which also form a group. Therefore, following the same
+procedure as in Lemma 35, we can linearly separate up to eight classes.
+                                                                                                       2
+Proposition 36. Let G be the class of connected regular graphs with a finite number of classes. Then, Horth (G) has linear
+separation power over G.
+
+Proof of Propositon 36. Idea: Since the graph is regular, the harmonic features of the nodes will be uniformly scaled and
+thus positioned on a circle. The aim is to place different classes at different locations on the circle, which would make the
+classes linearly separable as shown in Figure 4b.
+Let G be a regular graph with C classes and define θ = 2πC . Denote by Ri the 2D rotation matrix:
+                                                                        
+                                                      cos(iθ) − sin(iθ)
+                                              Ri =                                                                              (19)
+                                                       sin(iθ) cos(iθ)
+
+Then let P = {Ri | 0 ≤ i ≤ C − 1, i ∈ N } the set of rotation matrices with an angle multiple of θ. Then we can define a
+                                          2
+bijection g : C → P and a sheaf (G, F) ∈ Horth (G) as in the proof above. Checking the inner-products from Equation 18
+                                                     Neural Sheaf Diffusion
+
+between the harmonic features of the nodes, we can verify that the angle between any two classes is different from zero. By
+Lemma 34, the cross terms of the inner product vanish:
+                          X                          X
+                              αk2 hRi [k], Rj [k]i =    αk2 cos((i − j)θ) = cos((i − j)θ)kxk2                          (20)
+                                k                         k
+
+Thus, the angle between classes i, j is (i − j)θ.
+
+C. Proofs for oversmoothing
+Proof of Proposition 26. Let x ∈ H 0 (G, F). Then we have
+                                             1 X               −1             −1
+                              0 = EF (x) =             ||FvEe Dv 2 xv − FuEe Du 2 xu ||2
+                                             2
+                                               (v,u)∈E
+                                             1 X           
+                                                               −1        −1
+                                                                              
+                                          =            ||Fe Dv 2 xv − Du 2 xu ||2
+                                             2
+                                                    (v,u)∈E
+                                               1     X           −1         −1
+                                             =                ||dv 2 xv − du 2 xu ||2 .
+                                               2
+                                                    (v,u)∈E
+                                        k
+The last term vanishes if and only if x ∈ ker ∆0 for each 1 ≤ k ≤ d.
+Proposition 37. Let F be an O(d)-bundle over G and ε > 0. Assume that FvEe = FuEe for each (u, v) 6= (u0 , v0 ) and
+that Fv>0 Ee Fu0 Ee − I := B 6= 0 with dim(ker B) > 0. Then there exist a linear map W ∈ Rd×d with ||W||2 = ε and
+x ∈ H 0 (G, F) such that EF ((I ⊗ W)x) > 0.
+
+Proof. We sketch the proof. Let g ∈ ker(B). Define then x ∈ C 0 (G, F) by
+                                                          p
+                                                    xv = dv g.
+Then x ∈ H 0 (G, F). If we now take W = εPkerB⊥ the rescaled orthogonal projection in the orthogonal complement of
+the kernel of B we verify the given claim.
+
+We provide below a proof for the equality in Definition 24.
+Proposition 38.
+                                            1 X
+                               x> ∆F x =              kFvEe Dv−1/2 xv − FuEe Du−1/2 xu k22
+                                            2
+                                               e:=(v,u)
+
+
+Proof. We prove the result for the normalised sheaf Laplacian, and other versions can be obtained as particular cases.
+                                    X                  X
+              E(x) = x> ∆F x =          x>
+                                         v ∆vv xv +          x>w ∆wz xz                                                (21)
+                                       v                    w6=z
+                                                          (w,z)∈E
+                          X                                            X
+                      =         x>      FvEe FvEe Dv−1/2 xv +
+                                    −1/2 >
+                                 v Dv                                           x>           >
+                                                                                 w ∆wz xz + xz ∆zw xw                 (22)
+                          vEe                                           w<z
+                                                                      (w,z)∈E
+                        1 X  > −1/2 >
+                      =          xv Dv    FvEe FvEe Dv−1/2 xv + x>
+                                                                 w Dw
+                                                                     −1/2 >
+                                                                          FwEe FwEe Dw−1/2
+                                                                                           xw                         (23)
+                        2
+                          v,wEe
+                                                                                       
+                        + x>   −1/2 >
+                            v Dv   FvEe FwEe Dw−1/2
+                                                    xw + x>w Dw
+                                                               −1/2 >
+                                                                   FwEe FvEe Dv−1/2 xv                                (24)
+                        1 X > −1/2 >
+                                         FvEe FvEe Dv−1/2 xv − FwEe Dw  −1/2
+                                                                                
+                      =         xv Dv                                        xw                                       (25)
+                        2
+                          v,wEe
+
+                        − x>       FwEe FvEe Dv−1/2 xv − FwEe Dw
+                               −1/2 >                             −1/2
+                                                                          
+                            w Dw                                       xw                                             (26)
+                        1 X
+                                 x>       FvEe − x>
+                                      −1/2 >
+                                                           FwEe FvEe Dv−1/2 xv − FwEe Dw
+                                                      −1/2 >                               −1/2
+                                                                                                  
+                      =           v Dv            w Dw                                          xw                    (27)
+                        2
+                           v,wEe
+                                                   Neural Sheaf Diffusion
+
+                                                              −1/2
+Note that Dv is symmetric for any node v and so is any Dv           . Therefore, the two vectors in the parenthesis are the
+transpose of each other and the result is their inner product. Thus, we have:
+
+                                             1 X
+                                 EF (x) =                                −1/2
+                                                 kFvEe Dv−1/2 xv − FwEe Dw    xw k22                                    (28)
+                                             2
+                                               v,wEe
+
+
+The result follows identically for other types of Laplacian. For the augmented normalized Laplacian, one should simply
+replace D with D̃ = D + I and for the non-normalised Laplacian, one should simply remove D from the equation.
+
+
+
+Proof of Theorem 25. We first prove a couple of Lemmas before proving the Theorem. The structure of the proof follows
+that of Cai & Wang (2020), which in turn generalises that of Oono & Suzuki (2019). The latter proof technique is not
+directly applicable to our setting because it makes some strong assumptions about the harmonic space of the Laplacian (i.e.
+that the eigenvectors of the harmonic space have positive entries).
+                                        
+λ∗ = max (λmin − 1)2 , (λmax − 1)2 , where λmin , λmax are the smallest and largest non-zero eigenvalues of ∆F .
+
+
+Lemma 39. For P = I − ∆F , E(Px) < λ∗ EF (x).
+
+
+
+Proof. We can write x = i ci hi as a sum of the eigenvectors {hi } of ∆F . Then x> ∆F x = i c2i λi hi , where {λi } are
+                         P                                                               P
+the eigenvalues of ∆F . Using this for EF (Ph):
+
+                                                             X                             X
+                 EF (Px) = x> P> ∆Px = x> P∆Pf =                  c2i λi (1 − λi )2 ≤ λ∗        c2i λi = λ∗ EF (f )     (29)
+                                                             i                              i
+
+
+The inequality follows from the fact that the eigenvectors of the normalied sheaf Laplacian are in the range [0, 2] (Hansen &
+Ghrist, 2019, Proposition 5.5). We note that the original proof of Cai & Wang (2020) bounds the expression by (1 − λmin )2
+instead of λ∗ , which appears to be an error.
+
+
+Lemma 40. EF (XW) ≤ kW> k22 EF (X)
+
+
+
+Proof. Following the proof of Cai & Wang (2020) we have:
+
+                  EF (XW) = Tr(W> X> ∆F XW)                                                                             (30)
+                                      >             >
+                             = Tr(X ∆F XWW )                                               trace cyclic property        (31)
+                                      >                 >
+                             ≤ Tr(X ∆F X)kWW k2                                see Lemma 3.1 in Lee (2008)              (32)
+                                      >
+                             = Tr(X       ∆F X)kW> k22                                                                  (33)
+
+
+
+
+                                                       
+Lemma 41. For conditions as in Theorem 25, EF (In ⊗ W)x ≤ kWk22 E(f ).
+
+
+                                                                      2
+                                                             P
+Proof. First, we note that for orthogonal matrices, Dv = I       vEe αe = Idv (Hansen & Ghrist, 2019, Lemma 4.4)
+                                                 Neural Sheaf Diffusion
+
+
+
+               1 X
+   EF (I ⊗ W)x =                             −1/2
+                    kFvEe Dv−1/2 Wfv − FwEe Dw    Wxw k22                                                           (34)
+                 2
+                         v,wEe
+                        1 X
+                            kFe W d−1/2 xv − d−1/2 xw k22
+                                                     
+                    =              v          w                                                                     (35)
+                        2
+                         v,wEe
+                        1 X
+                            kW d−1/2 xv − d−1/2 xw k22
+                                                  
+                    =           v          w                                           Fe is orthogonal             (36)
+                        2
+                         v,wEe
+                        1 X
+                    ≤       kWk22 kdv−1/2 xv − d−1/2
+                                                w    xw k22                             property of the operator norm
+                        2
+                         v,wEe
+                                                                                                                    (37)
+                      1 X
+                          kWk22 kFe d−1/2 xv − d−1/2 xw k22
+                                                       
+                    =                v          w                                      Fe is orthogonal             (38)
+                      2
+                         v,wEe
+                        1       X
+                          kWk22                    −1/2
+                                  kFe Dv−1/2 xv − Dw    xw k22 = kWk22 EF (x)
+                                                          
+                    =                                                                                               (39)
+                        2
+                                 v,wEe
+
+
+The proof can also be extended easily extended to vector bundles over weighted graphs (i.e. allowing weighted edges as in
+Ghrist & Riess (2020)). For the non-normalised Laplacian, the assumption that Fe is orthogonal can be relaxed to being
+non-singular and then the upper bound will also depend on the maximum conditioning number over all Fe .
+                                                  
+Lemma 42. For conditions as in Theorem 25, EF σ(x) ≤ E(x).
+
+
+Proof.
+             1 X
+      E σ(x) =                                −1/2
+                  kFvEe Dv−1/2 σ(xv ) − FwEe Dw    σ(xw )k22                                                        (40)
+               2
+                     v,wEe
+                    1 X
+                        kFe d−1/2           −1/2
+                                                 σ(xw ) k22
+                                                       
+                =            v    σ(xv ) − dw                                                                       (41)
+                    2
+                     v,wEe
+                  1 X −1/2
+                =         kdv σ(xv ) − d−1/2
+                                           w     σ(xw )k22                  orthogonality of Fe                     (42)
+                  2
+                    v,wEe
+                  1 X         x 
+                                 v
+                                          x 
+                                             w
+                =         kσ √        −σ √        k22                       cReLU(x) = ReLU(cx) for c > 0           (43)
+                  2              d v         d w
+                    v,wEe
+                  1 X xv             xw
+                ≤         k √ − √ k22                                       Lipschitz continuity of ReLU            (44)
+                  2           dv      dw
+                    v,wEe
+                  1 X
+                          kFe d−1/2  xv − d−1/2  xw k22
+                                                     
+                =                v         w                                orthogonality of Fe                     (45)
+                  2
+                     v,wEe
+
+                = EF (x)                                                                                            (46)
+
+
+
+
+Combining these three lemmas for an entire diffusion layer proves the Theorem.
+
+
+Proof of Theorem 28. If d = 1, then Lemma 41 becomes superfluous as W1 becomes a scalar that can be absorbed into
+the right-weights. It remains to verify that a version of Lemma 42 holds in this case.
+                                                           
+Lemma 43. For conditions as in Theorem 28, EF σ(x) ≤ E(x).
+                                                    Neural Sheaf Diffusion
+
+Proof.
+            1 X
+     E σ(x) =                                −1/2
+                 kFvEe Dv−1/2 σ(xv ) − FwEe Dw    σ(xw )k22                                                               (47)
+              2
+                     v,wEe
+                 1 X
+               =         k|FvEe |Dv−1/2 σ(xv ) − |FwEe |Dw−1/2
+                                                                σ(xw )k22        FvEe FwEe > 0                            (48)
+                 2
+                   v,wEe
+                             |F |x          |F
+                 1 X                              wEe |xw
+                                                          
+                                vEe v
+               =         kσ     √        −σ       √         k22                  cReLU(x) = ReLU(cx) for c > 0            (49)
+                 2                dv                dw
+                   v,wEe
+                   1 X |FvEe |xv  |FwEe |xw 2
+               ≤      k √        − √       k2                                    Lipschitz continuity of ReLU             (50)
+                   2       dv        dw
+                     v,wEe
+                   1 X
+               =                               −1/2
+                       kFvEe Dv−1/2 xv − FwEe Dw    xw k22                       FvEe FwEe > 0                            (51)
+                   2
+                     v,wEe
+
+               = EF (x)                                                                                                   (52)
+
+
+
+We note that if FvEe FwEe < 0 (i.e. the reation is signed), then it is very easy to find counter-examples where ReLU does
+not work anymore. However, the result still holds in the deep linear case.
+
+D. Additional model details and hyperparameters
+                                                                >
+Hybrid transport maps Consider the transport maps −FvEe             FuEe appearing in the off the diagonal entires of the sheaf
+Laplacian LF . When learning a sheaf Laplacian there exists the risk that the features are not sufficiently good in the L early
+                                                                                                                >
+layers (or
+       L   in  general) and, therefore, it might be useful to consider a  hybrid transport map of the form  −F     F
+                                                                                                                vEe uEe      F,
+where      is the direct sum  of two matrices and  F represents  a fixed (non-learnable map).  In particular we consider  maps
+                  >
+                           L L
+of the form −FvEe    FuEe I1 −I1 which essentially appends a diagonal matrix with 1 and −1 on the diagonal to the
+learned matrix. From a signal processing perspective, these correspond to a low-pass and a high-pass filter that could
+produce generally useful features. We treat the addition of these fixed parts as an additional hyper-parameter.
+
+Adjusting the activation magnitudes We note that in practice we find it useful to learn an additional parameter ε ∈
+[−1, 1]d (i.e. a vector of size d) in the discrete version of the models:
+                                                                                  
+                                       Xt+1 = (1 + ε)Xt − σ ∆F (t) (I ⊗ W1t )Xt W2t .                          (53)
+
+This allows the model to adjust the relative magnitude of the features in each stalk dimension. This is used across all of our
+experiments in the discrete models.
+
+Augmented normalised sheaf Laplacian Similarly to GCN which normalises the Laplacian by the augmented degrees
+(i.e. (D + In )−1/2 , where D is the usual diagonal matrix of node degrees), we similarly use (D + Ind )−1/2 for normalisation
+to obtain greater numerical stability. This is particularly helpful when learning general sheaves as it increases the numerical
+stability of SVD.
+
+Learning sheaves and the k-WL test According to our theoretical results, one should learn a pair of non-equal restriction
+maps along the edges between two classes. Suppose this is done via a local functions FvEe:=(v,u) = φ(xv , xu ). Then,
+φ(xv , xu ) 6= φ(xu , xv ) only if xu 6= xv . This leads to the following remark.
+Remark. Let G be a graph with an initial colouring x such that ∃(v, u) ∈ E and v and u are not k-WL distinguishable.
+Then no model upper bounded by k-WL can learn an asymmetric relation along the edge (v, u).
+
+This observation motivates our decision to evolve the geometry at each layer of the model since at initialisation time many
+nodes might not be distinguishable. At the same time, it suggests that provably expressive architectures might be able to
+learn better sheaves (see ablation study in Appendix E).
+                                                        Neural Sheaf Diffusion
+
+
+
+
+Figure 5. (Left) Train accuracy as a function of diffusion time. (Middle) Test accuracy as a function of diffusion time. (Right) Histogram
+of the learned rotation angle of the 2D transport maps. The performance of the bundle model is superior to that of the one-dimensional
+sheaf. The transport maps learned by the model are aligned with our expectation: the model learns to rotate more (i.e. to move away) the
+neighbours belonging to different classes than the neighbours belonging to the same class.
+
+
+Hyperparameters for discrete models For the discrete models we searched in the following hyperparameters:
+ • Hidden channels: [8, 16, 32] for WebKB datasets and [8, 16, 32, 64] for all the other datasets.
+ • d: [1, 2, 3, 4, 5]
+ • Layers: [2, 3, 4, 5, 6, 7, 8]
+ • Learning rate: 0.02 for the WebKB datasets and 0.01 for all the other datasets.
+ • Weight decay for the regular model parameters: searched in a log-uniform range over [−4.5, 11.0]
+ • Weight decay for the parameters learning the sheaf: searched in a log-uniform range over [−4.5, 11.0]
+ • Dropout on the inputs: searched uniformly over [0, 0.9].
+ • Dropout for the other layers: searched uniformly over [0, 0.9].
+ • Early stopping patience: 100 epochs for the Wiki datasets and 200 for the others.
+ • Maximum training epochs: 1000 epochs for the Wiki datasets and 500 for the others.
+
+Hyperparameters for continous models For the continous models we searched over the following hyperparameters:
+ • Hidden channels: [8, 16, 32, 64]
+ • d: [1, 2, 3, 4, 5]
+ • Learning rate: searched in a log-uniform range over [0.01, 0.1]
+ • Weight decay : searched in a log-uniform range over [−6.9, 13.8]
+ • Dropout: searched uniformly in [0, 0.95].
+ • ODE Integration method: euler.
+ • Maximum integration time: searched uniformly over [1.0, 9.0].
+ • Training epochs: 50.
+We train all models using the Adam optimiser (Kingma & Ba, 2015). All models use ELU activations.
+
+E. Additional Experiments
+In this section we provide a series of additional experiments and abaltion studies.
+
+Two dimensional synthetic experiment In the main text we focused on a synthetic example involving sheaves with
+one-dimensional stalks. We now consider a graph with three classes and two-dimensional features, with edge homophily
+level 0.2. We use 80% of the nodes for training and 20% for testing. First, we know that a discrete vector bundle with
+two-dimensional stalks that can solve the task in the limit exists from Theorem 23, while based on Proposition 19 no sheaf
+with one-dimensional stalks can perfectly solve the tasks.
+                                                          Neural Sheaf Diffusion
+
+                                                 Eigenvectors      Texas        Wisconsin       Cornell
+                                                     0          82.97 ± 4.37   86.47 ± 2.55   80.00 ± 6.07
+                                  Cont Diag-SD       2           3.51 ± 5.05   85.69 ± 3.73   81.62 ± 8.00
+                                                     8          85.41 ± 5.82   86.28 ± 3.40   82.16 ± 5.57
+                                                     16         82.70 ± 3.86   85.88 ± 2.75   81.08 ± 7.25
+                                                     0          82.43 ± 5.95   84.50 ± 4.34   72.16 ± 10.40
+                                  Cont O(d)-SD       2          84.05 ± 5.85   85.88 ± 4.62   83.51 ± 9.70
+                                                     8          84.87 ± 4.71   86.86 ± 3.83   84.05 ± 5.85
+                                                     16         83.78 ± 6.16   85.88 ± 2.88   83.51 ± 6.22
+                                                     0          83.78 ± 6.62   85.29 ± 3.31   84.60 ± 4.69
+                                  Cont Gen-SD        2          83.24 ± 4.32   84.12 ± 3.97   81.08 ± 7.35
+                                                     8          82.70 ± 5.70   84.71 ± 3.80   83.24 ± 6.82
+                                                     16         82.16 ± 6.19   86.47 ± 3.09   82.16 ± 6.07
+
+
+Table 2. Ablation study for the dimension of the stalks. Positional encodings improve performance on some of our models.
+
+
+Therefore, similarly to the synthetic experiment in the main text, we compare two similar models learning the sheaf from
+data: one using 1D stakls and another using 2D stalks. As we see from Figure 5, the discrete vector bundle model has better
+training and test-time performance than the one-dimensional counterpart. Nonetheless, none of the two models manages to
+match the perfect performance of the ideal sheaf on this more challenging dataset. From the final subfigure we also see that
+the model learns to rotate more across the heterophilic edges in order to push away the nodes belonging to other classes.
+The prevalent angle of this rotation is 2 radians, which is just under 120◦ = 360◦ /C, where C = 3 is the number of classes.
+Thus the model learns to position the three classes at approximately equal arc-lengths from each other for maximum linear
+separability.
+
+Positional encoding ablation Based on the Remark from the previous section, we proceed to analyse the impact of
+increasing the expressive power of the model by making the nodes more distinguishable. For that, we equip our datasets
+with additional features consisting of graph Laplacian positional encodings as originally done in Dwivedi et al. (2020). In
+Table 2 we see that positional encodings do indeed improve the performance of the continuous models compared to the
+numbers reported in the main table. Therefore, we conclude that the interaction between the problem of sheaf learning and
+that of the expressivity of graph neural networks represents a promising avenue of future research.
+
+Visualising diffusion To develop a better intuition of the limiting behaviour of sheaf diffusion for node classification tasks
+we plot the diffusion process using an oracle discrete vector bundle for two graph with C = 3 (Figure 7) and C = 4 (Figure
+6) classes. The diffusion processes converges in the limit to a configuration where the classes are rotated at 2π  C form each
+other, just like in the cartoon diagrams of Figure 4. Note that in all cases, the classes are linearly separable in the limit.
+We note that this approach generalises to any number of classes, but beyond C = 4 it is not guaranteed that they will be
+linearly separable in 2D. However, they are still well-separated. We include an example with C = 10 classes in Figure 8.
+
+
+
+
+          Figure 6. Sheaf diffusion process disentangling the C = 4 classes over time. The nodes are coloured by their class.
+                                             Neural Sheaf Diffusion
+
+
+
+
+Figure 7. Sheaf diffusion process disentangling the C = 3 classes over time. The nodes are coloured by their class.
+
+
+
+
+Figure 8. Sheaf diffusion process disentangling the C = 10 classes over time. The nodes are coloured by their class.
+

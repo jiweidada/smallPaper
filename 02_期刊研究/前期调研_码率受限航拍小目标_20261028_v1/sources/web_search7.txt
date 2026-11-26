@@ -1,0 +1,484 @@
+FSIC: Frequency-separated image compression for small object detection - ScienceDirect (https://www.sciencedirect.com/science/article/pii/S1051200424004470)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 months ago; 
+
+# FSIC: Frequency-separated image compression for small object detection
+
+https://doi.org/10.1016/j.dsp.2024.104822Get rights and content
+
+## Abstract
+
+The existing image compression methods are designed for the human visual system. They can achieve good compression quality for low-frequency components of the image that are important to human vision. However, for object detection models, both high and low-frequency components are essential. As a result, the detection metrics on the compressed images obtained by current methods will decline. Particularly for small object detection, the lack of high-frequency signals makes it difficult to distinguish the targets from the background. In this paper, we propose a frequency-separated image compression model, named FSIC. During the training process, the compression of low-frequency components only employs MSE loss, while the compression of high-frequency components additionally incorporates a detection loss. We validate FSIC's image compression capability for the small object detection task on the VisDrone dataset and Dota dataset. Results show that under extremely high compression rates, FSIC demonstrates a better performance compared with current compression methods. Furthermore, FSIC has the fastest encoding speed among current learning-based compression models.
+
+## Introduction
+
+Vision-based object detection is an important requirement for many cyber-physical systems like UAVs and AGVs. However, it remains challenging due to the limited computing capabilities of the edge devices. An effective way to address the issue is to transmit the image to the cloud with more powerful computing resources for object detection. Unfortunately, in normal cases, the link bandwidth for such a transmission is limited. A promising approach is to compress the image in situ and then transmit it. Standard image codecs [1], [2], [3] achieve data compression by reducing the redundancy between pixels and removing some information that is not sensitive to human eyes [4]; thus, they are not suitable for object detection, as some high-frequency signals are lost.
+
+The learning-based compression models with autoregressive context [5], [6] have surpassed the leading standard image codec—BPG (Better Portable Graphics). These methods are based on transform coding and utilize convolutional neural networks (CNNs) to learn nonlinear functions that can map images into more compressible latent representations. The whole coding framework resembles an autoencoder, consisting of an encoder that reduces the dimensionality of the images and a decoder that acts as an approximate inverse function to map the latent representations back to images. Besides the encoder and the decoder, there is an entropy model that estimates the probability distribution of latent representations. With the probability, entropy coding can be used to further compress the latents. However, while the autoregressive entropy model makes the estimated probabilities more aligned with reality, it significantly slows down the speed of encoding and decoding. Parallelizable entropy models [7], [8] have been proposed to address this issue, enhancing operational speed while ensuring compression quality. Recently, the attention mechanism [9] has also been used to enhance the effectiveness of compression models.
+
+The aforementioned standard image codecs and learning-based compression methods are designed for human vision. At a high compression ratio, a large amount of high-frequency information that is not sensitive to human eyes might be discarded. However, the CNNs in the object detection model will use the high-frequency components (HFC) in images [10]. The loss of HFC will lead to a decline in performance for object detection tasks. Especially for small targets, when HFC is lost, they become difficult to distinguish from the background.
+
+To solve the above problem, compression methods need to be improved to meet the needs of object detection tasks. Compared with traditional image codecs, learning-based compression methods are easier to optimize for specific tasks. The most intuitive approach is to jointly train the compression network with the corresponding task network [11]. Given the significance of HFC in small object detection, we try to improve the compression process of HFC. Fritsche et al. [12] proposed to separate the low-frequency components (LFC) and high-frequency components (HFC) of the input image when performing image super-resolution reconstruction with neural networks and train them in different ways. In this work, we first investigate the compression performance of existing compression networks on LFC and HFC using object detection task results as the evaluation metric. Then we propose the frequency-separated image compression model (FSIC) which extends the joint training framework by incorporating a frequency separation learning strategy to train the compression network.
+
+We conduct frequency separation on the VisDrone dataset [13] and utilize the existing learning-based compression method [6] to compress the original image, LFC, and HFC respectively. Then we use YOLOv5 [14] to perform detection on them and get the following findings:
+
+  * •
+
+Both the LFC and HFC of an image are utilized by the object detection model.
+
+  * •
+
+Existing learning-based compression methods using MSE as the loss function demonstrate favorable compression performances on LFC, but their compression performances on HFC are not satisfactory.
+
+Based on the above findings, we propose FSIC. Specifically, we employ a linear filter to separate the LFC and HFC of the input image in the training process. Then, the MSE loss is used to guide the compression of both LFC and HFC. The compression of HFC is further optimized through joint training with a detection model. FSIC exhibits excellent compression performance for object detection tasks on the small object dataset. For extremely high compression ratios, our model has advantages compared with existing compression methods. Moreover, the encoding speed of FSIC is faster than that of the compared learning-based compression models.
+
+## Explore the effect of LFC and HFC on object detection
+
+The relationship between the frequency information of images and the generalization behavior of CNN has been investigated in [10]. For image classification tasks, HFC have been proven to be helpful for CNN's generalization ability. Although HFC is hard to observe by the human eye, neural networks can capture and use it. In this section, we further explore the impact of LFC and HFC on the object detection task. Besides, we evaluate the performance of an existing learning-based compression model
+
+## Basic framework of learning-based image compression
+
+Lossy compression methods have a general process. First, transform the image x into another space to get the latent representation y, and quantize the latent to get a discrete-valued vector \stackrel{ˆ}{y}. Subsequently, the discrete-valued vector \stackrel{ˆ}{y} undergoes lossless compression using entropy coding methods. Following the above process, Learning-based methods consist of three components: encoder, decoder and entropy model. Encoders and decoders respectively complete the transformation of images to latent
+
+## Datasets
+
+In object detection, objects smaller than 32×32 pixels are considered small objects. To verify the compression performance of FSIC for small object detection tasks, we compare it with other image compression methods on two classic small object detection datasets, VisDrone [13] and DOTA [37]. The images in the dataset are scaled to 640×640 to avoid the impact of image resizing in the detection model.
+
+VisDrone. VisDrone dataset is a large-scale benchmark captured by drone-mounted cameras with
+
+## Ablation study
+
+
+## Conclusion & future work
+
+We find that under the existing framework of learning-based image compression models, the MSE loss is insufficient in guiding the compression of HFC. So the compression performance on small object detection tasks is poor. Therefore, we propose a compression model (FSIC) that incorporates frequency separation. It innovatively applies detection loss on the HFC of the image during the training process. This approach offers a novel solution for achieving effective compression while preserving--------------------------------------------------------------------------------
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://www.mdpi.com/2313-433x/12/7/325)
+ [wordlim: 200] Published: 3 months ago; Crawled: 2 weeks ago; 
+
+Open Access Article
+
+# Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain
+
+by
+
+Serhat Dikyar
+
+ImageSerhat Dikyar
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1,2,3,*}^{} (/cnd-cgi/l/email-protection#000d640f1d0516555d240d10114a0100114a1016) and
+
+Behcet Ugur Toreyin
+
+ImageBehcet Ugur Toreyin
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 2,4}^{} (/cnd-cgi/l/email-protection#001b7406110d1d1a341d00015a1110015a0006)
+
+^{1}
+
+ASELSAN Inc., Ankara 06370, Türkiye
+
+^{2}
+
+Signal Processing for Computational Intelligence Research Group (SP4CING), İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{3}
+
+Department of Electronics and Communication Engineering, İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{4}
+
+Department of Artificial Intelligence and Data Engineering, İstanbul Technical University, İstanbul 34469, Türkiye
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+J. Imaging 2026, 12(7), 325; https://doi.org/10.3390/jimaging12070325
+
+Submission received: 25 May 2026 / Revised: 13 July 2026 / Accepted: 16 July 2026 / Published: 18 July 2026
+
+(This article belongs to the Section Computer Vision and Pattern Recognition)
+
+Download keyboard_arrow_down
+
+Download PDF
+Download PDF with Cover
+Download XML
+Download Epub
+
+Browse Figures
+
+Versions Notes
+
+## Abstract
+
+The proliferation of high-definition video data necessitates highly efficient processing pipelines for real-time edge analytics. However, traditional object detection architectures rely exclusively on pixel-domain inputs, which renders the computationally prohibitive decoding phase a latency bottleneck. In this paper, we propose a novel dual-phase framework designed to achieve fast and efficient object detection directly within the partially decoded compressed-domain data. First, we introduce a partial decoding paradigm featuring the Low-Frequency Spectral Prioritization method on the encoder side. By systematically discarding high-frequency residual coefficients and retaining only a sparse subset of fundamental spatial frequencies, this method dramatically reduces transmission payloads and accelerates the standard decoding process. Second, to recover the structural fidelity lost due to the intentional omission of residual data, we employ a multi-granularity cross-domain knowledge distillation architecture. This strategy aligns global contextual features, foreground boundary attention maps, and final response logits, transferring rich representational capacities from a high-performing pixel-domain teacher network to a lightweight compressed-domain student network. Comprehensive experiments utilizing RetinaNet, FCOS, and GFL object detection networks on the COCO-mini dataset demonstrate the superiority of the proposed framework. By retaining fundamental residual coefficients within the HEVC pipeline, the proposed method reduces average decoding latency while improving the mAP score by $+0.96\%$ over the conventional fully decoded pixel-domain baseline on the COCO-mini dataset.
+
+Keywords:
+
+compressed domain; knowledge distillation; efficient object detection
+
+## 1. Introduction
+
+The proliferation of high-definition video data, driven by the ubiquity of surveillance systems, autonomous vehicles, and smart edge devices, has precipitated a fundamental challenge in computer vision: facilitating the storage and transmission of massive volumes of high-resolution media. To mitigate these bottlenecks, video is almost exclusively stored and transmitted in highly compressed formats, such as Advanced Video Coding (H.264/AVC) [1], High-Efficiency Video Coding (H.265/HEVC) [2], and the emerging Versatile Video Coding (VVC) [3]. These standard video codecs rely on complex mathematical transformations to eliminate spatial and temporal redundancies [4]. Consequently, extracting actionable semantic information directly from these compressed streams before full decoding has emerged as an efficient and viable paradigm for intelligent systems.
+### 4.2. Modified HEVC Pipeline for Partial Decoding
+
+To address the latency and efficiency constraints inherent in object detection, we introduce a modified video coding pipeline that deviates from the standard HEVC architecture. This modification is premised on the observation that object detection algorithms generally prioritize low-frequency structural contours over the high-frequency textural fidelity required for human visual perception (Figure 3).
+
+Standard HEVC reconstruction operates on a block-based hybrid architecture. We define the modified HEVC pipeline through the introduction of a spectral truncation function, $\Phi (·)$, which is applied after the quantization stage at the encoder. This function selectively filters the quantized residual coefficients ${\mathrm{Q}}_{\mathrm{residual}}$ and generates a sparse subset of fundamental coefficients ${\mathrm{Q}}_{\mathrm{residual}}^{\prime }$. Consequently, a partially decoded representation ${\mathrm{CU}}_{\mathrm{partially}\phantom{\rule{4.pt}{0ex}}\mathrm{decoded}}$ is reconstructed at the decoder with fundamental coefficients ${\mathrm{Q}}_{\mathrm{residual}}^{\prime }$ as given below:
+Moreover, the selective removal of coefficients prior to entropy coding directly reduces the volume of data transmitted. This modification also lowers the bitrate requirements for network transmission. Furthermore, it retains the essential object integrity, although the resulting frames exhibit artifacts that degrade human perceptual quality. The removal of coefficients explicitly reconciles the disparity between the massive data volume of residual coefficients and the minimal number required for detection. Specifically, raw data volume and semantic information content can be effectively decoupled in this context, as a small number of low-frequency coefficients carry a disproportionate amount of the structural information necessary for machine vision tasks.
+
+### 4.3. Selective Residual Removal Methodologies
+
+A critical component of our framework is determining which quantized residual coefficients to retain. In order to achieve maximum semantic fidelity and minimum decoding time, we have evaluated and compared specific removal methodologies for selective residual removal:
+## 5. Experiments
+
+In this section, we present a comprehensive empirical evaluation of the proposed framework. Following an overview of the experimental setup, we first analyze the modified partial decoding pipeline to quantify the trade-offs between structural fidelity, bitrate, and latency, thereby establishing the optimal residual retention threshold. We subsequently evaluate the end-to-end object detection performance of our compressed-domain approach across multiple architectures, demonstrating its computational and accuracy advantages over standard fully decoded baselines. Finally, we conclude with an ablation study that isolates and rigorously quantifies the impact of the individual cross-domain knowledge distillation components.
+
+### 5.1. Experimental Setup
+
+The proposed efficient object detection method is evaluated using the complete COCO dataset [44] and the COCO-mini dataset [45], which is a statistically validated and curated subset of the COCO dataset. The purpose of specifically utilizing this dataset is to significantly reduce the computational cost and accelerate the turnaround time of our extensive knowledge distillation training/ablation experiments. The COCO-mini dataset comprises approximately 20% of the full training set, which is 25,000 training images containing around 184,000 object instances across the 80 distinct COCO categories. The dataset also includes 5000 validation images that are identical to the full set to benchmark the detection accuracy.
+
+To ensure the dataset remains highly representative of the original data distribution, this subset was constructed to strictly preserve the overall and per-class ratios of small, medium, and large objects, alongside the proportion of object instances for each class. Furthermore, rigorous empirical validations across multiple state-of-the-art detectors demonstrate that models trained on COCO-mini exhibit a strong positive correlation with their counterparts trained on the complete dataset, proving its reliability as a highly representative empirical baseline [45].
+
+The dataset images possess variable spatial resolutions and are originally stored in JPEG format. To process them for our framework, we convert all images to raw (YUV) format using ffmpeg, and then encode and decode them with the modified HEVC Reference Software HM 18.0 [46]. For the encoding process, the default encoder_intra_main.cfg configuration parameters are utilized. Specifically, we employ a Quantization Parameter (QP) of 32, a maximum coding unit (CU) size of $64\times 64$ and an intra-period of 1 as defined by the standard main profile. All experiments and evaluations are conducted on an Intel Xeon Gold 6338 CPU and an Nvidia P100 GPU running the Rocky Linux 9.2 operating system.
+
+### 5.2. Partial Decoding Experiments
+
+In these experiments, we will present the qualitative and quantitative evaluation of the modified partial decoding pipeline of the established methodologies for selective residual removal. Our analysis focuses on the trade-offs between processing latency, bitstream economy and the resulting visual fidelity.
+
+Qualitative analysis of the partially decoded images generated by both LFSP and SRSP is depicted in Figure 6. The sample images for different residual removal methods are both constructed by retaining exactly 64 quantized residual coefficients. By selectively removing residual coefficients, the average bitstream size is approximately halved and average decoding latency is substantially reduced from 19.1 ms to 12.8 ms and 13.9 ms. Furthermore, because the encoder simply does not encode the zeroed coefficients, the average bitstream size decreases significantly from 18.46 Kb to 9.48 Kb and 11.25 Kb for both SRSP and LFSP, respectively. Consequently, this reduction in bitstream size leads to a corresponding decrease in decoding time.
+
+While the SRSP method exhibits a slight improvement in speed and compression, the quality metrics (PSNR and SSIM) reveal a critical deficiency. Since SRSP employs a fixed spatial traversal strategy that entirely ignores the underlying prediction characteristics and the spectral significance of the residuals, severe degradation can be inferred from the quality metrics. In contrast, the LFSP configuration yields vastly superior structural integrity and achieves an average PSNR of 26.57 dB and an SSIM of 0.8491. Therefore, LFSP compared to SRSP represents a necessary and justified minor latency and bitstream size trade-off to ensure reliable object detection.
+
+In order to investigate the scalability of the LFSP method, the subsequent experiments have been conducted by systematically varying the number of retained quantized residual coefficients. The quantitative result summary and qualitative results of partially decoded images are given in Table 4 and Figure 7, respectively.
+
+As can be seen from the results, the visual quality and structural integrity of the reconstructed images consistently increase as the number of retained residual coefficients increases. However, this progression reveals a clear relationship of diminishing returns between computational latency, bitstream economy, and structural fidelity. While configurations utilizing fewer coefficients offer extreme compression and rapid decoding speeds, they struggle to reconstruct sufficient semantic detail. The configuration retaining exactly 64 quantized residual coefficients emerges as the optimal operational threshold. It achieves a substantial leap in visual fidelity with a PSNR of 26.57 dB and an SSIM of 0.8491, while maintaining a highly efficient decoding latency of 13.9 ms and a compact bitstream size of 11.25 KB. As illustrated in the performance curves (Figure 8), this configuration marks the steepest gain in both quality metrics; beyond PD64, the rate of improvement distinctly plateaus, resulting in diminishing returns.
+
+The incorporation of additional high-frequency spectral data introduces diminishing returns beyond the 64-coefficient threshold. Expanding the retention to 81 and 100 coefficients incurs a steeper penalty in processing latency due to the heavier computational burden placed on the inverse transform and dequantization stages. Conversely, the corresponding gains in structural quality become highly marginal; PSNR and SSIM increase slightly. The negligible visual and objective quality improvements beyond 64 coefficients do not justify the disproportionate escalation in decoding time and transmission bandwidth. Consequently, we found that the 64-coefficient LFSP configuration is the optimal input representation.
+
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection - researchr publication bibtex (https://researchr.org/publication/DaiSCGYS25/bibtex)
+ [wordlim: 200] Crawled: 2 weeks ago; 
+
+# FSIC: Frequency-separated image compression for small object detection
+
+Chengjie Dai, Tiantian Song, Qiang Chen, Hanshen Gong, Bowei Yang, Guanghua Song. FSIC: Frequency-separated image compression for small object detection. Digital Signal Processing, 156:104822, 2025. [doi]
+
+  * Abstract
+  * Authors
+  * BibTeX
+  * References
+  * Bibliographies
+  * Reviews
+  * Related
+  *   * @article{DaiSCGYS25,
+      title = {FSIC: Frequency-separated image compression for small object detection},
+      author = {Chengjie Dai and Tiantian Song and Qiang Chen and Hanshen Gong and Bowei Yang and Guanghua Song},
+      year = {2025},
+      doi = {10.1016/j.dsp.2024.104822},
+      url = {https://doi.org/10.1016/j.dsp.2024.104822},
+      researchr = {https://researchr.org/publication/DaiSCGYS25},
+      cites = {0},
+      citedby = {0},
+      journal = {Digital Signal Processing},
+      volume = {156},
+      pages = {104822},
+    }--------------------------------------------------------------------------------
+Adversarial semantic correction distillation with boundary-guided feature alignment for object detection - ScienceDirect (https://www.sciencedirect.com/science/article/pii/S0957417426025649)
+ [wordlim: 200] Crawled: 2 months ago; 
+
+## Expert Systems with Applications
+
+Date: 1 January 2027
+
+Article: 133656
+
+Volume: Volume 332, Part C
+
+## Published by: Elsevier
+
+# Adversarial semantic correction distillation with boundary-guided feature alignment for object detection
+
+Author links open overlay panel Chaoqun Ma ^{a} ^{b}, Weibin Liu ^{a} ^{b}, Weiwei Xing ^{c}, Zhengyang Zhao ^{d}
+
+Show more
+
+Cite
+
+Add to Mendeley
+
+Share
+
+10.1016/j.eswa.2026.133656
+
+
+## Highlights
+
+  * •
+
+Propose a novel distillation framework, ASCD, for enhanced object detection.
+
+  * •
+
+BGLD module boosts feature alignment and suppresses background noise.
+
+  * •
+
+ADA and TSC modules align distributions and high-level semantics.
+
+  * •
+
+Experiments show ASCD’s effectiveness and generality across detectors.
+
+## Abstract
+
+Knowledge distillation (KD) is an effective approach for compressing object detection models, yet it remains challenging because dense predictions and joint classification–regression learning make distillation signals vulnerable to background noise. --------------------------------------------------------------------------------
+FSIC: Frequency-Separated Image Compression for Small Object Detection | Request PDF (https://www.researchgate.net/publication/385056771_FSIC_Frequency-Separated_Image_Compression_for_Small_Object_Detection)
+ [wordlim: 200] Crawled: 5 months ago; 
+
+Article
+
+# FSIC: Frequency-Separated Image Compression for Small Object Detection
+
+  * October 2024
+  * Digital Signal Processing 156(4):104822
+
+DOI:10.1016/j.dsp.2024.104822
+
+Authors:
+
+Chengjie Dai
+
+Chengjie Dai
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Tiantian Song
+
+Tiantian Song
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Qiang Chen
+
+Qiang Chen
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Hanshen Gong
+
+Hanshen Gong
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Show all 6 authors Hide
+
+Image: Request Full-text Paper PDF
+
+Request full-text PDF
+
+To read the full-text of this research, you can request a copy directly from the authors.
+
+Image: ResearchGate Logo
+
+Discover the world's research
+
+  * 25+ million members
+  * 160+ million publication pages
+--------------------------------------------------------------------------------
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://doi.org/10.3390/jimaging12070325)
+ [wordlim: 200] Published: 3 months ago; Crawled: last month; 
+
+#### 4.1.1. Offline Development and Dataset Synthesis
+
+The primary objective of the offline phase is to generate a specialized dataset and train a robust detection model. To achieve this, a standard pixel-domain intra-frame set or dataset is processed through a modified compression pipeline and the object detection network is trained with partially decoded data to handle visually degraded inputs.
+
+In the modified compression, the intra-frames undergo standard prediction ({\mathrm{CU}}_{\mathrm{original}}), transformation, and quantization on the encoder side. However, after quantization our critical intervention occurs and selective residual removal is implemented here. Because the encoder simply does not encode the explicitly zeroed coefficients, the resulting bitstream maintains bitstream-level compliance and remains HEVC-compliant. Therefore, we generate a compliant bitstream containing only the fundamental residuals required to maintain structural integrity by systematically discarding non-essential residual coefficients. This bitstream is then processed by a standard conforming decoder to create a compressed-domain dataset.
+
+Moreover, a knowledge distillation strategy is applied to recover the accuracy lost due to compression artifacts. A high-capacity teacher is trained using the rich feature representations of the original pixel-domain frames. On the other hand, a lightweight student is trained on the compressed-domain frames, while the teacher network guides the student through a knowledge distillation process. Thanks to knowledge distillation, the student network infers missing semantic details from the partial decoded inputs. The complete procedure for this offline development and dataset synthesis is outlined in Algorithm 1.
+
+Algorithm 1 Offline Development and Dataset Synthesis
+
+Require: 
+    Dataset \mathcal{D} of raw images {\mathbf{I}}_{\mathrm{raw}} and ground-truth labels \mathcal{Y}, Teacher Model \mathcal{T}, Student Model \mathcal{S}
+Ensure: 
+    Trained Student Model \mathcal{S} optimized for the compressed domain
+--------------------------------------------------------------------------------
+Efficient Object Detection in Compressed Domain by Exploiting Knowledge Distillation from Pixel Domain (https://pmc.ncbi.nlm.nih.gov/articles/PMC13413004/)
+ [wordlim: 200] Published: 3 months ago; Crawled: last week; 
+Following the transformation, the coefficients are scaled, quantized, and entropy coded into the final bitstream. To reconstruct the image at the decoder side, the system must reverse this pipeline. The decoder extracts the quantized transform coefficients via entropy decoding, applies inverse scaling (dequantization), and performs computationally heavy inverse spatial transformations to duplicate the residual signal. Finally, this reconstructed residual is added back to the prediction signal to form the decoded picture. The aforementioned HEVC residual pipeline is illustrated in [ref-type: fig] Figure 1.
+
+While reconstructing the full residual is indispensable for achieving high perceptual quality, the inverse transformation process introduces significant computational latency and overhead. Because the fundamental low-frequency structural information is predominantly preserved within the prediction signal and the lowest frequency residual coefficients, the exhaustive calculation and inverse transformation of all high-frequency residual components presents a notable computational bottleneck. Recognizing this mechanism is vital for developing compressed-domain acceleration strategies, where selectively bypassing the full inverse transform of these residuals can drastically reduce decoding time while maintaining sufficient semantic integrity for automated perception architectures.
+
+### 4.4. Cross-Domain Knowledge Distillation
+
+We propose a cross-domain knowledge distillation method by using framework in [[ref-type: bibr] 43] to transfer the robust representational capacity of a large-scale teacher network operating in the pixel domain to a compact student network operating in the compressed domain. The fundamental challenge addressed by this framework is the significant semantic gap between the two domains: while the teacher extracts features from spatially coherent pixel-domain data, the student must infer similar semantics from partially decoded compressed-domain data. To bridge this gap without incurring excessive computational overhead, we employ a multi-granularity distillation strategy that aligns representations at both the intermediate feature level and the final response level, namely Global Feature Distillation (GFD), Foreground–Background Feature Distillation (FBFD) and Logit-based Response Distillation (LRD). While our approach integrates with the general knowledge distillation framework proposed for the pixel domain, it introduces specialized cross-domain adaptations to resolve the unique artifacts of partial decoding.
+
+Standard modern object detectors generally follow a three-stage architecture: a backbone for initial feature extraction, a neck for multi-scale feature fusion, and a head for final classification and bounding box regression. The distillation framework integrates at the neck and head stages since the backbone features in the compressed domain are too domain-specific to directly align with pixel-domain backbone features. Cross-domain knowledge distillation architecture is depicted in [ref-type: fig] Figure 5.
+
+Prior to detailing the specific distillation objectives, we formalize the attention mapping functions utilized to extract statistical descriptors from the high-dimensional convolutional feature maps. Let $F\in {\mathbb{R}}^{C\times H\times W}$ denote a feature tensor extracted from a specific network layer, where C, H, and W represent the channel, height, and width dimensions, respectively. To bridge the semantic gap between the pixel and compressed domains, we decouple these features into independent channel and spatial descriptors.
+
+Equation: (6) $${\mathcal{L}}_{GFD}=1-\rho ({\mathrm{\Psi }}_{c}\left({F}_{T}\right),{\mathrm{\Psi }}_{c}\left({F}_{S}\right))$$
+
+where $\left.\rho \middle(X,Y\right)$ is the Pearson Correlation Coefficient calculated over the flattened feature vectors. By maximizing this correlation, we ensure that the student learns the global semantic distribution of the scene understanding regardless of the domain-specific intensity variations.
+
+#### 4.4.2. Foreground–Background Feature Distillation (FBFD)
+
+This branch explicitly decouples the feature maps into foreground and background regions using a binary mask M, derived from the ground-truth bounding boxes. Within the foreground regions, we apply a spatial attention ${\mathrm{\Psi }}_{s}$ mechanism. Unlike channel attention, spatial attention generates a spatial importance map, highlighting the most discriminative regions within the object boundaries.
+
+Similar to the global branch, we employ the Pearson Correlation Coefficient for the loss function. This choice is critical: it forces the student to replicate the pattern of the teacher’s spatial activation rather than the exact pixel values. The loss is formulated as
+
+Equation: (7) $${\mathcal{L}}_{FBFD}=1-\rho ({\mathrm{\Psi }}_{s}\left({F}_{T}\right){\char"2299}M,{\mathrm{\Psi }}_{s}\left({F}_{S}\right){\char"2299}M)$$
+
+where ⊙ denotes element-wise multiplication. We assign a dominant weight to this component to accurately localize and define object boundaries against compression artifacts.
+
+--------------------------------------------------------------------------------
+(PDF) Continuous Anisotropic Downscale Predictor Optimization for Bitrate-Constrained Object Detection With Bias-Calibrated End-to-End Compression Learning (https://www.researchgate.net/publication/408559248_Continuous_Anisotropic_Downscale_Predictor_Optimization_for_Bitrate-Constrained_Object_Detection_with_Bias-Calibrated_End-to-End_Compression_Learning)
+ [wordlim: 200] Published: 10 months ago; Crawled: 3 months ago; 
+
+Article PDF Available
+
+# Continuous Anisotropic Downscale Predictor Optimization for Bitrate-Constrained Object Detection With Bias-Calibrated End-to-End Compression Learning
+
+  * January 2026
+  * IEEE Access 14:104494-104504
+
+DOI:10.1109/ACCESS.2026.3710511
+
+  * License
+  * CC BY 4.0
+
+Authors:
+
+Seo Yun O
+
+Seo Yun O
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Myung Han Hyun
+
+Myung Han Hyun
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Image
+
+Download full-text PDFDownload full-text PDFRead full-text
+
+
+VOLUME XX, 2017
+
+Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.
+
+Digital Object Identifier 10.1109/ACCESS.2017.Doi Number
+
+Continuous Anisotropic Downscale Predictor
+
+Optimization for Bitrate-Constrained Object
+
+Detection with Bias-Calibrated End-to-End
+
+Compression Learning
+
+Seo Yun O 1 and Myung Han Hyun 1, Member, IEEE
+
+strong directional structure. Additional intermediate feature-similarity and efficiency analyses further support
+
+that the proposed ADP provides practical bitrate-aware resolution control for object detection.
+
+INDEX TERMS anisotropic downscale predictor (ADP), anisotropic downscaling, bitrate-constrained
+
+object detection, end-to-end learning, image compression, rate-accuracy optimization.
+
+I. INTRODUCTION
+
+As high-resolution visual data becomes increasingly
+
+common, machine-vision systems must process and transmit
+
+substantially more visual data than before. In practical
+
+deployments, such as edge cameras and bandwidth-limited
+
+sensing platforms, the computational cost of compression
+
+and the delay of encoded-data transmission often become
+
+major bottlenecks. This issue is particularly critical for
+
+bitrate-constrained object detection, because the spatial
+
+resolution of the image before encoding directly affects
+
+which visual details are preserved after compression and
+
+consequently impacts the final detection accuracy. Input
+
+resolution control therefore should not be regarded merely as
+
+a preprocessing step; it is a key design factor in the rate-
+
+accuracy trade-off.
+
+Previous works have demonstrated the value of learned
+
+image resizing, adaptive resolution selection, and task-aware
+
+compression for downstream vision tasks [1]-[12].
+
+Nevertheless, existing approaches for resolution control
+
+remain limited in at least three respects. First, many methods
+
+This article has been accepted for publication in IEEE Access. This is the author's version which has not been fully edited and
+
+content may change prior to final publication. Citation information: DOI 10.1109/ACCESS.2026.3710511
+
+--------------------------------------------------------------------------------
+GitHub - moonsbird29/Papers-of-Visual-Signal-Coding-for-Machine · GitHub (https://github.com/moonsbird29/Papers-of-Visual-Signal-Coding-for-Machine)
+ [wordlim: 200] Crawled: 3 weeks ago; 
+### Compress-Then-Analysis
+
+Models  | Paper  | First Author  | Note  | Venue  | Data  | Project
+--- | --- | --- | --- | --- | --- | ---
+DT-JRD  | DT-JRD: Deep Transformer based Just Recognizable Difference Prediction Model for Video Coding for Machines  | Junqi Liu  |  | TMM  | Video  | 
+FSIC  | FSIC: Frequency-separated image compression for small object detection  | Chengjie Dai  | Frequency decomposition  | Digital Signal Processing2025  | Image  | 
+SA-ICM  | Image Coding for Machines with Edge Information Learning Using Segment Anything  | Takahiro Shindo  |  | ICIP2024  | Image  | 
+ | Remote Sensing Image Coding for Machines on Semantic Segmentation via Contrastive Learning  | Junxi Zhang  | Remote Sensing  | TGRS2024  | Image  | 
+Delta-ICM  | Delta-ICM: Entropy Modeling with Delta Function for Learned Image Compression  | Takahiro Shindo  |  | PrePrint'24  | Image  | 
+--------------------------------------------------------------------------------
+FSIC: Frequency-Separated Image Compression for Small Object Detection · 研飞ivySCI (https://www.ivysci.com/articles/5102456__FSIC_FrequencySeparated_Image_Compression_for_Small_Object_Detection)
+ [wordlim: 200] Crawled: 4 months ago; 
+
+## FSIC: Frequency-Separated Image Compression for Small Object Detection
+
+FSIC：小目标检测的频率分离图像压缩
+
+[Button: 导入到研飞]
+
+作者:Chengjie Dai, Tiantian Song, Qiang Chen, Hanshen Gong, Bowei Yang, Guanghua Song
+
+DOI: 10.1016/j.dsp.2024.104822 Image: Papermap
+
+PaperMap
+
+期刊:Digital Signal Processing
+
+摘要
+
+### 研飞AI智能解析 PDF，回答研究者问题，助你秒懂论文
+
+下载研飞
+
+## 期刊信息
+
+期刊:[Button: Digital Signal Processing]
+
+ISSN 1051-2004
+
+国际分区

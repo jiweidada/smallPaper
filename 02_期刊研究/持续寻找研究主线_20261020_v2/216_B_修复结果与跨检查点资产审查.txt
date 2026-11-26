@@ -1,0 +1,40 @@
+216 B：210修复结果、机制边界与双BASE24现有资产
+
+仅只读210结果、原生criterion和旧采集/分析脚本及本地目录，没有运行脚本/模型、反序列化预测pt、读取heldout内容或新增统计求解。210 complete/1.516秒，source unchanged，0forward/backward/VJP/update，精确整数证书与合成检查通过。接受原208必要screen=true，不作精度或训练结论。
+
+一、实际五个修复是什么
+G0/G/U_cost/U_change/G_repair支持558/566/566/566/563，改owner0/250/66/22/12。repair修复5条原outside，原inside丢失、新outside和changed-still-outside全0；U_change的3条禁止边均是outside→outside改配，不是原inside丢失。repair舍弃3个额外支持槽，换来完全不建立新的支持外监督边；这正是约束的实际剩余变量。
+五条repair边（图、class、query，旧GT→新GT，当前IoU旧→新）：
+图1 class2 q225，98→94，0→0.0576729，旧/新均非original_sub4。
+图1 class3 q100，37→34，0→0.0260783，旧/新均非original_sub4。
+图2 class0 q291，237→238，0.0561942→0.0913494，旧/新均original_sub4。
+图2 class3 q289，398→401，0→0.1355827，旧/新均非original_sub4。
+图2 class4 q269，226→227，0→0.3749265，旧/新均非original_sub4。
+因此仅1条修复落在original_sub4；五条新边当前IoU均<.5。它们都已被U_cost/U_change选择，约束增量在于拒绝其余不可达改配和减少连带变更，不是发现这五条独占的新边。
+共两条三循环和三条二循环、12个q。三条原target-IoU>=.5的配对被改到新GT后明显变低：图1 q120 0.935620→0.142396；图2 q270 0.525850→0.000742；图2 q48 0.694852→0.134404。这不是预测TP丢失，因为原forward/输出完全没变；但说明“支撑单调”不保护已有几何监督对齐。全832槽当前IoU和330.907451→328.471981、nativecost466.361002→472.499586，不能称精度优势。
+
+二、loss现象能支持什么
+读取原生deim_criterion.py loss_local：FGL权重为当前该q与被分配GT的IoU.detach()，DDF匹配槽权重也依赖该IoU。五条原outside中四条最终层IoU=0，原最终层FGL权重本来就是0，不能将其修复解释成“移除了四条活跃的clipped FGL错误梯度”。q291是唯一原最终层IoU非零的这类边。其它层权重须逐层看，不能由final推全部aux。
+七条循环伴随边原先均在支持内，其中多个有高IoU，换GT后权重大幅下降。因此若四臂回放发现weighted FGL下降，可能只是这些旧inside边权重变小，而不是目标更可学。应使用C正在准备的同缓存回放，区分被修复边与伴随边、原生权重变化与固定权重目标编码变化，同时报告直接L1/GIoU及DDF；不从全loss或局部梯度一项改善推AP。本审查时213/214尚无回交结果，不借旧G的206回放冒充repair证据。
+当前可检验机制只能是：有限ref支撑约束能在保持q/m_g/类别预算时，找到少量完全在支持内的新监督循环；其是否减少有害监督、是否被网络利用尚未支持。物理不可达也是条件于冻结ref，不是整个训练过程永远不可达，因为pre分支仍可学习ref。
+
+三、无需先做新的双BASE24前向
+已有两seed真实train输出缓存，可优先零forward复用：
+英文小论文/data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3/A/frozen_predictions/development/batch00_predictions.pt 至 batch07_predictions.pt；A为seed1。
+同根 B/frozen_predictions/development/batch00_predictions.pt 至 batch07_predictions.pt；B为seed2。
+两侧16个本地pt均存在，每侧8个batch、32输入。相应 A/development 与 B/development 的 batch00_analysis.json 至 batch07_analysis.json、complete.json 也全部存在；本轮只查目录，未读其新候选结果或pt内容。只使用development，heldout目录/文件的存在不构成读取授权，下一实现须使用显式路径白名单。
+
+来源已由旧代码静态核清：
+code/matching_coverage_probe_20261019_v1/probe_forward_v3.py：加载baseline24_seed{seed}.pth的raw['model']，断言last_epoch==23；model.train()、requires_grad_(False)、no_grad，GPU FP32，无AMP/TF32；每批前后恢复BN缓冲与RNG。保存cpu_tree(output)、targets、tag、group、forward_DN_seed。整个train output包括普通final/aux/pre/encoder、FDR refs/corners及DN字段。
+同目录 analyze_partition_v3.py：按选定物理partition和seal逐文件加载，调用diagnostic_extension_v2.analyze，将prediction_sha256及原始配对写入development analysis。
+evaluate_rules.py：在同一GPU前向的冻结CPU输出上，运行原生每层matcher，然后_get_go_indices；analysis的inputs[i].branches.final.native_union保存pair_query/pair_GT，branch_matches保存各层own匹配。必须准确称“同一缓存上的CPU原生GO重建”，不是GPU criterion现场捕获。envelope_cache_audit.py已经读取同一dev00–07的outputs.ref_points/up/reg_scale/aux.pred_corners及此native_union，证明这套schema已有消费者；不需用eval框或旧anchor猜真实train refs。
+注意该BASE24缓存是全model.train、批4、BN缓冲恢复的既有GPU输出；C0是晚期checkpoint的CPU冻结BN混合模式。两者是跨checkpoint/开发场景复核，不是checkpoint唯一变量的因果实验，也不是未使用过的独立验证。
+
+四、最便宜的一个验证
+先固定A/B全部development00–07，共64模型-输入曝光，零新前向地执行同一G_repair、U_cost、U_change和ref-IoU强控制。原CPU native_union作G0，核q唯一、每GT multiplicity、每batch分母和原recipe；所有比较只在各自缓存内部。逐seed报告是否仍存在不被两U强控制复制的原outside修复、循环伴随代价与FGL权重归因，不继承210的通过。original_sub4元数据不存在则记NA，另按当次GT短边<4作不同cohort，不混名。若两seed仅一侧存在则记混合；无须先新forward寻找阳性输入。这个缓存核查完成前，不建议在同四图重新采两BASE24或为当前5配对申请训练。
+
+已读证据SHA：
+210/00_results.json 0c79441e97621b06a7b1544361e4bf31a31fd2a019f38692693d253ca902a178
+210/02_per_query_transitions.json a5afbd78fabd173f5fec31185044faf304267b80e88a39d7c8a5f1496c35dd7f
+probe_forward_v3.py b1711ea14740014536cf8f3d9958c889ed100236927ef82e38b16b1df9bb9c8a
+evaluate_rules.py c8e4ca196cb8f33b225ee0133849058eb65c1f1a2707236051f85de8d89c95b8

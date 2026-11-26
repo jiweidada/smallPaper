@@ -1,0 +1,50 @@
+335｜对 334 执行的更正与三项补做指令（自包含，2026-10-21）
+
+你是执行方（DeepSeek）。本文是对上一轮 334 执行汇报的更正与补做指令。先读本文，再动手。334、317、332、333、327 全部继续有效；本文只更正上一轮三处不成立/用错的结论，并要求补做三项。凡与上一轮汇报冲突，以本文为准。
+
+一、上一轮三处必须更正（均已由主控独立核对）
+1. “模型类 ResidualGeometryDEIM 缺失”不成立。
+   - 事实：类定义在 C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\fine_residual_screen24_20261009_v2\geometry.py 第 106 行（class ResidualGeometryDEIM(DEIM)），同版本 v1 目录亦有。
+   - 上一轮只搜了 C:\Users\jiwei\Desktop\DEIM，没搜 英文小论文\code，故得出错误的“未执行(模型类缺失)”。
+   - geometry.py 在 yolo 环境可 import 且具备 ResidualGeometryDEIM（已实测）。故真实 global 前向、raw/eval/native parity、global 零 grad/state 不变、真实参数 10231995 复核，均不因模型类受阻，必须补做。
+2. 评估口径查证用错了库。
+   - 事实：这两个 checkpoint 的训练/评估器是 receipt 绑定的自定义包 custom_pycocoeval_complete_package_v1（见 checkpoint 内 fine_residual_geometry_identity.evaluator_binding；其 cocoeval.py SHA256 = 288eab6c1a82fe9c94f1eede61559aadb48dfe77940b0aee2ea587e355097948，另有 Linux 编译后端 _mask.*.so）。
+   - 上一轮读的是 yolo 环境里的 faster_coco_eval 1.6.7（其 cocoeval.py 是另一套），因此“max_dets 在 L246-249 截断”“score_threshold 无人消费”以及任务3②的 AP diff=0.0，都是对错误库的结论，不能作为原生评估口径的依据。
+   - 本机现状：workspace 内没有该 custom_pycocoeval 包（只有标准 pycocotools）；绑定后端是 Linux 编译的 _mask.*.so。所以任务3②若在 Windows 本地跑，缺包则如实标“未执行(评估器绑定包本地缺失)”，不得再用 faster_coco_eval 顶替并宣称一致。
+3. 没有复用冻结的 311/320。
+   - 事实：上一轮 uic_model.py 是手写的约 1M 参数代理，未 import 311 的 core.py。
+   - 311/320 实际位置：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\311_unit_instance_core\core.py（SHA256 = 8cd5dbc61052c7d3c3b4058b4d25b150b906ecc06c6eb005793c737cef3f17ef，与 320 校验值一致）、320_geometry_calibrated_core\gcal.py。317 说“已有 311 原型是实现基础”，320 会校验 311 的 SHA。G/R 初态同值、kappa_c 梯度等合同必须直接 import 这两个模块，不得用代理模型代替。
+
+二、三项补做（按此执行，未做齐全不得记通过）
+补做1｜真实 global + parity + 参数复核
+- 用 code\fine_residual_screen24_20261009_v2 的 geometry.py 构建真实模型（ResidualGeometryDEIM，arm='baseline'），按 resolved.yml/args.yaml_cfg 的 recipe（DEIM/HGNetv2 B0/HybridEncoder/DFINETransformer num_queries=300 num_classes=10）实例化。
+- 加载 seed1、seed2 的 last.pth['model']（weights_only 安全方式、CPU），确认参数量 = 10231995（与训练日志一致），并做 load_state_dict 严格匹配(missing/unexpected 均为 0)。
+- raw/eval/native parity：在同一批真实或构造输入上，比较 checkpoint 原始 head 输出(raw)、评估库输入(eval prepare)、native PostProcessor 三者流程一致性，记录所读文件与行号。
+- global 零 grad、state 不变：global 参数 requires_grad=False，一次前向后断言无梯度、state_dict 逐键不变。
+- 每项 result json 记录“已执行/未执行/未核”与实际调用次数。
+- 若构建成功但评估器缺失，parity 分两段：raw↔native 在本地做；raw↔绑定评估库标注“需绑定包/服务器”。
+
+补做2｜评估口径改用 receipt 绑定的 custom_pycocoeval，重做任务3第二层对照
+- 只在能拿到并激活 custom_pycocoeval_complete_package_v1（cocoeval.py SHA 288eab6c… 且 _mask 后端匹配）的环境里做；用 evaluator_binding.py 的 fingerprint/activate 校验。
+- 在该库源码里重新查 max_dets/score_threshold 的真实消费点，写明文件路径与行号（不得再用 faster_coco_eval 的结论）。
+- 重做任务3②：自建后处理(>0.001 + 逐类max100) 与 PostProcessor 输出，喂同一绑定评估库，报 AP 逐项 diff。
+- 若本地无该包(只有 pycocotools)或后端为 Linux .so 无法在 Windows 加载：result 明确写“未执行(评估器绑定包本地缺失/平台不符)”，并列出缺哪个文件、SHA、需要什么环境；禁止用标准 pycocotools 或 faster_coco_eval 冒名声称一致。
+
+补做3｜G/R 合同测试直接 import 冻结的 311/320
+- sys.path 加入 持续寻找研究主线_20261020_v2\311_unit_instance_core 与 320_geometry_calibrated_core，直接 import core.CompletionHead、core.copy_common、gcal.GeometryCalibratedHead、gcal.copy_R_common 等现有接口。
+- 在冻结 311/320 的真实模块上重做：G/R 初态同值(用 copy_common/copy_R_common)、固定 f/m/P 改 thetaC/thetaK 只改 G aux 计划、kappa_c 只能经 G 生成算子有梯度且 mass/assoc 无梯度、饱和例。
+- 不改 311/320 源码；若接口不足需另存新版本并写差异。断言 311 core.py SHA256 仍为 8cd5dbc6…（未被改动）。
+
+三、上一轮遗留的两处实现偏差（本轮一并修）
+- M0 并列 tiebreak：上一轮给代价加 1e-6*索引 的偏置。代价量级可能远大于 1e-6，偏置可能改变最优解；且 result 写“tiebreak 全通过”未报此风险。本轮改为：先按(覆盖,总代价)求真最优解集，再仅在等最优解之间用固定的固有索引做确定性选择；并单独构造“代价量级远大于偏置”的用例验证偏置不改变最优解，把风险与验证写入 result。
+- 生成算子数值：上一轮 kappa=-60 时 exp(-kappa) 溢出得 NaN。317 要求以 logsumexp 和 safe-empty 实现。本轮把 Z_j=exp(-kappa_j)+sum_l mbar*exp(-C_lj) 改为 logsumexp 稳定形式，给出极端 kappa 下仍有限且 r 行为正确的证据，不得再出 NaN。
+
+四、红线（沿用 334）
+- 只本地、CPU、无 GPU/SSH/队列；不启动真实训练；不读 heldout3236；不改历史文件(317/311/320/327 等)。
+- 工程合同失败写“实现失败”，不得写成科学阴性或暗改目标；未执行不得记通过；数字只写实际运行结果。
+- 输出独占新建、不覆盖；每份 result 列“已执行(含调用次数)/未执行/未核”，并附所用源文件 SHA256。
+- 环境仍用可用的 CPU 环境(yolo: torch2.5.1+cpu, torchvision0.20.1)；若需绑定评估库/真实前向而本地不具备，写明缺什么、需何种环境，不得静默替代。
+
+五、交付
+- 补做1/2/3 各一份 result json + 两份实现偏差修正的证据文件。
+- 一页中文汇总：更正了什么、补做了什么、仍未做及原因。不要给训练命令。

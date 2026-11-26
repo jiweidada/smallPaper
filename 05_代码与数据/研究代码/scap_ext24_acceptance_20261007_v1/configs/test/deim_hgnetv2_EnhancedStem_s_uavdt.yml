@@ -1,0 +1,77 @@
+# Enhanced HGNetv2 Configuration for VisDrone2019
+# Three Innovations:
+# 1. Enhanced Stem Block for small object detection
+# 2. Hierarchical attention strategy (MSCA variants)
+# 3. SiLU activation function
+
+__include__: [
+  '../dfine/dfine_hgnetv2_s_custom.yml',
+  'uavdt.yml',
+  '../base/deim.yml',
+]
+
+print_freq: 400
+output_dir: ./outputs/deim_hgnetv2_s_UAVDT_MSCA_EnhancedStem_SiLU_320
+
+# ========== Model Configuration ==========
+DEIM:
+  backbone: HGNetv2_MSCA_EnhancedStem
+
+# ========== 🔥 Enhanced HGNetv2 with Three Innovations ==========
+HGNetv2_MSCA_EnhancedStem:
+  name: 'B0'                            # 选择模型规模
+  return_idx: [1, 2, 3]                    # 返回的特征层索引
+  freeze_at: -1                         # 不冻结任何层
+  freeze_norm: False                    # 不冻结BN层
+  use_lab: True                         # 使用LearnableAffineBlock
+  pretrained: False                     # Enhanced Stem需要从头训练
+  
+  # 🔥 创新点1：VD-LMS Stem Block
+#  stem_type: 'vd_ultralight'                     # VisDrone轻量级多尺度Stem
+#  stem_type: 'standard'                   # 标准HGNetv2 Stem
+  stem_type: 'enhanced'                   # 原Enhanced Stem
+#  stem_type: 'vd_lms'                     # VisDrone轻量级多尺度Stem
+  
+  # 🔥 创新点2：分层注意力策略
+  # Stage1-2: 轻量级注意力 (ese, simam)
+  # Stage3-4: 强大的多尺度注意力 (msca_lite, msca_dilated)
+  agg: ['ese', 'simam', 'msca_lite', 'msca_dilated']
+  
+  # 🔥 创新点3：激活函数优化
+  act_type: 'silu'                      # 使用SiLU代替ReLU
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*bn).*$'
+      lr: 0.0002
+    -
+      params: '^(?=.*(?:norm|bn)).*$'     # except bias
+      weight_decay: 0.
+
+  lr: 0.0004
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+# Increase to search for the optimal ema
+epoches: 132 # 120 + 4n
+
+## Our LR-Scheduler
+flat_epoch: 64    # 4 + epoch // 2, e.g., 40 = 4 + 72 / 2
+no_aug_epoch: 12
+
+## Our DataAug
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: [4, 64, 120]   # list
+
+  collate_fn:
+    mixup_epochs: [4, 64]
+    stop_epoch: 120
+  total_batch_size: 4
+val_dataloader:
+  total_batch_size: 4

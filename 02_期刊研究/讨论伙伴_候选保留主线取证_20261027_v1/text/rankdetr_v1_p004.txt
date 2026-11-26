@@ -1,0 +1,69 @@
+(a) Rank-oriented Arch.
+ (b) Rank-adaptive Cls. Head
+ (c) Query Rank Layer
+Figure 1: Illustrating the rank-oriented architecture design. (a) The rank-oriented architecture consists of a
+query rank layer before each of the last L − 1 Transformer decoder layer and a rank-adaptive classification head
+after each Transformer decoder layer. (b) The rank-adaptive classification head learns to adjust the classification
+scores accordingly. (c) The query rank layer exploits the latest ranking information to recreate the content
+queries and position queries used as the input to the following Transformer decoder layer.
+pipeline is shown in Figure 1(b). It is noteworthy that we can directly incorporate a set of learnable
+embedding, denoted as S l, into the classification scores T l. This is practicable because the associated
+Ql has already been sorted in the query rank layer, as explained below.
+Query Rank Layer. We further introduce a query rank layer before each of the lastL−1 Transformer
+decoder layers to regenerate the sorted positional query and content query accordingly.
+First, we explain how to construct the rank-aware content query:
+Q
+l
+c = MLPfuse( ˆQl−1
+c ∥Cl), ˆQl−1
+c = Sort(Ql−1
+c ; ˆP l−1), (2)
+where we first sort the output of (l − 1)-th Transformer decoder layer Ql−1
+c in descending order
+of ˆP l−1 = MLPcls(Ql−1
+c ). Since each element in ˆP l−1 is a K-dimensional vector, we use the
+maximum value over K categories (classification confidence) as the ranking basis. The operation
+symbol Sort(A; B) sorts elements within A based on the decreasing order of the elements in B.
+Then, we concatenate (∥) the sorted object content queries ˆQl−1
+c with a set of randomly initialized
+content query Cl in the feature dimension, where l ∈ { 2, · · · , L}. This set of content query Cl is
+optimized in an end-to-end manner. Subsequently, we fuse them back to the original dimension using
+a fully connected layer (MLPfuse). In other words, for each Transformer decoder layer, we maintain
+a set of rank-aware static content embeddings shared across different samples. These embeddings
+effectively model and utilize the distribution of the most frequent semantic information.
+Next, we present the mathematical formulations for computing the rank-aware positional query. To
+align the order of the positional queries with the ranked content query, we either sort or recreate
+the positional queries, depending on the initialization method of positional queries for different
+DETR-based detectors. For H-DETR, which inherits Deformable DETR and uses the same positional
+query for all L Transformer decoder layers, we simply sort the positional query of the previous layer:
+Q
+l
+p = Sort(Q
+l−1
+p ; ˆP l−1), (3)
+For DINO-DETR, which generates new positional queries from the bounding box predictions in each
+Transformer decoder layer, we sort the bounding box predictions of each object query and recreate
+the positional query embedding from the sorted boxes:
+Q
+l
+p = PE(B
+l−1
+), B
+l−1
+= Sort(Bl−1; ˆP l−1), (4)
+where Bl−1 and ˆP l−1 represent the bounding box predictions and classification predictions based
+on the output of (l − 1)-th Transformer decoder layer, i.e., Ql−1. PE(·) contains a sine position
+encoding function and a small multilayer perceptron to recreate the positional query embedding
+Q
+l
+p. In other words, each element of Q
+l
+p is estimated by ql
+p,i = PE( b
+l−1
+i ). In Figure 1(c), we
+illustrate the positional query update process for H-DETR (Equation (3)) and omit that process for
+DINO-DETR (Equation (4)), because we primarily conducted experiments on H-DETR.
+Finally, we transmit the regenerated rank-aware positional query embedding and content query
+embedding to the subsequent Transformer decoder layer.
+4

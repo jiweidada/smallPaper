@@ -1,0 +1,145 @@
+Vision Transformer with Deformable Attention
+Supplementary Materials
+1. DAT and Deformable DETR
+In this section, we provide a detailed comparision be-
+tween our proposed deformable attention and the direct
+adaptation from the deformable convolution [4], which is
+also known as the multiscale deformable attention in De-
+formable DETR [20].
+First, our deformable attention serves as a feature extrac-
+tor in the vision backbones while the one in Deformable
+DETR which replaces the vanilla attention in DETR [1]
+with a linear deformable attention, plays the role of the de-
+tection head. Second, the m-th head of query q in the atten-
+tion in Deformable DETR with M heads in a single scale is
+formulated as
+z(m)
+q =
+KX
+k=1
+A(m)
+qk Wvϕ(x; pq + ∆p(m)
+qk ), (1)
+where K key points are sampled from the input features,
+mapped by Wv and then aggregated by attention weights
+A(m)
+qk . Compared to our deformable attention (Eq.(9) in the
+paper), this attention weights is learned from x by a linear
+projection, i.e. A(m)
+qk = σ(Wattx), where Watt ∈ RC×M K is
+the weight matrix to predict the attention weights of each
+key k and head m, after which a softmax function σ is
+applied to the dimensions of K keys to normalize the at-
+tention score. In fact, the attention weights are predicted
+directly by queries instead of measuring the similarities be-
+tween queries and keys. If we change the σ function to
+a sigmoid, this will be a variant of modulated deformable
+convolution [19], hence this deformable attention is more
+similar to convolution rather than attention.
+Third, the deformable attention in Deformable DETR
+is not compatible to the dot-product attention for its enor-
+mous memory consumption mentioned in Sec.3.2 in the
+paper. Therefore, the linear predicted attention is used to
+avoid computing dot products and a smaller number of keys
+K = 4 is also adopted to reduce the memory cost.
+To experimentally validate our claim, we replace our de-
+formable attention modules in DAT with the modules in
+[20] to verify that the naive adaptation is inferior for vi-
+sion backbone. The comparison results are shown in Table
+1. To obtain a Deformable DETR under low memory bud-
+Attn Stage 3 Stage 4 FLOPs #Param Memory IN-1K
+#Key #Key Acc.
+D-DETR 16 16 4.44G 27.95M 13.9GB 80.6
+D-DETR 49 49 4.83G 31.15M 18.8GB 80.7
+D-DETR 196 49 6.16G 37.26M 37.9GB 79.2
+DAT 49 49 4.38G 28.32M 12.5GB 81.8
+DAT 196 49 4.59G 28.32M 14.4GB 82.0
+Table 1. Comparisons of the deformable attention in DAT with that
+in [20] under different compuational budgets. The GPU memory
+cost is measured in a forward pass with a batch size of 64.
+get, we reduce the number of keys to 16. Comparing the
+first row and the fourth row, our model achieves 1.2% bet-
+ter performance with similar memory cost. Comparing the
+third and last row, we can see that the D-DETR attention
+with the same number of keys as DAT consumes 2.6×mem-
+ory and 1.3×FLOPs, while the performances are still lower
+than DAT.
+2. Adding Convolutions to DAT
+Recent works [2,5,12,13] have proved that adopting con-
+volution layers in the Vision Transformer architecture can
+further improve model performances. For example, using
+convolutional patch embedding can generally boost model
+performances by 0.5% ∼ 1.0% on ImageNet classification
+tasks. It is worth noticing that our proposed DAT can read-
+ily combine with these techniques, while we maintain the
+convolution-free architecture in the main paper to perform
+fair comparison with baselines.
+To fully explore the capacity of DAT, we substitute the
+patch embedding layers in the original model with strided
+and overlapped convolutions. The comparison results are
+shown in Table 2, where baseline models have similar mod-
+ifications. It is shown that our model with additional con-
+volution modules achieve 0.7% improvement comparing
+to the original version, and consistently outperform other
+baselines.
+1
+
+---PAGE---
+
+ImageNet-1K Classification
+Method FLOPs #Param Top-1 Acc.
+CvT-13 [13] 4.5G 20M 81.6
+CoAt-Lite Small [14] 4.0G 20M 81.9
+CeiT-S [15] 4.8G 24M 82.0
+PVTv2-B2 [12] 4.0G 25M 82.0
+CoAt Small [14] 12.6G 22M 82.1
+RegionViT-S [2] 5.3G 31M 82.5
+DAT-T 4.6G 28M 82.0
+DAT-T* 4.8G 30M 82.7
+Table 2. Comparisons of DAT with other vision transformer back-
+bones on FLOPS, parameters, accuracy on the ImageNet-1K clas-
+sification task. DAT-T refers to the original version. DAT-T* refers
+to the model with convolutional patch embeddings.
+Figure 1. Visualizations on COCO [7] of learned sampling lo-
+cations in deformable attention at Stage 3 (first row) and Stage
+4 (second row) of DAT. The orange and yellow points show one
+group of deformed points. The detection bounding boxes and seg-
+mentation masks are also presented to indicate the targets.
+3. More Visualizations
+We visualize examples of learned deformed locations in
+our DAT to verify the effectiveness of our method. As illus-
+trated in Figure 1, the sampling points are depicted on the
+top of the object detection boxes and instance segmentation
+masks, from which we can see that the points are shifted to
+the target objects. In the left column, the deformed points
+are contracted to two target giraffes, while other points are
+keeping a nearly uniform grid with small offsets. In the mid-
+dle column, the deformed points distribute densely among
+the person’s body and the surfing board both in the two
+stages. The right column shows the deformed points fo-
+cus well to each of the six donuts, which shows our model
+has the ability to better model geometric shapes even with
+multiple targets. The above visualizations demonstrate that
+DAT learns meaningful offsets to sample better keys for at-
+tention to improve the performances on various vision tasks.
+We also provide visualization results of the attention map
+given specific query tokens, and compare with Swin Trans-
+former [8] in Figure 2. We show key tokens with the highest
+Figure 2. Visualizations on COCO [7] validation set. The red star
+denotes a query point, the orange dots are the keys with higher at-
+tention scores in the last layer. The images in the first and third
+rows depict our DAT attention and Swin Transformers’ [8] are
+shown in the second and fourth rows. The detection bounding
+boxes and segmentation masks are also presented to indicate the
+targets.
+attention values. It can be observed that our model focus on
+the more relevent part. As a showcase, our model allocates
+most attention to foreground objects, e.g., both gireffas in
+the first row. On the other hand, the region of interests in
+Swin Transformer is comparably local and fail to distin-
+guish foreground from background, which is depicted in the
+last surfboard.
+4. Training Details of DAT
+We use AdamW [9] optimizer to train our models for
+300 epochs with a cosine learning rate decay. The basic
+learning rate for a batch size of 1024 is set to 1 × 10−3,

@@ -1,0 +1,98 @@
+import torch, numpy as np, itertools
+from scipy.optimize import linear_sum_assignment
+torch.set_num_threads(2)
+
+def _focal_cost(prob_pos, alpha=0.25, gamma=2.0):
+    p = prob_pos
+    neg = (1-alpha)*(p**gamma)*(-(1-p+1e-8).log())
+    pos = alpha*((1-p)**gamma)*(-(p+1e-8).log())
+    return pos-neg
+
+def native_matcher_cost(cand_boxes, cand_logits, gt_boxes, gt_labels, num_classes,
+                        cost_class=2.0,cost_bbox=5.0,cost_giou=2.0,alpha=0.25,gamma=2.0):
+    from engine.deim.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
+    prob=torch.sigmoid(cand_logits); out_prob=prob[:,gt_labels]
+    cc=_focal_cost(out_prob,alpha,gamma)
+    cb=torch.cdist(cand_boxes,gt_boxes,p=1)
+    giou=generalized_box_iou(box_cxcywh_to_xyxy(cand_boxes),box_cxcywh_to_xyxy(gt_boxes))
+    C=cost_bbox*cb+cost_class*cc+cost_giou*(-giou)
+    return torch.nan_to_num(C,nan=1.0), giou
+
+def iou_xyxy(a,b):
+    lt=torch.max(a[:,None,:2],b[None,:,:2]); rb=torch.min(a[:,None,2:],b[None,:,2:])
+    wh=(rb-lt).clamp(min=0); inter=wh[...,0]*wh[...,1]
+    aa=(a[:,2]-a[:,0]).clamp(min=0)*(a[:,3]-a[:,1]).clamp(min=0)
+    ab=(b[:,2]-b[:,0]).clamp(min=0)*(b[:,3]-b[:,1]).clamp(min=0)
+    return inter/(aa[:,None]+ab[None,:]-inter).clamp(min=1e-12)
+
+def _max_cardinality_matching(valid_np):
+    """Hopcroft-Karp style: greedy + augmenting (N,M small). Returns size."""
+    n,m=valid_np.shape
+    matchR=[-1]*m
+    def try_kuhn(u,seen):
+        for v in range(m):
+            if valid_np[u,v] and not seen[v]:
+                seen[v]=True
+                if matchR[v]==-1 or try_kuhn(matchR[v],seen):
+                    matchR[v]=u; return True
+        return False
+    size=0
+    for u in range(n):
+        if try_kuhn(u,[False]*m): size+=1
+    return size, matchR
+
+def m0_lex(cand_boxes_cxcywh, cand_logits, gt_boxes_cxcywh, gt_labels, gt_valid_mask=None,
+           num_classes=10, iou_thr=0.5, cand_index=None, **kw):
+    """Exact lexicographic: (1) max coverage, (2) min total matcher cost among max-coverage matchings,
+    (3) fixed intrinsic index among ties. No epsilon bias added to costs."""
+    N=cand_boxes_cxcywh.shape[0]; M=gt_boxes_cxcywh.shape[0]
+    if gt_valid_mask is None: gt_valid_mask=torch.ones(M,dtype=torch.bool)
+    if cand_index is None: cand_index=torch.arange(N)
+    cand_index=torch.as_tensor(cand_index)
+    cb=cand_boxes_cxcywh.float(); gb=gt_boxes_cxcywh.float(); cl=cand_logits.float(); gl=gt_labels.long()
+    cand_cls=cl.argmax(-1)
+    from engine.deim.box_ops import box_cxcywh_to_xyxy
+    iou=iou_xyxy(box_cxcywh_to_xyxy(cb),box_cxcywh_to_xyxy(gb))
+    valid=(gt_valid_mask[None,:] & (cand_cls[:,None]==gl[None,:]) & (iou>=iou_thr))
+    C,_=native_matcher_cost(cb,cl,gb,gl,num_classes,**kw)
+    if N==0 or M==0:
+        return {"gt_explained":torch.zeros(M,dtype=torch.bool),"cand_owner":torch.full((N,),-1,dtype=torch.long),
+                "matched_pairs":[],"coverage":0,"total_cost":0.0,"C":C,"valid":valid,"iou":iou}
+    vnp=valid.cpu().numpy()
+    maxcov,_=_max_cardinality_matching(vnp)
+    # enumerate optimal matchings of size maxcov by min-cost assignment restricted to maxcov (exact via LSA on square with BIG)
+    Cnp=C.detach().cpu().numpy()
+    maxabs=float(np.abs(Cnp).max()) if Cnp.size else 1.0
+    BIG=(maxabs+1.0)*(min(N,M)+2)*10.0
+    R=N+M; CC=M+N
+    mat=np.full((R,CC),BIG)
+    for i in range(N):
+        for j in range(M):
+            if vnp[i,j]: mat[i,j]=Cnp[i,j]
+    for i in range(N,R):
+        for j in range(M,CC): mat[i,j]=0.0
+    rw,cw=linear_sum_assignment(mat)
+    pairs=[(int(i),int(j)) for i,j in zip(rw,cw) if i<N and j<M and vnp[i,j]]
+    # if LSA solution coverage < maxcov (shouldn't), fall back is invalid -> flag
+    cov=len(pairs)
+    # tie-break ONLY among optimal (coverage==maxcov and cost==min): we can't enumerate all; use canonical small epsilon
+    # but prove epsilon does not change optimum: eps_total_max < min_cost_gap. We verify by recomputation:
+    eps=1e-9
+    mat2=np.full((R,CC),BIG)
+    for i in range(N):
+        for j in range(M):
+            if vnp[i,j]: mat2[i,j]=Cnp[i,j]+eps*(int(cand_index[i])*M+j)
+    for i in range(N,R):
+        for j in range(M,CC): mat2[i,j]=0.0
+    rw2,cw2=linear_sum_assignment(mat2)
+    pairs2=[(int(i),int(j)) for i,j in zip(rw2,cw2) if i<N and j<M and vnp[i,j]]
+    cost1=sum(float(C[i,j]) for i,j in pairs); cost2=sum(float(C[i,j]) for i,j in pairs2)
+    eps_changed_optimum = (len(pairs2)!=len(pairs)) or (abs(cost2-cost1)>1e-6)
+    use = pairs2 if not eps_changed_optimum else pairs
+    use.sort(key=lambda p:(int(cand_index[p[0]]),p[1]))
+    gt_explained=torch.zeros(M,dtype=torch.bool); cand_owner=torch.full((N,),-1,dtype=torch.long)
+    for i,j in use: gt_explained[j]=True; cand_owner[i]=j
+    return {"gt_explained":gt_explained,"cand_owner":cand_owner,"matched_pairs":use,
+            "coverage":int(gt_explained.sum()),"total_cost":sum(float(C[i,j]) for i,j in use),
+            "C":C,"valid":valid,"iou":iou,"max_cardinality":int(maxcov),
+            "eps_changed_optimum":bool(eps_changed_optimum)}

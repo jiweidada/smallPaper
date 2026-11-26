@@ -1,0 +1,40 @@
+10 Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS
+α 0 0.25 0.5 0.75
+AP 50.0 50.5 49.2 47.6
+k 1 2 3 4 5
+AP 50.1 50.2 50.4 50.5 50.2
+τ 1.5 3 6 9
+AP 50.5 50.1 50.0 49.7
+Table 5: Influence (%) of hyper-paramters α, k and τ on our approach on COCO val.
+as anticipated. Notably, when the regression loss is deprecated, the performance experiences
+a 0.8% AP drop, underscoring the importance of consistency in Eq.7 in the loss design.
+To further investigate the impact of the hyper-parameters we introduced, i.e. α, k and τ, we
+conduct sensitivity analysis by changing one variable and keeping other variables controlled.
+Our default values arek = 4, α = 0.25, and τ = 1.5. As shown in Tab. 5,α is has the greatest
+influence on the performance while τ and k have moderate effects. This sensitivity analysis
+supports our hypothesis that α should be kept small to prevent effective training signals from
+suppression.
+5 Conclusion
+This paper investigates the optimization of DETR and identifies two aspects of the mis-
+alignment issue that could impede performance. To address these challenges, we propose a
+unified and straightforward solution named Align-DETR, comprising a many-to-one match-
+ing strategy and a novel loss function, referred to as Align Loss. To mitigate the side effects
+of misaligned targets across layers, our matching strategy expands the number of samples as-
+signed to a ground truth, which we term as candidates. We anticipate the matching changes
+to occur within a group of candidates. The Align Loss is designed as a "soft" variant of
+focal loss, employing a quality metric to guide the learning of classification with respect to
+position. Additionally, we implement a gradual transition from positive to negative samples
+within a group of candidates to smooth the conflict caused by matching change. Competi-
+tive experimental results are achieved on the common COCO benchmark, demonstrating the
+superiority of Align-DETR in terms of effectiveness.
+Acknowledgements
+This work is partly supported by the National Natural Science Foundation of China (No.
+62022011), the Research Program of State Key Laboratory of Complex and Critical Software
+Environment, and the Fundamental Research Funds for the Central Universities.
+References
+[1] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kir-
+illov, and Sergey Zagoruyko. End-to-end object detection with transformers. InECCV,
+2020.
+[2] Qiang Chen, Xiaokang Chen, Jian Wang, Shan Zhang, Kun Yao, Haocheng Feng,
+Junyu Han, Errui Ding, Gang Zeng, and Jingdong Wang. Group detr: Fast detr training
+with group-wise one-to-many assignment. In ICCV, 2023.

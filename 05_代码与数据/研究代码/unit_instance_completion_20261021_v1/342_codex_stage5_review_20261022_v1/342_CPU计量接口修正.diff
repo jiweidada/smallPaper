@@ -1,0 +1,24 @@
+--- 342_cpu_resources.py
++++ 342_cpu_resources_v2.py
+@@ -27,6 +27,8 @@
+         for arm in 'NSGR':
+             m=T.make_common_init(arm,seed).eval();counts['head_constructions']+=1
+             params=sum(p.numel() for p in m.parameters());trainable=sum(p.numel() for p in m.parameters() if p.requires_grad)
++            # Cost-only temporary model: avoid module_tracker grad-hook registration.
++            for p in m.parameters():p.requires_grad_(False)
+             before=state_hash(m)
+             def forward():
+                 counts['head_forwards']+=1
+@@ -49,10 +51,10 @@
+                 'state_sha256_before':before,'state_sha256_after':state_hash(m),'grad_all_None':True})
+             print(f'CPU cost seed={seed} arm={arm} params={params} countedFLOPs={counter.get_total_flops()} median_ms={statistics.median(times):.4f}',flush=True)
+     assert counts['head_forwards']==104 and counts['optimizer_steps']==0
+-    C.write('342_result_CPU单窗资源实测.json',{'status':'已验证（所列计量口径）；完整算子FLOPs未核','rows':rows,
++    C.write('342_result_CPU单窗资源实测_v2.json',{'status':'已验证（所列计量口径）；完整算子FLOPs未核','rows':rows,
+         'scope':'当前train344真实头，包含trunk/mass/可学习aux/generation；不裁剪部署aux。仅forward_features无损失，无新global前向。两seed各development#1单窗，不代表全数据平均。',
+         'FLOPs_scope':'PyTorch FlopCounterMode注册算子的前向计数（乘加按2 FLOPs），逐算子计数与未注册调用全部披露；elementwise、归一化、softmax及CPU融合attention等未必计入，不冒称完整FLOPs。',
+-        'latency_scope':'CPU FP32，torch两线程，batch1；每case预热2次、计时10次、FLOP计量1次；不含缓存加载/collate/损失/反向/优化器/全局检测器/评价。',
++        'temporary_model_grad_flags':'先记录训练参数量，再仅在计量用临时模型关闭requires_grad；权重/state不变，无优化器。', 'latency_scope':'CPU FP32，torch两线程，batch1；每case预热2次、计时10次、FLOP计量1次；不含缓存加载/collate/损失/反向/优化器/全局检测器/评价。',
+         'runtime':{'python':sys.version,'torch':torch.__version__,'platform':platform.platform(),'processor':platform.processor(),
+                    'torch_threads':torch.get_num_threads(),'torch_FLOP_counter_path':fc.__file__,'torch_FLOP_counter_sha256':C.sha(fc.__file__)},
+         'GPU_memory':'NA','GPU_hours':'NA','GPU_wall_clock':'NA','已执行':counts,

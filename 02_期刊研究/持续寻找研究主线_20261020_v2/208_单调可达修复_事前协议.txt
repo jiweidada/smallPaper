@@ -1,0 +1,28 @@
+208：固定真实 GO 预算的单调可达修复，缓存必要筛查
+
+本候选由193结果及207审查提出，属于新的允许边约束；不改变191/192/193中G的定义、门槛或结论。只写209，root审后运行；作者不执行、不提前求新候选结果。输出新210_C0_monotone_GO_repair，只读188/193及已冻结依赖，不构造检测模型、不加载checkpoint、不反传或训练。
+
+数据与预算：188缓存SHA 8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9。193结果/图矩阵固定哈希，复用192定义（SHA 07255fb486d12b3ef25acead31a3f707bdc558de55dc9d21202809f469bdd1c7），不调用其main。四图同一188原GO：832个q槽，固定749个GT的多重预算m_g，共902个GT中其余153个不加入；每图每类独立完整运输，保持每q恰好一个同类GT、每GT恰好m_g个q。MAL own及DN均不改。
+
+精确新定义：F(q,g)仍为193无clip FP64物理闭支持，R=4、节点[-4,4]，原owner为g0(q)。允许边E(q,g)=[g=g0(q)] OR F(q,g)。新臂G_repair在E内lex最小化(支持外槽数，改变owner数，native final matcher cost)。不再优化v，v只作描述。原GO始终可行。所有非原owner新边均F=1，因此每query的原支持内→新支持外必须0；且每GT丢失k条旧边时增加k条支持内新边，每GT支持槽数不降。该“单调”仅指有限FDR支撑，不指预测IoU、loss、AP或学习收益。
+
+强控制：
+U_cost：无限边，lex(支持外槽数，nativecost，改变owner数)。
+U_change：无限边，lex(支持外槽数，改变owner数，nativecost)。它与G_repair目标完全相同，只缺E约束，是排除“仅换第二目标”解释的关键控制。
+保留188原GO、193的G和ref-IoU-face；其完整配对与既有整数证书按193固定产物直接引用，不重跑老方法。所有臂在本次同一193矩阵上重新读取逐query的支撑、当前IoU、ref-IoU、nativecost和v。
+
+整数精确性：沿192将每个已计算float精确化为二进制有理数、公共分母整数，行平移后各级总范围U=sum行最大值，逐级以U_next+1打包。G_repair以禁止边指示1-E为最前级；G0有零禁止边，故任何至少一条禁止边的分配必劣于某个零禁止边完整解。这是可证明hardcost，不是任意大M或浮点epsilon；解后仍断言零禁止边。可继续使用192完整图运输对偶，证明的是包含hardcost的完整图整数最优，结合零禁止边即得到限制图原目标最优。每臂输出整数范围/分母/位数、逐边对偶与primal=dual。192默认追加最少改owner末级；若前级已经包含此数，该末级冗余且不改变目标，明确记录，不冒称新增优先级。
+
+先合成后读取数据内容：测试禁止边必须压过1e100级低层成本；原GO完整可行；正修复循环；允许外边才能达更高K的反例；GT多重预算；小例全排列/完整运输穷举和整数flow目标相同；每query及每GT支撑单调；U_change同face不被当成方法差别。沿用192精确对偶检查，不安装包。
+
+主域为193 physical64。193已报告全部真实GO图near=0且FP32/tight/expanded边相同；209读取原矩阵逐项确认四域相同。不按结果换域；若与此冻结前提不符，标记实现/来源需复核，不输出方法阴性。原始refs/targets/q/GT/m_g与188逐项核对，不借127或114作GO基线。
+
+本次唯一必要筛查（执行前锁定）：
+1 G_repair确实修复至少一个原支持外q（原F=0、新F=1），且所有非原owner新边F=1、原支持内→新支持外=0。后两项是算法性质，失败是实现错误而非科学阴性。
+2 对U_cost、U_change分别核其返回分配是否已经满足E；只要任一U臂已满足E，就不把硬约束视为仍有额外必要性。不得仅以不同owner/tie判“非复制”。
+3 另外精确比较G_repair和U_change的全组目标tuple=(支持外数,改owner数,nativecost)。若完全相等，G_repair位于相同的U_change最优face；即使本次U_change返回了违反E的某个并列解，也只记为face内择解差别，不通过本次主必要筛查。
+以上同时成立才记录“修复且约束未被两项强简单控制复制”的必要前提。失败仅收回该精确约束增量，不改193/G结论，不证明其它分配/AP无效。没有AP、IoU或cost幅度新门槛，也不要求代价被oracle保证不降。
+
+全部报告：各图/类/总计G0、G、ref-IoU-face、U_cost、U_change、G_repair的支持槽数、原outside修复/原inside丢失/仍outside但换owner、禁止边数、改owner数、两个IoU精确和、nativecost精确和、v；每query给原owner及各臂新owner和全部转移/数值，每GT给m_g和支持槽数。保留每臂完整见证/整数证书、输入与源前后SHA、flow位数/时间、RSS/系统峰值。必要通过不等于可学、有效、新颖或训练许可。
+
+运行边界：CPU2、interop1、affinity[13,15]、BelowNormal、可用RAM>8GiB、MKL_THREADING_LAYER=SEQUENTIAL；0 model forward/backward/VJP/optimizer。默认210目录不得存在，失败落盘明确实现错误。193矩阵producer已有精确证书；209只分析固定缓存，不重采、不改历史文件。

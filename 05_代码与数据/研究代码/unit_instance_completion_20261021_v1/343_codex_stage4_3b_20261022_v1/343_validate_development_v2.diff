@@ -1,0 +1,68 @@
+--- 343_validate_development.py
++++ 343_validate_development_v2.py
+@@ -1,6 +1,6 @@
+ """All 6470 development entries; independent geometry, exact M0 certificates."""
+ import importlib,time,json,traceback,hashlib
+-C=importlib.import_module('343_context');D=importlib.import_module('343_development')
++C=importlib.import_module('343_context');D=importlib.import_module('343_development_v2')
+ I=importlib.import_module('342_val_independent');V=importlib.import_module('342_validate_val_v3')
+ import torch,numpy as np
+ from PIL import Image,ImageDraw
+@@ -43,7 +43,7 @@
+             x,y=xy+[524,60];draw.ellipse((x-3,y-3,x+3,y+3),outline='red',width=2)
+     draw.text((4,5),f'seed={seed} image={e["image_id"]}; G_W={e["n_G_W"]}; U_W old/new={int(old["U_W"].sum())}/{e["n_U_W"]}; U_W changed={not torch.equal(old["U_W"],e["U_W"])}',fill='black')
+     draw.text((4,25),'Original / frozen W',fill='black');draw.text((524,25),'Cache crop / P(cyan), new U_W(yellow), K_g(red)',fill='black');draw.text((1044,25),'Independent original-pixel bilinear crop',fill='black')
+-    name=f'343_development_seed{seed}_独立复核_{e["image_id"]:06d}.png'
++    name=f'343_development_v2_seed{seed}_独立复核_{e["image_id"]:06d}.png'
+     with open(C.HERE/name,'xb') as f:a.save(f,format='PNG')
+     return str(C.HERE/name)
+ 
+@@ -55,10 +55,17 @@
+     allrows={};stats={};oldstats={};manifests=[];pngs=[];cells={};reverse=[]
+     try:
+         for seed in (1,2):
+-            assert len(list(D.entry_path(seed,ids[0]).parent.glob('343_*.pt')))==3235
++            assert len(list(D.entry_path(seed,ids[0]).parent.glob('343_*.pt')))==3235-(seed==2)
+             rows=[];gs=[];us=[];ogs=[];ous=[];ownerchanges=[];uwchanges=[];cross=0;crossgw=0;cells[seed]={}
+             for n,iid in enumerate(ids,1):
+                 path=D.entry_path(seed,iid);source=C.WORK/f'340_cache_seed{seed}'/f'{iid:06d}.pt'
++                if seed==2 and iid==1466:
++                    old=torch.load(source,map_location='cpu',weights_only=True);counts['old_cache_loads']+=1
++                    assert not path.exists()
++                    rc,_=V.independent_window_640(G.raw_query_cxcywh_to_640_xyxy(old['final300_boxes']).numpy())
++                    assert list(rc)==old['window_cell'];cells[seed][iid]=tuple(rc)
++                    ogs.append(int(old['G_W'].sum()));ous.append(int(old['U_W'].sum()))
++                    continue
+                 e=torch.load(path,map_location='cpu',weights_only=True);old=torch.load(source,map_location='cpu',weights_only=True)
+                 counts['new_cache_loads']+=1;counts['old_cache_loads']+=1
+                 assert e['seed']==seed and e['image_id']==iid and e['annotation_sha256']==ah
+@@ -114,8 +121,8 @@
+                     'payload_sha256':e['stage3_payload_sha256'],'source_340_file_sha256':e['raw_cache_file_sha256'],'image_sha256':e['source_image_sha256'],'checkpoint_sha256':e['checkpoint_sha256']})
+                 if n%128==0 or n==3235:print(f'independent development seed={seed} {n}/3235 elapsed={time.perf_counter()-start:.1f}s',flush=True)
+             def summarize(g,u):
+-                return {'G_W_positive':V.wilson(sum(x>0 for x in g),3235),'U_W_positive':V.wilson(sum(x>0 for x in u),3235),
+-                    'U_W_gt4':V.wilson(sum(x>4 for x in u),3235),'total_G_W_GT':sum(g),'total_U_W_GT':sum(u),
++                return {'G_W_positive':V.wilson(sum(x>0 for x in g),len(g)),'U_W_positive':V.wilson(sum(x>0 for x in u),len(u)),
++                    'U_W_gt4':V.wilson(sum(x>4 for x in u),len(u)),'total_G_W_GT':sum(g),'total_U_W_GT':sum(u),
+                     'overflow_GT':sum(max(0,x-4) for x in u),'sum_min4_U_W':sum(min(4,x) for x in u)}
+             oldstats[str(seed)]=summarize(ogs,ous);stats[str(seed)]=summarize(gs,us)
+             stats[str(seed)].update({'owner_changed_images':len(ownerchanges),'U_W_changed_images':len(uwchanges),
+@@ -140,15 +147,15 @@
+         fixture=np.zeros((1,256));fixture[0,2*16+7]=1
+         assert not np.array_equal(fixture,fixture.reshape(1,16,16).transpose(0,2,1).reshape(1,256))
+         reverse.append({'constructed_row_column_transpose_detected':True})
+-        C.write('343_result_3b全量独立验收.json',{'status':'已验证；待主控独立核对','stats':stats,'old340_stats':oldstats,
++        C.write('343_result_3b已生成6469条独立验收.json',{'status':'已生成6469条已验证；完整6470条实现失败','validated_entries':len(manifests),'failed_missing_entries':[{'seed':2,'image_id':1466}],'statistical_scope':'seed1为完整3235；seed2统计仅3234条有效子集，不冒称完整3235新统计。','stats':stats,'old340_stats':oldstats,
+             'same_window_seeds':{'count':same,'n':3235,'rate':same/3235,'old_count':1443,'unchanged':True},
+             'per_image':allrows,'png_paths':pngs,'reverse_tests':reverse,'all_non_M0_old_fields_bit_equal':True,
+             '已执行':counts,'elapsed_seconds':time.perf_counter()-start,'未执行':['真实训练','GPU','阶段5'],'未核':['主控独立复核'],'source_sha256':C.sources()})
+-        C.write('343_development6470_逐条SHA清单.json',{'entries':manifests,'annotation_sha256':ah,
++        C.write('343_development6469_逐条SHA清单.json',{'entries':manifests,'annotation_sha256':ah,
+             '已执行':{'entries':len(manifests)},'未执行':['真实训练'],'未核':['主控独立复核'],'source_sha256':C.sources()})
+         print(json.dumps({'status':'PASS','stats':stats,'same_windows':same,'counts':counts},ensure_ascii=False),flush=True)
+     except Exception as ex:
+-        C.write('343_result_3b独立验收_实现失败.json',{'status':'实现失败','exception':repr(ex),'traceback':traceback.format_exc(),
++        C.write('343_result_3b部分独立验收_实现失败_v2.json',{'status':'实现失败','exception':repr(ex),'traceback':traceback.format_exc(),
+             '已执行':counts,'未执行':['真实训练','阶段5'],'未核':['全量验收'],'source_sha256':C.sources()})
+         raise
+ 

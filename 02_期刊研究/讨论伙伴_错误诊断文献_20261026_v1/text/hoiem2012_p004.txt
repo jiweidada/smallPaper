@@ -1,0 +1,52 @@
+4 Diagnosing Error in Object Detectors
+aeroplane (loc): ov=0.47  1−r=0.95
+aeroplane (sim): ov=0.00  1−r=0.93
+aeroplane (bg): ov=0.00  1−r=0.88
+aeroplane (loc): ov=0.50  1−r=0.91
+aeroplane (loc): ov=0.49  1−r=0.87
+aeroplane (sim): ov=0.00  1−r=0.85
+Top Airplane False Positives
+cat (loc): ov=0.40  1−r=0.99
+cat (loc): ov=0.38  1−r=0.98
+cat (loc): ov=0.16  1−r=0.97
+cat (loc): ov=0.47  1−r=0.97
+cat (loc): ov=0.35  1−r=0.96
+cat (loc): ov=0.63  1−r=0.96
+Top Cat False Positives
+cow (sim): ov=0.00  1−r=0.93
+cow (sim): ov=0.00  1−r=0.91
+cow (sim): ov=0.00  1−r=0.92
+cow (sim): ov=0.00  1−r=0.90
+cow (sim): ov=0.00  1−r=0.96
+cow (sim): ov=0.00  1−r=0.90
+Top Cow False Positives
+Fig. 1. Examples of top false positives: We show the top six false positives (FPs) for the FGMR
+(v4) airplane, cat, and cow detectors. The text indicates the type of error (“loc”=localization;
+“bg”=background; “sim”=confusion with similar object), the amount of overlap (“ov”) with a
+true object, and the fraction of correct examples that are ranked lower than the given false positive
+(“1-r”, for 1-recall). Localization errors could be insufﬁcient overlap (less than 0.5) or duplicate
+detections. Qualitative examples, such as these, indicate that confusion with similar objects and
+localization error are much more frequent causes of false positives than mislabeled background
+patches (which provide many more opportunities for error).
+thresholds (e.g., 0.2 <= overlap < 0.5) led to similar conclusions. “Overlap” is de-
+ﬁned as the intersection divided by union of the ground truth and detection bounding
+boxes. We also consider a duplicate detection (two detections for one object) to be lo-
+calization error because such mistakes are avoidable with good localization. Remaining
+false positives that have at least 0.1 overlap with an object from a similar category are
+counted as confusion with similar objects. For example a “dog” detector may assign
+a high score to a “cat” region. We consider two categories to be semantically similar
+if they are both within one of these sets: {all vehicles},{all animals including per-
+son},{chair, diningtable, sofa},{aeroplane, bird}. Confusion with dissimilar objects
+describes remaining false positives that have at least 0.1 overlap with another labeled
+VOC object. For example, the FGMR bottle detector very frequently detects people
+because the exterior contours are similar. All other false positives are categorized as
+confusion with background . These could be detections within highly textured areas
+or confusions with unlabeled objects that are not within the VOC categories. See Fig. 1
+for examples of conﬁdent false positives.
+In Figure 2, we show the frequency and impact on performance of each type of false
+positive. We count “top-ranked” false positives that are within the most conﬁdent Nj
+detections. We choose parameter Nj to be the number of positive examples for the cat-
+egory, so that if all objects are correctly detected, no false positives would remain. A
+surprisingly small fraction of conﬁdent false positives are due to confusion with back-
+ground (e.g., only 9% for VGVZ animal detectors on average). For animals, most false
+positives are due to confusion with other animals; for vehicles, localization and con-

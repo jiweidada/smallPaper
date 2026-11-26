@@ -1,0 +1,11 @@
+Material Passport: academic-research-suite / experiment-agent; cache-only output-coordinate derivative audit, no model inference/training.
+DDF matched-positive几何方向新核查（探索性）：BASE24两个seed、development00-07、两个aux层，始终用同前向原GPU union。不是网络参数梯度或优化端点，不是AP。
+原代码loss_local的DDF正项权重为student detachedIoU；负项为teacher maxsigmoid但无GT几何，不在本表。原T=5与自然对照T=1固定同权重、归一化。闭式KL梯度已对Torch独立合成验证。
+seed | 配对层曝光 | active(studentIoU>0) | teacher worse | teacher worse的IoU权重占比 | T1/T5负内积 | teacher worse中T5负内积
+1 | 12582 | 7813 | 3309 | 42.984488% | 2674/2629 | 2496/3309
+2 | 12702 | 8236 | 3548 | 42.319345% | 2887/2859 | 2689/3548
+负内积指∇(5L1+2GIoU)·∇DDF<−1e-12，仅在输出corner logits处；直接沿-DDF更新时对几何目标的一阶方向不利。共享网络雅可比、全局裁剪、Adam历史、后层互相影响均未包含，不能据此推网络训练有害。
+T5负内积没有多于T1，teacherbetter组T5反而更少。因此不以当前数据优先投入“高温破坏几何”的假设。
+最终教师并非每个query/GT都更准，teacherworse组在两个seed约占43%的studentIoU正权重且多呈逆几何方向。频次本身不证明禁用蒸馏能提升最终检测；teacherworse简单门控已有很强先例，不能认作新原理。
+最近原文风险：Distilling Object Detectors with Task Adaptive Regularization, arxiv2006.13108，作者摘要已明确根据师生谁表现更合理自适应转移bbox知识；本轮只读摘要，不声称核实全部公式。Localization Distillation CVPR2022/后续TPAMI已有分布KD；D-FINE §4.2已提出GO-LSD。
+原始完整分组/每批数据及来源SHA见ddf_geometry_cache_audit/02_results.json；32层批次条目，框重构误差最大8.895e-8；模型前向0、训练步0。

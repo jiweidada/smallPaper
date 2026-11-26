@@ -1,0 +1,105 @@
+Cal-DETR: Calibrated Detection Transformer
+Muhammad Akhtar Munir1,2 , Salman Khan 1,3, Muhammad Haris Khan1,
+Mohsen Ali2, Fahad Shahbaz Khan1,4
+1Mohamed bin Zayed University of AI, 2Information Technology University,
+3Australian National University, 4Linköping University
+akhtar.munir@mbzuai.ac.ae
+Abstract
+Albeit revealing impressive predictive performance for several computer vision
+tasks, deep neural networks (DNNs) are prone to making overconfident predictions.
+This limits the adoption and wider utilization of DNNs in many safety-critical
+applications. There have been recent efforts toward calibrating DNNs, however,
+almost all of them focus on the classification task. Surprisingly, very little attention
+has been devoted to calibrating modern DNN-based object detectors, especially
+detection transformers, which have recently demonstrated promising detection per-
+formance and are influential in many decision-making systems. In this work, we ad-
+dress the problem by proposing a mechanism for calibrated detection transformers
+(Cal-DETR), particularly for Deformable-DETR, UP-DETR and DINO. We pursue
+the train-time calibration route and make the following contributions. First, we
+propose a simple yet effective approach for quantifying uncertainty in transformer-
+based object detectors. Second, we develop an uncertainty-guided logit modulation
+mechanism that leverages the uncertainty to modulate the class logits. Third, we
+develop a logit mixing approach that acts as a regularizer with detection-specific
+losses and is also complementary to the uncertainty-guided logit modulation tech-
+nique to further improve the calibration performance. Lastly, we conduct extensive
+experiments across three in-domain and four out-domain scenarios. Results corrob-
+orate the effectiveness of Cal-DETR against the competing train-time methods in
+calibrating both in-domain and out-domain detections while maintaining or even
+improving the detection performance. Our codebase and pre-trained models can be
+accessed at https://github.com/akhtarvision/cal-detr.
+1 Introduction
+Deep neural networks (DNNs) have enabled notable advancements in computer vision, encompassing
+tasks such as classification [ 29, 6, 44, 11], object detection [ 2, 53, 5, 38, 43, 51], and semantic
+segmentation [47, 42, 3]. Due to their high predictive performance, DNNs are increasingly adopted
+in many real-world applications. However, it has been shown that DNNs often make highly confident
+predictions even when they are incorrect [10]. This misalignment between the predictive confidence
+and the actual likelihood of correctness undermines trust in DNNs and can lead to irreversible harm
+in safety-critical applications, such as medical diagnosis [7, 41], autonomous driving [9], and legal
+decision-making [49].
+Among others, an important factor behind the overconfident predictions of DNNs is the training
+with zero-entropy target vectors, which do not encompass uncertainty information [ 12]. An early
+class of methods aimed at reducing the model’s miscalibration proposes various post-hoc techniques
+[10, 15, 16, 37, 21]. Typically, a single temperature scaling parameter is used to re-scale the logits of
+a trained model which is learned using a held-out validation set. Despite being effective and simple,
+they are architecture-dependent and require a held-out set which is unavailable in many real-world
+scenarios [28]. Recently, we have seen an emergence of train-time calibration methods. They are
+37th Conference on Neural Information Processing Systems (NeurIPS 2023).
+arXiv:2311.03570v1  [cs.CV]  6 Nov 2023
+
+---PAGE---
+
+typically based on an auxiliary loss that acts as a regularizer for predictions during the training
+process [12, 28, 25, 19, 33]. For instance, [28] imposes a margin constraint on the logit distances in
+the label smoothing technique, and [12] develops an auxiliary loss that calibrates the confidence of
+both the maximum class and the non-maximum classes. These train-time approaches reveal improved
+calibration performance than various existing post-hoc methods.
+We note that majority of the DNN calibration methods target the classification task [ 10, 15, 16,
+37, 21, 12, 28, 25, 19]. Strikingly, much little attention has been directed towards studying the
+calibration of object detectors [33]. Object detection is a fundamental task in computer vision whose
+application to safety-critical tasks is growing rapidly. Furthermore, most of the existing methods focus
+on calibrating in-domain predictions. However, a deployed model could be exposed to constantly
+changing distributions which could be radically different from its training distribution. Therefore,
+in this paper, we aim to investigate the calibration of object detection methods both forin-domain
+and out-domain predictions. Particularly, we consider the recent transformer-based object detection
+methods [5, 53, 51] as they are the current state-of-the-art with a simpler detection pipeline. Moreover,
+they are gaining increasing attention from both the scientific community and industry practitioners.
+In this paper, inspired by the train-time calibration paradigm, we propose an uncertainty-guided
+logit modulation and a logit mixing approach to improve the calibration of detection transformers
+(dubbed as Cal-DETR). In order to modulate the logits, we propose a new and simple approach to
+quantify uncertainty in transformer-based object detectors. Unlike existing approaches [ 8, 23], it
+does not require any architectural modifications and imposes minimal computational overhead. The
+estimated uncertainty is then leveraged to modulate the class logits. Next, we develop a mixing
+approach in the logit space which acts as a regularizer with detection-specific losses to further
+improve the calibration performance. Both uncertainty-guided logit modulation and logit mixing
+as a regularizer are complementary to each other. We perform extensive experiments with three
+recent transformer-based detectors (Deformable-DETR (D-DETR) [53], UP-DETR [5] and DINO
+[51]) on three in-domains and four out-domain scenarios, including the large-scale object detection
+MS-COCO dataset [27]. Our results show the efficacy of Cal-DETR against the established train-time
+calibration methods in improving both in-domain and out-domain calibration while maintaining or
+even improving detection performance.
+2 Related Work
+Vision transformer-based object detection: Vision transformers are enabling new state-of-the-art
+performances for image classification [6, 46], semantic segmentation [47, 42], and object detection
+[2, 53, 5, 51]. The work of DETR [ 2] introduced the first-ever transformer-based object detection
+pipeline to the vision community by eliminating post-processing steps like non-maximum suppression
+with object matching to particular ground truth using bipartite matching. However, DETR is very slow
+in convergence and performs poorly on small objects, and to address these issues, Deformable-DETR
+[53] was proposed that is based on a deformable attention module as opposed to vanilla self-attention
+in DETR [2]. The work of [5] further enhanced the performance of this object detection pipeline by
+pretraining the encoder-decoder parameters. Recently, DINO [51] improved detection performance
+with contrastive denoising training, look forward twice approach and integrated effective initialization
+of anchors.
+Model calibration: Model calibration requires the perfect alignment of model’s predictive confidence
+with the actual likelihood of its correctness. One of the earliest techniques for model calibration is
+known as post-hoc temperature scaling (TS) [10], which is a variant of Platt scaling [37]. The idea
+is to re-scale the logits with a single temperature parameter (T) which is learned using a held-out
+validation set. However, a limitation of TS is that the selection of temperature parameter T value
+is reliant on the network architecture and data [ 28]. And, TS has been shown to be effective for
+calibrating in-domain predictions. To extend TS to domain-drift scenarios, [45] proposed to perturb
+the held-out validation set before the post-hoc processing step. Dirichlet calibration (DC) [20] was
+extended from beta calibration [21] to a multi-class setting. It uses an extra neural network layer that
+log-transforms the miscalibrated probabilities, and the parameters for this layer are learned using the
+validation set. Despite being effective and computationally inexpensive, post-hoc calibration methods
+demand the availability of a held-out validation set, which is a difficult requirement to be met for
+many real-world use cases.
+2

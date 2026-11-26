@@ -1,0 +1,40 @@
+10 Y. Huang et al.
+4.3 Main Results on AI-TOD-V2
+Table 2 shows our main results on the AI-TOD-V2 test split. We compare
+the performances of our DQ-DETR with strong baselines, including both CNN-
+based and DETR-like methods. All CNN-based methods except YOLOv3 use
+ResNet50 with feature pyramid network (FPN) [8]. Moreover, since there is
+no previous research of DETR-like models on tiny object detection, our DQ-
+DETR is the first DETR-like model that focuses on detecting tiny objects. We
+re-implement a series of DETR-like models on AI-TOD-V2, and all DETR-like
+methods except DETR use 5-scale feature maps with deformable attention [30].
+For 5-scale feature maps, features are extracted from stages 1, 2, 3, and 4 of the
+backbone, and add the extra feature by down-sampling the output of stage 4.
+The results are summarized in Table 2, our proposed DQ-DETR achieves
+the best result30.2 AP compared with other state-of-the-art methods, includ-
+ing CNN-based and DETR-like methods. Also, DQ-DETR surpasses the baseline
+by 20.5%, 20.6%, 14.1%, and 12.3% in terms of APvt, APt, APs, APm. The per-
+formance gain is greater on APvt, and APt, and our DQ-DETR outperforms the
+advanced series of DETR-like models on AI-TOD-V2. We credit the performance
+gains for the following reasons: (1) DQ-DETR fuses the transformer visual fea-
+tures with a density map from the categorical counting module to improve the
+positional information of object queries, which makes the queries more suitable
+for localizing tiny objects. (2) Our dynamic query selection adaptively chooses
+an adequate number of object queries used for the detection task and can handle
+the images with either few or crowded objects.
+Table 3: Experiments on VisDrone.All models are trained on thetrain split and
+evaluated on theval split. * denotes a re-implementation of the results.
+Model AP AP 50 AP75
+Faster R-CNN [16] 21.4 40.7 19.9
+Cascade R-CNN [1] 22.6 38.8 23.2
+Yolov5 [5] 24.1 44.1 22.3
+CEASC [4] 28.7 50.7 24.7
+SDP [12] 30.2 52.5 28.4
+DNTR [10] 34.4 57.9 35.3
+DINO-DETR* [27] 35.8 58.3 36.8
+DQ-DETR (Ours) 37.0 60.9 37.9
+4.4 Results on VisDrone
+Besides AI-TOD-V2, we also conduct experiments on the VisDrone [29]
+dataset to demonstrate the effectiveness of our model DQ-DETR.
+VisDrone. This dataset includes 14,018 drone-shot images, with 6,471 images
+for the train set, 548 for the validation set, and 3,190 for the test set. There are

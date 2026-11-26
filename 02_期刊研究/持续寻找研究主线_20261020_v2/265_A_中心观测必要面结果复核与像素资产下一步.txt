@@ -1,0 +1,78 @@
+265｜中心观测必要面结果复核与像素资产下一步
+2026-10-21。仅新增本文；只读JSON、源代码、文件属性和SHA。未运行259或其他实验程序，未读取/显示图像像素，未解包预测大档、加载CP、运行模型、训练或访问远端。
+
+结论
+260的预设必要screen确实both，支持继续检查“额外观测是否提供中心定位信息”。40/25不是检测救回，不是两个独立条件的双重机制证明，更不是训练批准。自然图与标注本地可用，缺的主要是把260增强事件逐GT反投影回原图的变换记录，以及本地BASE24自然图pre框轨迹。无需为此再添几何资格表；下一步应直接做小规模H/L像素配对的定位信息检查，明确它是新自然图面板，不冒称旧增强事件重放。
+
+1. 260原始结果复核
+文件：英文小论文/持续寻找研究主线_20261020_v2/260_BASE24_pre_center_observation_probe/01_results.json。
+SHA256=44f77ce020336ba4b8df2a645f33c1b5f469aa59316ea1cd5245bb629e1eba67。
+02_output_sha256.json SHA=26833632c1e111246dfdec54f8abecfb1a39a8236d04ce8ba777a4c4e9ffd5df；逐项只读hash复核其34个输出文件，无不符。
+state=complete；seconds=5.954000000027008；16 prediction cache loads、16 native matcher身份复核；image tensor/CP/detector/forward/backward/autograd/update/heldout均0。CPU2、interop1、affinity[13,15]、below_normal。source before/after一致，259/258/237/244/228指纹均保持冻结值。
+
+固定saved GO主组（actual-input-sub4∩原native FP32 IoU0∩原supportoutside）：
+                           A(seed1)   B(seed2)
+主槽                       1170       1066
+uniqueGT曝光                990        898
+rho4中心可修复               93         81
+可修复且O4完整可见           40         25
+上述uniqueGT曝光             39         25
+输入clip后仍完整可见         40         25
+部分可见                     53         56
+完全不可见                 1077        985
+尺寸本身不可解                1          1
+近尺寸/支持/rho/窗边界         0          0
+主组平均可见面积比例约0.05152/0.05406。可修复全集恰为full+partial，是这批数据的观察结果，不是一般定理。绝大多数原主组的GT根本不在这个小窗口中，不能把候选描述成覆盖原zero-IoU问题的普遍方案。
+ordinary-own只作描述：主槽1088/933、可修复80/61、完整可见36/20。它没有替代GO或改变主screen。
+
+支撑公式与非独立性：像素坐标a=w−|wg−w|/2；a<0时任何平移都无解；否则delta=sign(cg−c)max(|cg−c|−a,0)，rho_min=max两轴|delta|。259保持原wh，逐轴rho≤4，另用原角点偏移式核验。O4固定于原pre而不是oracle移动后的位置。完整可见给出 |cg−c|+wg/2≤w/2+4；结合尺寸可行便已蕴含rho_min≤4。因此“可修复+完整可见”不是两份独立证据，主要是在筛尺寸可行的窗口内目标。
+此处支持为闭域、oracle用GT解位移；没有生成新的预测分布、类别分数或重做真实评估。40/25既不能叫TP，也不能叫AP收益。244的F4主k4 mixed阴性原封保留。
+
+2. 本地自然图、标注和像素接口盘点
+以下根路径均实际只读列目录/属性；没有读取JPEG字节、解码、校验图像内容SHA或取crop。
+
+首选训练自然图：
+  C:/Users/jiwei/Desktop/DEIM/dataset_visdrone/VisDrone2019-DET-train/images
+该目录6471个文件；对应annotations/train.json为101651954B，亲核SHA=32c1cae852e084430ea74503eb660f0707ec6b5e65d0998ce3ec8b448265c883，与BASE24 training_completion和matching probe绑定一致。COCO提供file_name/id/width/height及bbox/category。只用固定development source pool可避免碰现有heldout池。
+
+自然验证图：
+  C:/Users/jiwei/Desktop/DEIM/dataset_visdrone/VisDrone2019-DET-val/images
+该目录548文件；annotations/val.json为11661248B，548 images、38759 annotations、10类，SHA=0329595b1f5aa8153732407a1d906de0dd5db7b7e8e005b8941ff19e90e774bd。
+例：COCO image_id0→0000291_05201_d_0000893.jpg，1360×765，文件存在206359B；id1→0000356_03529_d_0000647.jpg，同1360×765，存在121382B。这里尺寸来自标注而非本轮像素读取。
+同名数据还存在D:/数据集/visdrone2019/VisDrone2019-DET-val/images（548文件）；没有因文件名/大小相同就宣称两份图像逐字节相同。
+工作区归档val标注：数据/03_本轮实验记录_20260928/转换COCO标注原件_20260929/VisDrone2019-DET-val/annotations/val.json。
+
+指定D:/BaiduNetdiskDownload/DEIM_1572862469确有源码/配置/记录，但其dataset/val只有10张，classes.txt内容ship，annotations/data.json仅5051B。这是另一示例数据，不能误当VisDrone自然图。未遍历整盘或扩搜不相关系统目录。
+
+H/L可以构造，且应从准确的读取顺序出发：
+BASE24 seed1/run/args.json的val transforms=Resize([640,640])→ConvertPILImage(float32,scale=true)，无letterbox；cache_imgsz=960但ram_cache=false。亲读冻结local_candidates_20261004_v2/native/engine/data/dataset/coco_dataset.py：cache_flag默认false，false分支调用_load_image/_load_target；只有RAM缓存填充路径才执行cache_imgsz的cv2 resize。不能仅看到960就擅自加入一次预缩放。
+_transforms.py中Resize直接注册torchvision.transforms.v2.Resize。后续像素任务要绑定其实际torchvision/Pillow版本、RGB转换、插值/antialias及采样网格；本轮只确认recipe/source接口，未声称已复现像素或历史输入bitexact。
+对一张自然图I0，I_L=既定RGB/Resize链(I0)到640²。固定640坐标窗O，L=sample16²(I_L,O)，H=sample16²(I0,T^{-1}(O))，T(x,y)=(640x/W0,640y/H0)。两者同物理窗、同16²输出/颜色归一化，H直接从原图取样，不能先把原图缩成640再称H。像素中心/边缘坐标必须统一；GT用相同T，仅用于评分/预设样本，不给读出器。
+
+3. 有何自然图预测，缺什么
+BASE24完整CP本地在：
+  英文小论文/data/00_实验计划与证据索引/本次24轮双基线模型下载_20261009_v1/seed{1,2}/run/last.pth
+本轮只读其下载/完成元数据，不加载CP。对应last_epoch23，seed1 SHA741d57a2d6ecb7439de17fedbc8462315ab05309da2ba35b9d38d2c3e2dd9d87，seed2 SHAbcf1d9a7a20115835d9e9df3e09a71419f41d1612c2e7b687c47ff3c41952cf0。
+该下载包各run/endpoint_epoch24实际有summary、matching_all_area.json.gz、GT_hits.npz、precision_recall.npz、manifest、training_completion。summary明确自然val评价用EMA，epoch23；260却用raw[model]、训练模式增强缓存，不能混同。
+results.py SHA963adcee81ef5b030446621d8778771e7609f74f32ac012197daf455f81200b4与endpoint capture_code绑定一致：matching文件写evaluator.evalImgs的ids/scores/matches/ignore，不写pre框或完整预测框数组。stage_trace.py确实能保存pre_after_first_layer_boxes等，但下载说明明确未下载548图中间数组，当前BASE24下载包没有stages_epoch24。training_completion里远端stage manifest路径是元数据，绝非本地已有文件。未用远端补齐，也未声称全机绝不存在其他副本。
+
+另有真正的旧自然图对应预测，已找到并核文件：
+  英文小论文/data/00_实验计划与证据索引/分布上下文模块实施_20261004_v1/plan_innovation_evidence_review_20261005/evidence_reanalysis_v2/views_epoch080_cpu/global_only_predictions.json
+15651158B，SHA=a3635c0b3339e18ded8f7aec0f9484b6936ec9faf85d470ff8fc8028279ed6e8。生成源码view_complementarity_cpu.py保存image_id/category_id/bbox/score，来自旧epoch80 raw views的global视图，可连同一val.json。但它没有BASE24 pre框身份，不能用于宣称260候选已在BASE24自然推理成立。
+旧C epoch_053.pth的NAED/full548及“粗候选与逐层轨迹独立复核/full548”也有manifest与裁剪缓存；manifest说明每自然图stride512窗口，是另一权重/裁剪方案。没有读取npz或解包35MB raw_views，不把这些旧资产换名成BASE24全图pre缓存。
+
+260增强事件不能靠source_ids恢复：
+shared_inputs/inputs/manifest.json保存每次source_reads的原image_id/file_name/SHA和批shape，SHA=19440acaf99718b4c1f0a700542ca2a5b8f3d733639642713ece68bd67219ffb。
+make_inputs.py的Logged.load_item只记这些源身份；最终payload是images/targets/spec/source_reads。它没有记录每个最终GT来自哪次源读取、Mosaic拼接仿射、裁剪/翻转、Mixup混合次序和像素归属。A_batch00的4个输入就涉及13个source_ids；一个列表不能提供逐目标逆映射。训练增强seed也不是现成的逆变换证据，重新跑增强须额外严格复现，且本轮未授权执行。不能把40/25命中的增强框直接画到任一同source原图上。
+
+4. 一项最小的下一次检查：H/L配对的固定像素定位读出（尚未实现/执行）
+推荐先用自然训练development池作一个小型受控面板，不扩全量预测、不重新算几何资格。不使用val结果挑样本，也不使用H像素挑“容易显著”的目标。
+固定候选预算：从现有sample_plan的development pool按image_id顺序取前16张，按(annotation image_id,annotation_id)取至多64个正宽高、640输入下min边<4的GT；不足就如实报告，不换池补有利数据。若GT太少，报告有限范围，其他研究线继续。它是新自然图任务，不是恢复旧训练事件。
+为避免新model/pre缓存，明确构造受控初始中心：保持GT宽高，中心分别加(+2,0)、(−2,0)、(0,+2)、(0,−2) input px；每个GT四试次、O4固定于该初始框。此处用GT生成问题及评分，不能把初始化或尺寸当部署已知，也不借此估计真实pre错误率。可同时附旧global预测定位的描述性样例，但不改主受控集合。
+在完全相同O4/16²栅格上生成H/L。首先检验数值差，但MSE/高频能量非零不是定位信息证明。最小有用读出可固定为“边框背景差异重心”：对crop像素I(p)，b为最外圈像素的RGB均值，w(p)=||I(p)−b||²；c_hat=Σw(p)p/Σw(p)，无能量时保留初始中心；delta_hat=逐轴clip(c_hat−c_init,−4,4)。H/L同一公式、无拟合/调参/模型，坐标在input px。它不接收GT、类别或真实偏移。读出很简单，正结果只证明一类可实际计算的额外定位信息，负结果只否定此读出，不能据此否定所有可学phi。
+最少比较：L读出、H读出、零移动；另用“先把原图降到640再重建回原尺寸”的H_degraded做无新增信息控制，采样链差异单列；H优势若只是多一次插值产生的假象，应在该控制中暴露。使用精确相同窗口、输出分辨率和读出参数；不把增加输出像素数当H优势。
+唯一核心读数是逐GT四方向的中心定位误差差 Δ=||delta_hat_H−delta_true||∞−||delta_hat_L−delta_true||∞，及H/L各自相对零移动的变化。按图汇总均值/中位和胜/平/负方向，不把256相关试次当256独立图。保存H/L原始配对/坐标/SHA与失败例；不做AP、不改预测、不计算oracle最优位移作为“观测收益”。
+解读事先固定：H与L不同但定位不改善，只说明采样改变，不能支持有用观测；H在多数图减少定位误差且不由H_degraded复制，才是进入具体学习模块讨论的直接像素证据，仍非训练批准/增量成立。此处不制造任意微小阈值或“先显著AP才训练”的门槛。若简单读出两侧皆差，应停止为它补几何证明，判断是否有明确不同读出假设值得一次有限学习，或转其他线。
+这项检查将首次真正读取少量自然图像素，仍是未来任务；当前没有脚本、执行或新增训练申请。两CPU、低优先级、独立输出、先锁原图SHA/标注/采样库。无需远端或模型，只读既有自然图和标注即可完成。
+
+实际方法比较仍须保留两项强控制：同一已有像素的自由中心头，以及同样新增crop只在末层做中心校正。前者区分观测与中心自由度，后者区分观测与干预时机。当前像素探针不能替代它们；原图重读AutoFocus/CornerNet先例与194边界继续适用，也不能把pre原生已用GO的几何监督虚构成own/GO冲突。

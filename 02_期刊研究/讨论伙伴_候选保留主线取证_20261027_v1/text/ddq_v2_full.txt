@@ -1,0 +1,1141 @@
+=== PDF PAGE 1 ===
+Dense Distinct Query for End-to-End Object Detection
+Shilong Zhang1,3 *, Xinjiang Wang 2 *, Jiaqi Wang 1, Jiangmiao Pang 1,
+Chengqi Lyu1, Wenwei Zhang 4,1, Ping Luo 3,1, Kai Chen 1
+1Shanghai AI Laboratory 2 SenseTime Research
+3 The University of Hong Kong 4 S-Lab, Nanyang Technological University
+Figure 1. Pros and Cons of different queries and their corresponding learning paradigms.
+Abstract
+One-to-one label assignment in object detection has suc-
+cessfully obviated the need for non-maximum suppression
+(NMS) as postprocessing and makes the pipeline end-to-
+end. However, it triggers a new dilemma as the widely
+used sparse queries cannot guarantee a high recall, while
+dense queries inevitably bring more similar queries and en-
+counter optimization difficulties. As both sparse and dense
+queries are problematic, then what are the expected queries
+in end-to-end object detection? This paper shows that the
+solution should be Dense Distinct Queries (DDQ). Con-
+cretely, we first lay dense queries like traditional detectors
+and then select distinct ones for one-to-one assignments.
+DDQ blends the advantages of traditional and recent end-
+to-end detectors and significantly improves the performance
+of various detectors including FCN, R-CNN, and DETRs.
+Most impressively, DDQ-DETR achieves 52.1 AP on MS-
+COCO dataset within 12 epochs using a ResNet-50 back-
+bone, outperforming all existing detectors in the same set-
+ting. DDQ also shares the benefit of end-to-end detec-
+tors in crowded scenes and achieves 93.8 AP on Crowd-
+Human. We hope DDQ can inspire researchers to con-
+sider the complementarity between traditional methods and
+end-to-end detectors. The source code can be found at
+https://github.com/jshilong/DDQ.
+* Equal contribution.
+1. Introduction
+Object detection is one of the most fundamental tasks in
+computer vision, which aims at answering what objects are
+in an image and where they are. To achieve the objective,
+the detector is expected to detect all objects and mark each
+object with only one bounding box.
+Due to the complex spatial distribution and the vast
+shape variance of objects, detecting all objects is quite chal-
+lenging. To solve the problem, traditional detectors [17,21,
+27] first lay predefined dense grid queries1 to achieve a high
+recall. Convolutions with shared weights are then applied to
+quickly process dense queries in a sliding-window manner.
+At last, one ground truth bounding box is assigned to multi-
+ple similar candidate queries for optimization. However,
+the one-to-many assignment results in redundant predic-
+tions and thus requires extra duplicate-removal operations
+(e.g., non-maximum suppression) during inference, which
+causes misaligned inference with training and hinders the
+pipeline from being end-to-end (as shown in Fig. 1(a)).
+This paradigm is broken by DETR [2], which assigns
+only one positive query to each ground truth bounding
+box (one-to-one assignment) to achieve end-to-end. This
+scheme requires heavy computation to refine queries and
+adopts self-attention to model interactions between queries
+1 Anchors [17, 21] or anchor points [27] in conventional detectors
+play the same role as sparse object queries in [2]. Hence, we collec-
+tively refer to densely distributed anchor boxes and anchor points as dense
+queries.
+1
+arXiv:2303.12776v2  [cs.CV]  5 Jul 2023
+
+=== PDF PAGE 2 ===
+to facilitate the optimization of one-to-one assignment,
+which unfortunately limits the number of queries. For ex-
+ample, DETR only initializes hundreds of learnable object
+queries. Therefore, compared to the densely distributed
+queries in conventional detectors, the sparse queries fall
+short in recall rate, as shown in Fig. 1(b).
+Some recent works have also tried to integrate dense
+queries into one-to-one assignment [24, 28, 32]. How-
+ever, dense queries in end-to-end detectors face unique
+challenges. For example, our analysis shows that this
+paradigm would inevitably introduce many similar queries
+(potentially representing the same instance) and that it
+suffers difficult and inefficient optimization as similar
+queries are assigned opposite labels under one-to-one as-
+signment.(Fig. 1.(c)).
+Now that both sparse queries (low recall) and dense
+queries (optimization difficulty) under one-to-one assign-
+ment are sub-optimal, what are the expected queries in end-
+to-end object detection?
+In this study, we demonstrate that the solution should be
+dense distinct queries (DDQ), meaning that the queries for
+object detection should be both densely distributed to de-
+tect all objects and also distinct from each other to facilitate
+the optimization of one-to-one label assignment. Guided
+by such a principle, we consistently improve the perfor-
+mance of various detector architectures, including FCN,
+R-CNN, and DETRs. For one-stage detectors composed
+of fully convolutional networks (FCN), we first propose a
+pyramid shuffle operation to replace heavy self-attentions to
+model the interaction between dense queries. Then, a dis-
+tinct queries selection scheme ensures that the one-to-one
+assignment is only imposed on the selected distinct queries,
+preventing contradictory labels from being assigned to simi-
+lar queries. Such an end-to-end one-stage detector is named
+DDQ FCN and achieves state-of-the-art performance in
+one-stage detectors. DDQ also naturally extends to DETR
+and R-CNN structures [7, 19, 26, 38] by first laying dense
+queries as in [38] and then selecting distinct queries for
+later refining stages, which are respectively dubbed DDQ
+R-CNN and DDQ DETR.
+We have conducted experiments on two datasets—MS-
+COCO [18] and CrowdHuman [23]. DDQ FCN and DDQ
+R-CNN obtain 41.5/44.6 AP, respectively, on the MS-
+COCO detection dataset [18] with the standard 1x sched-
+ule [17, 21]. Compared to recent DETRs, DDQ DETR
+achieved 52.1 AP in just 12 epochs with the DETR-style
+augmentation [2]. The strong performance demonstrates
+that DDQ overcomes the optimization difficulty in end-to-
+end detectors and converges as fast as traditional detectors
+with higher performance.
+Object detection in crowded scenes such as CrowdHu-
+man [23] is another arena to testify to the effectiveness
+of DDQ. It is extremely cumbersome to tune the post-
+processing NMS in traditional detectors, as a low IoU
+threshold leads to missing overlapping objects, while a high
+threshold brings too many false positives. Recent end-to-
+end structures also struggle to distinguish between dupli-
+cated predictions and overlapping objects due to their diffi-
+cult optimization. In this study, DDQ FCN/R-CNN/DETR
+achieve 92.7/93.5/93.8 AP and 98.2/98.6/98.7 recall on
+CrowdHuman [23], surpassing both traditional and end-to-
+end detectors by a large margin.
+2. Related Work
+Dense Queries with One-To-Many Assignment. One-
+stage detectors such as RetinaNet [17] and FCOS [27] use
+densely distributed queries for regression and classifica-
+tion.The same manner is also applied to the region pro-
+posal network (RPN) of multi-stage models [1, 21]. And
+one-to-many assignments are a common practice for these
+traditional detectors. Despite the fast development of one-
+to-many assignments from static label assignments (such
+as IOU-based [1, 17, 21] and center-based ones [13, 27]) to
+prediction-aware dynamic label assignments [5, 8, 9, 15, 35,
+37], these strategies are also long criticized for they pair
+each ground truth with multiple queries and thus require
+additional postprocessing to remove duplicate predictions
+at inference, which prevents the pipeline from being end-
+to-end.
+Sparse Queries with One-To-One Assignment. DETR
+[2] designs a small set of learned positional embeddings
+that represent the position in an image to focus on. These
+queries are then optimized with one-to-one assignments,
+making an end-to-end pipeline. Sparse R-CNN [26] refor-
+mulates queries in the traditional R-CNN framework as a
+bounding box and its corresponding embedding. Anchor
+DETR [31] provides the correspondence between anchor
+points and query position. DAB-DETR [19] explicitly
+learns a set of 4-D anchor boxes as queries. Though the
+formulation of queries varies, they share the same core idea
+of sparse queries and one-to-one assignments. Therefore, a
+low recall rate is an expected issue for these detectors.
+Dense Queries with One-To-One Assignment. Both De-
+FCN [28] and OneNet [25] try to integrate one-to-one
+assignment with dense queries. Despite their competi-
+tive performance compared to FCOS [27], there is still a
+clear performance gap with recent detectors with dynamic
+one-to-many assignment strategies [8, 9, 12, 15, 37]. It is
+the optimization difficulty of similar queries under one-to-
+one assignments that accounts for the performance gap.
+Efficient DETR [32], and Two-Stage Deformable DETR
+[38] can also be regarded as a multi-stage version of this
+paradigm. Although DINO [33], Group DETR [4], and H-
+DeformableDETR [11] have introduced more positive sam-
+ples to speed up convergence, the hindrance effect between
+similar queries and one-to-one assignments still remains un-
+revealed.
+2
+
+=== PDF PAGE 3 ===
+3. Analysis of Sparse and Dense Queries
+Current end-to-end detectors use either dense or sparse
+queries, both of which are however problematic during
+training. Specifically, sparse queries suffer a low recall rate,
+and dense queries have issues in optimization. To illustrate
+this, we increase the number of queries from 10 to 7000 in
+Sparse R-CNN, and the performance is shown as the black
+line in Fig. 2. The performance first keeps rising as the
+number of queries increases to around 2000, implying that
+the sparse queries ( ∼ 300) in Sparse R-CNN are far from
+enough due to the low recall rate. On the other hand, the
+performance finally plateaus and even decreases as queries
+number further increases. This phenomenon can be ex-
+plained by the difficulty in distinguishing similar queries
+in end-to-end detectors with one-to-one assignment, espe-
+cially when queries become denser.
+Figure 2. The performance comparison of Sparse R-CNN with and
+without Distinct Queries Selection (a class-agnostic NMS with a
+threshold 0.7 before each refining head). All models are trained
+using the standard 1x setting. The green dotted line represents the
+default number(300) of queries adopted in Sparse R-CNN. The
+subplot denotes the memory consumption per GPU as the number
+of queries increases in Sparse R-CNN.
+To understand how similar queries would hinder opti-
+mization, we provide a simplified example where we as-
+sume there exist two identical queries. In this case, the
+one-to-one assignment assigns a foreground label to one of
+them but a background label to another. Without loss of
+generality, we adopt binary cross-entropy loss for classifi-
+cation. Therefore, the loss from these two queries becomes
+L1 = − log(p1) − log(1 − p2), where p1 and p2 are the
+probability scores of the positive and negative query, re-
+spectively, and satisfy p1 = p2 = p as they are identical
+queries. In contrast, the loss value when only one of the du-
+plicated queries exists is L0 = − log(p). The ratio α of the
+gradient between the duplicate and non-duplicate query is.
+α = ∂L1
+∂p / ∂L0
+∂p = 1 − p
+1 − p (1)
+It is obvious that the gradient is scaled down ( i.e., α < 1)
+at 0 < p < 0.5 and may even cause negative training ( i.e.,
+α < 0) at p > 0.5.
+As shown in the toy example, duplicated queries reduce
+gradients and even cause negative training, which dramati-
+cally suppresses convergence. To avoid this issue, we im-
+pose a distinct queries selection operation before the one-
+to-one assignment process. The distinct queries selection
+strategy is realized by a simple class-agnostic NMS. The
+filtered distinct queries are thus easier to optimize, and such
+an operation improves the performance by a clear margin,
+as seen from the red curve in Fig. 2. More surprisingly, the
+performance margin consistently increases along with more
+queries. A similar trend is also observed for Deformable
+DETR, which can be found in the supplementary material.
+In other words, once we make sure the selected queries
+are distinct, the performance of Sparse R-CNN can be
+improved consistently with the increasing number of dis-
+tinct queries. However, using a large number of distinct
+queries causes a significant memory footprint. For exam-
+ple, Sparse R-CNN requires around 45G memory per GPU
+with 7000 queries. To leverage the advantage of dense dis-
+tinct queries(DDQ) with a reasonable computation cost, we
+give practical designs for all popular detector architectures
+(FCN, R-CNN, and DETRs).
+4. Method
+Dense distinct queries (DDQ) is our principle for design-
+ing an object detector and can be integrated into different
+architectures. We first briefly describe the design of DDQ
+followed by detailed descriptions for the three architectures:
+FCN, R-CNN, and DETRs. The overall pipeline is sketched
+in Fig. 3.
+4.1. Paradigm of DDQ
+Dense Queries. As shown in Fig. 2, the memory cost soars
+for dense queries. The main reason for this is the heavy
+calculation for each query. Instead of adopting learnable
+positional embedding in DETR, DDQ directly takes the
+feature point on each feature map as densely distributed
+initial queries. The number of queries in the feature
+pyramid can easily surpass 10000 given an input resolution
+of 800x800. To discriminate dense queries with reasonable
+computation cost, a light-weighted convolutional/linear
+network serves as the first stage and processes all queries in
+a sliding window manner.
+Distinct Queries Now that the importance of query
+distinctness for optimization has been revealed in Sec. 3,
+we would discuss in this section why a class-agnostic
+non-maximum suppression (NMS) can be used to select
+distinct queries and how it differs from the traditional NMS
+as post-processing in traditional detectors. Since each
+query represents a potential instance in an image, and an
+3
+
+=== PDF PAGE 4 ===
+Figure 3. The pipeline of DDQ . (a) shows the application of DDQ to an FCOS-like structure, which is a fully-convolutional network
+(FCN). It is thus dubbed DDQ FCN. The pyramid shuffle is applied to the last two and last convolution layers in the classification and
+regression branches, respectively. The class-agnostic NMS act as the distinct queries selection operation. At last, only distinct queries will
+be assigned labels before calculating loss. (b) shows the design of DDQ for R-CNN structures (DDQ R-CNN). The last feature maps of
+the classification and regression branches of DDQ FCN are concatenated and filtered as distinct queries. The distinct queries are then sent
+to the refining heads with their corresponding bounding boxes. (c) shows the design of DDQ for DETRs (DDQ DETR). After distinct
+queries selection, the remaining feature embedding in the encoder is projected with a linear to the content part of distinct queries. Their
+corresponding bounding boxes will be mapped to the position embedding part. Both parts will be sent to 6 refine stages. In such a long
+refine architecture, DQS will be applied before each refine stage to ensure distinctness.
+instance can be uniquely represented by its location in an
+image [29], it comes naturally to detect similar queries
+using the class-agnostic overlapping ratio between the
+bounding boxes predicted by queries. More specifically,
+we apply a class-agnostic NMS to select distinct queries
+for the following one-to-one assignment. The loss is
+thus only computed on the selected distinct queries. It
+should be noted that such an operation is adopted in both
+training and inference, instead of only in inference as an
+extra post-processing in traditional detectors. Therefore,
+such a pipeline still abides by the definition of end-to-end
+detectors. Compared to the training-unaware NMS in
+traditional detectors, it is designed to relieve the burden of
+one-to-one assignment during training, and can thus be set
+with an aggressive IoU threshold (0.7 in DDQ FCN and
+DDQ R-CNN, 0.8 in DDQ DETR), which is robust even on
+CrowdHuman dataset [23]. Such crowd scenes can not be
+properly handled by NMS as post-processing in traditional
+detectors. We validate this in Table. 4.
+Loss Components
+(1). Main Loss for Dense Distinct Queries . We simply
+apply the bipartite matching algorithm in DETR [2] with
+the same cost weight in the one-to-one assignment. No ex-
+tra prior (such as center priors in [28]) is adopted for a
+fair comparison with DETRs. After discriminating positive
+and negative samples, DDQ FCN adopts GIoU loss [22]
+and QFocal loss [16] with weights 2 and 1. For DDQ R-
+CNN and DDQ DETR, we just follow the implementation
+of Sparse R-CNN [26] and DINO [33].
+(2). Auxiliary Loss for Dense Queries . Despite the more
+efficient optimization in DDQ due to the removal of similar
+queries, it also results in numerous ”leaf” queries through
+which no gradients are back-propagated. Therefore, we de-
+sign an auxiliary head and an auxiliary loss to further har-
+ness the potential of the filtered queries following the design
+in DeFCN [28]. The auxiliary head is mostly identical to
+the main head, except that it adopts a soft one-to-many as-
+signment for dense queries to allow for dense gradients and
+more positive samples to speed up training. More details
+can be found in our supplementary material.
+4.2. DDQ FCN
+As shown in Fig. 3. (a), the DDQ principle is first applied
+to FCOS as an example of the FCN structure for object de-
+tection. It is found that dense queries are already available
+on the dense feature pyramid. However, as the dense queries
+are processed level by level with convolutional layers. The
+missing interaction across different levels poses a challenge
+for the optimization of one-to-one assignments.
+Inspired by channel shuffle operation in ShuffleNet [36],
+we propose a pyramid shuffle to compensate for the inter-
+action between queries in different levels where S channels
+across adjacent levels are shuffled to form a new feature
+pyramid. Specifically, features at level i exchange S chan-
+nels with those at level i − 1 and level i + 1 simultaneously.
+To account for the different spatial dimensions on the fea-
+ture pyramid, a bilinear interpolation is adopted when ex-
+changing features. We apply the pyramid shuffle operation
+on the last two and one convolution layer in the classifica-
+tion and regression branches, respectively. This approach
+stabilizes training and improves performance with negli-
+gible additional computation costs. In this work, we set
+4
+
+=== PDF PAGE 5 ===
+Figure 4. An illustration of pyramid shuffle. For queries in a
+specific scale level, it can do the interaction with queries in an
+adjacent level by shuffling S channels. Before concatenating to
+the feature of the target level, the feature from other levels should
+be interplate to the same size as the target level.
+S to 64 which means each feature level exchanges infor-
+mation from 128 channels with other levels. (Comparison
+with other approaches to model the interaction among dense
+queries, ablation, and the analysis of pyramid shuffle can be
+found in our supplementary material.)
+As for the distinct queries selection module in DDQ
+FCN, we first select the top 1000 predictions according to
+the classification score from each feature level and then
+apply a class-agnostic non-maximum suppression with a
+threshold of 0.7 to ensure both distinctness and generality
+across different datasets.
+4.3. DDQ R-CNN
+We combine DDQ FCN with two refine stages in Sparse
+R-CNN to construct the DDQ R-CNN. As shown in Fig. 3.
+(b), thanks to the fast processing of dense distinct queries
+in DDQ FCN, we select 300 most representative queries ac-
+cording to the classification score from the remaining dis-
+tinct queries. Then we concatenate the feature in the dis-
+tinct position of the last feature map of the classification
+branch and regression branch to construct the query embed-
+ding. The query embedding and the corresponding bound-
+ing box prediction will be passed to the refinement head
+of Sparse R-CNN. Different from Sparse R-CNN which re-
+quires 6 stages of iterative query refinement, DDQ R-CNN
+needs as few as 2 refinement stages. Actually, the long it-
+eration stages in Sparse R-CNN mainly compensate for the
+drawbacks caused by the sparse and sometimes similar in-
+put queries. For one thing, sparse queries could not cover
+all instances at initialization and thus need long cascading
+stages to refine. For another, similar queries also require
+long refinements to distinguish from each other to output a
+one-hot prediction for each instance [2]. In contrast, the
+dense distinct queries from DDQ R-CNN have addressed
+the above issues, and hence the number of iterative refine-
+ments can be significantly reduced. We also report the re-
+sults when we change the number of queries and refinement
+heads of DDQ R-CNN in the supplementary material.
+4.4. DDQ DETR
+We construct DDQ DETR based on Deformable
+DETR* . As shown in Fig. 3. (c), We follow Two-Stage
+Deformable DETR [38] to process dense queries. Instead
+of initializing the content part with transformed coordinates,
+we fuse the feature map embedding of distinct positions as
+the content part, which makes the initial queries more dis-
+tinct. A class-agnostic NMS with a threshold of 0.8 is set to
+select distinct queries before each refining stage. To com-
+pare with recent DETRs, we keep the original 6 refining
+stages and select K distinct queries for the refining stages.
+We also select the top 1.5 K queries directly according to
+classification scores as dense queries for the auxiliary head
+in the decoder. The parallel forward of dense queries and
+distinct queries follows the H-DeformableDETR [11] and
+Group DETR [4]. We set K to 900, following DINO [33].
+5. Experiments
+In this section, we first introduce two standard bench-
+marks MS COCO [18] and CrowdHuman [23]. Then we
+introduce the setting of training and inference on both
+datasets. We also present three examples to show how end-
+to-end detectors with different architectures evolve to our
+DDQ step by step. At last, we compare DDQ with state-
+of-the-art conventional detectors and recent end-to-end de-
+tectors on MS COCO and CrowdHuman, which show that
+DDQ blends the advantages of two design paradigms. The
+latency of current popular models and DDQ is compared in
+our supplementary material.
+5.1. Datasets
+MS COCO 2017 [18] detection dataset is mainly used for
+comparison and ablation studies. It contains 118k training,
+5k validation images, and 20k test images without annota-
+tions. There are on average 7 instances per image in this
+dataset. We report bounding box mean average precision
+(AP) as the performance metric, which is the mean average
+precision over multiple thresholds. If not specified, AP on
+the validation set is set as default.
+Besides, we also report the performance on the Crowd-
+Human dataset [23], which has 15k training images and
+4.4k validation images with around 23 heavily occluded in-
+stances per image. For evaluation, we use AP, mMR, and
+Recall as the metrics. mMR means the average log miss
+rate over false positives per image ranging in
+
+10−2, 100
+following the official report [23]. A lower value of mMR
+means a better quality of high-scoring bounding boxes. All
+evaluation results are reported on the CrowdHuman valida-
+tion subset.
+* indicates it is an improved version based on techniques in
+DINO [33]. Details can be found in our supplementary material
+5
+
+=== PDF PAGE 6 ===
+5.2. Setting
+COCO ResNet-50 [10] is the default backbone in this study
+if not specified. Most models adopt the 1x(12 epochs) train-
+ing protocol in MMDetection [3]. AdamW [20] optimizer
+is used. For DDQ FCN, we set the initial learning rate to
+5 × 10−5 and weight decay to 0.1. For DDQ R-CNN, we
+used a learning rate of 10−4 and weight decay of 0.05. The
+learning rate for both two CNN-based detectors decayed
+with a ratio of 0.1 at epoch 9 and epoch 12. For DDQ
+DETR, we utilized a learning rate of 2 × 10−4 and a weight
+decay of 0.05, and the learning rate decayed with a ratio
+of 0.1 at epoch 12 only. To ensure a fair comparison with
+other studies, we classified our data augmentation into three
+types : Normal, Multi-Scale, and DETR. Normal augmen-
+tation rescaled images to a short side of 800 pixels, with
+only random flips applied. For Multi-Scale augmentation,
+we used the classic multi-scale training range (480–800).
+Finally, the DETR augmentation followed that of the study
+by Carion et al. [2].
+CrowdHuman ResNet-50 [10] is the default backbone.
+All conventional detectors and DDQ adopt the 3x (36
+epochs) schedule with multi-scale training (480-800). All
+optimizer-related parameters are consistent with the setting
+on COCO. For end-to-end detectors with sparse queries, we
+follow the schedule(50 epochs) in Sparse R-CNN due to
+their slow convergence. The max detected instance number
+is changed to 500 for all conventional detectors following
+the [28]. For a fair comparison, We increase the number of
+queries to 500 for DDQ FCN/R-CNN, Sparse R-CNN, and
+Deform DETR. For DDQ DETR, we just keep the same 900
+queries as COCO.
+5.3. Evolving to DDQ
+In this section, we show how detectors of different archi-
+tectures evolve to DDQ. We can validate the importance of
+both density and distinctness from such a progressive devel-
+opment.
+From FCOS* to DDQ FCN In Table. 1, We start from
+an FCOS equipped with the bipartite matching algorithm
+in DETR [2] and our main loss components mentioned in
+Sec. 4.1, which is denoted as FCOS*. We adopt the normal
+augmentation that is mentioned in 5.2 and train the model
+for 12 epochs. Due to the lack of cross-level interaction, its
+performance is quite unstable and fluctuates between 24.5
+AP and 36.5 AP in a few successful experiments. We select
+the best result 36.5 as our baseline. After adding pyramid
+shuffle operations to interact with cross-level queries, the
+training becomes stable and gets 1.1 AP improvement with
+only 0.2 G flops and 0.2 ms latency increase. Adding a
+distinct queries selection operation boosts the performance
+from 37.6 AP to 40.6 AP with only 0.3 ms latency. Such
+a 3 AP improvement demonstrates that the distinctness of
+queries is vital for the one-to-one assignment. After adding
+an auxiliary loss for dense queries following DeFCN [28],
+we get DDQ FCN with a state-of-the-art performance of
+41.5 AP. DQS on the strong baseline (equipped with pyra-
+mid shuffle and auxiliary loss) can be found in Table. 14.
+DQS still improves 2 AP (from 39.5 to 41.5).
+Table 1. From FCOS* to DDQ FCN.PS stands for pyramid shuf-
+fle, and DQS means distinct queries selection operation. We also
+report the latency(L) and the flops(F).
+Method AP AP50 AP75 L(ms) F(G)
+FCOS* 36.5 54.4 40.3 21.9 200.5
++ PS 37.6 56.3 41.3 22.1 200.7
++DQS 40.6 60.3 44.5 22.4 200.7
+DDQ FCN 41.5 60.9 45.4 22.4 200.7
+From Sparse R-CNN to DDQ R-CNN Table. 2 shows a
+progressive development from Sparse R-CNN to DDQ R-
+CNN. Sparse R-CNN with 300 queries achieves 39.4 AP
+within 12 epochs using the normal augmentation that is
+mentioned in Sec.5.2. Increasing the number of queries to
+7000 improves the performance to 40.6 AP, at the cost of a
+quite heavy detector. Applying a distinct queries selection
+at the beginning of each stage boosts the performance by
+2.5 AP to 43.1 AP. At last, by replacing the first four refin-
+ing stages with our DDQ FCN, which not only makes the
+structure more light-weighted but also allows even denser
+input queries, the performance further increases to 44.6 AP.
+Table 2. From Sparse R-CNN to DDQ R-CNN . Q means the
+query, and DQS stands for the distinct queries selection
+Method AP AP50 AP75 L(ms) F(G)
+Sparse R-CNN 39.4 57.7 42.5 31.0 160.2
++7000Q 40.6 58.7 44.0 135.0 781.0
++DQS 43.1 62.6 47.1 135.0 781.0
+DDQ R-CNN 44.6 63.0 48.8 31.3 248.5
+From Deformable DETR* to DDQ DETR Table 3 il-
+lustrates the progressive development from Deformable
+DETR* to DDQ DETR. Deformable DETR* achieves 45.4
+AP with 900 queries within 12 epochs using the DETR aug-
+mentation mentioned in Sec.5.2. By employing a linear
+layer to process the dense queries on the feature pyramid
+and constructing content parts with feature embeddings, the
+performance increases to 48.5 AP. However, initializing the
+content part as Two-Stage Deformable DETR(TS D-DETR)
+with mapped coordinates only achieves 46.7 AP, which is
+due to the lack of distinctness in the coordinates compared
+to the feature embedding. Adding an auxiliary loss for the
+decoder improves performance to 50.0 AP. Furthermore, by
+adding DQS before each refining stage, the performance
+further increases to 50.7 AP. Finally, by adding the P2 fea-
+ture and 100 CDN queries as in DINO [33], we achieve an
+impressive 52.1 AP, surpassing all detectors in the same set-
+ting. We show distinctness can be complementary to CDN
+in Table. 14 and analyze the reason in our supplementary
+6
+
+=== PDF PAGE 7 ===
+material.
+Table 3. From Deformable DETR*(D-DETR) to DDQ DETR .
+TS D-DETR stands for the naive two-stage version. Dense means
+initializing the content part with feature embedding. DQS stands
+for distinct queries selection. AUX-Decoder means the auxiliary
+loss for dense queries in the decoder. The flops only has compara-
+tive meaning and does not contain custom cuda operators
+Method AP AP50 AP75 L(ms) F(G)
+D-DETR* 45.4 63.0 49.1 45 264
+TS D-DETR 46.7 64.5 50.8 46 269
++Dense 48.5 66.2 52.7 47 270
++AUX-Decoder 50.0 67.4 54.8 47 270
++DQS 50.7 68.1 55.7 58 270
+DDQ DETR5scale 52.1 68.9 57.3 114 860
+5.4. Comparison with Other Detectors
+Results on CrowdHuman We select some recent represen-
+tative studies for comparison with DDQ on crowded scenes.
+It is seen that traditional detectors struggle between a low
+recall rate and a high false positive rate. Although DW [15]
+assignment is the recent state-of-the-art one-to-many as-
+signment strategy and shows a clear increase in Recall com-
+pared to ATSS, it suffers from more serious false predictions
+and thus leads to a high mMR. The performance of such
+traditional detectors is limited by the post-processing NMS.
+In the supplementary material, we also show it can not be
+properly handled by adjusting the IoU threshold because it
+is training unaware.
+End-to-end detectors can achieve a higher theoretical re-
+call rate due to the removal of NMS as a post-process.
+However, a high recall is not guaranteed in Sparse R-CNN
+and Deformable DETR due to their sparse query design.
+Although DeFCN [28] achieves a better performance than
+other end-to-end methods by adopting dense queries, it is
+still difficult for DeFCN to distinguish between crowded
+objects and duplicated predictions(optimization difficulty)
+which affects the mMR.
+Table 4. Performance on CrowdHuman
+Method Epochs AP50 mMR Recall
+ATSS 36 89.6 44.4 95.9
+DW 36 89.0 57.6 97.4
+Cascade R-CNN 36 86.0 44.1 89.2
+Sparse R-CNN 50 89.2 48.3 95.9
+Deform DETR 50 89.1 50.0 95.3
+DeFCN 36 91.0 46.5 97.9
+DDQ FCN 36 92.7 41.0 98.2
+DDQ R-CNN 36 93.5 40.4 98.6
+DDQ DETR 36 93.8 39.7 98.7
+In contrast, DDQ surpasses these detectors on all metrics
+by a clear margin. For one thing, DDQ leads in Recall due
+to the dense queries that could cover most objects. For the
+other, DDQ also achieves the lowest mMR, as a merit of the
+distinctness among queries so that the detector can better
+differentiate false predictions.
+Results on COCO We adopt heavier backbones and longer
+schedules to fairly compare with other detectors on COCO.
+As shown in Table. 5, we get all the results from the orig-
+inal study except those marked with *. We divide the re-
+sults into two parts according to the augmentation. The
+first part adopts the augmentations in DETR [2] and reports
+the results on COCO validation dataset. DDQ remains its
+advantage among end-to-end object detectors using differ-
+ent backbone structures. It is worth emphasizing that DDQ
+FCN without any refinement architecture can already sur-
+pass most end-to-end detectors. DDQ R-CNN surpasses
+these methods by a large margin with only two refining
+heads and without encoder architecture. The performance
+of DDQ R-CNN (R-50) can be further improved by adopt-
+ing an encoder structure as in SEPC [30] or DyHead [6].
+For example, It achieves an impressive 51.0 AP by adopt-
+ing 6 blocks in DyHead as encoder structure, which is de-
+noted as DDQ R-CNNwith encoder(details about this model
+can be found in supplementary material). DDQ DETR out-
+performs recent DETR with a clear margin using R-50 as
+its backbone. When adopting a Swin-L backbone, it also
+surpasses the SOTA method DINO [33] by 0.7 AP.
+The second part adopts a multi-scale training (480-800)
+strategy for 24 epochs and reports the results on the COCO
+test-dev using ResNet-101, which is widely used by con-
+ventional detectors.
+6. Ablation study
+6.1. The Recall Improvement of Dense Queries
+We analyze the recall of IoU threshold 0.5. As shown in
+Table. 6, we report the recall of the 5th stage input queries
+of Sparse R-CNN to make a fair comparison with the input
+queries of the refinement head in DDQ R-CNN. It can be
+seen that the Sparse R-CNN with 300 queries has a signifi-
+cantly lower recall(10.2 AR100) than that with 7000 queries.
+In DDQ R-CNN, the queries from the DDQ FCN achieve a
+comparable recall to 7000 queries but with much less la-
+tency.
+6.2. DQS with Different IoU Threshold
+In this section, we show the robustness of distinct queries
+selection(DQS) with different IoU thresholds. As shown in
+Table. 14, the performance of DDQ FCN/R-CNN is quite
+robust when the IoU threshold ranges from 0.6 to 0.8. The
+performance drops slightly when the threshold is lower than
+0.6, which is due to the lower recall rate for overlapping
+objects. The performance also starts to degrade when the
+IoU threshold is larger than 0.8 due to its incapability to
+suppress similar queries that slow the optimization. DDQ
+DETR exhibits a similar trend, as observed in Table 3. We
+7
+
+=== PDF PAGE 8 ===
+Table 5. Results on COCO Dataset. For DW, the * means we have retrained it with the same augmentation(480-800) as other methods
+using official implementation.
+Method Backbone Val/Test Epochs AP AP50 AP75 APs APm APl
+Aug:DETR
+Cascade R-CNN [1] ResNet-50 val 36 44.3 62.4 48 26.6 47.7 57.7
+DAB DETR [19] ResNet-50 val 50 42.6 63.2 45.6 21.8 46.2 61.1
+DN-DETR [14] ResNet-50 val 50 44.1 64.4 46.7 22.9 48.0 63.4
+Deformable DETR [38] ResNet-50 val 50 46.2 65.2 50.0 28.8 49.2 61.7
+Efficient DETR [32] ResNet-50 val 36 44.2 62.2 48.0 28.4 47.5 56.6
+Sparse R-CNN [26] ResNet-50 val 36 45.0 63.4 48.2 26.9 47.2 59.5
+DINO4scales[33] ResNet-50 val 36 50.9 69.0 55.3 34.6 54.1 64.6
+DINO5scales[33] ResNet-50 val 36 51.2 69.0 55.8 35.0 54.3 65.3
+DDQ FCN ResNet-50 val 36 44.8 64.1 49.4 29.9 47.8 56.0
+DDQ R-CNN ResNet-50 val 36 48.1 66.6 53.0 32.3 51.2 60.7
+DDQ R-CNNwith encoder ResNet-50 val 36 51.0 69.0 56.0 34.0 54.4 64.6
+DDQ DETR4scales ResNet-50 val 24 52.0 69.5 57.2 35.2 54.9 65.9
+DDQ DETR5scales ResNet-50 val 24 52.8 69.9 58.1 37.4 55.7 66.0
+Sparse R-CNN ResNeXt-64x4d-101 test-dev 36 46.9 66.3 51.2 28.6 49.2 58.7
+Deformable DETR ResNeXt-64x4d-101 test-dev 50 49 68.5 53.2 29.7 51.7 62.8
+DDQ FCN ResNeXt-64x4d-101 test-dev 36 47.7 67.0 52.6 30.4 49.9 58.3
+DDQ R-CNN ResNeXt-64x4d-101 test-dev 36 49.9 68.8 54.8 31.8 52.2 61.7
+Sparse R-CNN [26] Swin-B val 36 50.8 70.4 55.6 33.9 53.7 65.9
+DDQ R-CNN Swin-B val 36 52.8 72.2 57.9 37.6 56.2 66.9
+H-DeformableDETR4scales Swin-L val 36 57.6 76.5 63.2 41.4 61.7 73.9
+DINO4scales Swin-L val 36 58.0 76.1 64.0 40.1 62.2 74.3
+DDQ DETR4scales Swin-L val 30 58.7 76.8 64.5 41.6 62.9 74.3
+DDQ DETR4scales Swin-L test-dev 30 58.8 77.0 64.6 39.4 62.1 74.0
+Aug:Multi-Scale
+ATSS [34] ResNet-101 test-dev 24 43.6 62.1 47.4 26.1 47.0 53.6
+PAA [12] ResNet-101 test-dev 24 44.8 63.3 48.7 26.5 48.8 56.3
+OTA [9] ResNet-101 test-dev 24 45.3 63.5 49.3 26.9 48.8 56.1
+DW* [15] ResNet-101 test-dev 24 45.8 64.6 49.6 27.3 48.9 57.0
+DDQ FCN ResNet-101 test-dev 24 45.9 65.1 50.7 28.3 48.6 55.6
+Table 6. Recall improvement of dense distinct queries. Q means
+queries and DQS stands for the distinct queries selection. L stands
+for the latency of the model.
+Method AR100 AR200 AR300 L(ms)
+Sparse R-CNN 78.4 83.4 85.5 31.0
+7000 Q & DQS 88.6 92.3 93.6 135.0
+DDQ R-CNN 88.5 91.8 93.2 31.3
+can find even though CDN training in [33] has been adopted
+in DDQ DETR, distinctness still improves the performance.
+By the way, we also report the performance of ATSS [34] at
+different post-processing NMS IoU thresholds and show its
+sensitivity to this hyperparameter, in contrast to the robust
+behavior of DDQ in which a class-agnostic NMS is adopted
+in both training and inference to filter out distinct queries.
+7. Acknowledgement
+This project is supported by the National Key R&D Pro-
+gram of China No.2022ZD0161600, No.2022ZD0161000
+and the General Research Fund of HK No.17200622.
+Table 7. Performance of DDQ on COCO when DQS adopts differ-
+ent IoU thresholds. Results of ATSS adopting different IoU thresh-
+olds in post-processing are also reported. None means we remove
+DQS or post-processing from the inference pipeline.* means the
+results are not stable and we report the average performance
+COCO 0.5 0.6 0.7 0.8 0.9 None
+DDQ FCN 40.8 41.4 41.5 41.4 40.5 39.5*
+DDQ R-CNN 44.0 44.5 44.6 44.4 43.8 42.7*
+DDQ DETR 50.1 50.7 50.9 51.3 51.0 50.7*
+ATSS 39.3 39.5 39.3 38.7 36.7 19.6
+8. Conclusions
+This paper reveals that both sparse and dense queries in
+end-to-end detection are problematic. We propose that the
+expected queries should be both dense and distinct. Such
+a paradigm significantly improves the performance of var-
+ious detectors including FCN, R-CNN, and DETRs. This
+proves the paradigm blends advantages from the traditional
+detectors and the recent end-to-end detectors. We hope it
+can inspire researchers to consider the complementarity be-
+tween traditional methods and end-to-end detectors.
+8
+
+=== PDF PAGE 9 ===
+References
+[1] Zhaowei Cai and Nuno Vasconcelos. Cascade r-cnn: Delv-
+ing into high quality object detection. In Proceedings of the
+IEEE conference on computer vision and pattern recogni-
+tion, pages 6154–6162, 2018. 2, 8
+[2] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas
+Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-
+end object detection with transformers. In European Confer-
+ence on Computer Vision, pages 213–229. Springer, 2020. 1,
+2, 4, 5, 6, 7
+[3] Kai Chen, Jiaqi Wang, Jiangmiao Pang, Yuhang Cao, Yu
+Xiong, Xiaoxiao Li, Shuyang Sun, Wansen Feng, Ziwei Liu,
+Jiarui Xu, et al. Mmdetection: Open mmlab detection tool-
+box and benchmark. arXiv preprint arXiv:1906.07155, 2019.
+6
+[4] Qiang Chen, Xiaokang Chen, Gang Zeng, and Jingdong
+Wang. Group detr: Fast training convergence with de-
+coupled one-to-many label assignment. arXiv preprint
+arXiv:2207.13085, 2022. 2, 5
+[5] Shoufa Chen, Peize Sun, Yibing Song, and Ping Luo. Diffu-
+siondet: Diffusion model for object detection. arXiv preprint
+arXiv:2211.09788, 2022. 2
+[6] Xiyang Dai, Yinpeng Chen, Bin Xiao, Dongdong Chen,
+Mengchen Liu, Lu Yuan, and Lei Zhang. Dynamic head:
+Unifying object detection heads with attentions. In Proceed-
+ings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, pages 7373–7382, 2021. 7, 13
+[7] Xiyang Dai, Yinpeng Chen, Jianwei Yang, Pengchuan
+Zhang, Lu Yuan, and Lei Zhang. Dynamic detr: End-to-
+end object detection with dynamic attention. In Proceedings
+of the IEEE/CVF International Conference on Computer Vi-
+sion, pages 2988–2997, 2021. 2, 13
+[8] Chengjian Feng, Yujie Zhong, Yu Gao, Matthew R Scott,
+and Weilin Huang. Tood: Task-aligned one-stage object de-
+tection. In Proceedings of the IEEE/CVF International Con-
+ference on Computer Vision, pages 3510–3519, 2021. 2, 11
+[9] Zheng Ge, Songtao Liu, Zeming Li, Osamu Yoshie, and Jian
+Sun. Ota: Optimal transport assignment for object detection.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pages 303–312, 2021. 2, 8
+[10] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+Deep residual learning for image recognition. In Proceed-
+ings of the IEEE conference on computer vision and pattern
+recognition, pages 770–778, 2016. 6
+[11] Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu,
+Weihong Lin, Lei Sun, Chao Zhang, and Han Hu. Detrs with
+hybrid matching. arXiv preprint arXiv:2207.13080, 2022. 2,
+5
+[12] Kang Kim and Hee Seok Lee. Probabilistic anchor assign-
+ment with iou prediction for object detection. In European
+Conference on Computer Vision , pages 355–371. Springer,
+2020. 2, 8
+[13] Tao Kong, Fuchun Sun, Huaping Liu, Yuning Jiang, Lei Li,
+and Jianbo Shi. Foveabox: Beyound anchor-based object de-
+tection. IEEE Transactions on Image Processing, 29:7389–
+7398, 2020. 2
+[14] Feng Li, Hao Zhang, Shilong Liu, Jian Guo, Lionel M. Ni,
+and Lei Zhang. Dn-detr: Accelerate detr training by intro-
+ducing query denoising. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 13619–13627, June 2022. 8
+[15] Shuai Li, Chenhang He, Ruihuang Li, and Lei Zhang. A
+dual weighting label assignment scheme for object detection.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pages 9387–9396, 2022. 2,
+7, 8
+[16] Xiang Li, Wenhai Wang, Xiaolin Hu, Jun Li, Jinhui Tang,
+and Jian Yang. Generalized focal loss v2: Learning reliable
+localization quality estimation for dense object detection. In
+Proceedings of the IEEE/CVF Conference on Computer Vi-
+sion and Pattern Recognition, pages 11632–11641, 2021. 4
+[17] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and
+Piotr Doll´ar. Focal loss for dense object detection. In Pro-
+ceedings of the IEEE international conference on computer
+vision, pages 2980–2988, 2017. 1, 2
+[18] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+Pietro Perona, Deva Ramanan, Piotr Doll´ar, and C Lawrence
+Zitnick. Microsoft coco: Common objects in context. In
+European conference on computer vision , pages 740–755.
+Springer, 2014. 2, 5
+[19] Shilong Liu, Feng Li, Hao Zhang, Xiao Yang, Xianbiao Qi,
+Hang Su, Jun Zhu, and Lei Zhang. Dab-detr: Dynamic an-
+chor boxes are better queries for detr. In International Con-
+ference on Learning Representations, 2021. 2, 8
+[20] Ilya Loshchilov and Frank Hutter. Decoupled weight de-
+cay regularization. In International Conference on Learning
+Representations, 2018. 6
+[21] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.
+Faster r-cnn: Towards real-time object detection with region
+proposal networks. Advances in neural information process-
+ing systems, 28:91–99, 2015. 1, 2
+[22] Hamid Rezatofighi, Nathan Tsoi, JunYoung Gwak, Amir
+Sadeghian, Ian Reid, and Silvio Savarese. Generalized in-
+tersection over union: A metric and a loss for bounding
+box regression. In Proceedings of the IEEE/CVF conference
+on computer vision and pattern recognition, pages 658–666,
+2019. 4
+[23] Shuai Shao, Zijian Zhao, Boxun Li, Tete Xiao, Gang Yu,
+Xiangyu Zhang, and Jian Sun. Crowdhuman: A bench-
+mark for detecting human in a crowd. arXiv preprint
+arXiv:1805.00123, 2018. 2, 4, 5
+[24] Peize Sun, Yi Jiang, Enze Xie, Wenqi Shao, Zehuan Yuan,
+Changhu Wang, and Ping Luo. What makes for end-to-
+end object detection? In Marina Meila and Tong Zhang,
+editors, Proceedings of the 38th International Conference
+on Machine Learning , volume 139 of Proceedings of Ma-
+chine Learning Research, pages 9934–9944. PMLR, 18–24
+Jul 2021. 2
+[25] Peize Sun, Yi Jiang, Enze Xie, Wenqi Shao, Zehuan Yuan,
+Changhu Wang, and Ping Luo. What makes for end-to-end
+object detection? In International Conference on Machine
+Learning, pages 9934–9944. PMLR, 2021. 2
+[26] Peize Sun, Rufeng Zhang, Yi Jiang, Tao Kong, Chen-
+feng Xu, Wei Zhan, Masayoshi Tomizuka, Lei Li, Zehuan
+9
+
+=== PDF PAGE 10 ===
+Yuan, Changhu Wang, et al. Sparse r-cnn: End-to-end ob-
+ject detection with learnable proposals. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 14454–14463, 2021. 2, 4, 8, 11
+[27] Zhi Tian, Chunhua Shen, Hao Chen, and Tong He. Fcos:
+Fully convolutional one-stage object detection. In Proceed-
+ings of the IEEE/CVF international conference on computer
+vision, pages 9627–9636, 2019. 1, 2
+[28] Jianfeng Wang, Lin Song, Zeming Li, Hongbin Sun, Jian
+Sun, and Nanning Zheng. End-to-end object detection
+with fully convolutional network. In Proceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 15849–15858, 2021. 2, 4, 6, 7, 11
+[29] Xinlong Wang, Tao Kong, Chunhua Shen, Yuning Jiang, and
+Lei Li. Solo: Segmenting objects by locations. In European
+Conference on Computer Vision , pages 649–665. Springer,
+2020. 4
+[30] Xinjiang Wang, Shilong Zhang, Zhuoran Yu, Litong Feng,
+and Wayne Zhang. Scale-equalizing pyramid convolution for
+object detection. In Proceedings of the IEEE/CVF Confer-
+ence on Computer Vision and Pattern Recognition (CVPR) ,
+June 2020. 7, 13
+[31] Yingming Wang, Xiangyu Zhang, Tong Yang, and Jian Sun.
+Anchor detr: Query design for transformer-based detector.
+arXiv preprint arXiv:2109.07107, 2021. 2
+[32] Zhuyu Yao, Jiangbo Ai, Boxun Li, and Chi Zhang. Efficient
+detr: improving end-to-end object detector with dense prior.
+arXiv preprint arXiv:2104.01318, 2021. 2, 8
+[33] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun
+Zhu, Lionel Ni, and Harry Shum. Dino: Detr with improved
+denoising anchor boxes for end-to-end object detection. In
+International Conference on Learning Representations. 2, 4,
+5, 6, 7, 8, 13
+[34] Shifeng Zhang, Cheng Chi, Yongqiang Yao, Zhen Lei, and
+Stan Z Li. Bridging the gap between anchor-based and
+anchor-free detection via adaptive training sample selection.
+In Proceedings of the IEEE/CVF conference on computer vi-
+sion and pattern recognition, pages 9759–9768, 2020. 8
+[35] Xiaosong Zhang, Fang Wan, Chang Liu, Rongrong Ji, and
+Qixiang Ye. Freeanchor: Learning to match anchors for vi-
+sual object detection. Advances in neural information pro-
+cessing systems, 32, 2019. 2
+[36] Xiangyu Zhang, Xinyu Zhou, Mengxiao Lin, and Jian Sun.
+Shufflenet: An extremely efficient convolutional neural net-
+work for mobile devices. In Proceedings of the IEEE con-
+ference on computer vision and pattern recognition , pages
+6848–6856, 2018. 4
+[37] Benjin Zhu, Jianfeng Wang, Zhengkai Jiang, Fuhang Zong,
+Songtao Liu, Zeming Li, and Jian Sun. Autoassign: Differ-
+entiable label assignment for dense object detection. arXiv
+preprint arXiv:2007.03496, 2020. 2
+[38] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang
+Wang, and Jifeng Dai. Deformable detr: Deformable trans-
+formers for end-to-end object detection. arXiv preprint
+arXiv:2010.04159, 2020. 2, 5, 8, 11, 13
+10
+
+=== PDF PAGE 11 ===
+In the supplementary material, the analysis of dense
+distinct queries (DDQ) to Deformable DETR [38] is first
+sketched in Sec. A. The details about auxiliary loss are
+added in Sec. B. Sec. C gives more detailed ablation stud-
+ies and analysis of pyramid shuffle. Sec. F gives more de-
+tailed ablation studies about the number of queries and re-
+fining stages in DDQ R-CNN. Sec. D show the details about
+DDQ R-CNN with encoder. Sec. E elaborate and improved
+Deformable DETR and discuss the difference with DINO.
+Sec. G gives the latency benchmark. Sec. H reports the
+results of DDQ R-CNN with other ways to construct the
+query. Sec. I show the results of traditional detectors with
+different IOU thresholds on CrowdHuman. At last, Sec. J
+illustrates our social impact.
+A. Analysis of DDQ in Deformable DETR
+For fast verification of Distinct Queries Selection(DQS)
+in such a heavy model, we adopt the standard 1x setting on
+COCO and keep other hyperparameters (such as learning
+rate and weight decay) the same with that in Deformable
+DETR [38].
+Figure 5. The performance comparison of Deformable DETR with
+and without distinct queries selection
+As shown in Fig.5, when we increase the number of
+queries in Deformable DETR, there is a similar trend as it
+in Sparse R-CNN [26], as shown in the main manuscript.
+When the number of queries naively increases without dis-
+tinct queries selection, the performance increases at the
+beginning but decreases as the number of queries reaches
+∼ 5000. It is due to the more difficult training with more
+similar queries out of the dense queries. By imposing a
+distinct queries selection pre-processing to filter out similar
+queries and keeping only distinct queries before each stage
+of iterative refinement, the performance is improved with a
+clear margin, and the performance margin consistently in-
+creases along with more queries.
+Therefore, we believe Dense Distinct Queries (DDQ) is
+a principle of designing an object detector with a fast con-
+vergence based on recent end-to-end detectors.
+B. Auxiliary Loss for Dense Queries
+We follow the TOOD [8] to design our auxiliary loss.
+We select K samples with the smallest cost of each ground
+truth as positive samples. P means the index set of positive
+samples which correspond to the same ground truth. The
+classification score target of a sample i in this set is
+scorei ∗ IoU 6
+i
+M ax(scorej ∗ IoU 6
+j )j∈P
+∗ M ax(IoU j)j∈P (2)
+The GIoU loss of each sample is reweighted by the clas-
+sification target. The classification loss and regression loss
+weight keep consistent with the main loss weight (1 and 2
+respectively) for distinct queries. The performance is quite
+stable for DDQ FCN when K ranges between 5 and 16.
+We adopt 8 and 4 for DDQ FCN and DDQ DETR respec-
+tively in this study. The auxiliary loss also works for re-
+fining heads in DDQ RCNN. Due to time issues, we will
+supplement relevant results in the future version.
+C. More Analysis and Ablation for Pyramid
+Shuffle
+We provide an in-depth analysis of pyramid shuffle.
+Firstly, we compare it with 3D MAX Filter in DeFCN [28]
+in Table. 9. Then we visualize the change of score maps in
+different levels after adding pyramid shuffle operations in
+Fig. 6. At last, Table. 11 gives the results under different
+shuffle channels.
+Comparision with 3D MAX Filter Table. 9 shows the
+comparison between pyramid shuffle and 3D MAX Filter-
+ing in DeFCN. DeFCN believes there should be extra pa-
+rameters and max pooling operation to facilitate the opti-
+mization under the one-to-one assignment. However, we
+argue that only the interaction of cross-level queries mat-
+ters, and extra parameters or max operations are unneces-
+sary. Our pyramid shuffle is more lightweight and with bet-
+ter performance. When we add an extra convolution to re-
+gression branches to fair compare with the 3D MAX Filter,
+we can surpass it by 0.8 AP.
+Visualization of Adjacent Level Score Map Fig. 6 shows
+the scores map of adjacent levels. The left side of each sub-
+figure(with blue background) shows score maps with pyra-
+mid shuffles, and the corresponding right side (with yellow
+background) means without pyramid shuffles. The top-left
+corner marks the feature level. The red circle represents
+the duplication predictions in the adjacent level. We can
+find pyramid shuffle effectively reduces the cross-level high
+score false positives.
+Results under Different Shuffle Channels Table 11 gives
+the results under different shuffle channels; we can find that
+11
+
+=== PDF PAGE 12 ===
+Figure 6. Visualization of score map of adjacent levels. We visualize classification scores with the rainbow color system. The left side of
+each subfigure(with blue background) shows score maps with pyramid shuffles, and the corresponding right side (with yellow background)
+means without pyramid shuffles. The top-left corner marks the feature level. The red circle represents the duplication predictions in the
+adjacent level.
+Table 8. Latency(ms) of different models with batch size 1
+DDQ FCN Cascade R-CNN Sparse R-CNN Deformable DETR DDQ R-CNN DINO DDQ DETR
+44.8 AP 44.3 AP 45.0 AP 46.2 AP 48.1 AP 50.9 AP 52.0 AP
+22.4 ms 28.5 ms 31.0 ms 40.0 ms 31.3 ms 46 ms 58 ms
+the number of channels can even be reduced to 16 when
+there is already cross-level distinct queries selection, mak-
+ing it more lightweight. When the number of shuffle chan-
+nels is 128, which means no remaining channels for the cur-
+rent level, the performance will dramatically drop 1.5 AP
+because of missing information on the current level queries
+in the interaction.
+12
+
+=== PDF PAGE 13 ===
+Table 9. Comparison between 3D MAX Filter and Pyramid
+Shuffle. * means the results is unstable
+Flops Parameters Operations AP
+- - - 41.0*
+12.2 G 0.59M Conv&GN&Relu&MaxPool3d41.2
+0.2 G 0.00M Shuffle x3 41.5
+12.2 G 0.59M Conv&GN&Relu& Shuffle x3 42.0
+Table 10. Performance of one-stage DDQ with different numbers
+of shuffle channels.
+Number AP AP50 AP75
+0 41.0* 59.9 45.1
+8 41.2 60.3 45.4
+16 41.3 60.6 45.4
+32 41.4 60.6 45.5
+64 41.5 60.9 45.4
+96 41.6 61.1 45.7
+128 39.9 59.9 43.6
+C.1. Number of Pyramid Shuffle Operations
+We report the results of DDQ FCN with the differ-
+ent number of pyramid shuffle operations in the classifica-
+tion and regression branches. When no pyramid shuffle is
+adopted in the DDQ FCN, its performance is unstable and
+fluctuates between 40.8 AP and 41.1 AP. We report an av-
+erage performance of 41.0 AP. Even though there has been
+a cross-level distinct queries selection operation, compared
+to adopting only 2 and 1 operations to two branches respec-
+tively, there is still a 0.5 AP drop.
+Table 11. Different number Pyramid shuffle operations in DDQ
+FCN. Cls means the classification branch and Reg means the re-
+gression branch. * indicate the performance is unstable
+Cls Reg AP AP50 AP75
+0 0 41.0* 59.9 45.1
+1 0 41.3 60.1 45.6
+0 1 41.3 60.6 45.4
+0 2 41.3 60.0 45.6
+2 0 41.2 60.1 45.5
+1 1 41.3 60.6 45.8
+2 1 41.5 60.9 45.4
+2 2 41.4 60.6 45.5
+4 4 41.5 61.1 45.6
+D. DDQ R-CNN with Encoder
+The encoder can provide a more powerful feature repre-
+sentation for the decoder head which is explored in [7, 30,
+38]. We simply add 6 dynamic blocks in DyHead [6] as our
+encoder. 500 queries and 3 refinement stages are adopted.
+It is observed in the main manuscript that there is about 3
+AP improvement for DDQ R-CNN.
+E. Details of Improved DeformableDETR and
+Comparison with DINO
+DINO [33] adopt some techniques that significantly im-
+prove the Deformable DETR. We remove the CDN and mix
+query selection from DINO to form our baseline. DDQ
+is a concurrent work of DINO. The contrastive denoising
+training (CDN) is not intended to relieve the optimization
+difficulty of very similar queries among dense queries. In
+their implementation, the generated positive and negative
+samples in each pair are always significantly distinct from
+each other. Mix query selection increases the distinctness of
+queries by additionally initializing content embeddings, but
+the position embeddings are still created from top-k dense
+regression predictions which can be very similar and still
+hinder the optimization. We have shown our components
+can be combined with DINO.
+F. Number of Queries and Stages in DDQ R-
+CNN
+Table 12. Performance with different number of refine stages(S)
+and queries(Q).
+100 Q 200 Q 300 Q 400 Q
+S=1 43.0 43.2 43.4 43.2
+S=2 44.2 44.2 44.6 44.8
+S=3 44.4 44.8 45.1 44.9
+S=4 44.5 45.0 45.0 45.2
+We analyze the combination of different numbers of
+stages and queries for DDQ R-CNN. Table. 12 shows that
+the best number of stages is proportional to the number of
+queries. This is easy to understand. When the number of
+queries increases, the newly added queries are of low qual-
+ity, and more stages are needed to refine these queries. It is
+worth emphasizing that we use 2 stages and 300 queries to
+trade off the performance and latency. When using 3 stages
+with the same number of queries, our method achieves an
+even higher performance of 45.1 AP on MS COCO.
+G. Latency Benchmark
+As for the details of latency calibration, We compare the
+speed (forwarding + post-processing) of different methods
+with batch size 1 in Table. 8. All evaluations were per-
+formed on Tesla A100 GPU with Intel(R) Xeon(R) Gold
+6348 CPU @ 2.60GHz. The Pytorch version is 1.9.0 with
+CudaToolkit 11.1 and Cudnn 8.0.5. An average of 200 it-
+erations during model inference is adopted as the latency
+reported in this study.
+13
+
+=== PDF PAGE 14 ===
+H. Impact of Query Construction in DDQ R-
+CNN
+We try five ways to construct queries in DDQ R-CNN.
+As shown in Table. 13, None means all query embeddings
+are set to a zero tensor, and the refinement stages only get
+meaningful query bounding boxes. This attempt reduces the
+performance to 43.2 AP. Simply constructing queries from
+the FPN results in 1.0 AP degradation. Reg means only
+using the last feature map of the regression branch, which
+drops the performance by 0.6 AP. Constructing queries from
+the last feature map in the classification branch can be an
+alternative as it can get a comparable performance(only 0.3
+AP drop).
+Table 13. Impact of Query Construction in DDQ RCNN
+AP AP50 AP75
+None 43.2 61.0 47.9
+FPN 43.6 61.7 48.0
+Cls 44.3 62.2 48.6
+Reg 44.0 62.5 48.3
+Cls&Reg 44.6 63.0 48.8
+I. DQS with Different IoU Threshold in
+CrowdHuman
+In this section, we show the robustness of distinct queries
+selection(DQS) with different IoU thresholds in CrowdHu-
+man. We can find there is a clear performance bottleneck
+for traditional detector ATSS even with carefully adjusting
+the threshold of NMS.
+Table 14. Performance of DDQ on COCO when DQS adopts dif-
+ferent IoU thresholds. Results of ATSS adopting different IoU
+thresholds in post-processing are also reported. None means we
+remove DQS or post-processing from the inference pipeline.
+CrowdHuman 0.5 0.6 0.7 0.8 0.9 None
+DDQ FCN 88.0 91.8 92.7 92.8 92.3 91.7
+DDQ RCNN 91.8 92.9 93.5 93.3 93.2 93.2
+ATSS 88.3 89.6 88.4 85.3 78.9 42.7
+J. Social Impact
+The potential social impact of this work inherits from
+object detection. Because human behaviors often cause
+crowded scenes, and DDQ achieves excellent performance
+in such scenes, it may be applied to some applications that
+violate human privacy, such as surveillance.
+14

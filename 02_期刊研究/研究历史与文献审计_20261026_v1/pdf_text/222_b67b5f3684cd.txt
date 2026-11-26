@@ -1,0 +1,202 @@
+PointSR: Self-Regularized Point Supervision for Drone-View Object Detection
+Weizhuo Li1 Yue Xi1* Wenjing Jia2 Zehao Zhang1 Fei Li3 Xiangzeng Liu3 Qiguang Miao3*
+1Guangzhou Institute of Technology, Xidian University, Guangzhou, China
+2 Faculty of Engineering and IT, University of Technology Sydney, Sydney, Australia
+3 School of Computer Science and Technology, Xidian University, Xi’an, China
+{liweizhuo@stu., xiyue@, zzehao@stu., lifei@, xzliu@, qgmiao@ }xidian.edu.cn
+Wenjing.Jia@uts.edu.au
+Abstract
+Point-Supervised Object Detection (PSOD) in a discrim-
+inative style has recently gained significant attention for
+its impressive detection performance and cost-effectiveness.
+However, accurately predicting high-quality pseudo-box la-
+bels for drone-view images, which often feature densely
+packed small objects, remains a challenge. This difficulty
+arises primarily from the limitation of rigid sampling strate-
+gies, which hinder the pseudo-box optimization process.
+To address this, we propose PointSR, an effective and ro-
+bust point-supervised object detection framework with self-
+regularized sampling that integrates temporal and infor-
+mative constraints throughout the pseudo-box generation
+process. Specifically, the framework comprises three key
+components: Temporal-Ensembling Encoder (TE Encoder),
+Coarse Pseudo-box Prediction, and Pseudo-box Refine-
+ment. The TE Encoder builds an anchor prototype library
+by aggregating temporal information for dynamic anchor
+adjustment. In Coarse Pseudo-box Prediction, anchors are
+refined using the prototype library, and a set of informa-
+tive samples is collected for subsequent refinement. During
+Pseudo-box Refinement, these informative negative sam-
+ples are used to suppress low-confidence candidate posi-
+tive samples, thereby improving the quality of the pseudo-
+boxes. Experimental results on benchmark datasets demon-
+strate that PointSR significantly outperforms state-of-the-
+art methods, achieving up to 2.6% ∼ 7.2% higher AP 50
+using only point supervision. Additionally, it exhibits strong
+robustness to perturbation in human-labeled points.
+1. Introduction
+Drone-view object detection (DroneDet) [7, 23, 27, 28, 33],
+which involves detecting objects from drone-captured im-
+ages, plays a vital role in various domains, including na-
+tional defense, resource management, and drone inspection.
+*Corresponding author.
+(a) Point-to-Box
+Epoch 0 Epoch 1 Epoch n
+..
+Candidate Proposals Pseudo Boxes
+Proposals for Target 1
+Negative Samples
+Proposals for Target 2
+(b) Ours
+Figure 1. Comparisons of the pseudo-box optimization process.
+(a) The rigid sampling strategy in Point-to-Box [3] results in the
+inefficiency of the training process for low-quality pseudo-box la-
+bels. (b) The self-regularized sampling in our PointSR improves
+the stability and efficiency of the training process and thus obtains
+high-quality pseudo-box labels.
+However, DroneDet models often experience a significant
+performance drop when applied to new scenes or datasets
+due to their limited generalization capabilities. A straight-
+forward solution is to collect and annotate new datasets and
+retrain the models. However, annotating drone-view images
+with box-level annotations containing accurate position in-
+formation is particularly challenging due to the prevalence
+of many densely packed small targets, far more complex
+than annotating ground-view images. Moreover, the diver-
+sity of the scenes and object types can lead to combinato-
+rial explosions of labeling requirements, making the process
+infeasible in many cases. Consequently, constructing new
+datasets with box-level annotations is both time-consuming
+and costly when deploying drones in new scenarios.
+To alleviate the cost associated with box-level annota-
+tions, Image-Supervised Object Detection (ISOD) [1, 14,
+26] has been extensively studied. ISOD treats images as a
+bag of regions, assuming at least one region contains the ob-
+ject and uses a Multiple Instance Learning (MIL) classifier
+to identify regions corresponding to image-level labels. De-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+11707
+
+
+---PAGE---
+
+spite its labeling efficiency, ISOD methods often perform
+poorly in complex scenarios such as drone-view images,
+with targets typically small and densely packed, due to the
+lack of essential position information in image-level labels.
+To overcome this limitation, Point-Supervised Object
+Detection (PSOD) has emerged as an alternative solution.
+PSOD provides minimal and yet additional distinctive po-
+sition information for each object and has gained signifi-
+cant attention in tasks such as detection [10, 32], localiza-
+tion [30, 31], and segmentation [12, 20]. According to [17],
+the labor cost of point annotations per object is only about
+1/18 of that for bounding boxes, making PSOD a highly
+cost-effective solution for DroneDet applications.
+Existing PSOD methods [3, 10, 11, 15, 29, 32] can be
+broadly categorized into generative and discriminative ap-
+proaches. Generative methods [10, 11, 29] predict a masked
+region covering a target labeled by a point and then derive a
+pseudo box by estimating the minimum circumscribed rect-
+angle of the region. However, pixels in the predicted mask
+of each object are susceptible to misclassification, result-
+ing in inaccurate and unstable pseudo-box predictions. Dis-
+criminative methods [3, 15, 32] first generate a bag of pro-
+posal boxes for each label and then select the optimal one
+as the final pseudo-box through an MIL-based optimization
+process, as illustrated in Fig. 1(a). A reasonable sampling
+strategy aiming to extract the labeled training set from an
+unlabeled dataset is critical for the successful training of
+the MIL classifier. Despite their potential, these methods
+still face two significant challenges, as shown in Fig. 2(a):
+1) Static positive sampling in an anchor style leads to train-
+ing instability, especially in the early stages (see the blue
+curves in Fig. 7); 2) Inefficient negative sampling that ran-
+domly samples background regions introduces numerous ir-
+relevant negative samples, reducing training efficiency.
+To address these limitations, we propose PointSR, an ef-
+fective and robust point-supervised DroneDet framework
+with self-regularized sampling. As shown in Fig. 1(b),
+PointSR integrates temporal and informative constraints
+throughout the pseudo-box generation process to produce
+high-quality pseudo-box labels. Temporal-Ensembling En-
+coder (TE Encoder) first builds an anchor prototype library
+by collecting and encoding temporal information from
+pseudo-box labels during refinement. Then, the Coarse
+Pseudo-box Generation adjusts anchors using the anchor
+prototype library to produce better coarse pseudo boxes
+while collecting a set of informative samples for the sub-
+sequent refinement. Finally, during the Refinement stage,
+the collected informative samples are used to suppress
+low-confidence candidate positive samples to refine pseudo
+boxes. Benefiting from this self-regularized sampling strat-
+egy, PointSR not only ensures a more stable and efficient
+training process but also effectively improves the model’s
+robustness to perturbation brought by manual labeling.
+Rigid
+Sampling
+Self-regularized
+Sampling
+ N
+Static
+Dynamic
+Temporal Esembling
+MIL-based
+Pseudo-box
+Predictor
+MIL-based
+Pseudo-box
+Predictor
+N
+P
+PInput Image
+(Point Labels)
+Pseudo Boxes
+Pseudo Boxes
+Background
+Nearby Foreground
+ Informative Sampling
+(a) Point-to-Box
+(b) PointSR (Ours)
+Figure 2. (a) Point-to-Box [3] uses a rigid sampling strategy with
+fixed positive proposals and randomly sampled negative back-
+ground regions for training the MIL-based predictor. (b) PointSR
+adopts a self-regularized sampling strategy, incorporating tempo-
+ral and informative constraints into the pseudo-box generation pro-
+cess for both positive and negative sampling.
+Our key contributions can be summarized as follows:
+1) We propose PointSR, a novel and robust framework
+for point-supervised DroneDet, capable of generating high-
+quality pseudo-box labels from point-level supervision.
+2) We design a Temporal-Ensemble Encoder for stable
+pseudo-box prediction and an informative negative sam-
+pling strategy to enhance pseudo-box quality.
+3) PointSR achieves an average AP 50 of 42.5%, 38.7%,
+and 35.0% on three drone-captured benchmark datasets,
+i.e., DroneVehicle [22], UA VDT [5], and VisDrone [34]
+with only point supervision, outperforming the previous
+best methods by 7.2%, 5.4%, and 2.6%, respectively.
+2. Related Work
+In this section, we briefly review the current state of re-
+search on ISOD, PSOD and PSOD for aerial images.
+2.1. Image-Supervised Object Detection (ISOD)
+ISOD refers to an approach in which a detector is trained
+with image-level annotations rather than box-level ones.
+The pioneering work WSDDNs [1] integrated the MIL into
+ISOD, employing a dual-stream structure to classify pro-
+posals, and enabling effective weakly-supervised object de-
+tection. Inspired by this, Tang et al. [24] designed a Pro-
+posal Cluster Learning (PCL) approach, which used pro-
+posal clusters as supervision to infer rough object locations.
+However, image-level annotations lack explicit position in-
+formation, leading to low-quality proposals, such as back-
+ground regions, in the potential object tool. This limitation
+makes it infeasible to directly apply ISOD to DroneDet.
+2.2. Point-Supervised Object Detection (PSOD)
+PSOD is a relatively new field, with only a few meth-
+ods [2, 3, 17, 21] published in recent years. By leveraging
+point-level annotations, PSOD enables more accurate ob-
+ject localization and classification compared to image-level
+11708

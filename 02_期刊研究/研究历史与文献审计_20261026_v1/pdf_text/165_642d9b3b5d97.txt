@@ -1,0 +1,82 @@
+Slim-DETR: Real-time Tiny Object Detection
+with Efficient Interaction and Gaussian Query
+Tong Wu1,2 , Jiahao Zhang1,2 , Juntao Guan1,4* , and Rui Lai1,3*
+1 Key Laboratory of Analog Integrated Circuits and Systems, Xidian University,
+Xi’an, China
+2 Zhejiang Key Laboratory of Analog Integrated Circuits, Hangzhou Institute of
+Technology, Xidian University, Hangzhou, China
+3 Faculty of Integrated Circuit, Xidian University, Xi’an, China
+4 Hangzhou Institute of Technology, Xidian University, Hangzhou, China
+guanjuntao@xidian.edu.cn, rlai@mail.xidian.edu.cn
+Abstract.Tiny object detection is critical for applications ranging from
+drone-based scene analysis to remote sensing. However, existing DETR
+frameworks suffer from inefficient encoder architectures and a severe
+query-object misalignment for tiny targets, hindering their deployment
+in real-time scenarios. To overcome these limitations, we propose Slim-
+DETR, a novel framework tailored for real-time tiny object detection.
+Central to our approach is an Efficient Interaction (EI) encoder, which
+employs a gather-and-inject mechanism to aggregate global semantics.
+Uniquely, the EI encoder restricts semantic attention interactions exclu-
+sively to extracted foreground tokens, thereby significantly alleviating
+the computational overhead of conventional Transformer-based encoders.
+Furthermore, we introduce a Gaussian Target Guided (GTG) query se-
+lection strategy that leverages the Gaussian spatial distribution of tar-
+gets to dynamically concentrate high-quality queries on regions contain-
+ing tiny objects. Extensive experiments demonstrate that Slim-DETR
+achieves state-of-the-art performance, yielding 33.9% AP on VisDrone
+and 33.6% AP on AI-TOD-V2. Notably, it maintains real-time inference
+speeds across platforms, achieving a latency of 24.4 ms on an NVIDIA
+RTX 3090 GPU and 25.1 ms (40 FPS) on the embedded Jetson AGX
+Orin.
+Keywords:Tiny object detection·Detection Transformer·Real-time
+detection
+1 Introduction
+Tiny object detection has become pivotal for various fields, ranging from drone-
+based real-time scene analysis to military reconnaissance, disaster management,
+and smart city infrastructure [23,31,32,41,44]. This growing demand underscores
+the critical need for detectors that can balance real-time performance with high
+* Corresponding authors.
+
+---PAGE---
+
+2 T. Wu et al.
+Tiny objects lack query matching
+Query-Object MismatchWeak Encoder Feature Representations
+(b)(a)
+Tiny object is missedGT GT
+Fig. 1:The previous DETR methods overlooked the problems.
+accuracy. However, discriminative features for tiny objects are often confined to
+extremely small regions (typically less than 32×32), posing significant chal-
+lenges to achieving this trade-off.
+In DETR-based methods, effective incorporation of multi-scale feature in-
+teractions, particularly low-level features containing rich local details, is vital
+for improving the accuracy of tiny object detection. Although deformable at-
+tention [45] reduces computational costs per token, the drastically increased
+sequence length renders the encoder a speed bottleneck.
+Recent DETR variants [6,22,43] aim to optimize multi-level feature interac-
+tions within the encoder. While Sparse-DETR and Salience-DETR [6,22] focus
+on extracting sparse salient tokens, RT-DETR [43] adopts a hybrid design com-
+bining high-level interaction with FPN-like cross-scale fusion for speed. Never-
+theless, both strategies exhibit limitations in detecting tiny objects, resulting in
+missed detection (Fig. 1(a)). The former suffers from error accumulation across
+layers and poor generalization due to complex multi-layer supervision [10]. The
+latter is hindered because its high-level interaction lacks essential local details,
+forcing the model to rely on indirect pathways to recover low-level information.
+To address these issues, we propose Slim-DETR, a novel framework for real-
+time tiny object detection. A key component of our framework is the Efficient
+Interaction (EI) encoder, which employs a novel gather-and-inject mechanism.
+Specifically, this mechanism first aggregates multi-level features to enable global
+semantic interactions. It then injects the enhanced representations directly into
+our lightweight cross-level fusion modules, effectively overcoming the limitations
+of indirect hierarchical information propagation. Complementing this, during at-
+tentioninteraction,theEIencoderrestrictssemanticcomputationsexclusivelyto
+potential foreground tokens extracted from the gathered feature map. This strat-
+egy not only circumvents the computational bottleneck imposed by increased
+feature length but also mitigates the progressive degradation of tiny object fea-
+tures across layers, thereby enabling high-performance real-time inference.
+Furthermore,mainstreamDETR-likeframeworkstypicallyselectafixednum-
+ber of queries following the encoding stage for decoder prediction. As illustrated
+in Fig. 1(b), relying primarily on IoU and classification confidence for this selec-
+tion often leads to a severe query-object mismatch. Such criteria inherently skew
+the selection towards large-scale objects and background regions, resulting in a
+significant query allocation imbalance and insufficient query coverage for tiny ob-

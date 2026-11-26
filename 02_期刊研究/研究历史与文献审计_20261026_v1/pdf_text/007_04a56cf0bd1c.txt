@@ -1,0 +1,140 @@
+Generalized Focal Loss: Learning Qualiﬁed and
+Distributed Bounding Boxes for
+Dense Object Detection
+Xiang Li1,2, Wenhai Wang3,2, Lijun Wu4, Shuo Chen1, Xiaolin Hu5, Jun Li1, Jinhui Tang1,
+and Jian Yang1∗
+1PCALab, Nanjing University of Science and Technology 2Momenta 3Nanjing University
+4 Microsoft Research 5Tsinghua University
+{xiang.li.implus, shuochen, jinhuitang, csjyang}@njust.edu.cn, wangwenhai362@163.com,
+xlhu@mail.tsinghua.edu.cn, {apeterswu,junl.mldl}@gmail.com
+Abstract
+One-stage detector basically formulates object detection as dense classiﬁcation and
+localization (i.e., bounding box regression). The classiﬁcation is usually optimized
+by Focal Loss and the box location is commonly learned under Dirac delta distribu-
+tion. A recent trend for one-stage detectors is to introduce an individual prediction
+branch to estimate the quality of localization, where the predicted quality facili-
+tates the classiﬁcation to improve detection performance. This paper delves into
+the representations of the above three fundamental elements: quality estimation,
+classiﬁcation and localization. Two problems are discovered in existing practices,
+including (1) the inconsistent usage of the quality estimation and classiﬁcation
+between training and inference (i.e., separately trained but compositely used in
+test) and (2) the inﬂexible Dirac delta distribution for localization when there is
+ambiguity and uncertainty which is often the case in complex scenes. To address
+the problems, we design new representations for these elements. Speciﬁcally, we
+merge the quality estimation into the class prediction vector to form a joint repre-
+sentation of localization quality and classiﬁcation, and use a vector to represent
+arbitrary distribution of box locations. The improved representations eliminate
+the inconsistency risk and accurately depict the ﬂexible distribution in real data,
+but contain continuous labels, which is beyond the scope of Focal Loss. We then
+propose Generalized Focal Loss (GFL) that generalizes Focal Loss from its discrete
+form to the continuous version for successful optimization. On COCO test-dev,
+GFL achieves 45.0% AP using ResNet-101 backbone, surpassing state-of-the-art
+SAPD (43.5%) and ATSS (43.6%) with higher or comparable inference speed,
+under the same backbone and training settings. Notably, our best model can achieve
+a single-model single-scale AP of 48.2%, at 10 FPS on a single 2080Ti GPU. Code
+and pretrained models are available at https://github.com/implus/GFocal.
+1 Introduction
+Recently, dense detectors have gradually led the trend of object detection, whilst the attention on
+the representation of bounding boxes and their localization quality estimation leads to the encour-
+aging advancement. Speciﬁcally, bounding boxrepresentation is modeled as a simple Dirac delta
+distribution [10, 18, 32, 26, 31], which is widely used over past years. As popularized in FCOS [26],
+∗Corresponding author.
+Preprint. Under review.
+arXiv:2006.04388v1  [cs.CV]  8 Jun 2020
+
+---PAGE---
+
+classification score
+IoU/centerness score
+bbox regression
+Train
+category label
+IoU/centerness label
+Independent
+classification score
+IoU/centerness score
+bbox regression
+Testsupervision (positive + negative)
+NMS score
+multiply
+Joint
+supervision (positive only)
+Dirac delta distribution Unimodal distribution (ours)Gaussian distribution
+rigid flexible
+（a）Existing Work
+（b）
+classification & iou joint score
+bbox regression
+joint (ours) 
+classification & IoU joint score
+Train & Test
+NMS score
+（b）Ours
+category/IoU joint label
+supervision (positive + negative)
+Figure 1: Comparisons between existing separate representation and proposed joint representation of classiﬁcation and localization quality
+estimation. (a): Current practices [12, 26, 29, 35, 31] for the separate usage of the quality branch (i.e., IoU or centerness score) during training
+and test. (b): Our joint representation of classiﬁcation and localization quality enables high consistency between training and inference.
+predicting an additional localization quality (e.g., IoU score [ 29] or centerness score [26]) brings
+consistent improvements of detection accuracy, when the quality estimation is combined (usually
+multiplied) with classiﬁcation conﬁdence as ﬁnal scores [12, 11, 26, 29, 35] for the rank process of
+Non-Maximum Suppression (NMS) during inference. Despite their success, we observe the following
+problems in existing practices:
+Inconsistent usage of localization quality estimation and classiﬁcation score between training
+and inference: (1) In recent dense detectors, the localization quality estimation and classiﬁcation
+score are usually trained independently but compositely utilized (e.g., multiplication) during inference
+[26, 29] (Fig. 1(a)); (2) The supervision of the localization quality estimation is currently assigned
+for positive samples only [ 12, 11, 26, 29, 35], which is unreliable as negatives may get chances
+to have uncontrollably higher quality predictions (Fig. 2(a)). These two factors result in a gap
+between training and test, and would potentially degrade the detection performance, e.g., negative
+instances with randomly high-quality scores could rank in front of positive examples with lower
+quality prediction during NMS.
+A BB
+A cls: 0.095 IoU: 0.927
+cls: 0.101 IoU: 0.913
+(a) predicted classification score (cls) and predicted IoU score (IoU) (b) (c)
+Figure 2: Unreliable IoU predictions of current dense detector with IoU-branch. (a):
+We demonstrate some background patches (A and B) with extremely high predicted
+quality scores (e.g., IoU score > 0.9), based on the optimized IoU-branch model in
+Fig. 1(a). The scatter diagram in (b) denotes the randomly sampled instances with
+their predicted scores, where the blue points clearly illustrate the weak correlation be-
+tween predicted classiﬁcation scores and predicted IoU scores for separate representa-
+tions. The part in red circle contains many possible negatives with large localization
+quality predictions, which may potentially rank in front of true positives and impair
+the performance. Instead, our joint representation (green points) forces them to be
+equal and thus avoids such risks.
+Inﬂexible representation of bound-
+ing boxes: The widely used bound-
+ing box representation can be viewed
+as Dirac delta distribution [7, 23, 8, 1,
+18, 26, 13, 31] of the target box coordi-
+nates. However, it fails to consider the
+ambiguity and uncertainty in datasets
+(see the unclear boundaries of the ﬁg-
+ures in Fig. 3). Although some recent
+works [10, 4] model boxes as Gaus-
+sian distributions, it is too simple to
+capture the real distribution of the lo-
+cations of bounding boxes. In fact,
+the real distribution can be more ar-
+bitrary and ﬂexible [ 10], without the
+necessity of being symmetric like the
+Gaussian function.
+To address the above problems, we design new representations for the bounding boxes and their
+localization quality. For localization quality representation , we propose to merge it with the
+classiﬁcation score into a single and uniﬁed representation: a classiﬁcation vector where its value
+at the ground-truth category index refers to its corresponding localization quality (typically the IoU
+score between the predicted box and the corresponding ground-truth box in this paper). In this way,
+we unify classiﬁcation score and IoU score into a joint and single variable (denoted as “classiﬁcation-
+IoU joint representation”), which can be trained in an end-to-end fashion, whilst directly utilized
+during inference (Fig. 1(b)). As a result, it eliminates the training-test inconsistency (Fig. 1(b))
+and enables the strongest correlation (Fig. 2 (b)) between localization quality and classiﬁcation.
+Further, the negatives will be supervised with 0 quality scores, thereby the overall quality predictions
+become more conﬁdential and reliable. It is especially beneﬁcial for dense object detectors as they
+rank all candidates regularly sampled across an entire image. For bounding box representation,
+we propose to represent the arbitrary distribution (denoted as “General distribution” in this paper)
+of box locations by directly learning the discretized probability distribution over its continuous
+space, without introducing any other stronger priors (e.g., Gaussian [10, 4]). Consequently, we can
+obtain more reliable and accurate bounding box estimations, whilst being aware of a variety of their
+underlying distributions (see the predicted distributions in Fig. 3 and Supplementary Materials).
+2

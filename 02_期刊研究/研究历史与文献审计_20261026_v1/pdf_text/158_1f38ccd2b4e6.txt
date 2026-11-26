@@ -1,0 +1,140 @@
+Published as a conference paper at ICLR 2025
+DIFFERENTIAL TRANSFORMER
+Tianzhu Ye∗ †‡ Li Dong∗ † Yuqing Xia∗ † Yutao Sun∗ †‡
+Yi Zhu† Gao Huang‡ Furu Wei†⋄
+† Microsoft Research ‡ Tsinghua University
+https://aka.ms/GeneralAI
+ABSTRACT
+Transformer tends to overallocate attention to irrelevant context. In this work,
+we introduce DIFF Transformer, which amplifies attention to the relevant context
+while canceling noise. Specifically, the differential attention mechanism calculates
+attention scores as the difference between two separate softmax attention maps.
+The subtraction cancels noise, promoting the emergence of sparse attention pat-
+terns. Experimental results on language modeling show that DIFF Transformer
+outperforms Transformer in various settings of scaling up model size and training
+tokens. More intriguingly, it offers notable advantages in practical applications,
+such as long-context modeling, key information retrieval, hallucination mitigation,
+in-context learning, and reduction of activation outliers. By being less distracted
+by irrelevant context, DIFF Transformer can mitigate hallucination in question
+answering and text summarization. For in-context learning, DIFF Transformer not
+only enhances accuracy but is also more robust to order permutation, which was
+considered as a chronic robustness issue. The results position DIFF Transformer as
+a highly effective and promising architecture to advance large language models.
+1 I NTRODUCTION
+Transformer (Vaswani et al., 2017) has garnered significant research interest in recent years, with the
+decoder-only Transformer emerging as the de facto standard for large language models (LLMs). At
+the heart of Transformer is the attention mechanism, which employs the softmax function to weigh
+the importance of various tokens in a sequence. However, recent studies (Kamradt, 2023; Liu et al.,
+2024b) show that LLMs face challenges in accurately retrieving key information from context.
+As illustrated on the left side of Figure 1, we visualize the normalized attention scores assigned to
+different parts of the context by a Transformer. The task is to retrieve an answer embedded in the
+middle of a pile of documents. The visualization reveals that Transformer tends to allocate only
+a small proportion of attention scores to the correct answer, while disproportionately focusing on
+irrelevant context. The experiments in Section 3 further substantiate that Transformers struggle with
+such capabilities. The issue arises from non-negligible attention scores assigned to irrelevant context,
+which ultimately drowns out the correct answer. We term these extraneous scores as attention noise.
+<BOS>
+0.32
+𝟎. 𝟎𝟑
+…Context… ANSWER
+0.13
+Query
+0.19
+𝟎. 𝟑𝟏
+0.48
+Multi-Needle 
+Retrieval
+Transformer
+Differential 
+Transformer
+…Context… <BOS> …Context… ANSWER Query…Context…
+Transformer Differential Transformer
+(This Work)
+0.18
+0.34
+0.01
+30
+50
+70
+85%
+55%
+Accuracy
+(%)
+Attention Noise
+Attention Noise
+Normalized Attention Score Normalized Attention Score
+Low
+Signal-to-Noise 
+Ratio
+High
+Signal-to-Noise 
+Ratio
+0.01
+… … … …
+Figure 1: Transformer often over-attends to irrelevant context (i.e., attention noise).DIFF Transformer
+amplifies attention to answer spans and cancels noise, enhancing the capability of context modeling.
+∗ Equal contribution. ⋄ Corresponding author.
+1
+arXiv:2410.05258v2  [cs.CL]  7 Apr 2025
+
+---PAGE---
+
+Published as a conference paper at ICLR 2025
+In this paper, we introduce Differential Transformer (a.k.a. DIFF Transformer), a foundation architec-
+ture for large language models. The differential attention mechanism is proposed to cancel attention
+noise with differential denoising. Specifically, we partition the query and key vectors into two groups
+and compute two separate softmax attention maps. Then the result of subtracting these two maps
+is regarded as attention scores. The differential attention mechanism eliminates attention noise,
+encouraging models to focus on critical information. The approach is analogous to noise-canceling
+headphones and differential amplifiers (Laplante et al., 2018) in electrical engineering, where the
+difference between two signals cancels out common-mode noise. In the middle of Figure 1, we
+also present the normalized distribution of attention scores for DIFF Transformer. We observe that
+DIFF Transformer assigns significantly higher scores to the correct answer and much lower scores
+to irrelevant context compared to Transformer. The right side of Figure 1 shows that the proposed
+method achieves notable improvements in retrieval capability.
+We conduct extensive experiments on language modeling. We scale upDIFF Transformer in terms
+of parameter count, training tokens, and context length. The scaling curves indicate that DIFF
+Transformer requires only about 65% of model size or training tokens needed by Transformer to
+achieve comparable language modeling performance. Moreover, DIFF Transformer outperforms
+Transformer in various downstream tasks. The long-sequence evaluation also shows that DIFF
+Transformer is highly effective in utilizing the increasing context. In addition, the experimental
+results demonstrate that DIFF Transformer has intriguing advantages for large language models. For
+example, the proposed method substantially outperforms Transformer in key information retrieval,
+hallucination mitigation, in-context learning, and mathematical reasoning. DIFF Transformer also
+reduces outliers in model activations, which provides new opportunities for quantization. The findings
+establish DIFF Transformer as an effective and distinctive foundation architecture for large language
+models.
+2 D IFFERENTIAL TRANSFORMER
+We propose Differential Transformer (a.k.a. DIFF Transformer) as a foundation architecture for
+sequence modeling, such as large language models (LLMs). We take a decoder-only model as an
+example to describe the architecture. The model is stacked with L DIFF Transformer layers. Given an
+input sequence x = x1 · · · xN , we pack the input embeddings into X0 = [x1, · · · , xN] ∈ RN ×dmodel,
+where dmodel represents the hidden dimension of the model. The input is further contextualized
+to obtain the output X L, i.e., X l = Decoder( X l−1), l ∈ [1, L]. Each layer consists of two
+modules: a differential attention module followed by a feed-forward network module. Compared to
+Transformer (Vaswani et al., 2017), the main difference is the replacement of conventionalsoftmax
+attention with differential attention while the macro layout is kept the same. We also adopt pre-
+RMSNorm (Zhang & Sennrich, 2019) and SwiGLU (Shazeer, 2020; Ramachandran et al., 2017) as
+improvements following LLaMA (Touvron et al., 2023).
+2.1 D IFFERENTIAL ATTENTION
+The differential attention mechanism maps query, key, and value vectors to outputs. We use query
+and key vectors to compute attention scores, and then compute a weighted sum of value vectors.
+The critical design is that we use a pair of softmax functions to cancel the noise of attention
+scores. Specifically, given input X ∈ RN ×dmodel, we first project them to query, key, and value
+Q1, Q2, K1, K2 ∈ RN ×d, V ∈ RN ×2d. Then the differential attention operator DiffAttn(·) com-
+putes outputs via:
+[Q1; Q2] = XW Q, [K1; K2] = XW K, V = XW V
+DiffAttn(X) = (softmax( Q1K T
+1√
+d
+) − λ softmax( Q2K T
+2√
+d
+))V
+(1)
+where W Q, W K, W V ∈ Rdmodel×2d are parameters, and λ is a learnable scalar. In order to synchronize
+the learning dynamics, we re-parameterize the scalar λ as:
+λ = exp(λq1 · λk1) − exp(λq2 · λk2) + λinit (2)
+where λq1 , λk1 , λq2 , λk2 ∈ Rd are learnable vectors, and λinit ∈ (0, 1) is a constant used for the
+initialization of λ. We empirically find that the setting λinit = 0.8 − 0.6 × exp(−0.3 · (l − 1)) works
+2

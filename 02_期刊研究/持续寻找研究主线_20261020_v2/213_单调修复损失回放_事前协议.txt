@@ -1,0 +1,29 @@
+213 单调修复的原生损失回放（执行前固定；仅写稿，不执行）
+
+一、问题与边界
+210已固定G0、U_cost、U_change、G_repair真实GO配对。此次只问：这些配对进入同一188真实训练输出的原生criterion后，损失及输出空间梯度怎样变化；G_repair的5条新增支持边是否实际带来有权FGL目标转移。210的支持数、单调约束、必要门槛不重算、不修改；206原结果不读取、不重跑。本次不新增学习/AP预测阈值，不以损失更小或梯度更大判定方法有效。
+
+二、固定输入及复用
+188/01_cache.pt SHA256=8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9。
+188/05_output_sha256.json SHA256=b655c054be540e0332256db51027433e00b876182b2e36bea6b55bff3d1bb6ba，逐项验证其全部输出。
+210/00_results.json SHA256=0c79441e97621b06a7b1544361e4bf31a31fd2a019f38692693d253ca902a178；01_assignments_and_certificates.json SHA256=569c8ca4fae3c5c46041fb84743f9295ff2211b660519973152e927694e2f8d4；02_per_query_transitions.json SHA256=a5afbd78fabd173f5fec31185044faf304267b80e88a39d7c8a5f1496c35dd7f。
+唯一复用模块205_C0_cached_GO_loss_replay.py SHA256=de0223e9c375dcd9f2d18f6bb537af6d9a6d7544d284c801f9830cf5d5d3fb33。仅导入纯函数、ReplayCriterion等定义，不调用其main、不修改其文件。导入仍验证冻结原生criterion/matcher/box_ops/dfine_utils及原recipe源码SHA，不构建模型、不读checkpoint。另锁210全部source_paths及其sha256_before；193图只校验SHA、不载入、不重求解。
+四图按image_index=0,1,2,3，GT=146/280/418/58，总902；original_sub4总453，沿188的原始曝光标签；GO=172/290/300/70，总832。不可混用114/127预测、ref、匹配或target。所有四臂按188每图原indices_go的query顺序重排210配对；核验输入tensor SHA、event、query集合、GT multiset、每query类别、每组GT容量和210逐query记录一致。
+
+三、四臂与原生回放
+次序固定G0、U_cost、U_change、G_repair，每图四臂，共16次criterion调用。各臂独立clone同一188 native_outputs，仅pred_boxes/pred_logits/pred_corners成为独立可导输出叶子；ref、教师、up/reg_scale等沿205和原生detach。实例化原recipe的空state criterion；只替_get_go_indices返回冻结该臂配对。原生own matcher、ordinary分类、DN索引、所有loss权重及分母不变，final/aux/pre/encoder采用原来的GO路由。每臂_clear_cache，最后清理hook并验证criterion state仍空。
+G0全部原生raw loss与weighted loss须逐项精确等于188；原own各stage及GO顺序、每个loss的索引与分母也须精确一致。差异即fail closed，记录为输入/精度待复核，不称方法阴性。每臂完整raw/weighted loss、各key相对G0差值、总loss都保存，包括MAL、FGL、DDF、pre及encoder项，不只保存final FGL。
+
+四、梯度与系数
+每臂4次缓存输出autograd：final loss_fgl对final pred_corners；全部ordinary MAL对全部独立输出叶子；全部DN loss对全部叶子；总loss对全部叶子。因此恰为16 criterion、64 cache-output autograd。205原helper的80上限不改；214增加64上限及最终精确计数。另在读取真实cache前执行205原6次微型合成autograd，验证原生FGL公式、零IoU、纯重权和纯目标转移。--synthetic-only不读取真实缓存、不创建结果目录。
+令p为该query原生4×33 softmax，t为原生bbox2distance及clip后左右插值生成的实际目标，w为原生FP32最终框与分配GT的IoU（detach）。加权final FGL输出梯度为(.15/N_go)w(p-t)，四边求和无额外/4。
+每臂减G0，逐query分解为(.15/N_go)(w1-w0)(p-t0)及(.15/N_go)w1(t0-t1)。两项相加须与自动梯度差一致，容差仅沿205的atol=5e-9、rtol=5e-5；不是方法门槛。保存原native left/wr/wl、dense targets、w、梯度和分解。与210缓存的final FP32 IoU逐槽精确对齐；零IoU的FGL梯度必须为0。
+全部ordinary MAL和全部DN的值、各独立叶子梯度必须逐项精确等于G0。只证明缓存输出空间不变；同一真实模型中corners与LQE分类/decoder/共享参数存在联系，此回放没有恢复这些链路，不能称分类参数梯度不变或完整模型梯度。
+
+五、单调修复逐对报告
+所有四臂全部832 GO槽保存old/new GT、类别、原始sub4标记、old/new support、owner是否变化、w0/w1、target改变、两项梯度分解、IoU为0及支持新增/丢失。与210每图transition计数精确对齐。对G_repair逐query核验old_inside不丢、changed→new_inside；逐GT核验支持槽数不下降，保持GT multiset。全局5条outside→inside修复逐对另存实际4×33 t0/t1、w0/w1、预测/ref/新旧GT框和分解，而非只给均值。原558个inside query的保留状态逐对另表；逐GT支持数也独立报告。12个owner变化全部保留报告，不能只展示其中5条。
+这些5/12/558是210冻结输入一致性检查，不是据新loss设定的成功门槛。G_repair允许已支持query换到另一已支持GT，不声称保留原owner；单调性指支持，不保证IoU、目标权重、loss、梯度或AP单调。
+
+六、资源、文件与失败语义
+默认只创建新215_C0_cached_repair_loss_replay，不覆盖既有目录/文件。CPU torch2线程、interop1、affinity[13,15]、BelowNormal、RAM>8GiB、MKL SEQUENTIAL、CPU-only。0模型构建/加载、0checkpoint读取、0新forward、0模型VJP、0优化器/更新、0远端/heldout读取。缓存autograd与微型合成autograd如实单列，不称零梯度计算。哈希所有源/缓存前后，输出清单另存。
+文件包括来源及合成检查、4图G0精确对齐表、16臂原生loss/梯度摘要、输出梯度与target pt、全部逐对CSV、5条修复详表/原inside保留/逐GT支持计数、四臂汇总及独立预算执行记录。任何结构/数值一致性失败立即停止，保留FAILED.json，不给方法结论。预计仅缓存criterion/输出梯度，通常秒至数十秒；由根代理审后顺序执行，不与其他CPU实验争用，不启动额外forward。

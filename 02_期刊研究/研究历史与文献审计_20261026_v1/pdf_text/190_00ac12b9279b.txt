@@ -1,0 +1,175 @@
+NFAD: Nuisance-Filtered Anomaly Detection Under Distribution Shift
+Dat Cao1∗ Son Nghiem1,2∗ Phan Nguyen1∗ Jun Rekimoto2,3 Jhih-Ciang Wu4†
+1 Korea Advanced Institute of Science and Technology (KAIST), South Korea
+2 Sony Computer Science Laboratories (Sony CSL), Japan
+3 The University of Tokyo, Japan
+4 National Taiwan Normal University (NTNU), Taiwan
+Abstract
+Recent advances in anomaly detection (AD) for industrial
+inspection have pushed performance on standard bench-
+marks toward saturation. However, strong benchmark per-
+formance does not necessarily translate to real-world de-
+ployment, as these benchmarks are primarily collected under
+controlled acquisition conditions. Changes in illumination,
+background, viewpoint, and other environmental factors can
+shift normal samples away from the learned normal distri-
+bution and cause false anomaly responses. We address AD
+under such distribution shifts by explicitly modeling nui-
+sance variation from changing imaging conditions in fea-
+ture space. Without anomaly labels or target-domain data,
+our Nuisance-Filtered Anomaly Detection (NFAD) frame-
+work estimates a nuisance subspace from matched feature
+displacements induced by content-preserving perturbations
+and suppresses its contribution to anomaly residuals at in-
+ference. The same subspace supports two complementary
+branches: full projection for image-level detection and se-
+lective suppression for pixel-level localization, preserving
+evidence of localized defects. On AeBAD-S, a benchmark
+specifically designed for AD under acquisition shifts, NFAD
+achieves 91.0% image-level AUROC, establishing a new
+state of the art. Notably, this robustness does not come at the
+expense of conventional AD performance: NFAD remains
+competitive on standard benchmarks that do not explicitly
+evaluate distribution shift, including VisA, Real-IAD, and
+MVTec AD. These results show that explicitly suppressing
+such nuisance variation improves AD under distribution shift
+while preserving strong performance in standard settings.
+1. Introduction
+Industrial anomaly detection (AD) has made remarkable
+progress in recent years. Rapid advances in visual back-
+∗Equal contribution.
+†Corresponding author:jcwu@csie.ntnu.edu.tw
+Figure 1.Residual–nuisance entanglement.Normal and defect
+residuals exhibit similar, above-chance alignment with the label-
+free nuisance subspace across datasets and backbones.
+bones, feature representations, and anomaly modeling have
+pushed performance on established benchmarks such as
+MVTec AD and VisA toward saturation [3, 18, 40, 43].
+These benchmarks provide a consistent setting for mea-
+suring progress and comparing methods. However, strong
+benchmark performance does not necessarily translate to
+real-world deployment, since most existing benchmarks are
+collected under relatively controlled acquisition conditions.
+As a result, these controlled evaluations offer only limited
+evidence of how detectors will behave when the imaging
+setup changes. In deployment, changes in illumination,
+background, viewpoint, and camera configuration can shift
+normal samples away from the learned normal distribution
+and cause false anomaly responses. Despite its practical im-
+portance, anomaly detection under such distribution shifts
+remains comparatively underexplored.
+The source of this gap becomes clearer when examin-
+ing how existing industrial AD benchmarks are constructed.
+MVTec AD and VisA use highly standardized setups with
+limited variation in pose and illumination [3, 43]. Recent
+datasets have begun to broaden the scale and diversity of
+evaluation. Real-IAD [35] extends this scope with substan-
+1
+arXiv:2608.29112v1  [cs.CV]  29 Aug 2026
+
+---PAGE---
+
+tially more categories, higher-resolution images, and greater
+pose diversity through multiple views, yet still relies on fixed
+camera angles and controlled lighting. These protocols fa-
+cilitate reproducible evaluation and efficient data collection,
+but do not fully reflect the variability encountered in real-
+world deployment. This leads to a fundamental question:
+How can anomaly detectors reliably detect defects under
+variable imaging conditions?
+Recent domain-shift benchmarks demonstrate the practi-
+cal importance of this problem. AeBAD [41] evaluates nor-
+mal test images under shifted acquisition conditions and re-
+ports substantial degradation of existing anomaly detectors,
+while ADShift and FiCo [5, 9] demonstrate that standard
+methods struggle to perform under synthetic corruptions.
+These results show that strong performance under conven-
+tional settings does not necessarily translate to robustness
+in practice, motivating AD methods that arerobust to nui-
+sance variations while remaining sensitive to defects.
+The challenge is particularly fundamental for feature-
+based anomaly detection, which detect defects as deviations
+from normal feature representations [1, 13, 37]. A domain
+shift displaces normal features, causing the shift itself to
+appear anomalous. We model such acquisition changes as
+structurednuisancevariation that occupies a subspace of the
+feature space. A natural strategy follows: identify the nui-
+sance directions and remove them while preserving defect
+information. We show that nuisance projection works ex-
+ceptionally well for anomaly detection. Yet, we also find that
+nuisance and defects are entangled in feature space (Sec. 3).
+This motivates our dual read-out design: NFAD estimates
+a nuisance subspace label-free from controlled perturba-
+tions of normal images, a detection head removes the full
+nuisance subspace, and a localization head exploits spatial
+incidence to selectively remove global drift whilst preserv-
+ing local defect evidence. The result is a post-hoc operator
+that adds shift robustness without modifying or retraining
+the normal-only detector.
+To the best of our knowledge, NFAD is the first industrial
+anomaly detection framework to estimate an acquisition-
+nuisance subspacelabel-freefrom content-preserving fea-
+ture displacements and remove it post-hoc through task-
+specific dual-readouts. Our contributions are threefold:
+•We show thatnuisance and defect signals are entangled
+in feature space, occupying the same directions, so feature
+direction alone cannot tell which part of the residual is
+nuisance and which is defect.
+•We introduceNFAD, a label-free feature reconstruction
+framework that removes global nuisance variations while
+preserving anomaly signals for robust anomaly detection
+under domain shift.
+•We validate NFAD under real and controlled acquisition
+shifts. It achievesstate-of-the-art 91.0% I-AUROC and
+90.8% AUPRO on AeBAD-S while remaining competitive
+on VisA, Real-IAD, and MVTec-AD. Under synthetic cor-
+ruptions, NFAD consistently improves robustness, with
+gains that transfer even to unmodeled shifts.
+2. Related Work
+2.1. Feature-Based Industrial Anomaly Detection
+A common method of identifying anomalies is via de-
+viations from the learned representation of normal data.
+Suchfeature-reconstruction methodsassume that a model
+trained only on normal data would reconstruct normal fea-
+tures more accurately than anomalous ones, making recon-
+struction discrepancies useful anomaly evidence. Student–
+teacher approaches, including Uninformed Students [4],
+STFPM [36], RD4AD [13], and EfficientAD [1], use the
+discrepancy between a frozen teacher and a learned stu-
+dent as the anomaly score. MMR [41] introduces masked
+multi-scale feature reconstruction, ReContrast [17] adopts
+contrastive reconstruction, and Dinomaly [18] relaxes layer-
+wise and point-wise reconstruction constraints. On the
+other hand,embedding-based methodsinstead character-
+ize normal feature structure directly: SPADE [10] and
+PatchCore [31] compare test patches with stored normal
+embeddings, PaDiM [12] models patch-wise feature distri-
+butions, CFA [25] learns compact normal representations,
+and CFLOW-AD [16] estimates normal feature likelihoods
+using normalizing flows. Recent methods extend these
+paradigms with frozen foundation-model representations:
+AnomalyDINO [11] performs training-free patch matching
+with DINOv2 [27] features, CLIP-based methods such as
+WinCLIP [23] and AnomalyCLIP [42] support zero- and
+few-shot detection, and RAD [40] employs DINOv3 [32]
+features in a training-free multi-level retrieval framework.
+However, neither reconstruction nor retrieval residuals are
+necessarily defect-specific, and changes in imaging condi-
+tions can also produce similarly large residuals.
+2.2. Anomaly Detection under Distribution Shift
+Conventional anomaly detectors often degrade substantially
+when conditions change. A recent line ofdistribution-shift
+methodsexplored ways to make anomaly detection more ro-
+bust: AeBAD [41] introduced a benchmark where the test set
+differs from the training set in background, illumination and
+viewpoint, and its accompanying MMR method improves
+robustness through masked multi-scale reconstruction. AD-
+Shift [5] learns distribution-invariant normality from aug-
+mented out-of-distribution views, while FiCo [9] builds
+upon this idea by filtering and compensating for distribution-
+specific information within a reverse-distillation framework.
+These methods alleviate distribution sensitivity through aug-
+mentation, invariant feature learning, or target-domain adap-
+tation. However, because the nuisance structure remains im-
+plicit in learned representations or training objectives rather
+2

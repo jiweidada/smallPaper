@@ -1,0 +1,63 @@
+12 Senthivel and Vu
+training for 50 epochs. Specifically, QR-Deformable DETR, our EEQR-enhanced
+Deformable-DETRvariant,achievesanimpressiveAPof43.1,outperformingthe
+baseline Deformable-DETR (39.4 AP) trained for 50 epochs. We also compare
+with SQR-DETR which provides query recollection. Notably, under similar set-
+tings, we outperform SQR-DETR, with the simple addition of our router (+3.2
+AP). The results demonstrate the effectiveness of our proposed approach in
+boosting the performance of DETR-based object detectors.
+Query Routing.Table 2 presents the average number of queries passing through
+the layers. Additionally, Fig. 4 shows the query distributions within the proposed
+query routing module. For EEQRF and EEQRCA, skewed Gaussian distributions
+are observed: EEQRF tends to route all update queries through the entire layer,
+whereas EEQRCA tends to bypass the layer for queries not requiring updates. In
+contrast, EEQRSA follows a more normal distribution, highlighting the impor-
+tance of information sharing through the SA layer. As indicated in Table 3, this
+results in a quicker model despite the higher MACs.
+0 50 100 150 200 250 300
+Number of Queries
+0
+200
+400
+600
+800
+1000
+1200
+1400Frequency
+Distribution of Queries through EEQRF
+QS
+0 50 100 150 200 250 300
+Number of Queries
+Frequency
+Distribution of Queries through EEQRCA
+QS
+0 50 100 150 200 250 300
+Number of Queries
+Frequency
+Distribution of Queries through EEQRSA
+QS
+Fig. 4: Distribution of queries passing through each layer Qp. Bypassed queries are
+omitted for clarity due to symmetry.
+Number of Parameters.Table 2 also presents the number of parameters. While
+we do not list the parameter counts for all models in the table, we specify those
+for the latest DAB-DETR, as our proposed method consistently introduces the
+samenumberofparametersacrossvariousDETRvariants.AsshowninEquation
+5, only our Router layer incorporates learnable parameters, resulting in a slight
+overall increase in the parameter count.
+Layers Avg #Qs NP aram
+Baseline 300 45M
+EEQRSA 63
+46MEEQRCA 183
+EEQRF 142
+Table 2: Average number of queries by-
+passing layers for each decoder scheme.
+The number of parameter is rounded up.
+Layers MAC Processing Time
+Baseline 306.2G 0.14s
+EEQR 403.4G 0.12s
+Table 3: Despite higher MAC and more
+parameters than the baseline, our model
+achieves faster inference by skipping un-
+necessary computations through query
+routing on COCO 2017.
+365

@@ -1,0 +1,41 @@
+QR-DETR: Query Routing for Detection Transformer 3
+queries across different decoder layers, reducing computational complexity. This
+selective query routing enhances the efficiency and effectiveness of the original
+DETR framework, improving detection performance.
+We summarize our contributions as follows:
+–We investigate the utility of all queries in a DETR model and show that not
+all queries are necessary.
+–Wedesignspecificplug-and-playroutinglayersthateffectivelyredirectqueries
+through a decoder stack when needed.
+–We conduct experiments on different DETR model across various training
+settings to verify the effectiveness of the proposed method.
+2 Related Works
+We introduce routing mechanisms to modify object queries in DETR. This sec-
+tion reviews relevant works: recent DETR improvements, object query modifi-
+cations, and routing models like Mixture of Experts (MoE).
+2.1 Detection Transformer (DETR) and variants
+The original DETR [2] introduced an end-to-end transformer-based [42] ob-
+ject detection model that eliminated the need for handcrafted components like
+non-maximum suppression (such as NMS). However, a significant limitation of
+DETR was its prolonged training schedule, requiring 500 epochs for conver-
+gence. This slow convergence was attributed to multiple factors. First, the lack
+of explicit positional information necessitates that the model jointly learns po-
+sitional representations along with the object content. To alleviate the issue of
+position of queries, Deformable-DETR [52] aimed to address the issue of ob-
+ject query positioning by incorporating deformable attention mechanisms bring-
+ing a small set of key sampling points. Further improvements were made by
+providing anchor points to the object queries, enhancing the model’s perfor-
+mance [4,24–26,30,33,38,45], while highly reducing the necessitated training
+time. Another challenge in DETR is the instability of the bipartite matching pro-
+cess, which involves assigning object queries to ground truth labels for optimiza-
+tion. Several works aimed to stabilize this bipartite matching process. DN-DETR
+[22] introduced denoising query groups, which was further extended by DINO-
+DETR [48] with the incorporation of contrastive denoising query groups. Other
+approaches simply added duplicate groups of queries [5,6,9,10,12,19,50,53].
+These methods focused on increasing the number of positive queries to improve
+the matching process and overall model performance. This work is the first work
+to introduce query routing strategy in DETRs.
+2.2 Object Query Modification
+The cross-attention and self-attention mechanisms serve distinct purposes but
+are crucial components in the DETR architecture. Self-attention enables query-
+356

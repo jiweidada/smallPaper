@@ -1,0 +1,451 @@
+Comprehensive Analysis of the Object Detection Pipeline on UAVs (https://arxiv.org/abs/2203.00306)
+ [wordlim: 200] Published: 4.7 years ago; Title: Comprehensive Analysis of the Object Detection Pipeline on UAVs ... Finally, we realize an object detection pipeline prototype on an embedded platform for an UAV and give a best practice recommendation for building object detection pipelines based on our findings.
+--------------------------------------------------------------------------------
+005Titelblatt_Varga.docx (https://publikationen.uni-tuebingen.de/xmlui/bitstream/handle/10900/151274/dissertation_240209_varga.pdf?isAllowed=y&sequence=1)
+ [wordlim: 200] Published: 2.7 years ago; 
+6.3 Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+<visual_element id="e1">
+Figure 6.6 contains two side-by-side images labeled (a) and (b). (a) shows an original input and optimized input comparison with two small red bounding boxes over a textured ground/field scene; (b) shows a DJI Matrice 100 drone on grass with an onboard detection pipeline setup, including a laptop behind the drone.
+</visual_element>
+
+Figure 6.6: Prototype system using an optimized detection pipeline. (a) Original input and optimized input; (b) Detection pipeline onboard a DJI Matrice 100.
+
+### 6.3.5 Discussion
+
+In the experiments of the publication, we showed that the inspected parameters have an unequal impact on the performance of a model. Some have a minor effect on the performance but significantly impact the required space (Quantization, Compression). Others have a negligible influence on the performance (Color Model, Calibration Parameters), and some are fundamental for the remote sensing application (Resolution). --------------------------------------------------------------------------------
+TransTIC: Transferring Transformer-based Image Compression from Human Perception to Machine Perception (https://openaccess.thecvf.com/content/ICCV2023/papers/Chen_TransTIC_Transferring_Transformer-based_Image_Compression_from_Human_Perception_to_Machine_ICCV_2023_paper.pdf)
+ [wordlim: 200] Crawled: 11 months ago; 
+Transferring Encoding STBs via Instance-specific Prompting. To transfer \(g_a, g_s\) to machine perception, we propose to inject additional learnable tokens, known as prompts, into the STBs. They interact with the corresponding input tokens in the pre-trained STBs to adapt the encoding process and the decoded image, in order to achieve better rate-accuracy performance for machine perception. There are two types of prompts: instance-specific prompts and task-specific prompts. Instance-specific prompts are dependent on the input image, while task-specific prompts are task dependent yet invariant to the input image. As shown in Fig. 2 (a), on the encoder side, we introduce an instance-specific prompt generator \(g_p\) that generates instance-specific prompts for the first two STBs (which are referred to as IP-type STBs) based on the input image. \(g_p\) itself is task-specific because its network weights are trained for a specific downstream machine task. The network details of \(g_p\) are provided in the supplementary document. Fig. 2 (d) depicts the inner workings of IP-type STBs. They operate similarly to the ordinary STB without prompting, except that additional and separate prompts, denoted collectively as \(P_i \in \mathbb{R}^{\frac{N}{4}\times \frac{w_i}{4}\times c_i}\), are introduced in the i-th Swin-Transformer layer. In particular, \(P_i\) for a specific layer has a spatial resolution that is a quarter of that of \(F_i\). This design choice is meant to strike a balance between compression performance and complexity. Moreover, \(P_i\) is partitioned and flattened in the same way as the image feature \(F_i\). In the self-attention step for a specific window and head, the prompts of the same window update the image tokens with the query \(Q\), key \(K\) and value \(V\) matrices in Eq. (1) augmented as follows:
+
+\[
+Q = FW_Q,
+\]
+\[
+K = [F; P]W_K,
+\]
+\[
+V = [F; P]W_V,
+\]
+(2)
+
+where \(P \in \mathbb{R}^{\frac{N}{4}\times d}\) refers collectively to the prompts in the same window as the image tokens \(F\) and \([;]\) indicates concatenation along the token dimension. With the same \(W_Q, W_K, W_V\) as for Eq. (1), we have \(Q \in \mathbb{R}^{N\times d}\), \(K \in \mathbb{R}^{(N+\frac{N}{4})\times d}\) and \(V \in \mathbb{R}^{(N+\frac{N}{4})\times d}\). In the window collection step, only image tokens are collected while prompt tokens are discarded.
+
+Transferring Decoding STBs via Task-specific Prompting. Similarly, we introduce prompts to the STBs in the decoder. Unlike the encoder, the decoder adopts task-specific prompts because the input image is unavailable on the decoder side and communicating instance-specific prompts to the decoder incurs extra overhead. Specifically, these task-specific prompts are input to every STB (referred to as TP-type STB) in the decoder. Fig. 2 (e) illustrates the operation of TP-type STBs. Similar to the IP-type STBs in the encoder, the TP-type STBs are prompted with separate tokens \(P_i \in \mathbb{R}^{\frac{N}{4}\times c}\) in different Swin-Transformer layers. However, within a Swin-Transformer layer, the same prompts are shared across fixed-size windows for window-based multi-head self-attention (see window flattening and multi-head self-attention). In other words, in Eq. (2) when applied to the decoder, \(P\) is set to \(P_i\) for different windows. This is limited by the fact that the number of fixed-size windows is variable depending on the image size. Training window- and task-specific prompts requires learning a variable number of prompts, which is infeasible.
+
+3.4. Training Objective
+
+In Fig. 2, the prompt generator network \(g_p\) and the task-specific prompts on the decoder side are learnable while the base codec (i.e. \(g_a, g_s, h_a, h_s\)) is fixed. We construct the training objective in the same way as learning an image compressor. That is, the training involves minimizing a rate-distortion cost
+
+\[
+\mathcal{L} = -\log p(\hat{z}) - \log p(\hat{y}|\hat{z}) + \lambda d(x,\hat{x}),
+\]
+(3)
+
+where \(R\) is the estimated rate needed to signal the quantized latent \(\hat{y}\) and side information \(\hat{z}\), \(D\) characterizes the distortion between the input image \(x\) and its reconstruction \(\hat{x}\), and \(\lambda\) is a hyper-parameter. For the sake of machine perception, the distortion measure is perceptual loss, which is evaluated with a recognition network depending on the downstream task. More details can be found in the supplementary document.
+
+4. Experimental Results
+
+Training Details and Datasets. We evaluate our method on three machine tasks: classification, object detection, and instance segmentation. We first follow [31] to train the base codec composed of \(g_a, g_s, h_a, h_s\) on Flicker2W [24] for human perception. In this case, the distortion measure \(d(\cdot,\cdot)\) in Eq. (3) is mean-squared error, and \(\lambda\) is chosen to be 0.0018, 0.0035, 0.0067, and 0.013 to arrive at four separate codecs for variable-rate compression. By freezing these pre-trained base codecs, we then train the prompt generator \(g_p\) together with the task-specific decoder-side prompts on ImageNet-train [10] for classification and on COCO2017-train [23] for object detection and instance segmentation. In the process, \(d(\cdot,\cdot)\) in Eq. (3) is evaluated based on the perceptual loss using a pre-trained ResNet50 [15], Faster R-CNN [35] and Mask R-CNN [14] for classification, object detection and instance segmentation, respectively.
+
+Evaluation. For classification, we use ImageNet-val [10] as the test set and a pre-trained ResNet50 [15] as the downstream recognition network. For object detection and instance segmentation, we test the competing methods on
+
+23301--------------------------------------------------------------------------------
+Comprehensive Analysis of the Object Detection Pipeline on UAVs (https://www.catalyzex.com/paper/comprehensive-analysis-of-the-object)
+ [wordlim: 200] Published: 4.7 years ago; Crawled: 2 weeks ago; 
+
+# Title:Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+### Paper and Code
+
+View Code Notebook
+
+Image: Bookmark button
+
+Image: Alert button
+
+Mar 01, 2022
+
+Authors:Leon Amadeus Varga, Sebastian Koch, Andreas Zell
+
+Figures and Tables:
+
+Image: Figure 1 for Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+Image: Figure 2 for Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+Image: Figure 3 for Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+Image: Figure 4 for Comprehensive Analysis of the Object Detection Pipeline on UAVs
+
+Abstract:An object detection pipeline comprises a camera that captures the scene and an object detector that processes these images. The quality of the images directly affects the performance of the object detector. Many works nowadays focus either on improving the image quality or improving the object detection models independently, but neglect the importance of joint optimization of the two subsystems. In this paper, we first empirically analyze the influence of seven parameters (quantization, compression, resolution, color model, image distortion, gamma correction, additional channels) in remote sensing applications. For our experiments, we utilize three UAV data sets from different domains and a mixture of large and small state-of-the-art object detector models to provide an extensive evaluation of the influence of the pipeline parameters. Additionally, we realize an object detection pipeline prototype on an embedded platform for an UAV and give a best practice recommendation for building object detection pipelines based on our findings. We show that not all parameters have an equal impact on detection accuracy and data throughput, and that by using a suitable compromise between parameters we are able to improve detection accuracy for lightweight object detection models, while keeping the same data throughput.
+
+* Submitted IROS22  
+
+Full-text Links:View paper on--------------------------------------------------------------------------------
+Search Results - "Krishnamoorthi R" :: Library Catalog (https://iris.sena.edu.co/EDS/Search?dfApplied=1&filter%5B%5D=EXPAND%3A%22fulltext%22&filter%5B%5D=Journal%3A%22remote+sensing%22&lookfor=%22Krishnamoorthi+R%22&type=Author)
+ [wordlim: 200] Crawled: 2 months ago; 
+17 Issue 3, p466. 21p.
+
+HTML Full Text PDF Full Text
+
+  10. 10
+
+[Input] [Input]
+
+Academic Journal
+
+## A Review of Deep Learning-Based Remote Sensing Image Caption: Methods, Models, Comparisons and Future Directions.
+
+Authors: Zhang, Ke Li, Peijie Wang, Jianqiang
+
+Source: Remote Sensing. Nov2024, Vol. 16 Issue 21, p4113. 45p.
+
+HTML Full Text PDF Full Text
+
+  11. 11
+
+[Input] [Input]
+
+Academic Journal
+
+## Comprehensive Analysis of the Object Detection Pipeline on UAVs.
+
+Authors: Varga, Leon Amadeus Koch, Sebastian Zell, Andreas
+
+Source: Remote Sensing. Nov2022, Vol. 14 Issue 21, p5508. 22p.
+
+HTML Full Text PDF Full Text
+
+  12. 12
+
+[Input] [Input]
+
+Academic Journal
+
+## Efficient Shallow Network for River Ice Segmentation.
+
+Authors: Sola, Daniel Scott, K. Andrea
+
+Source: Remote Sensing. May2022, Vol. 14 Issue 10, p2378-2378. 19p.
+--------------------------------------------------------------------------------
+2022.3.7 Robotics papers — Eye On AI (https://www.eye-on.ai/ai-research-watch-papers/2022/3/7/202237-rbot)
+ [wordlim: 200] Published: 4.6 years ago; Crawled: last month; 
+by Muhammad Zubair Irshad et al  |  |  | 
+03-03-2022  | Socially Aware Robot Crowd Navigation with Interaction Graphs and Human Trajectory Prediction
+by Shuijing Liu et al  |  |  | 
+03-02-2022  | The role of haptic communication in dyadic collaborative object manipulation tasks
+by Yiming Liu et al  |  |  | 
+03-03-2022  | Instance Segmentation for Autonomous Log Grasping in Forestry Operations
+by Jean-Michel Fortin et al  |  |  | 
+03-03-2022  | Ad2Attack: Adaptive Adversarial Attack on Real-Time UAV Tracking
+by Changhong Fu et al  |  |  | 
+03-02-2022  | Avant-Satie! Using ERIK to encode task-relevant expressivity into the animation of autonomous social robots
+by Tiago Ribeiro et al  |  |  | 
+03-01-2022  | Fast-MbyM: Leveraging Translational Invariance of the Fourier Transform for Efficient and Accurate Radar Odometry
+by Robert Weston et al  |  |  | 
+03-03-2022  | Adaptive Path Planning for UAVs for Multi-Resolution Semantic Segmentation
+by Felix Stache et al  |  |  | 
+03-01-2022  | ProgressLabeller: Visual Data Stream Annotation for Training Object-Centric 3D Perception
+by Xiaotong Chen et al  |  |  | 
+03-01-2022  | Comprehensive Analysis of the Object Detection Pipeline on UAVs
+by Leon Amadeus Varga et al  |  |  | 
+03-02-2022  | Container Localisation and Mass Estimation with an RGB-D Camera
+--------------------------------------------------------------------------------
+TransTIC: Transferring Transformer-based Image Compression from Human Perception to Machine Perception | alphaXiv (https://www.alphaxiv.org/abs/2306.05085)
+ [wordlim: 200] Published: 3.2 years ago; Crawled: last month; 
+## Experimental Results
+
+The authors evaluate TransTIC across three machine perception tasks: classification, object detection, and instance segmentation. The results demonstrate significant improvements over baseline transfer methods.
+
+Image: Rate-accuracy performance comparison Figure 3: Rate-accuracy performance comparison across (a) classification, (b) object detection, and (c) instance segmentation tasks. TransTIC consistently outperforms competing transfer methods.
+
+### Quantitative Performance
+
+TransTIC achieves substantial improvements measured using Bjøntegaard metrics:
+
+  * Classification: -58.77% BD-Rate savings with 10.02% BD-accuracy improvement
+  * Object Detection: -46.07% BD-Rate savings with 2.72% BD-mAP improvement
+  * Instance Segmentation: -45.83% BD-Rate savings with 2.66% BD-mAP improvement
+
+### Generalization and Robustness
+
+A crucial finding is TransTIC's superior generalization to unseen recognition models. When switching from ResNet50 (training) to VGG19 (testing) for classification, full fine-tuning suffered 15-20% accuracy drops while TransTIC experienced only 3-7% degradation, demonstrating better robustness.
+
+Image: Generalization performance Figure 4: Generalization performance when switching from ResNet50 to VGG19 for classification. TransTIC shows much better robustness compared to full fine-tuning.
+
+### Comparison with Standards
+
+TransTIC demonstrates competitive performance against MPEG VCM (Video Coding for Machines) standard proposals, which is remarkable since these proposals often optimize entire codecs end-to-end for machine tasks while TransTIC operates on a human-perception-optimized base codec.
+
+## Ablation Studies and Analysis
+
+Comprehensive ablation studies reveal key insights about the prompting mechanism:
+
+Prompt Types: Instance-specific prompts in the encoder are more effective than task-specific prompts because they enable image-adaptive compression strategies.
+
+Prompt Depth: Injecting prompts into earlier STBs (closer to input) is more effective, with the first two STBs providing optimal performance-complexity balance.
+
+Prompt Numbers: 16 prompts per window (one-quarter of image tokens) strikes an effective balance between performance and computational cost.
+
+Image: Ablation study results Figure 5: Ablation studies examining different prompt configurations for (a) classification and (b) object detection tasks.
+
+### Bit Allocation Analysis
+
+Qualitative analysis of decoded images and bit allocation maps reveals that TransTIC successfully shifts bit allocation from background regions to foreground objects important for machine tasks, unlike the base codec which allocates bits based on human perceptual importance.
+
+--------------------------------------------------------------------------------
+CMC | Free Full-Text | Robust and Discriminative Feature Learning via Mutual Information Maximization for Object Detection in Aerial Images (https://www.techscience.com/cmc/v80n3/57863/html)
+ [wordlim: 200] Published: 2.1 years ago; Crawled: last month; 
+The mean detection accuracy of the detector for each corruption type is defined as corruption robustness. The confusion matrix was also introduced to evaluate and analyze errors and confusions between different object categories.
+
+4.3 Comparison Experiments
+
+To compare the detection performance of our approach and the original method that transfers ImageNet network, we implemented three representative detectors, including Faster R-CNN (FRCNN), RetinaNet (Retina), and FCOS as basic models. We chose ResNet50, RegNetX-1.6GF, and PVTv2-B0 as backbones in Tables 1–3, respectively. RD-MIM achieves obvious improvements on almost all basic models, demonstrating the importance of underlying features. It can be seen that our method has higher AP score increases on the VisDrone dataset compared with the UAVDT dataset. Also, the improvement in robustness is greater than that of accuracy on the UAVDT dataset. The reason is that the UAVDT dataset contains only three categories, so the categorical similarity is not severe. In Table 1, original FCOS obtains higher clean accuracy than Retina, but it has poor corruption robustness. It means that accuracy and robustness are not always correlated, indicating the necessity of studying corruption robustness on aerial images. RD-MIM achieves the relative growth rates of 51.0% and 39.4% on the corrupted VisDrone dataset using FCOS and on the corrupted UAVDT dataset using FRCNN, respectively. It suggests that the proposed approach has considerable benefits in enhancing robustness. In Table 3, although the PVTv2-B0 composed of transformer architecture performs well in handling dense and small object detection problems, it still obtains gains from our method. The training loss of FRCNN with ResNet50 on the VisDrone dataset is presented in Fig. 7. With the increase of training steps, our approach achieves faster convergence and lower loss values.
+
+Image: images
+
+Image: images
+
+
+Image: images
+
+Figure 8: Confusion matrices on the clean VisDrone dataset using (a) original FRCNN and (b) FRCNN with our RD-MIM
+
+To further explore the robustness performance of the RD-MIM, we evaluated the AP scores of FRCNN with ResNet50 under different corruption types in Table 5. The shot noise and snow severely deteriorate the accuracy of the original detector on the VisDrone and UAVDT datasets, resulting in 8.1% and 9.3% AP drops compared to clean accuracy. After applying the RD-MIM, the AP scores increase by 5.2% and 6.0%. Moreover, we also used the models trained on the VisDrone dataset to evaluate the unseen UAVDT dataset by using AP scores in Table 6. Even though the training and testing sets have completely different data distributions, our implementation still outperforms the original models, yielding 4.5%, 4.2%, and 4.8% average improvements. These results reveal that our approach brings great robustness gains to the detector.
+
+Image: images
+
+Image: images
+
+The comparison of existing approaches on the VisDrone dataset is shown in Table 7. The proposed approach outperforms the first two methods [9,27], resulting in 3.8% and 1.2% AP score improvements respectively. Compared to the DSHNet [8] with FRCNN, RD-MIM obtains slightly lower accuracy on clean aerial images but increases by 2.2% AP score on corrupted aerial images. QueryDet [48] is specifically designed for aerial images, which performs well for small objects. After combining the RD-MIM, the AP scores increase by 1.9% and 3.8% on clean and corrupted images, respectively. We also evaluated the performance gains of the recently released YOLOv8 [46] and the advanced DINO (DETR with Improved denoising anchor boxes) [49]. As can be seen, our RD-MIM still improves the performance of advanced detectors, especially in terms of corruption robustness.
+
+Image: images
+
+To demonstrate the compatibility of our method, we tested different types of oriented object detection methods, including Faster R-CNN (OBB) [50], Retina (OBB) [20], ROI Transformer [51], OAN [33], and recent TS-Conv [34] on the DroneVehicle dataset in Table 8. We adopted AP50 to evaluate each subcategory. As can be observed, our RD-MIM help the original detection methods achieve higher AP50 scores. It illustrates that our approach can be easily integrated into oriented object detection methods to further improve performance.
+
+Image: images
+
+4.4 Ablation Study
+
+We conducted ablation experiments on the VisDrone dataset to verify the contributions of major components in RD-MIM, as depicted in Table 9. Rank sample mining method (RSM) shows an obvious increase over the original FRCNN, because it is conducive to better learning underlying features of aerial images. After employing momentum contrast learning (MCL), the AP score increases by 1.2% on the clean VisDrone dataset. The promising result indicates that our momentum contrast learning can help the detector distinguish object features more effectively. The detection accuracy is further improved with the GATM module, illustrating that it can enhance feature representations. The performance trend of corruption robustness is similar to clean accuracy and has a higher gain. It suggests that each component of RD-MIM facilitates remarkable robustness enhancement.
+
+
+Image: images
+
+Figs. 11 and 12 show some visualization results on the corrupted VisDrone and UAVDT datasets. These images cover complex capturing backgrounds, such as fog, snow, defocus blur, motion blur, and low contrast. For comprehensive illustration, we employed the common FRCNN, FRCNN+RD-MIM, QueryDet specifically designed for aerial object detection, and QueryDet+RD-MIM. As can be seen, despite the presence of UAV-specific nuisances, our approach can still distinguish objects from complex backgrounds and predict more accurately between confused objects.
+
+Image: images
+
+Figure 11: Some visualization results on the corrupted VisDrone dataset. From top to bottom, original FRCNN, FRCNN+RD-MIM, original QueryDet, and QueryDet+RD-MIM are given
+
+Image: images
+
+Figure 12: Some visualization results on the corrupted UAVDT dataset. From top to bottom, original FRCNN and FRCNN+RD-MIM are given
+
+--------------------------------------------------------------------------------
+Performance evaluation of low-power and lightweight object detectors for real-time monitoring in resource-constrained d… (https://ouci.dntb.gov.ua/en/works/7qEKEdj5/)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: last month; 
+  30. Silva, Towards sustainable smart cities: a review of trends, architectures, components, and open challenges in smart cities, Sustain. Cities Soc., № 38, с. 697
+DOI: 10.1016/j.scs.2018.01.053
+  31. Tanda, Infrared thermography monitoring of solar photovoltaic systems: a comparison between UAV and aircraft remote sensing platforms, Therm. Sci. Eng. Prog., № 48
+  32. Varga, Comprehensive analysis of the object detection pipeline on UAVs, Remote Sens., № 14, с. 5508
+DOI: 10.3390/rs14215508
+  33. Vincenzo Ferro, Comparison of different computer vision methods for vineyard canopy detection using UAV multispectral images, Comput. Electron. Agric., № 225
+  34. Wang
+  35. Wang
+  36. Yoon, UAV-based automated 3D modeling framework using deep learning for building energy modeling, Sustain. Cities Soc., № 101
+DOI: 10.1016/j.scs.2023.105169
+  37. Zhan, Evolutionary deep learning: a survey, Neurocomputing, № 483, с. 42
+DOI: 10.1016/j.neucom.2022.01.099
+  38. Zhao, Potential sources of sensor data anomalies for autonomous vehicles: an overview from road vehicle safety perspective, Expert Syst. Appl., № 236
+DOI: 10.1016/j.eswa.2023.121358
+  39. Zhao, Deep learning-based object detection in maritime unmanned aerial vehicle imagery: review and experimental comparisons, Eng. Appl. Artif. Intell., № 128
+DOI: 10.1016/j.engappai.2023.107513--------------------------------------------------------------------------------
+(PDF) Progressive Conditional Coding for Integrated Human–Machine Vision (https://www.researchgate.net/publication/408149737_Progressive_Conditional_Coding_for_Integrated_Human-Machine_Vision)
+ [wordlim: 200] Published: 10 months ago; Crawled: 3 months ago; 
+
+includes the inference time taken by the base layer decoder
+
+and the object detection network.
+
+The backbone of TransTIC [21] is a learned image codec
+
+for pixel reconstruction. It adopts task-speciﬁc prompts and
+
+different downstream task networks to repurpose the back-
+
+bone for various machine tasks while keeping the backbone
+
+parameters frozen. Therefore, it has the advantage of param-
+
+eter reuse and sharing. In Table 1, its parameters for object
+
+detection includes those in the object detection task prompts
+
+and those in the downstream object detection network Faster
+
+R-CNN. The encoding time measures the time taken by the
+
+encoder with encoder-side task prompts while the decoding
+
+time measures the time taken by the decoder with decoder-
+
+side task prompts and that taken by Faster R-CNN. The cal-
+
+culation of GFLOPs for TransTIC considers all components
+
+involved in measuring the encoding and decoding time.
+
+Our model’s parameters for object detection includes those
+
+in the base layer shown in Fig. --------------------------------------------------------------------------------
+(PDF) ISER: Instance-Specific Early Stopping with Dynamic Low-Rank Adaptation for Learned Image Compression (https://www.researchgate.net/publication/413603801_ISER_Instance-Specific_Early_Stopping_with_Dynamic_Low-Rank_Adaptation_for_Learned_Image_Compression)
+ [wordlim: 200] Published: 2 months ago; Crawled: 2 weeks ago; 
+
+under closed-set and open-set conditions, evaluated on the COCO-2017 validation set (object detec-
+
+tion, quality level 1). Since the closed-set condition is pre-trained on the target task, higher similarity
+
+indicates that open-set adaptation recovers a representation closer to the task-informed optimum.
+
+Bold indicates the best result, and underline indicates the second-best result.
+
+Method Mean Std. Dev. Median Min Max
+
+ISER (ours) 0.4400 0.3395 0.3293 0.0172 0.9446
+
+LoRA-comp 0.4230 0.3574 0.2796 0.0089 0.9583
+
+TransTIC 0.3717 0.3132 0.2697 0.0053 0.9412
+
+Adapt-ICMH 0.2940 0.3078 0.1306 0.0116 0.9040
+
+To assess the reliability of the reported efﬁciency metrics, we analyze both the instance-
+
+to-instance and run-to-run variation of the stopping epoch and encoding time under the
+
+open-set object detection setting (TIC backbone, quality level 1). Table 5 reports the results
+
+over the full COCO-2017 validation set (
+
+n=
+
+5000). Within a single run, the stopping epoch
+
+varies substantially across instances (mean of 25.70
+
+±
+
+6.35 and range of
+
+[
+
+14, 40
+
+]
+
+), and the
+
+encoding time varies accordingly (mean of 9.92
+
+±
+
+2.29 s and range of
+
+[
+
+6.61, 16.00
+
+]
+
+s), conﬁrm-
+
+ing that ISES adapts the training budget on a per-instance basis rather than converging to a
+
+ﬁxed epoch. To determine whether this variation reﬂects genuine instance-speciﬁc behavior
+
+https://doi.org/10.3390/electronics15173807
+
+Electronics 2026,15, 3807 22 of 33
+
+or optimization stochasticity, we repeat the same experiment over ﬁve independent runs
+
+and compute the run-to-run standard deviation of the per-run average. The run-to-run
+
+standard deviation is an order of magnitude smaller than the instance-to-instance standard
+
+deviation for both metrics (0.66 vs. 6.35 epochs and 0.15 s vs. 2.29 s). This indicates that
+
+--------------------------------------------------------------------------------
+(PDF) MoECodec: Image Compression for joint human and machine perception via Mixture-of-Experts (https://www.researchgate.net/publication/407510381_MoECodec_Image_Compression_for_joint_human_and_machine_perception_via_Mixture-of-Experts)
+ [wordlim: 200] Published: 4 months ago; Crawled: 2 months ago; 
+TransTIC [8] 65.6 39.9 9.12(+21.4%) 1.61 9.12 35.77
+
+AdaptICMH [41] 31.2 31.1 7.80(+3.8%) 0.29 7.80 5.01
+
+AdaptICMH-Large [41] 65.0 75.9 8.95(+19.2%) 1.44 8.95 4.7
+
+TIC†19.8 19.7 7.17(-4.5%) 1.24 6.25 -7.74
+
+Object Detection (COCO2017-val)
+
+Full ﬁnetune TIC 28.4 28.2 7.51 7.51 7.51 –
+
+TransTIC [8] 65.6 39.9 9.12(+21.4%) 1.61 9.12 26.09
+
+AdaptICMH [41] 31.2 31.1 7.80(+3.8%) 0.29 7.80 15.98
+
+AdaptICMH-Large [41] 65.0 75.9 8.95(+19.2%) 1.44 8.95 14.38
+
+TIC†19.8 19.7 7.17(-4.5%) 1.24 6.25 -8.98
+
+Instance Segmentation (COCO2017-val)
+
+Full ﬁnetune TIC 28.4 28.2 7.51 7.51 7.51 –
+
+TransTIC [8] 65.6 39.9 9.12(+21.4%) 1.61 9.12 12.83
+
+AdaptICMH [41] 31.2 31.1 7.80(+3.8%) 0.29 7.80 6.34
+
+AdaptICMH-Large [41] 65.0 75.9 8.95(+19.2%) 1.44 8.95 5.71
+
+TIC†19.8 19.7 7.17(-4.5%) 1.24 6.25 -9.72
+
+4.4 Qualitative Results
+
+Expert Specialization. We visualize expert specialization by plotting per-
+
+expert token-selection maps from the inter-slice features at the ﬁrst encoder
+
+stage. For each expert, selected tokens are highlighted, and three routing strate-
+--------------------------------------------------------------------------------
+Image Compression for Machine and Human Vision with Spatial-Frequency Adaptation | alphaXiv (https://www.alphaxiv.org/abs/2407.09853)
+ [wordlim: 200] Published: 2.3 years ago; Crawled: last month; 
+
+This paper presents TransTIC, a key state-of-the-art competitor that uses a prompt-based tuning framework to adapt transformer-based codecs for machine vision. The main paper repeatedly positions its adapter-based method as a more efficient and better-performing alternative, with extensive direct comparisons in the experimental results.
+
+Chen, Y.H., Weng, Y.C., Kao, C.H., Chien, C., Chiu, W.C., Peng, W.H.: Transtic: Transferring transformer-based image compression from human perception to machine perception. In: ICCV. pp. 23297–23307 (2023)
+
+Icmh-net: Neural image compression towards both machine vision and human vision
+
+This work introduces ICMH-Net, a competing framework for scalable coding that uses a mask generator to select relevant latent features. It is a primary benchmark in the main paper's performance evaluations, and the paper also demonstrates that its proposed SFMA module can be integrated with this framework to significantly boost its performance.
+
+Liu, L., Hu, Z., Chen, Z., Xu, D.: Icmh-net: Neural image compression towards both machine vision and human vision. --------------------------------------------------------------------------------
+Daily Papers - Hugging Face (https://huggingface.co/papers?q=Drone+Detection)
+ [wordlim: 200] Crawled: 2 days ago; 
+The code is available at https://github.com/wish44165/YOLOv12-BoT-SORT-ReID .】
+
+1 authors
+
+·
+
+Mar 21, 2025 5
+
+-
+
+### The Unmanned Aerial Vehicle Benchmark: Object Detection and Tracking
+
+With the advantage of high mobility, Unmanned Aerial Vehicles (UAVs) are used to fuel numerous important applications in computer vision, delivering more efficiency and convenience than surveillance cameras with fixed camera angle, scale and view. However, very limited UAV datasets are proposed, and they focus only on a specific task such as visual tracking or object detection in relatively constrained scenarios. Consequently, it is of great importance to develop an unconstrained UAV benchmark to boost related researches. In this paper, we construct a new UAV benchmark focusing on complex scenarios with new level challenges. Selected from 10 hours raw videos, about 80,000 representative frames are fully annotated with bounding boxes as well as up to 14 kinds of attributes (e.g., weather condition, flying altitude, camera view, vehicle category, and occlusion) for three fundamental computer vision tasks: object detection, single object tracking, and multiple object tracking. Then, a detailed quantitative study is performed using most recent state-of-the-art algorithms for each task. Experimental results show that the current state-of-the-art methods perform relative worse on our dataset, due to the new challenges appeared in UAV based real scenes, e.g., high density, small object, and camera motion. To our knowledge, our work is the first time to explore such issues in unconstrained scenes comprehensively.
+
+

@@ -1,0 +1,41 @@
+DQ-DETR: DETR with Dynamic Query for Tiny Object Detection 9
+4 Experiments
+4.1 Datasets
+To demonstrate the effectiveness of our model, we conduct experiments on
+the aerial dataset AI-TOD-V2 [25], which mostly consists of tiny objects.
+AI-TOD-V2. This dataset includes 28,036 aerial images with 752,745 anno-
+tated object instances. There are 11,214 images for the train set, 2,804 for the
+validation set, and 14,018 for the test set. The average object size in AI-TOD-V2
+is only 12.7 pixels, with 86% of objects in the dataset smaller than 16 pixels, and
+even the largest object is no bigger than 64 pixels. Also, the number of objects
+in an image can vary enormously from 1 to 2667, where the average number of
+objects per image is 24.64, with a standard deviation of 63.94.
+VisDrone. This dataset includes 14,018 drone-shot images, with 6,471 images
+for the train set, 548 for the validation set, and 3,190 for the test set. There are
+10 categories, and the image resolution is 2000× 1500 pixels. Also, the images
+are diverse in a wide range of aspects, including objects (pedestrians, vehicles, bi-
+cycles, etc.) and density (sparse and crowded scenes), where the average number
+of objects per image is 40.7 with a standard deviation of 46.41.
+Evaluation Metric. We use the AP (Average Precision) metric with a max
+detection number of 1500 to evaluate the performance of our proposed method.
+Specifically, AP means the average value from AP50 to AP95 , with IoU interval
+of 0.05. Moreover, APvt, APt, APs, and APm are for very tiny, tiny, small, and
+medium scale evaluation in AI-TOD [22].
+4.2 Implementation Details
+Based on the DETR-like structure, we use a 6-layer transformer encoder, a
+6-layer transformer decoder with 256 as the hidden dimension, and a ResNet50
+as our CNN backbone. Furthermore, we train our model with Adam optimizer
+using NVIDIA 3090 GPUs. The batch size is set to 1 due to memory constraints.
+The same random crop and scale augmentation strategies are applied following
+DETR [2]. In addition, to minimize errors that propagate from the categori-
+cal counting module to dynamic query selection, we apply a two-stage training
+scheme. We first train the categorical counting module to achieve more stable
+results for the number of queries in the transformer decoder. After stabilizing
+the counting result, we add the counting-guided feature enhancement module
+into training to refine the encoder’s visual features with density maps.
+4.3 Main Results
+AI-TOD-V2. Table 2 shows our main results on the AI-TOD-V2 test split.
+We compare the performances of our DQ-DETR with strong baselines, includ-
+ing both CNN-based and DETR-like methods. All CNN-based methods except
+YOLOv3 use ResNet50 with feature pyramid network (FPN) [8]. Moreover, since
+there is no previous research on DETR-like models for tiny object detection,

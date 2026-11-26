@@ -1,0 +1,127 @@
+Citation: Fu, D.; Du, S.; Si, Y.;
+Zhong, Y.; Li, Y. Dynamic Tracking
+Matched Filter with Adaptive
+Feedback Recurrent Neural Network
+for Accurate and Stable Ship
+Extraction in UAV Remote Sensing
+Images. Remote Sens. 2024, 16, 2203.
+https://doi.org/10.3390/rs16122203
+Academic Editor: Gemine Vivone
+Received: 9 May 2024
+Revised: 11 June 2024
+Accepted: 12 June 2024
+Published: 17 June 2024
+Copyright: © 2024 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+remote sensing  
+Article
+Dynamic Tracking Matched Filter with Adaptive Feedback
+Recurrent Neural Network for Accurate and Stable Ship
+Extraction in UA V Remote Sensing Images
+Dongyang Fu
+ , Shangfeng Du *
+ , Yang Si, Yafeng Zhong and Yongze Li
+School of Electronics and Information Engineering, Guangdong Ocean University, Zhanjiang 524025, China;
+fudy@gdou.edu.cn (D.F.); 2112110017@stu.gdou.edu.cn (Y.S.); zhongyf@stu.gdou.edu.cn (Y.Z.);
+14767622730@stu.gdou.edu.cn (Y.L.)
+* Correspondence: 2112110029@stu.gdou.edu.cn
+Abstract: In an increasingly globalized world, the intelligent extraction of maritime targets is crucial
+for both military defense and maritime traffic monitoring. The flexibility and cost-effectiveness of
+unmanned aerial vehicles (UAVs) in remote sensing make them invaluable tools for ship extraction.
+Therefore, this paper introduces a training-free, highly accurate, and stable method for ship extraction
+in UAV remote sensing images. First, we present the dynamic tracking matched filter (DTMF), which
+leverages the concept of time as a tuning factor to enhance the traditional matched filter (MF). This
+refinement gives DTMF superior adaptability and consistent detection performance across different
+time points. Next, the DTMF method is rigorously integrated into a recurrent neural network (RNN)
+framework using mathematical derivation and optimization principles. To further improve the
+convergence and robust of the RNN solution, we design an adaptive feedback recurrent neural
+network (AFRNN), which optimally solves the DTMF problem. Finally, we evaluate the performance
+of different methods based on ship extraction accuracy using specific evaluation metrics. The
+results show that the proposed methods achieve over 99% overall accuracy and KAPPA coefficients
+above 82% in various scenarios. This approach excels in complex scenes with multiple targets and
+background interference, delivering distinct and precise extraction results while minimizing errors.
+The efficacy of the DTMF method in extracting ship targets was validated through rigorous testing.
+Keywords: UAV remote sensing technology; ship extraction; dynamic tracking matched filter;
+adaptive feedback recurrent neural network
+1. Introduction
+In today’s globalized world, maritime ship detection is crucial for national defense,
+military security [ 1], and maritime traffic monitoring [ 2]. First and foremost, real-time
+surveillance of vast sea areas is essential to identify and track potential maritime threats,
+such as enemy ships, submarines, or other suspicious vessels. This vigilance plays a critical
+role in safeguarding national maritime security and sovereignty [3]. Moreover, as maritime
+routes grow increasingly congested due to the expansion of global trade [4], an effective
+ship monitoring system is imperative to prevent accidents like collisions and groundings,
+ensuring safe navigation [5].
+In this context, unmanned aerial vehicle (UA V) remote sensing technology has emerged
+as a powerful tool for enhancing military defense and maritime trafficplanning [6,7].UA V
+remote sensing, with its high flexibility and low operational costs [8], complements satellite
+remote sensing by providing localized and high-resolution data. While UA Vs can be rapidly
+deployed in a variety of weather conditions, their effectiveness may be limited under severe
+weather circumstances such as high winds. Despite this, they remain particularly valuable
+for swift emergency response under most operational environments [9]. Unlike traditional
+satellite or airborne remote sensing, UA Vs can adjust flight paths and altitudes flexibly ,
+Remote Sens. 2024, 16, 2203. https://doi.org/10.3390/rs16122203 https://www.mdpi.com/journal/remotesensing
+
+---PAGE---
+
+Remote Sens. 2024, 16, 2203 2 of 29
+focusing on specific areas, particularly those with challenging or inaccessible geography .
+Moreover, UA Vs deliver near real-time data crucial for swift decision-making and response
+in search and rescue operations or environmental monitoring. Modern UA Vs often come
+equipped with advanced data processing systems that can analyze images mid-flight, offering
+real-time insights [10–12]. Furthermore, UA Vs can capture targets from various angles and
+altitudes [13], improving the accuracy of ship identification and surveillance. This study aims
+to propose a fast and accurate ship identification method for effective monitoring. Typically ,
+researchers rely on two primary techniques for ship extraction: traditional target detection
+from remote sensing images and deep learning approaches.
+Remote sensing target extraction is fundamentally a binary classification problem,
+with its primary objective being the effective separation of the object of interest from the
+complex background [14,15]. Given the widespread acquisition and application of remote
+sensing images, numerous classical target detection algorithms have been developed and
+widely applied in recent decades. These algorithms are designed to minimize the interfer-
+ence of background information while enhancing the expression of target features, thus
+making targets more prominent and easier to detect in complex environments. Some of the
+representative algorithms include the match filter (MF) [16,17], adaptive coherence estima-
+tor (ACE) [18,19], and constrained energy minimization (CEM) [20,21]. Stephanie et al. [22]
+describe the ACE algorithm as a generalized likelihood ratio test (GLRT) within a homo-
+geneous setting, where the covariance matrix of the auxiliary data is proportional to that
+of the measured vectors. The MF approach resembles ACE by treating target detection
+as a hypothesis-testing problem, assuming that targets and backgrounds follow different
+probability models. Through GLRT, MF effectively distinguishes targets from their back-
+ground. This statistical target detection technique relies on the accurate differentiation of
+target and background probability distributions for successful identification. In practice,
+MF usually leverages local statistical information through a double-window technique to
+gather accurate statistics of the surrounding background. The CEM method proposed by
+William et al. [23] seeks to maximize the spectral response of the target while suppressing
+the background response, enabling effective separation between them. The CEM method
+employs a finite impulse response (FIR) detector to minimize the energy across the image
+while maintaining a fixed target spectral response value.
+Although classical remote sensing target extraction methods have yielded positive
+results across various fields, the complexity and variability of real-world application scenar-
+ios necessitate further refinement. Many researchers have worked to improve traditional
+methods to enhance detection accuracy in different contexts. Various strategies have
+been proposed to better tailor target detection methods to specific environmental needs.
+Xiong et al. [24] combined the CEM method with a neural dynamics algorithm to extract
+Arctic sea ice from remote sensing images, demonstrating its efficacy in noisy environ-
+ments. Shuo et al. [25] introduced an algorithm that integrates sparsity with both CEM and
+ACE. Similarly, Chen et al. [26] developed a noise-resistant matched filter scheme using
+Newton’s algorithm to identify islands and reefs. In a related study, Chaillan et al. [ 27]
+proposed a stochastic matched filter for synthetic aperture radar (SAR) image wake moni-
+toring, using a discrete Radon transform to detect straight-line patterns. This technique is
+followed by a stochastic matched filter that enhances the signal-to-noise ratio of the obser-
+vation. Despite these improvements, these methods lack spatial and dynamic information
+regarding the underlying optimization problems, resulting in suboptimal performance
+for ship extraction tasks. Moreover, current UAV remote sensing ship extraction tech-
+niques still have significant room for enhancement. Optimizing pixel-oriented remote
+sensing feature detection algorithms remains challenging, especially with phenomena like
+“homospectral–heterospectral”, affecting feature extraction.
+In recent years, deep learning has gained popularity and has been applied across
+numerous engineering fields. Compared to object-oriented methods, deep learning has
+significant advantages in feature learning, end-to-end learning, adaptability, nonlinear
+modeling, and handling big data, particularly for remote sensing target extraction, such

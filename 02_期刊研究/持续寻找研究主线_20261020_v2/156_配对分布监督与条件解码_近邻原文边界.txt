@@ -1,0 +1,19 @@
+2026-10-21 root 原文补读。以下是简要转述和本项目公式推论，不是检索未命中即可证明首创。
+
+1. LCB-Net，Electronics2025 14(22)4487，§3.4 Eq21–24。
+出版社规范链接：https://www.mdpi.com/2079-9292/14/22/4487
+本轮出版社直开429；实际读取同一论文的公开全文重载文本：https://www.researchgate.net/publication/397725247_LCB-Net_Long-Range_Context_and_Box_Distribution_Network_for_Small_Object_Detection ，其中保留论文页码8–9与公式，不依赖网页摘要解释。
+原文用(cx,cy,w,h)及网络预测协方差建立高斯NLL。它与149拟用的原四边离散PMF乘积推前不是同一参数或目标；但概率框定位、变量间联系及NLL不能广称新颖。作者性能与因果主张不作为本项目证据，本轮未复核其代码。
+
+2. Enhancing End-to-End Graphite Ore Grade Detection via Boundary-Aware Refinement, Bidirectional Fusion, and Difficulty-Aware Distillation，AppliedSciences2026 16(16)8332，§3.2。
+https://www.mdpi.com/2076-3417/16/16/8332
+直开429；实际读出版社索引返回的原方法全文段，含Eq2/4和投影矩阵不变的解码公式。BG-FDR依据分类Top2 gap调整逐query reg_scale，训练期启用。它并非145的尺寸条件支持展开；但零新增参数、逐query映射调整均已有。其原文“放大步长”是作者解释，按本地distance2bbox固定投影且增大分母R会减小偏移，不能不核实际代码就照搬该因果解释。该处未独立复现作者代码。
+
+3. 本项目141/148的准确变量（拟核查，未运行）
+头与四个独立边距PMF仍不变，以p_l乘p_r组成因子化成对质量，推前成T=(r-l)/2和S=(r+l)/2的两个边际，监督也由原两bin目标推前。
+它改变原边距梯度如何依赖对侧PMF；不直接预测t/s，不建模新的左右协方差，也没有监督完整(T,S)联合分布。只有边际CE，不能称完整联合分布建模。
+真正可检验的剩余变量是：相同原支持、IoU权重、配对/分母下，派生几何边际监督能否带来原边CE或简单连续中心/尺寸L1无法复制的方向。149的局部bias审计只能决定是否值得继续，不证明AP或独立创新。
+
+4. 145/146条件支持展开的准确边界（未运行）
+q(s)=max(1-|s|/R,.1)，u=t/q(s)。其可达族改变，但尺寸修正也会影响中心，不等同独立t/s头。可达族与连续同支持头相同，几何上界不能证明必须用分布式实现。
+147的原域/展开/矩形/range×2对照只用于判定是否真的碰到原支持不足；保尺寸与联合尺寸是不同审计，不混用。现没有新增训练授权或已成立主线。

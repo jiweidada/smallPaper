@@ -1,0 +1,172 @@
+Revisiting Real-Time Detection Transformer with Efﬁcient Encoder Design
+Jiannan Huang1 Aditya Kane1 Fengzhe Zhou1 Yunchao Wei2 Humphrey Shi1
+1SHI Labs @ Georgia Tech 2BJTU
+Abstract
+Real-time object detection is crucial for real-world applica-
+tions as it requires high accuracy with low latency. While De-
+tection Transformers (DETR) have demonstrated signiﬁcant
+performance improvements, current real-time DETR models
+are challenging to reproduce from scratch due to excessive
+pre-training overheads on the backbone, constraining re-
+search advancements by hindering the exploration of novel
+backbone architectures. In this paper , we want to show that
+by using general good design, it is possible to have high per-
+formance with low pre-training cost. After a thorough study
+of the backbone architecture, we propose EfﬁcientNAT at var-
+ious scales, which incorporates modern efﬁcient convolution
+and local attention mechanisms. Moreover , we re-design the
+hybrid encoder with local attention, signiﬁcantly enhancing
+both performance and inference speed. Based on these ad-
+vancements, we present Le-DETR ( Low-cost and Efﬁcient
+DEtection TRansformer), which achieves a new SOTA in
+real-time detection using only ImageNet1K and COCO2017
+training datasets, saving about 80% images in pre-training
+stage compared with previous methods. We demonstrate
+that with well-designed, real-time DETR models can achieve
+strong performance without the need for complex and com-
+putationally expensive pretraining. Extensive experiments
+show that Le-DETR-M/L/X achieves 52.9/54.3/55.1 mAP on
+COCO V al2017 with4.45/5.01/6.68 ms on an RTX4090. It
+surpasses YOLOv12-L/X by +0.6/-0.1 mAP while achieving
+similar speed and +20% speedup. Compared with DEIM-D-
+FINE, Le-DETR-M achieves +0.2 mAP with slightly faster
+inference, and surpasses DEIM-D-FINE-L by +0.4 mAP
+with only 0.4 ms additional latency. Code and weights will
+be open-sourced.
+1. Introduction
+The rapid advancements in deep learning have facilitated the
+development of highly effective real-time object detectors,
+most notably exempliﬁed by the YOLO series [19, 29, 32, 35–
+37, 39, 40, 42, 43, 45]. These models have signiﬁcantly
+advanced the ﬁeld by demonstrating the efﬁcacy of Convo-
+lutional Neural Networks (CNNs) in real-time applications.
+Figure 1. The performance of each model. The results show that
+our model outperforms the existing models and achieves a new
+SOTA for real-time detection models. These results are tested using
+vanilla PyTorch proﬁler on 1 ×RTX4090.
+In parallel, transformer-based detection models, such as the
+DETR [23, 25, 44, 46, 48], have shown powerful perfor-
+mance by eliminating complex post-processing steps, partic-
+ularly Non-Maximum Suppression (NMS) [10], which has
+become a key bottleneck in accelerating inference. Several
+end-to-end models [ 23, 35, 39, 44] have made signiﬁcant
+progress in the ﬁeld of real-time object detection.
+Although transformer-based real-time detectors demon-
+strate such impressive performance, they are challenging
+to reproduce from scratch and improve due to the exces-
+sive pertaining overheads in the backbone. As illustrated in
+Fig. 2, real-time DETR models require an additional four
+million images [4], approximately four times the size of the
+ImageNet 1K pretraining dataset. Furthermore, these mod-
+els depend on long knowledge distillation schedules, which
+require higher computational overheads [4] to complete the
+pretraining process. We ablate the key changes comparing
+with ResNet50 and ResNet50 vd ssld [4, 16], which is used
+by RT-DETRv2-L as backbone:(1) Variants from ResNet50
+to ResNet50-D; (2) Computationally expensive pre-training
+technologies. Results of Tab. 1 illustrates that a signiﬁcant
+portion of their strong performance is derived from the sub-
+This CVPR Findings paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+6859
+
+
+---PAGE---
+
+
+	
+
+	
+
+
+		
+	
+
+
+
+	
+
+ 
+ 
+	
+
+		
+ 	
+	
+
+	 
+	
+Figure 2. Left: Comparison of Le-DETR and Real-Time DETR series in training overheads, While saving lots of training overheads offered
+by efﬁcient encoder design, our model outperforms the previous SOTA model, D-FINE and DEIM-D-FINE.Right: Unlike previous works
+such as DEIM and D-FINE mainly focus on decoder architecture and training objects, we focus on efﬁcient encoder design.
+stantial pre-training overhead (KD &ATI). This creates a
+signiﬁcant barrier, effectively locking the community into
+speciﬁc, costly pre-training pipelines. It leads to a criti-
+cal research question: Is this massive pre-training overhead
+a fundamental requirement for advanced performance, or
+is it merely a compensation for sub-optimal architectural
+designs in current models? As shown in Fig. 2, though
+previous works like DEIM, and D-FINE focus majorly on
+decoder architecture and training objectives, we hypothesize
+that superior architectural design can break this dependency,
+achieving advanced performance using only ImageNet-1K
+pre-training.
+We found that the architectural modiﬁcations introduced
+by real-time DETR models primarily focus on CNN-style
+detection techniques, such as the FPN-PAN [
+20, 21] and
+the RepVGG-C3 block [7]. However, there is a lack of em-
+phasis on modern attention techniques, speciﬁcally local
+attention [
+11– 13], which limits models’ ability to achieve
+good performance. This limitation arises from slow infer-
+ence of attention mechanisms and insufﬁcient exploitation
+of localized features.
+In this paper, we demonstrate that the key to low-cost,
+high-performance real-time detection lies in the architectural
+design itself. By using general good design, it is possible to
+have advanced performance while having low pre-training
+overheads. To this end, we propose Le-DETR ( Low-Cost
+and Efﬁcient DEtection TRansformer). Our method is de-
+signed to signiﬁcantly reduce the cost of training a real-time
+DETR model from scratch while having SOTA performance.
+Le-DETR leverages local attention techniques to improve
+the model performance and speed up the inference process.
+Within this backbone, we introduce a novel EfﬁcientNAT
+module that integrates Neighborhood Attention with an MB-
+Conv feed-forward network (FFN) to enhance feature pro-
+cessing. Also, guided by previous work [ 2, 12, 26], we
+conducted a detailed backbone study to explore optimal
+backbone design choices. In addition, the hybrid encoder in-
+corporates the Neighborhood Attention-based Improved Fea-
+ture Inference (NAIFI) module, which is designed to strike
+an optimal balance between performance and latency by cap-
+italizing on the advantages of Neighborhood Attention, also
+our models beneﬁt from well-established implementations
+from the community.
+Extensive experiments demonstrate that our model ex-
+hibits remarkable performance, establishing a new SOTA
+in real-time object detection, with saving 3M, about 80%
+images for pre-traing the backbone, showing that the exces-
+sive pre-training overheads are not necessary for advanced
+performance. Speciﬁcally, Le-DETR-M/L/X achieves
+52.9/54.3/55.1 mAP and 4.73/5.01/6.68 ms on an RTX4090.
+As shown in Fig. 1, compared with previous SOTA in yolo
+series, it outpeforms YOLOv12-L/X by 0.6, -0.1 mAP by
+having -0.02%, 20% speedup, respectively. Compared to
+previous SOTA in DETR series, it outpeforms DEIM-D-
+FINE-M by 0.2 mAP with slightly speedup, LE-DETR-X
+out perform DEIM-D-FINE-L by 0.4 mAP with only 0.4 ms
+slower. Extensive ablation experiments validate the effec-
+tiveness and non-redundancy of our proposed improvements,
+and experiments on the backbone scale design investigated
+how to scale up and scale down the EfﬁcientNAT efﬁciently.
+To be summarized, our contributions are as follows:
+• We identify a commonly overlooked limitation of real-time
+DETR models: their substantial pre-training overheads on
+backbone, which have hindered further innovation within
+the research community. We show that even not specially
+design for low pre-training data, it is possible to have
+2
+6860

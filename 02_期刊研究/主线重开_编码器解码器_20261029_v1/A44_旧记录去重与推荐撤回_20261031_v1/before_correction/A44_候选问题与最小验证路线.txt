@@ -1,0 +1,33 @@
+## Material Passport
+类型：ARS定向前期调研补充；源码事实、原文方法、推断与假设分列于A44_candidate_proposal.json。本候选未实现、未运行、未获新颖性确认；本轮训练分配0。
+
+下一候选：按query的细网格占据分配既有采样读取。
+具体问题：在每query/head/decoder层只评价12个双线性采样位置的同一预算下，预测框过细的query是否更需要把一次中尺度读取转交细尺度？这种条件化是否优于所有query统一增加细尺度读取？
+
+源码依据：ECDet-S使用stride8/16/32和[3,6,3]点数。query能改变偏移及attention，但点的尺度分段固定。固定源码d8752b75c9beaecfcdd0e5cd207bae3b6946ae23，decoder.py105-207、utils.py76-146、configs/ecdet/ecdet.yml57；S配置采用4层、192维。该结构事实不是已测得的漏检原因。
+
+唯一拟改动：保留原12个slot的坐标和权重，仅改变slot3的采样前尺度索引。N0原版；N1所有query将该点由stride16转给stride8，计数[4,5,3]；N2仅当min(ref_w*W/8,ref_h*H/8)<2时转交，否则用原尺度。推理使用现有预测reference box，无GT、无新教师、无附加loss。2格和单slot规则是待冻结草案，本轮未测试。
+
+最近方法与区别：
+RT-DETRv2早已允许各尺度不同点数，因此N1是工程控制。
+AdaMixer早已逐query学习空间和尺度，并以跨尺度采样混合构建特征。“动态尺度/动态采样”不是我们的新概念。本草案只检验显式同读取预算下的离散归属，后续仍需与连续3D采样对照。
+Better Sampling的SPR对采样位置与attention施加训练约束；本草案改变访问尺度，不增其监督项。
+
+最小验证路线（未启动）：一次有界原尺度映射前后向一致性检查和固定密集batch容量检查；通过后才冻结N0/N1/N2共同初始化与相同VisDrone/640/原生训练协议，各最多12轮并固定12轮EMA。建议门槛N2-N0 APs≥0.5pp、N2-N1 APs≥0.3pp、总AP下降≤0.2pp；真实逻辑采样位置保持12并报告总延迟，建议延迟增加超过10%则停止实用性投入。任何门槛在运行前冻结，不能看结果再改。N2不超过N1就停止条件化主张，不扫其他阈值、层、点数。若N1单独提升，仅记录为静态配置结果。
+若最小验证通过，再增加预算对齐的已知连续3D sampler控制，明确只移植采样器而不是完整AdaMixer复现；再决定长训练、多seed、独立数据及期刊投入。
+
+可行性：已完成的ECDet-S宿主在单卡3090可训练，旧密集batch8容量约15.65GiB。新按level gather可用PyTorch表达，预计无需大教师或CUDA编译；新实现的反向、容量和延迟仍未测，不能用旧结果替代。预算指逻辑双线性位置评价，不能假称DRAM读取/FLOPs/时延相同，也不能先全尺度算完再mask冒充节省。
+
+风险与价值判断：这是下一次小验证候选。理由是结构改动单一、同预算静态控制可区分、宿主和数据已备齐；其收益和论文新颖性风险都高。native attention可能已足够适应尺度，细尺度并不保证提供新信息，硬路由可能选错，手工gather也可能变慢。A43的阴性不证明该新假设；本次7条定向检索不是无人做过的证书。
+
+核验文献：
+[1] Lv et al. RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformer. arXiv:2407.17140v1,2024. https://arxiv.org/html/2407.17140v1
+阅读：完整2.1，选读3.4；未复现其COCO结果。
+[2] Gao et al. AdaMixer: A Fast-Converging Query-Based Object Detector. CVPR2022,5364-5373; arXiv:2203.16507v1. https://arxiv.org/html/2203.16507v1
+阅读：完整3.2-3.3、3.4开头；作者采样函数网页内容。未阅读全文/执行作者代码。原CVF PDF通道403，改读arXiv原文。
+[3] Huang et al. Better Sampling, towards Better End-to-end Small Object Detection. arXiv:2407.06127v1,2024. https://arxiv.org/html/2407.06127v1
+本次重读完整4.1及选读4.2/4.3；未复现其整篇结果。
+[4] 作者采样源码：https://github.com/MCG-NJU/AdaMixer/blob/main/mmdet/models/roi_heads/bbox_heads/sampling_3d_operator.py
+已读该web函数：每尺度grid_sample后以尺度权重相加。GitHub API不可变blob获取因TLS EOF失败；网页main版本未声称已commit固定。
+
+检索策略、7条完整检索式、对比矩阵、具体算子草案、风险及退出路线均见同目录A44_candidate_proposal.json。检索与原文工具回执按raw.json留档，仅用于溯源。新候选没有自动训练任务。

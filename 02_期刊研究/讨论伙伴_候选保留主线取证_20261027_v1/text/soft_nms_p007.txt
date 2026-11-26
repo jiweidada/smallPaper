@@ -1,0 +1,253 @@
+10 20 30 40 50 60 70 80 90
+Recall
+0
+20
+40
+60
+80
+100Precision
+Precision vs Recall at Ot = 0.6
+NMS
+Soft-NMS
+10 20 30 40 50 60 70 80 90
+Recall
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+Precision
+Precision vs Recall at Ot = 0.7
+NMS
+Soft-NMS
+10 20 30 40 50 60 70 80 90
+Recall
+0
+10
+20
+30
+40
+50
+60
+70
+Precision
+Precision vs Recall at Ot = 0.8
+NMS
+Soft-NMS
+Figure 5. R-FCN : Precision vs Recall at multiple overlap thresholds Ot
+to improve performance of the detector for better localiza-
+tion which is not the case with NMS, as a larger Nt obtains
+very little improvement.
+Precision vs Recall Finally, we would like to also know
+at what recall values is Soft-NMS performing better than
+NMS at different Ot. Note that we re-score the detection
+scores and assign them lower scores, so we do not expect
+precision to improve at a lower recall. However, as Ot and
+recall is increased, Soft-NMS obtains signiﬁcant gains in
+precision. This is because, traditional NMS assigns a zero
+score to all boxes which have an overlap greater than Nt
+with M. Hence, many boxes are missed and therefore pre-
+cision does not increase at higher values of recall. Soft-
+NMS re-scores neighboring boxes instead of suppressing
+them altogether which leads to improvement in precision at
+higher values of recall. Also, Soft-NMS obtains signiﬁcant
+improvement even for lower values of recall at higher val-
+ues of Ot because near misses are more likely to happen in
+this setting.
+6.4. Qualitative Results
+We show a few qualitative results in Fig
+7 using a detec-
+tion threshold of 0.45 for images from the COCO-validation
+set. The R-FCN detector was used to generate detections. It
+is interesting to observe that Soft-NMS helps in cases when
+bad detections (false positives) have a small overlap with a
+good detection (true positive) and also when they have a low
+overlap with a good detection. For example, in the street
+image (No.8), a large wide bounding box spanning multi-
+ple people is suppressed because it had a small overlap with
+multiple detection boxes with a higher score than it. Hence,
+its score was reduced multiple times because of which it
+was suppressed. We observe a similar behaviour in image
+No.9. In the beach image (No.1), the score for the larger
+bounding box near the woman’s handbag is suppressed be-
+low 0.45. We also see that a false positive near the bowl in
+the kitchen image (No.4) is suppressed. In other cases, like
+for zebra, horse and giraffe images (images 2,5,7 and 13),
+the detection boxes get suppressed with NMS while Soft-
+NMS assigns a slightly lower score for neighboring boxes
+0 1 2 3
+zebra
+giraffe
+elephant
+sheep
+horse
+motorcycle
+toilet
+person
+tennis	racket
+bicycle
+umbrella
+suitcase
+bed
+cow
+dog
+teddy	bear
+cat
+baseball	bat
+broccoli
+train
+airplane
+wine	glass
+pizza
+couch
+skateboard
+car
+carrot
+banana
+stop	sign
+bear
+keyboard
+refrigerator
+surfboard
+sandwich
+laptop
+sink
+donut
+tie
+kite
+orange
+clock
+fork
+chair
+bird
+bus
+boat
+apple
+remote
+oven
+toothbrush
+fire	hydrant
+skis
+bottle
+hot	dog
+dining	table
+microwave
+book
+truck
+traffic	light
+parking	meter
+bowl
+cake
+potted	plant
+tv
+backpack
+cup
+spoon
+mouse
+bench
+handbag
+snowboard
+knife
+cell	phone
+scissors
+frisbee
+baseball	glove
+vase
+sports	ball
+hair	drier
+toaster
+⋙⋙⋙
+⋙⋙⋙
+⋙⋙⋙
+0 1 2 3
+zebra
+giraffe
+toilet
+cat
+elephant
+cow
+motorcycle
+person
+tennis	racket
+broccoli
+suitcase
+horse
+sheep
+bed
+teddy	bear
+train
+bear
+bicycle
+umbrella
+pizza
+clock
+keyboard
+car
+dog
+snowboard
+banana
+sink
+couch
+baseball	bat
+airplane
+skateboard
+surfboard
+carrot
+hot	dog
+wine	glass
+sandwich
+oven
+refrigerator
+truck
+bird
+parking	meter
+mouse
+fork
+potted	plant
+bus
+donut
+laptop
+boat
+kite
+fire	hydrant
+chair
+traffic	light
+skis
+frisbee
+microwave
+bench
+tie
+dining	table
+remote
+bottle
+cup
+orange
+toothbrush
+book
+stop	sign
+baseball	glove
+bowl
+tv
+cell	phone
+vase
+scissors
+backpack
+apple
+sports	ball
+knife
+toaster
+cake
+spoon
+handbag
+hair	drier
+⋙⋙⋙
+Figure 6. Per class improvement in AP for MS-COCO using Soft-
+NMS for R-FCN is shown in the left and for Faster-RCNN is
+shown on the right. Green bars indicate improvements beyond
+3 %
+5567

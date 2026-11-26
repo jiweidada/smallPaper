@@ -1,0 +1,25 @@
+20 D. Bolya et al.
+Fig. 10: Ties in Error Assignment. A possible tie in error assignment is illustrated here
+( = false positive detection; = ground truth). The prediction is a classiﬁcation error
+for the cat and a localization error for the dog. We break ties like this by assigning a
+localization error with the dog. Note that this is different to the both cls+loc error, as
+these are errors with two entirely separate ground truths.
+B.3 Models and Sources Used
+We used off-the-shelf models for each method tested and didn’t train any new models.
+Some methods directly provided a COCO evaluation JSON ﬁle which we could use
+directly with our toolbox, while others required us to run the code ourselves. For each
+model, we list the method name, the model description (as describes the relevant weights
+ﬁle), a link to the code we used, and whether or not the method provided a COCO JSON
+(i.e., whether we didn’t need to evaluate the model ourselves or not) in Tab. 4. Note that
+in general we use the Resnet101 version of each model without any bells and whistles.
+The one exception is YOLACT++, since it uses deformable convolutions while the rest
+of the models don’t, so we use its Resnet50 model to compensate.
+Table 4: Model Sources. The sources for the models we used in our analysis.
+Method Model Description Implementation JSON?
+Mask R-CNN R-101-FPN, 2x (35861858) detectron 
+MS R-CNN ResNet-101 FPN maskscoring rcnn 
+HTC R-101-FPN mmdetection 
+TridentNet TridentNet, 1x (ResNet-101) simpledet 
+RetinaNet R-101-FPN, 2x (36768840) detectron 
+FCOS FCOS R 101 FPN 2x FCOS 
+YOLACT++ Resnet50-FPN yolact 

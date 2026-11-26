@@ -1,0 +1,102 @@
+material.
+Table 3. From Deformable DETR*(D-DETR) to DDQ DETR .
+TS D-DETR stands for the naive two-stage version. Dense means
+initializing the content part with feature embedding. DQS stands
+for distinct queries selection. AUX-Decoder means the auxiliary
+loss for dense queries in the decoder. The flops only has compara-
+tive meaning and does not contain custom cuda operators
+Method AP AP50 AP75 L(ms) F(G)
+D-DETR* 45.4 63.0 49.1 45 264
+TS D-DETR 46.7 64.5 50.8 46 269
++Dense 48.5 66.2 52.7 47 270
++AUX-Decoder 50.0 67.4 54.8 47 270
++DQS 50.7 68.1 55.7 58 270
+DDQ DETR5scale 52.1 68.9 57.3 114 860
+5.4. Comparison with Other Detectors
+Results on CrowdHuman We select some recent represen-
+tative studies for comparison with DDQ on crowded scenes.
+It is seen that traditional detectors struggle between a low
+recall rate and a high false positive rate. Although DW [15]
+assignment is the recent state-of-the-art one-to-many as-
+signment strategy and shows a clear increase in Recall com-
+pared to ATSS, it suffers from more serious false predictions
+and thus leads to a high mMR. The performance of such
+traditional detectors is limited by the post-processing NMS.
+In the supplementary material, we also show it can not be
+properly handled by adjusting the IoU threshold because it
+is training unaware.
+End-to-end detectors can achieve a higher theoretical re-
+call rate due to the removal of NMS as a post-process.
+However, a high recall is not guaranteed in Sparse R-CNN
+and Deformable DETR due to their sparse query design.
+Although DeFCN [28] achieves a better performance than
+other end-to-end methods by adopting dense queries, it is
+still difficult for DeFCN to distinguish between crowded
+objects and duplicated predictions(optimization difficulty)
+which affects the mMR.
+Table 4. Performance on CrowdHuman
+Method Epochs AP50 mMR Recall
+ATSS 36 89.6 44.4 95.9
+DW 36 89.0 57.6 97.4
+Cascade R-CNN 36 86.0 44.1 89.2
+Sparse R-CNN 50 89.2 48.3 95.9
+Deform DETR 50 89.1 50.0 95.3
+DeFCN 36 91.0 46.5 97.9
+DDQ FCN 36 92.7 41.0 98.2
+DDQ R-CNN 36 93.5 40.4 98.6
+DDQ DETR 36 93.8 39.7 98.7
+In contrast, DDQ surpasses these detectors on all metrics
+by a clear margin. For one thing, DDQ leads in Recall due
+to the dense queries that could cover most objects. For the
+other, DDQ also achieves the lowest mMR, as a merit of the
+distinctness among queries so that the detector can better
+differentiate false predictions.
+Results on COCO We adopt heavier backbones and longer
+schedules to fairly compare with other detectors on COCO.
+As shown in Table. 5, we get all the results from the orig-
+inal study except those marked with *. We divide the re-
+sults into two parts according to the augmentation. The
+first part adopts the augmentations in DETR [2] and reports
+the results on COCO validation dataset. DDQ remains its
+advantage among end-to-end object detectors using differ-
+ent backbone structures. It is worth emphasizing that DDQ
+FCN without any refinement architecture can already sur-
+pass most end-to-end detectors. DDQ R-CNN surpasses
+these methods by a large margin with only two refining
+heads and without encoder architecture. The performance
+of DDQ R-CNN (R-50) can be further improved by adopt-
+ing an encoder structure as in SEPC [30] or DyHead [6].
+For example, It achieves an impressive 51.0 AP by adopt-
+ing 6 blocks in DyHead as encoder structure, which is de-
+noted as DDQ R-CNNwith encoder(details about this model
+can be found in supplementary material). DDQ DETR out-
+performs recent DETR with a clear margin using R-50 as
+its backbone. When adopting a Swin-L backbone, it also
+surpasses the SOTA method DINO [33] by 0.7 AP.
+The second part adopts a multi-scale training (480-800)
+strategy for 24 epochs and reports the results on the COCO
+test-dev using ResNet-101, which is widely used by con-
+ventional detectors.
+6. Ablation study
+6.1. The Recall Improvement of Dense Queries
+We analyze the recall of IoU threshold 0.5. As shown in
+Table. 6, we report the recall of the 5th stage input queries
+of Sparse R-CNN to make a fair comparison with the input
+queries of the refinement head in DDQ R-CNN. It can be
+seen that the Sparse R-CNN with 300 queries has a signifi-
+cantly lower recall(10.2 AR100) than that with 7000 queries.
+In DDQ R-CNN, the queries from the DDQ FCN achieve a
+comparable recall to 7000 queries but with much less la-
+tency.
+6.2. DQS with Different IoU Threshold
+In this section, we show the robustness of distinct queries
+selection(DQS) with different IoU thresholds. As shown in
+Table. 14, the performance of DDQ FCN/R-CNN is quite
+robust when the IoU threshold ranges from 0.6 to 0.8. The
+performance drops slightly when the threshold is lower than
+0.6, which is due to the lower recall rate for overlapping
+objects. The performance also starts to degrade when the
+IoU threshold is larger than 0.8 due to its incapability to
+suppress similar queries that slow the optimization. DDQ
+DETR exhibits a similar trend, as observed in Table 3. We
+7

@@ -1,0 +1,71 @@
+Smooth-AP: Smoothing the Path
+Towards Large-Scale Image Retrieval
+Andrew Brown, Weidi Xie, Vicky Kalogeiton, Andrew Zisserman
+Visual Geometry Group, University of Oxford
+{abrown,weidi,vicky,az}@robots.ox.ac.uk
+https://www.robots.ox.ac.uk/~vgg/research/smooth-ap/
+Abstract. Optimising a ranking-based metric, such as Average Pre-
+cision (AP), is notoriously challenging due to the fact that it is non-
+diﬀerentiable, and hence cannot be optimised directly using gradient-
+descent methods. To this end, we introduce an objective that optimises
+instead a smoothed approximation of AP, coined Smooth-AP. Smooth-AP
+is a plug-and-play objective function that allows for end-to-end training
+of deep networks with a simple and elegant implementation. We also
+present an analysis for why directly optimising the ranking based metric
+of AP oﬀers beneﬁts over other deep metric learning losses.
+We apply Smooth-AP to standard retrieval benchmarks : Stanford On-
+line products and VehicleID, and also evaluate on larger-scale datasets:
+INaturalist for ﬁne-grained category retrieval, and VGGFace2 and IJB-
+C for face retrieval. In all cases, we improve the performance over the
+state-of-the-art, especially for larger-scale datasets, thus demonstrating
+the eﬀectiveness and scalability of Smooth-AP to real-world scenarios.
+1 Introduction
+Our objective in this paper is to improve the performance of ‘query by example’,
+where the task is: given a query image, rank all the instances in a retrieval set
+according to their relevance to the query. For instance, imagine that you have
+a photo of a friend or family member, and want to search for all of the images
+of that person within your large smart-phone image collection; or on a photo
+licensing site, you want to ﬁnd all photos of a particular building or object,
+starting from a single photo. These use cases, where high recall is premium,
+diﬀer from the ‘Google Lens’ application of identifying an object from an image,
+where only one ‘hit’ (match) is suﬃcient.
+The benchmark metric for retrieval quality is Average Precision (AP) (or
+its generalized variant, Normalized Discounted Cumulative Gain, which includes
+non-binary relevance judgements). With the resurgence of deep neural networks,
+end-to-end training has become the de facto choice for solving speciﬁc vision
+tasks with well-deﬁned metrics. However, the core problem with AP and similar
+metrics is that they include a discrete ranking function that is neither diﬀer-
+entiable nor decomposable. Consequently, their direct optimization, e.g. with
+gradient-descent methods, is notoriously diﬃcult.
+
+---PAGE---
+
+2 A. Brown et al.
+Fig. 1: Ranked retrieval sets before (top) and after (bottom) applying Smooth-
+AP on a baseline network ( i.e. ImageNet pre-trained weights) for a given query (pink
+image). The precision-recall curve is shown on the left. Smooth-AP results in large
+boost in AP, as it moves positive instances (green) high up the ranks and negative
+ones (red) low down.|P| is the number of positive instances in the retrieval set for this
+query. Images are from the INaturalist dataset.
+In this paper, we introduce a novel diﬀerentiable AP approximation,Smooth-
+AP, that allows end-to-end training of deep networks for ranking-based tasks.
+Smooth-AP is a simple, elegant, and scalable method that takes the form of
+a plug-and-play objective function by relaxing the Indicator function in the
+non-diﬀerentiable AP with a sigmoid function. To demonstrate its eﬀectiveness,
+we perform experiments on two commonly used image retrieval benchmarks,
+Stanford Online Products and VehicleID, where Smooth-AP outperforms all re-
+cent AP approximation approaches [5,52] as well as recent deep metric learning
+methods. We also experiment on three further large-scale retrieval datasets (VG-
+GFace2, IJB-C, INaturalist), which are orders of magnitude larger than the ex-
+isting retrieval benchmarks. To our knowledge, this is the ﬁrst work that demon-
+strates the possibility of training networks for AP on datasets with millions of
+images for the task of image retrieval. We show large performance gains over all
+recently proposed AP approximating approaches and, somewhat surprisingly,
+also outperform strong veriﬁcation systems [13,35] by a signiﬁcant margin, re-
+ﬂecting the fact that metric learning approaches are indeed ineﬃcient for training
+large-scale retrieval systems that are measured by global ranking metrics.
+2 Related Work
+As an essential component of information retrieval [37], algorithms that optimize
+rank-based metrics have been the focus of extensive research over the years. In
+general, the previous approaches can be split into two lines of research, namely
+metric learning, and direct approximation of Average Precision.

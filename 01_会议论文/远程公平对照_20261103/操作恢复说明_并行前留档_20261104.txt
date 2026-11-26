@@ -1,0 +1,40 @@
+远程公平对照：当前操作恢复入口
+更新：2026-11-03（本地日期）。本文件只列当前状态；早期准备过程完整留在操作恢复说明_20261103_正式首轮后留档.txt，不再把旧未授权/未冻结/未运行段落作为当前操作依据。
+
+一、授权、进程与最近观察
+用户随后提供服务器并要求“去验证吧”，已授权事先说明的BASE/FULL最小公平对照；详情见authorization.json。每组seed0、batch4、FP32、320实际轮次、517440次更新尝试，仅此两组；顺序BASE→FULL。每组7天故障兜底超时，无自动重试、续训、调参、额外组别或资源。早期未执行的48小时占位已在冻结前取消，见协议timeout_basis。
+最新状态以training_execution_ledger.json引用的原始快照为准。status_training_19确认BASE完成5轮，进入actual_loop_epoch=5（第6轮）第201批、累计8286次更新尝试，损失有限；第5轮训练和验证527.227745秒。监督器PID1193/start_ticks39931198、BASE训练PID1194/start_ticks39931668均经/proc核对存活。FULL仍排队。上述是当时观察，不是永久存活保证。
+正式远程目录：/25085400120/mpsma_fair_20261103_v1
+正式数据缓存：/tmp/mpsma_fair_20261103_data
+Python：/25085400120/envs/deim/bin/python；GPU为一张RTX 3090。
+SSH控制helper本地exec session_id=26456，仅控制连接；远程训练独立于它。凭据只在活helper内存中，不在文件中。
+
+二、查询与不可重复操作
+通过活helper发送op=python，python为上述解释器，script为本目录remote_train_status.py的绝对本地路径，save为本目录新的status_training_NN.json绝对路径；JSON后用回车字符\r。请求响应有时延迟显示，先检查save文件，未返回时观察同一请求。
+成功快照保存后，用本地bundled Python运行record_training_snapshot.py 状态文件名，更新持续账本。该脚本检查协议、关键冻结文件、已下载首轮审计文件和当前PID身份；不凭RUNNING字符串判断活进程。
+SSH断开先显式op=reconnect，再核查同一远程队列/PID/start_ticks；观察超时不是训练失败。不得重跑launch_training.py、freeze_execution_protocol.py、准备启动器或早期审计启动器。不得修改fair_runner.py、supervise.py、execution_configs或冻结源码。正式锁文件已存在；无授权不追加替代训练。真实失败先保留日志和回执。
+
+三、冻结证据
+execution_protocol.json SHA256：8d495467c5ec74ac57f8e97f730cd345bf72360a2ee2ce30197880c05079902b，冻结247个文件。正式配置为execution_configs/*.yml，环境为environment.current.json；旧configs和environment.json不是本次执行条件。
+服务器原数据和缓存各自核验6471训练图、548验证图及两份标注共7021个文件，全部与既定哈希匹配。预检BASE/FULL均成功且无optimizer更新；共同554个语义对应张量（含buffer）一致，共2145693元素，共同SHA为fc3630c9074b477db460d3c7b83b82846770a33b12bbb2947b082296edda3a5b。两组预检前100批记录一致；BASE正式前100批匹配，FULL正式核验等待运行。
+首轮证据审计已完成并下载remote_evidence/evidence_audits/BASE_best_epoch0000，保存权重EMA、548图预测、COCO数组及12指标绑定通过。进程6932已退出。它仅核对已有记录，没有模型推理或评价器重跑，不能替代最终结果。
+准备阶段Mosaic注册缺失失败发生在数据加载器建立前，未产生正式更新；留档在preparation_attempt1。修复导入后预检通过，正式启动后未修改冻结训练代码。
+
+四、待两组完成后的既定结果核对
+首先验证两组成功退出、各320完整行及固定预算；FULL真实首100批应与预检和BASE一致。主端点为实际epoch319回滚前EMA，辅助端点为320轮内最高AP整行且平局最早。不混合不同轮的指标，不事后换主端点。
+原audit_saved_endpoint.py（SHA256 4aae6d69421280bf99690e7030a82847a5423a8e1b80b023f78bbfb1daf4a3f3）用于已保存文件的CPU分析，支持--arm BASE/FULL及--endpoint terminal/best。完成后核对四个最终端点，对尚无对应审计的端点逐一运行，保留各自进程句柄和回执；脚本自身900秒分析超时。观察超时先检查原分析进程，不自动重跑。不得重复早期epoch0审计；若最终最佳端点恰好仍为该epoch0，可在文件和指标完全匹配时复用现有审计。四个最终端点的目录由实际最佳轮决定。
+新增summarize_completed_pair.py已上传同一远程目录，是结果分析代码，不属于训练驱动。SHA256：3dee0beb969c698efdf7a64b796155672ca29224dd2eb844be2e4d9c4c546615。两组完成且四端点审计均通过后，可执行该脚本并用--output指定远程根目录内新的final_pair_audit.json。脚本核对全部冻结文件、320完整行、517440条逐步LR、恢复事件、权重及预测/数组哈希、首100批、预定端点和有符号FULL减BASE差值；不执行模型或评价器。输出文件使用独占创建，不覆盖已有结果。
+analysis_tool_check.json记录13项代码检查，其中合成数据仅存在内存，不是实验结果。已对真实运行中队列执行一次拒绝生成结果检查，pair_audit_not_ready_check.json为exit_code=2、NOT_READY，属于预期分析门禁，不是训练失败。完整真实最终审计尚未运行。
+下载最终权重、预测、数组、逐轮/逐步日志、回执及分析结果，并在本地再次核对下载SHA，再按结果并入与验收清单.txt修订论文。包含负值或混合结果，不能只选有利指标。
+
+五、稿件状态
+第七轮稿件MPSMA-DEIM_conference_EN_revised.docx SHA256为a494f6b7ca2b1c200232ab49fa7f3d3831b161e2552990da3b88109f7b599de2；第六轮备份及测量条件核验见修订记录_20261103/第七轮条件核查。本阶段未写入早期训练指标；目标保持active，尚不能投稿。
+最终修改前保留当前稿件备份，修订后逐页渲染检查。新单seed对照只支持完整结构组合，不能恢复独立模块、显著性或速度优势主张；历史版本和旧时延链仍须按结果并入与验收清单.txt限定或删除相应结论。
+
+六、运行时长估计（37轮时的只读观察）
+第4—36轮共33个增强阶段完整轮次，训练与验证合计每轮均值约8.44分钟、中位数约8.44分钟。以第37轮完成时、剩余283个轮次槽位按此速度粗略外推，BASE约需39.8小时；包含当时已部分进行的第38轮，且逐轮计时不含随后的最佳/终点权重保存等开销；后续增强阶段和负载也会变化。FULL尚未运行，不能把该值当成两组总耗时。详见runtime_assessment_0037.json及其下载日志与服务器哈希回执。
+
+七、第二服务器并行准备（2026-11-04，未启动FULL）
+用户新增端口30989的独立RTX3090服务器，要求利用另一台运行实验。当前决定仅把已授权且尚未执行的FULL移到第二台，与原BASE并行，不新增组别或种子。详见第二服务器并行执行_20261104.txt及parallel_execution_addendum.json。
+第二台已核对247个冻结文件及7021个数据文件；原环境打包PID281890/start_ticks42491895仍在运行，本地relay会在完成后传输。FULL未启动，第一台FULL独占预留尚未执行，因此截至本段旧BASE→FULL队列仍然有效。环境验证通过后按并行执行记录一次性预留并启动；不要提前运行reserve_primary_full.py，不要重复启动已有BASE或重新冻结协议。
+并行真正启动后以parallel_execution_ledger.json、两台/proc与分臂队列为准；原串行总队列的状态语义变化及最终审计要求已写入并行执行记录。新增代码仅准备，未据此生成结果或修订稿件结论。

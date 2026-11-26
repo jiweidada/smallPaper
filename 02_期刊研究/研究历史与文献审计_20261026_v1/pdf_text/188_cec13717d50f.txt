@@ -1,0 +1,85 @@
+Side-Aware Boundary Localization for
+More Precise Object Detection
+Jiaqi Wang1, Wenwei Zhang2, Yuhang Cao1, Kai Chen 3, Jiangmiao Pang 4,
+Tao Gong5, Jianping Shi 3, Chen Change Loy 2, and Dahua Lin 1
+1 The Chinese University of Hong Kong
+2 Nanyang Technological University 3 SenseTime Research
+4 Zhejiang University 5 University of Science and Technology of China
+{wj017,dhlin}@ie.cuhk.edu.hk
+{yhcao6,chenkaidev,pangjiangmiao,gongtao950513}@gmail.com
+{wenwei001,ccloy}@ntu.edu.sg shijianping@sensetime.com
+Abstract. Current object detection frameworks mainly rely on bound-
+ing box regression to localize objects. Despite the remarkable progress
+in recent years, the precision of bounding box regression remains unsat-
+isfactory, hence limiting performance in object detection. We observe
+that precise localization requires careful placement of each side of the
+bounding box. However, the mainstream approach, which focuses on
+predicting centers and sizes, is not the most eﬀective way to accomplish
+this task, especially when there exists displacements with large vari-
+ance between the anchors and the targets. In this paper, we propose an
+alternative approach, named as Side-Aware Boundary Localization
+(SABL), where each side of the bounding box is respectively localized
+with a dedicated network branch. To tackle the diﬃculty of precise local-
+ization in the presence of displacements with large variance, we further
+propose a two-step localization scheme, which ﬁrst predicts a range of
+movement through bucket prediction and then pinpoints the precise
+position within the predicted bucket. We test the proposed method on
+both two-stage and single-stage detection frameworks. Replacing the
+standard bounding box regression branch with the proposed design leads
+to signiﬁcant improvements on Faster R-CNN, RetinaNet, and Cascade
+R-CNN, by 3.0%, 1.7%, and 0.9%, respectively. Code is available at
+https://github.com/open-mmlab/mmdetection.
+1 Introduction
+The development of new frameworks for object detection, e.g., Faster R-CNN [28],
+RetinaNet [20], and Cascade R-CNN [1], has substantially pushed forward the
+state of the art. All these frameworks, despite the diﬀerences in their technical
+designs, have a common component, namely bounding box regression, for object
+localization.
+Generally, bounding box regression is trained to align nearby proposals to
+target objects. In a common design, the bounding box regression branch predicts
+the oﬀsets of the centers (δx,δy ) together with the relative scaling factors (δw,δh )
+
+---PAGE---
+
+2 J. Wang et al.
+Proposal
+Bucketing
+Estimation
+(a) Bounding Box Regression (b) SABL
+Pred Box
+Fine 
+Regression
+Buckets
+Fig. 1. The Illustration of Side-Aware Boundary Localization (SABL) . (a)
+Common Bounding box Regression directly predicts displacements from proposals to
+ground-truth boxes. (b) SABL focuses on object boundaries and localizes them with a
+bucketing scheme comprising two steps: bucketing estimation and ﬁne regression
+based on the features of RoI (Region of Interest). While this design has been
+shown to be quite eﬀective in previous works, it remains very diﬃcult to precisely
+predict the location of an object when there exists a displacement, with large
+variance, between the anchor and the target. This diﬃculty also limits the overall
+detection performance.
+In recent years, various eﬀorts have been devoted to improving the local-
+ization precision, such as cascading the localization process [1, 9, 16, 32], and
+treating localization as a procedure to segment grid points [23]. Although being
+shown eﬀective in boosting the accuracy of localization, adoption of these meth-
+ods complicates the detection pipeline, resulting in considerable computational
+overhead.
+In this work, we aim to explore a new approach to object localization that
+can eﬀectively tackle precise localization with a lower overhead. Empirically, we
+observe that when we manually annotate a bounding box for an object, it is often
+much easier to align each side of the box to the object boundary than to move the
+box as a whole while tuning the size. Inspired by this observation, we propose a
+new design, named as Side-Aware Boundary Localization (SABL) , where
+each side of the bounding box is respectively positioned based on its surrounding
+context. As shown in Figure 1, we devise a bucketing scheme to improve the
+localization precision. For each side of a bounding box, this scheme divides the
+target space into multiple buckets, then determines the bounding box via two
+steps. Speciﬁcally, it ﬁrst searches for the correct bucket, i.e., the one in which
+the boundary resides. Leveraging the centerline of the selected buckets as a
+coarse estimate, ﬁne regression is then performed by predicting the oﬀsets. This
+scheme allows very precise localization even in the presence of displacements with
+large variance. Moreover, to preserve precisely localized bounding boxes in the
+non-maximal suppression procedure, we also propose to adjust the classiﬁcation
+score based on the bucketing conﬁdences, which leads to further performance
+gains.

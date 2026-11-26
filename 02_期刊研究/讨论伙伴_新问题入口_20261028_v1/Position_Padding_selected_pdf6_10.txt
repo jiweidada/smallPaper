@@ -1,0 +1,198 @@
+=== PDF page 6 ===
+6
+Fig. 5. We consider two location dependant tasks designed to investigate
+the boundary effects in CNNs. A random CIFAR-10 image is placed on
+a random grid location and the CNN predicts either C class logits (a:
+classiﬁcation), or C class logits for each pixel (b: segmentation).
+layer, pre-trained on Tiny ImageNet, and predicts a gradient-
+like position map (see top row in Table. 4). We experiment
+with two GT position maps, which are the same for every
+image: (i) ‘horizontal’ and (ii) ‘Gaussian’. We report results
+using Spearman Correlation (SPC) and Mean Absolute Error
+(MAE) with input images from PASCAL-S [62]. From Table 4,
+it is clear that zero padding delivers the strongest position
+information, compared with replicate, boundary reﬂection,
+and circular padding, supporting H-I. Note that partial
+convolution [31] still pads with zeros, but brightening the
+image artiﬁcially when the convolution kernel overlaps it
+only partially. Thus, position information is still encoded
+when partial convolutions are used. Interestingly, circular
+padding is often the second most capable padding type. We
+conjecture this is because circular padding takes values from
+the opposite side of the image where the pixel values are
+typically less correlated than the directly neighbouring pixels.
+Thus, circular padding often has a value transition at the
+border, contrasting reﬂection and replicate which offer little
+or no signal to the CNN regarding the whereabouts of the
+image border.
+4 L OCATION DEPENDANT TASKS FOR POSI -
+TIONAL ANALYSIS
+We now go deeper and explore the critical importance of the
+boundary effect in CNNs with respect to absolute position
+information by means of experiments designed to reveal
+these characteristics in a per-location manner. We begin by
+describing our experimental settings and the implementation
+details for the proposed location dependant experiments with
+grid-based inputs. These experiments are used to analyze
+the border effects with respect to position information
+encoded in CNNs. These consist of location dependant image
+classiﬁcation (Fig. 5 (a) and Sec. 4.3), and image segmentation
+(Fig. 5 (b) and Sec. 4.4), under different canvas color settings.
+Our experiments are designed with the goal of determining,
+for different canvas colors (H-II), where in the input CNNs
+suffer from the border effect (H-IV), and how the position of
+an image affects the learning of semantic features ( H-III).
+4.1 Experimental Settings and Implementation Details
+Our image classiﬁcation and segmentation experiments use
+‘location dependant’ inputs (see Fig. 6). The input is a colored
+canvas (the colors used are Black [0, 0, 0], White [1, 1, 1], and
+the CIFAR-10 dataset [63] Mean [0.491, 0.482, 0.446]) with an
+image patch randomly placed on a k×k grid. The motivation
+of using different canvas colors in grid settings is inspired
+Fig. 6. An illustration of the grid settings ( k = 3 ) and the ground-truth
+with all three canvas colors for the location dependant tasks.
+by [35] which paste an image patch on a black canvas
+to determine if a CNN can classify the image location for
+different resolutions (i.e., top left or bottom right). We have
+shown that zero padding (i.e., black) signiﬁcantly increases
+the amount of position information encoded in the network.
+This suggests the border color may be playing a role in
+the CNNs position encoding. Thus, we paste image patches
+on various canvas colors and sizes with the motivation of
+evaluating whether the canvas color have an effect on the
+amount of position information encoded at various distances
+to the boundary. Unless mentioned otherwise, we use CIFAR-
+10 for all experiments. Given a 32× 32 CIFAR-10 training
+image as the image patch, we randomly choose a grid location,
+L, and place the CIFAR-10 training sample in that location.
+For example, in the case of a k× k grid, the size of the
+grid canvas is 32k× 32k, where each grid location has
+a size of 32× 32 and k2 total locations. Figure 6 shows
+examples of inputs for the location dependant experiments,
+and the ground truth for each of the tasks. As previously
+mentioned, all the experiments were run with three different
+canvas colors to show the impact of the border effect with
+regards to canvases. Note that we normalize only the image
+patch before pasting it onto the canvas (in other words,
+the canvas does not get normalized). For the segmentation
+ground truth, the ratio of background pixels to object pixels
+grows exponentially as the grid size increases. However,
+as the evaluation metric is mean intersection over union
+(mIoU), the overall performance is averaged between the
+object classes and the background class, even though the
+background class makes up the majority of the ground truth
+labels.
+All experiments are run for k ∈ {3, 5, 7, 9, 11, 13}. To
+ensure a fair comparison between grid locations, the evalu-
+ation protocol consists of running the entire validation set
+of CIFAR-10 on each individual grid location (i.e., we run the
+validation set k2 times for a single validation epoch). We then
+average the performance over all grid locations to obtain the
+overall accuracy. The motivation of using different grid sizes
+(smaller→ larger) is to validate if absolute position can be
+encoded only close to image boundary or far a way from the
+=== PDF page 10 ===
+10
+Black No Padding White No padding Mean No padding Zero Padding
+0 1 2 3 4 5
+0
+−20
+−40
+−60
+Distance to Closest Border
+Accuracy Difference (%)
+11×11Grid
+0 1 2 3 4 5 6
+0
+−20
+−40
+−60
+Distance to Closest Border
+13×13Grid
+0 1 2 3 4 5
+0
+−5
+−10
+−15
+−20
+Distance to Closest Border
+11×11Grid
+0 1 2 3 4 5 6
+0
+−5
+−10
+Distance to Closest Border
+13×13Grid
+Fig. 9. Location dependant image classiﬁcation (left two) and segmentation (right two). Results show the accuracy difference between padding and
+no padding under three canvas settings, at various distances to the border.
+6.1 Distance-to-Border Analysis: What Input Regions
+Suffer Most from Border Effects?
+First, we analyze the image classiﬁcation and segmentation
+results reported in Secs. 4.3 and 4.4, with respect to the
+distance from the closest border which will allow us to
+answer this question. To obtain the accuracy at each distance,
+we average the accuracies over all grid locations with the
+same distance to the nearest border (e.g., a distance to a
+border of zero refers to the average accuracy of the outer-
+most ring of grid locations). Figure 9 shows the accuracy
+difference between the padding baseline (the blue horizontal
+line) and the no padding cases. Interestingly, the accuracy
+difference is higher at grid locations close to the border and
+decreases towards the image center. This analysis strongly
+suggests that zero padding signiﬁcantly impacts the border
+effect, and injects position information to the network as
+a function of the object location relative to the distance of
+the nearest border. In contrast, the no padding case fails
+to deliver any position information at the border locations
+which leads to a signiﬁcant performance drop. Also note
+that there is a substantial difference in performance at the
+center of the image, at the farthest distance from the border,
+supporting H-IV. Note that of the three canvases for the
+no padding case, the black canvas yields the lowest drop
+in relative performance when comparing the center region
+to locations near the border ( H-II). More distance-to-border
+analysis results can be found in Sec. A.3.2 in the appendix.
+6.2 Are Border Effects Only at the Border?
+While intuition might suggest the border effect occurs solely
+at the border, it is natural to analyze if other regions in the
+input space also suffer from the border effect. Figure 10
+compares ﬁlter activations with and without zero padding.
+Note that ﬁlter activations are randomly sampled from the
+feature map for the speciﬁc layer. Activations found near
+the border propagate less information through the network
+during the forward pass due to the limited amount of
+connectivity to downstream layers compared to activations
+at the center, as discussed in [44]. Further, the convolution
+cannot fully overlap the border regions without padding and
+thus will not recognize objects as well. This phenomenon can
+be seen in Fig. 10 (bottom-right), where the activations for
+grid location 7 are signiﬁcantly reduced in the no padding
+case. Interestingly, for grid location 25 (i.e., center), there
+is also a visible difference in the activation space. Here,
+Fig. 10. Filter activation visualization for the classiﬁcation task on CIFAR-
+10 with a white background and 7× 7 grid size. It is clear that zero
+padding provides richer information and larger activations downstream,
+particularly at locations near the boundary (e.g., L = 7). The activations
+are visualized using the ‘gray’ colormap.
+activations found for the no padding case are blurred and
+noisy which contrasts the tight square shaped activations
+when zero padding is used. While border effects mainly
+impact regions near the border, these results show clear
+evidence that input locations at the center of the image are
+also impacted with a lack of padding which is evidence
+supporting H-IV. This also explains the performance drop
+at the center of the grid in Fig. 9 (left).
+6.3 Does Encoding Location Enable the Learning of
+Semantics?
+In Sec. 5, we provided quantitative evidence that reveals the
+correlation between the number of neurons encoding position
+and semantic information (H-III). We further investigate this
+phenomenon to see how position information, by means of
+zero padding, allows for richer semantics to be learned for
+the tasks of image classiﬁcation and semantic segmentation.
+The heatmaps in Fig. 11 show segmentation predictions
+for different grid locations, L, of a 7× 7 grid. When no
+padding is used CNNs have difﬁculty segmenting images
+near the border (highlighted with circles in Fig. 11) except
+when a black canvas is used. However, for locations near
+the center of the image, reduced position information due

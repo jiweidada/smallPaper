@@ -1,0 +1,52 @@
+315｜固定几何解释强对照审查
+2026-10-21；Astra A。仅只读审查与设计，未新增训练、模型执行、自然数据或数据计算。写入前确认315编号空。296/306/309及300历史结果不回改。
+
+一、建议：首次采用N/S/G/R四臂，48个head epochs
+支持增加G=R_geom，采用与R相同的mass-reference independent/cap、固定C=d_out及κ=0；不采用中心放一单位的R_fixcenter作为唯一固定对照。四臂回答三个不同问题：N检验显式density补全本身，S检验一般逐实例条件融合，G检验固定结构化扣减是否已足够，R才检验可学习对应/null参与生成是否还有增量。N/S/R无法单独排除“把任意固定几何扣减接到新框头就够了”，这一缺口在2025式9与2015密度生成先例补齐后确实重要。
+首选四臂的原因是归因完整，不是48听起来便宜。若真实计费后确需三臂，优先S/G/R：S不能被G替代，G也不能被S替代；此时主动放弃“优于无P的density-only头”的独立结论，不能借未训练的N填表。不是建议默认删N省预算，也不把额外训练当已经获批。
+
+二、G的精确定义：同一分配式固定两个代价输出
+沿306的冻结raw全局、fullP、固定窗W、相交供给P_W、固定M0/U_W、RGB128²→16²×128、四query和原生融合。令x_i为16²cell中心；预测框保持未clip的同一局部坐标，w_j=x2_j−x1_j>0、h_j=y2_j−y1_j>0。非有限/非正框按既有合同报错，不偷偷换核或裁框。
+ d_out(i,j)=max(x1_j−x_i,0,x_i−x2_j)/w_j
+             +max(y1_j−y_i,0,y_i−y2_j)/h_j。
+G的生成分配固定C^G_ij=d_out(i,j)、κ^G_j=0、ε=1、null参考质量1；不加score乘子、温度、额外半径或可学几何倍率。仅候选自身类别相连。mbar=stopgrad(m)与其余臂相同。
+ Z^G_j=1+Σ_l mbar_(c_j,l) exp[−d_out(l,j)]，
+ p^G_ij=mbar_(c_j,i) exp[−d_out(i,j)]/Z^G_j，p0^G_j=1/Z^G_j；
+ u^G_ci=Σ_(j:c_j=c)p^G_ij，a^G_ci=min(1,mbar_ci/u^G_ci)，u=0时a=1；
+ T^G_ij=a^G_(c_j,i)p^G_ij，z^G_j=p0^G_j+Σ_i(1−a^G_(c_j,i))p^G_ij；
+ r^G_ci=mbar_ci−Σ_(j:c_j=c)T^G_ij=[mbar_ci−u^G_ci]_+。
+J=0时r^G=mbar。零质量格不产生分配；采用同logsumexp与safe-empty合同，不另改数学分母。G并非“无null”：它有固定null选项和cap退null，仅没有可学习null代价。
+G将r^G的10类log1p向量放入value、总量log(Σ_c r^G_ci+1e−4/256)放入空间attention，与R完全同接口；RGB特征及其图像attention通路保留。G仍是可学习的RGB/density/生成模型，只是生成分配规则固定，不能称整个G为固定模型。
+这与299源码的geometry_cost、conditional(alpha=0)、cap_once对应，即300的I_cap解析结构；300使用oracle GT mass、旧缓存/窗与供给语义，本方案使用预测m和新自然M0配方。公式复用不等于300已验证G的自然学习或AP。
+
+三、关键公平性：固定生成计划不替换可学习的辅助计划
+N/S/G/R全部保留同一可学习association分支：15维a_j=[未clip框4、onehot10、score1]的编码、C^A=d_out−〈W_q a_j,W_k f_i〉/sqrt128、κ^A_j，以及由其产生的p^A/T^A/z^A。四臂同L_mass和L_assoc、同M0目标、同权重，G的L_assoc必须作用于T^A/z^A，不能改成固定T^G/z^G。否则sg(m)且C^G/κ^G固定会使关联损失缺失可学习路径，G不再与R享有同辅助监督。
+实现上应明确两套张量：G的生成读取plan_geom；G的L_assoc读取plan_aux。N/S只把plan_aux用于共同辅助监督；R的生成和L_assoc共用plan_aux。没有额外第二个可学习association网络，也不复制一份新的loss。四臂公共参数逐项同初态，不能按不同调用顺序随机初始化。
+按296既定初始化W_q=0、κ末层weight/bias=0，G与R在相同RGB/m/P和公共权重下，初始C、κ、p/T/z/r及生成输出相同；初始辅助loss也相同。这个等式应成为实现合同，不是本轮已执行的测试。训练后R才允许对应和null的学习结果进入生成；G的辅助分支仍可学习，但它的输出不进入生成。
+梯度不声称相同：G的检测损失不经固定plan_geom回到m-head或aux C/κ；它仍更新图像特征/decoder，L_assoc仍更新共享f与aux分支。R额外允许检测损失经可学习plan_aux的C/κ支路回传；mbar数值支路三臂旧约定扩为四臂仍统一截断。共享f会被多种loss改变，不能说G的m只受density在参数上完全隔离。
+因此R−G检验的是“可学习内容/候选对应和null进入生成”的联合增量，包含其检测梯度通路，也包含a_j中score能影响对应的能力；不是单独证明视觉项、score或null哪一个有效。S保留同逐实例score，防止把一般使用候选信息包装成专属解释优势。首次不再扩内容-only/null-only/score-only臂。
+
+四、为什么固定中心不是更强主控制，旧66/93不能替它背书
+R_fixcenter把候选中心的双线性核K(center_j)当一单位解释，再作cap。它改变了参考质量、空间支持和null处理，故R胜它可能仅因宽框解释应分散到框内视觉质量，而非学习解决了误扣。相交供给允许框中心在W外，中心核还会引入“丢弃窗外中心”或“硬夹到窗边”的额外选择；它们均不是当前完整供给定义。
+284的66/93是无合法解释条件的框包含遗漏tiny中心，既未证明候选中心核与该GT的单位核相交，也不是新自然M0数据。合法13/14、相交旧82/137同样不能写成G/R的已验证学习收益。若两个GT核远离候选中心的四个散射格，即使二者中心都在其框内，中心核也可完全不扣它们；G在对应类别质量为正且d_out有限时有相应分配，却也不保证扣得多或扣得对。这个差别由公式可见，无需再跑作用面资格表。
+G保留框范围、预测质量参考、单位供应、固定null与cap，避免给R一个先天错位的中心核对手；它不依赖“框包含遗漏中心”就宣称存在足够效果。R仍可能错误解释邻近遗漏GT，cap只保非负和容量，不能保证语义正确或重复候选不变。
+
+五、原文边界与四臂结果的解释
+已亲读2025 Density-based Object Detection in Crowded Scenes §III–IV：GT单位密度/UOT及式9 d_i←d_i exp[−IoU(b_i,b_t)^2/σ]已覆盖单位质量与已选框引发密度下降；式9调节现有proposal保留。2015密度恢复整数位置/估框的原文范围沿309的亲读审查，不伪称本轮重新取得全文PDF。因此不能以“密度衰减后出框”作独占贡献。
+当前R也能写r_ci=mbar_ci[1−Σ_j exp(−C_ij)/Z_j]_+，仍属密度衰减家族。G正是把已有结构化衰减与生成相结合的强简单适配；它不是原文Eq9的逐字复现，但比仅改NMS更直接控制本方案其余结构。R只有在对G及S同时取得已锁指标的相对信号，才得到继续研究“可学习解释接口”的理由。
+四臂若获采用，建议在训练前把306的原8项方向规则扩为12项：两seed各自R对N、S、G的APs与tiny Geo0正式新增TP B均严格正；零不算正，mixed不加轮/换窗/改标签救。原8项不删，新加的只是对G的同口径4项，不引入幅度阈值。它仍是有限学习方向判别，不是显著性、等效性或成功承诺。
+若R胜N/S但不胜G，则普通几何扣减已足以解释现有证据，不能把共同收益记作学习null/内容对应的贡献。若R胜G却不胜S，则受限残余接口未胜一般条件融合。若G方向更好，可报告固定结构方案的事实，但不能自动把它重新命名为已成立主线。小正值也只允许有限保留；两seed表与同图配对CI、所有负AP代价照报。
+每seed baseline/N/S/G/R全部保存并列表12项COCO：AP/AP50/AP75/APs/APm/APl/AR1/AR10/AR100/ARs/ARm/ARl；另列B、FP、原TP新增/丢失、post300/perclass100挤出与资源。12指标不增主gate。无重新选best、阈值或额外GT子组，原raw/M0/相交供给/损失/末端评估规则不变。
+
+六、实际新增预算与工程边界
+四臂×两seed×6轮=48 head epochs，不是48全检测器轮次。沿3235开发自然图、batch16/drop_last=False：8个run各1218步/19410 crop曝光，共9744步/155280 crop曝光；相对306新增两次G run，即2436步/38820 crop曝光。首次全局缓存仍为3235×2=6470冻结forward，末端548×2=1096冻结forward，可由所有臂共用；不因增加G重采原global缓存或读heldout。新增G末端head/crop/eval及全部保存预测的分析成本必须计入。
+G训练时有共同aux分支，还需计算固定生成计划；R可复用其learned计划。G部署可裁去仅aux使用的候选编码/association网络，成本可能更低；真实参数、显存、FLOPs、时延与GPU小时仍NA，不能用头轮数直接算加价或称近零开销。先实现与计费，再决定具体算力，不在本文执行或申请启动。
+最低新增实现合同只针对这一差别：G/R零初始化输出一致；改变aux C/κ参数只改变G的aux计划而不直接改变同f/m/P的G生成计划；G有固定null且行/列守恒；mbar的截断与四臂相同辅助loss路由正确。这里是待实施合同，无新增合成或自然计算记录。
+
+已读身份与定位
+296_A_单位实例残余补全_具体实现提案.txt SHA256 7dd909843afb9536c0fc12c92ad2326d2519c1a1b6fc66bf2aa484f5ce94caa7。
+306_A_单位解释残余补全_三臂有限验证方案_v2.txt SHA256 821b43ec2ee1c256e229425d0863f1d4197e2fc469e6251eb75fc1638590e3f0。
+309_B_单位密度检测近邻原文补核.txt SHA256 17df4c183734ccf97237fc002501b8eb8494a060e5368366bf79c401cffa7e36。
+299_BASE24_oracle_residual_transport_polished.py SHA256 c3ba865bd804e7257b6f379bc237035d56e1c5e4d65fcd97d7fb1e2a163b6526；geometry_cost行65、conditional行75、cap_once行81，本轮仅读源码。300历史oracle不能冒充本G训练结果。
+2025原文：https://arxiv.org/html/2504.09819v1#S4
+2015官方入口（本轮具体式范围依309）：https://www.cv-foundation.org/openaccess/content_cvpr_2015/html/Ma_Small_Instance_Detection_2015_CVPR_paper.html

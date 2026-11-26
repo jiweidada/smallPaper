@@ -1,0 +1,132 @@
+BASE_FRESH / FULL_FRESH driver interface
+
+This directory contains newly prepared isolated instrumentation. No model,
+preflight, remote connection, training or evaluator was executed by the agent
+that prepared these files. Real Python 3.10 compilation and actual runtime/GPU
+preflight are required before launch. In particular, the first local check on
+Python 3.12 missed a nested f-string quote that was corrected at fair_helpers.py
+line101; only the outer quotes changed. Original frozen scientific files remain
+untouched.
+
+Per-arm remote structure
+arm_dir/
+  frozen_parent/      all247 original frozen files plus their original protocol
+  source_snapshot/    byte-identical scientific source copied from frozen_parent
+  execution_configs/ only the actual arm config; four data paths + output path relocated
+  inputs/             archived initial.pt, this run's first100.json, preflight.json
+  environment.current.json + environment.peer.json (both actual current inventories)
+  user_authorization.json, staged_inputs.json, cache_verification.json
+  execution_protocol.json (created only after the one-batch preflight passed)
+  fair_helpers.py, train_runner.py, backup_protocol.py, launch_arm.py, preflight.py
+  run/                training output, created exactly once by the driver
+  backup_gate/         probe and epoch manifests/ACK/accepted receipts
+
+Preparation sequence
+1. stage_arm.py prepare --root ORIGINAL_UNPACKED_FREEZE --data-root CACHE
+   --arm-dir NEW_ARM_DIR --arm BASE_FRESH|FULL_FRESH --gpu-uuid GPU_UUID
+   --cuda-device 0 --authorization-file NEW_AUTH_JSON
+   --environment-file THIS_HOST_ACTUAL_ENV_JSON
+   --peer-environment-file OTHER_HOST_ACTUAL_ENV_JSON
+   This uses standard-library I/O only. It verifies247 original files and7021
+   dataset files, records exact permitted path relocation and preserves original
+   files. Both actual software inventories must match each other. Three explicit
+   packaging-tool differences from the historical inventory are retained in the
+   record (wheel, tomli, packaging); scientific dependencies must match.
+2. In the actual remote environment, compile the five per-arm Python files using
+   Python3.10 (compile source strings, without creating bytecode in frozen source).
+3. A separate process runs:
+   python -B preflight.py --arm-dir NEW_ARM_DIR --arm BASE_FRESH|FULL_FRESH
+   It strictly loads the archived initial tensors; checks554 shared tensors,
+   raw/EMA identity, initial LRs and100 actual input batches against the archived
+   exact batch records. One first-batch training forward/backward is executed.
+   No optimizer update, EMA update, inference-only second forward, or full
+   validation is performed. Its mutated temporary model is discarded at exit.
+4. stage_arm.py finalize --arm-dir NEW_ARM_DIR
+   This freezes runtime input hashes and emits execution_protocol.json. It does
+   not launch anything and does not import torch.
+
+Mandatory proof before launch
+5. python -B backup_protocol.py publish-probe --output NEW_ARM_DIR/run
+   --anchor NEW_ARM_DIR/inputs
+6. Start a local backup monitor (see below). It copies initial.pt+preflight.json,
+   verifies their file and tensor hashes using a CPU-only subprocess, durably
+   commits the local stage, and uploads an ACK bound to the exact manifest.
+7. python -B backup_protocol.py verify-probe --output NEW_ARM_DIR/run
+   This validates the ACK and emits accepted.json. The launch routine rejects a
+   missing or inconsistent manifest/ACK/accepted triple.
+8. python -B launch_arm.py launch EXACT_EXECUTION_PROTOCOL_SHA256
+   The supervisor executes train_runner.py with the exact protocol SHA, detached
+   into its own process group. No automatic retry exists. The seven-day hard
+   timeout remains604800 seconds. A second invocation cannot silently reuse an
+   existing launch.lock, supervisor.json or run directory.
+
+Local monitor contract
+Place backup_monitor.py, backup_protocol.py, checkpoint_validator.py and an exact
+copy of that arm's execution_protocol.json together in a dedicated local control
+directory. No remote scientific source is imported by the local monitor.
+
+CLI:
+  backup_monitor.py --host172.17.120.160 --port30715|30048 --user root
+  --known-hosts PINNED_KNOWN_HOSTS --remote-root NEW_REMOTE_ARM_DIR
+  --local-root D:/MPSMA_DEIM_experiment_backups/BASE_FULL_FRESH_20261112_v1/ARM
+  --checkpoint-python BUNDLED_PYTHON_EXE
+  --torch-site C:/Users/jiwei/Desktop/小论文投稿/01_会议论文/本地CPU核验_20261103/.runtime/site-packages
+
+Actual syntax includes a space between each flag and its value. The --local-root
+must exist. The default backup subdirectory is --local-root/backups; --backup-root
+may select another dedicated subdirectory under the same allowed local root.
+Host keys are pinned; the monitor does not silently accept a new SSH key.
+
+For a hidden process with user-DPAPI credentials, a wrapper can import the monitor
+and call backup_monitor.main(password_provider=callback). callback(host,port,user)
+returns the password in memory; it is never an argument or an evidence field.
+Without a provider the monitor requires a real interactive terminal and getpass.
+The wrapper should be launched with a hidden Windows process window.
+
+CPU payload checks run in a separate process, with CUDA_VISIBLE_DEVICES empty.
+--torch-site adds that directory to sys.path and retains Windows DLL directory
+handles for SITE/torch/lib and sys.base_prefix/DLLs. The validator does not require
+the local torch version to equal GPU runtime2.5.1. It strictly loads saved payloads
+on CPU with weights_only=True; no model is built or executed. The actual local
+CPU runtime version must be recorded separately (parent observed torch2.6.0+cpu).
+
+Per-round payload/ACK binding
+Both roles are always present in the closed manifest: next_epoch.pt and
+evaluated_epoch.pt. When the native epoch-end policy performs no restore, both
+roles point to the same physical next_epoch.pt and must have identical file and
+EMA hashes. When a restore occurs, evaluated_epoch.pt is saved before that
+restore and next_epoch.pt afterwards. Both include model, EMA, optimizer,
+criterion, postprocessor, warmup, main Python/NumPy/CPU/CUDA random states and
+training/validation generator states. Selected and terminal checkpoints retain
+the same random-state fields. The native policy's load_state deliberately does
+not load RNG: changing that would alter the original policy's science.
+
+Before every ACK, the local monitor verifies all files by SHA and size, checks
+metric/prediction/evaluator/role bindings, and runs checkpoint_validator.py. This
+verifies complete state/RNG fields and computes the actual EMA tensor hash from
+the evaluated, next, selected and terminal payloads. It writes a local validation
+receipt tied to the manifest and validator SHA. Only then is a local durable
+stage committed and an ACK uploaded. The remote gate verifies its own files
+again and writes accepted.json. It blocks the next epoch until this succeeds.
+Failure stops further ACKs; it never retries training or extends its budget.
+
+Storage limits fixed before launch
+BASE_FRESH:45GiB =48,318,382,080 bytes
+FULL_FRESH:75GiB =80,530,636,800 bytes
+Combined maximum CAS object/partial payload bytes:120GiB =128,849,018,880 bytes
+At least32GiB must remain free on the backup filesystem before another download.
+The count includes .blob and resumable .part files. Epoch directories use hard
+links to content-addressed objects, so identical roles/selected files are not
+copied again. These are hard ceilings, not estimates. Metadata overhead is small
+and is additionally bounded by closed per-epoch manifests and per-file limits.
+All individual manifest payloads are capped at192MiB and metadata at128KiB.
+The previous80–90GB observation is only a planning estimate, not a guarantee.
+On a storage cap, nonfinite value, process error, exhausted ACK timeout or hard
+timeout the run reports failure without adding epochs, seeds or retries.
+
+Scope
+Exactly two arms, one GPU each, seed0, batch4, FP32,320 rounds/arm,
+1617 attempts/round,517440 optimizer attempts/arm,320 full548-image validations
+per arm. Actual epoch319 EMA before any following restore is the primary
+endpoint. Best AP is secondary with earliest ties and all12 metrics from one row.
+No additional group, seed, tuning, latency benchmark or model evaluation is added.

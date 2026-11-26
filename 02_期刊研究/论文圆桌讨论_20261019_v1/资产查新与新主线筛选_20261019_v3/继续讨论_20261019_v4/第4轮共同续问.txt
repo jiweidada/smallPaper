@@ -1,0 +1,28 @@
+继续本场，目标是保留一条“有理由投入最小实验的研究主线候选”，不是在没有实验时先证明创新成立。用户要求继续讨论，直到出现值得保留跑实验的主线。不要为满足目标强行达成共识；本场仍只讨论和只读查新，不执行训练、推理、服务器、监测或修改历史证据。
+
+先修正阶段门槛：①规则事实/资产；②可证伪的最低成本探针；③通过探针才做短训配对；④完整复现后才判断论文贡献。不能要求②之前已经证明因果损害，也不能把进入②写成支持新颖性。缺历史索引只意味着不能追溯历史发生率，不意味着不能在隔离副本上用冻结checkpoint、固定输入做train-output前向而不更新优化器，取得当前时点的真实匹配。它不是历史回放；BN/RNG隔离、仅本地副本、无生产任务干预等是将来执行要求，本轮不执行。
+
+主助手在上一轮讨论之后补查的原文和资产如下；这些不是各位之前已经核实的材料。你们可明确说“据本次追加核查”，不能冒充独立阅读全文。
+
+N1 D-FINE原文§4.2，PDF第6页，https://arxiv.org/html/2410.13842v1#S4.SS2 ：每层Hungarian，聚合统一集合用于定位，分类仍各自O2O；DDF有匹配和未匹配query蒸馏。跨层联合监督本身已知，不能主张首创。
+作者公开源码 https://raw.githubusercontent.com/Peterande/D-FINE/master/src/zoo/dfine/dfine_criterion.py 网页223–243行_get_go_indices，和项目冻结文件英文小论文/code/p2_candidate_seed1_full132_20261007_v1/engine/deim/deim_criterion.py 第500–519行，去docstring后的AST一致。只是mutable master网页快照，不是固定commit或运行验证。函数：将各分支(query,GT)对拼接，torch.unique计数，按count降序，每个query只保留首先出现的GT，多query可选同一GT。原文作者的原生设计，不是项目意外改坏。实际当前96轮配置/参与层数仍需单独核对；不能用132冻结片段冒充当前生产审计。
+项目该冻结文件forward第597–602行聚合decoder aux/pre/encoder，boxes/local用union（use_uni_set启用时），分类各自匹配，DN自身固定索引。num_boxes_go按选中query计数，不按uniqueGT。loss_local含FGL直接GT及DDF，故只能称“普通boxes/FGL直接GT覆盖缺口”，不能说GT完全没监督。相同DN补偿不等于缺口一定无害或有害。
+N2 Align-DETR，BMVC2024，arxiv2304.07527v2，https://arxiv.org/html/2304.07527v2 ，PDF4–6页§3.2–3.3：已诊断跨层target misalignment，给中间层混合many-to-one监督和质量排序降权。一般“跨层身份不一致”“增多正样本”“按质量加权”均不能当新颖性。
+N3 Stable-DINO/Detection Transformer with Stable Matching，ICCV2023，https://openaccess.thecvf.com/content/ICCV2023/papers/Liu_Detection_Transformer_with_Stable_Matching_ICCV_2023_paper.pdf ，PDF2–3页§2.1–2.3：已讨论跨decoder层不稳定、多优化路径，用position-supervised classification和position-modulated matching。现有基线MAL的IoU^1.5与LQE不能假装不存在。
+N4 EASE-DETR CVPR2024，https://openaccess.thecvf.com/content/CVPR2024/papers/Gao_EASE-DETR_Easing_the_Competition_among_Object_Queries_CVPR_2024_paper.pdf ，PDF2–4页§3：leading/trailing query基于score/IoU关系，attention衰减偏置。一般“减少query竞争”也不新。
+N5 PaQ-DETR CVPR2026，https://openaccess.thecvf.com/content/CVPR2026/html/Kang_PaQ-DETR_Learning_Pattern_and_Quality-Aware_Dynamic_Queries_for_Object_Detection_CVPR_2026_paper.html ，PDF1–4页§3.2–3.3已做激活不均/shared semantic patterns/quality O2M。现有DEIM从encoder内容初始化query，并非所有固定learnable query诊断适用。DEIMv2 v4 https://arxiv.org/html/2509.20787v4 PDF4页已做目标级CopyBlend；DEIM补充Table12已有密度非单调。不得简单改回query扩容/尺度增强/质量排序。
+N6 标注方向近邻新补查：2026-09预印本 Object Detection Benchmarks are Incomplete: The Role of Label Errors and Annotation Uncertainty https://arxiv.org/html/2609.21822v1 已有四数据集多标注员重标、soft labels/不确定性评估，报告绝对分数变化而ranking大体稳定。COCO-ReM ECCV2024 https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06053.pdf 则报告mask ranking变化。不得只以“标注改变AP”为新主线；本项目缺独立盲复标。
+
+N7 资产核对：真实历史训练matching ID未找到；旧7批标签和DN槽位不是matching预测；旧eval recorder明确eval-only，dense anchors是先验不是8400回归框。UAVDT第36轮六份预测只有image/box/score，无queryID/训练历史。它们的候选覆盖/排序诊断已经完成，不要再列成未做；C两个seed AP70均负但拆分原因不同。已有冻结模型、代码、图像标注与增强样本可复用。现有6训练继续，别把计划写成已执行。
+
+这轮请每人提出至多一个可落到判别实验的具体候选，也可因明确近邻或不值得成本而否决，但不要只重复“缺历史所以停”。覆盖/稳定性取舍是可用线索，不强制只选这一题；允许换题但需说明复用哪些具体资产、为什么超过前述近邻。
+
+必须回答（约1200–1800中文）：
+1. 一句研究问题和会失败的预测；如果假设真，新增知识是什么，假设假则怎样停止。
+2. 具体可实现规则/干预：输入、输出、优化对象、保持什么不变；是新的算法候选、已有算法在新问题下的必要参照，还是仅诊断。不要只命名“coverage-aware/quality-aware”。可以给公式/小伪码，但不写生产代码。
+3. 最近原文已经做了什么，你的实质差别是什么；至少对N1/N2/N3三者逐项判断，不能仅靠篇名；未核实标明。
+4. 最强且便宜的简单竞争方案。覆盖候选至少要包含各层自身Hungarian、末层Hungarian，以及原生frequency union；单纯GT覆盖更多不能判优。任何额外pair数/总loss权重变化，都要给等预算对照。禁止把GT oracle诊断当推理算法。
+5. 一个不更新权重的可行性探针，明确独立输入单位/需要重新产出的字段、看什么量、怎样区分稳定筛选的合理收益。它最多允许进入短训，不能宣称解决因果。随后一个最小短训配对，目的与强替代、如何确保日程一致，允许现有baseline复用的条件。现在不执行。
+6. 写可预先冻结的继续/停止条件；效应阈值若提出只是设计选择，不能当由当前两seed推得的可靠检验力。精确未有依据时可先用支配/不支配、种子方向、对应损失等定义，不乱编提升数字。
+
+四位分工只是优先检查视角，仍须独立判断：A提出最小具体规则；B找最强等价已有方法/简单替代，允许提出更好的候选；DSH确保最小探针可执行、指标不偷换；C专查“即使成功为什么值得一篇论文”，并提出可被推翻的保留意见。本轮保留候选不等于创新成立。下一轮将对候选做交叉攻击，再由下一轮产出唯一主线和阶段化最小实验说明，或明确指出不可补救阻碍。

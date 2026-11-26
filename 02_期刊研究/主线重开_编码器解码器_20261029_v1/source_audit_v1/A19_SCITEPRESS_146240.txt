@@ -1,0 +1,647 @@
+Efficient Multi-Temporal Building Change Detection with Reduced-Rank
+                           Linear Attention
+
+                                                                   a                                                    b                      c
+                Ricardo A. Acuña-Villogas                          , Germain Garcı́a-Zanabria                              , Cristian Lopez       and
+                                                                    Rensso Mora-Colque d
+                     Department of Data Science, University of Engineering and Technology, Barranco, Lima, Peru
+
+
+
+
+Keywords:             Building Change Detection, Linear Attention, Remote Sensing, Computational Efficiency, Satellite Imagery.
+
+Abstract:             Transformer-based architectures have become the dominant paradigm for bi-temporal building change
+                      detection (BCD). However, their application to very high–resolution (VHR) imagery remains limited by the
+                      quadratic complexity of multi-head self-attention (MHSA). This work introduces RALA-ChangeFormer, an
+                      efficient variant of ChangeFormer that replaces the encoder’s MHSA modules with rank-augmented linear
+                      attention (RALA). The integration preserves the hierarchical structure of the original model and maintains
+                      its ability to perform bi-temporal spatio–temporal reasoning. Experiments on the LEVIR-CD and DSIFN-CD
+                      benchmarks show that RALA-ChangeFormer delivers segmentation accuracy comparable to the baseline, with
+                      variations within standard training variance. The method reduces attention-related GFLOPs, lowers peak GPU
+                      memory consumption, and enables substantially larger batch sizes at multiple resolutions. Ablation studies
+                      confirm that the efficiency gains arise primarily from the encoder, where token counts are highest. Overall, the
+                      results demonstrate that rank-augmented linear attention provides a practical accuracy–efficiency trade-off
+                      for VHR BCD. The proposed approach improves computational scalability without sacrificing predictive
+                      performance, making high-resolution or large-scale training more accessible under fixed hardware constraints.
+
+
+
+1        INTRODUCTION                                                                         well-annotated bi-temporal samples to train and
+                                                                                              reliably evaluate deep models on building-scale
+Multi-temporal Building Change Detection (BCD)                                                structural changes.        Fundamentally, accurately
+from very high–resolution (VHR) satellite imagery                                             predicting change regions requires a dual capability,
+plays a crucial role in urban expansion monitoring,                                           the model must: (i) resolve subtle, fine–grained
+infrastructure management, and post–disaster                                                  alterations at the building level, and (ii) integrate
+assessment (Daudt et al., 2018; Zhang et al., 2020a;                                          broader spatial–temporal context to disambiguate
+Hussain et al., 2013). Given two or more images of                                            true structural changes from irrelevant variations such
+the same geographic area acquired at different times,                                         as illumination or seasonal effects. In this context,
+the goal is to determine whether individual buildings                                         RALA-ChangeFormer (Fan et al., 2025) satisfies
+have been newly constructed, removed, or altered in                                           the dual requirement while substantially reducing
+their footprint or roof structure. The task is typically                                      computational cost in comparison to the baseline
+formulated as a bi-temporal semantic segmentation                                             ChangeFormer (Bandara and Patel, 2022). Table 1
+problem (Zhang et al., 2020b; Shafique et al., 2022),                                         shows a comparison of RALA-ChangeFormer and
+where a model predicts a binary change mask from                                              ChangeFormer with different datasets.
+paired inputs. Public benchmarks such as LEVIR-CD                                                 In the same vein, motivated by the challenges
+(Zheng et al., 2020) and DSIFN-CD (Shen et al.,                                               inherent to bi-temporal semantic segmentation, recent
+2021) have been instrumental in advancing BCD                                                 years have witnessed a shift from convolutional
+because they offer sufficiently large, diverse, and                                           Siamese      architectures    to    Transformer-based
+                                                                                              models for BCD. Methods such as BIT (Chen
+     a     https://orcid.org/0009-0005-7543-2232                                              et al., 2022), SNUNet (Fang and Li, 2021) and
+     b     https://orcid.org/0000-0003-3266-9043                                              ChangeFormer (Bandara and Patel, 2022) leverage
+     c     https://orcid.org/0000-0002-2568-650X                                              self-attention to capture long-range dependencies
+     d     https://orcid.org/0000-0003-4734-8752                                              and global spatial–temporal context, achieving
+
+
+                                                                                                                                                         615
+Acuña-Villogas, R. A., García-Zanabria, G., Lopez, C. and Mora-Colque, R.
+Efficient Multi-Temporal Building Change Detection with Reduced-Rank Linear Attention.
+DOI: 10.5220/0014624000004084
+Paper published under CC license (CC BY-NC-ND 4.0)
+In Proceedings of the 21st International Conference on Computer Vision Theory and Applications (VISAPP 2026) - Volume 2, pages 615-624
+ISBN: 978-989-758-804-4; ISSN: 2184-4321
+Proceedings Copyright © 2026 by SCITEPRESS – Science and Technology Publications, Lda.
+VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+
+
+
+
+Table 1: Comparison between ChangeFormer (CF) and                   performance in natural image classification and
+the proposed RALA-ChangeFormer (RALA-CF) on two                     general vision benchmarks (Fan et al., 2025),
+benchmarks with input dimension 256 x 256 and batch 16.             its applicability to multi-temporal semantic
+  Dataset    ChangeFormer RALA-CF                                   segmentation remains unexplored. In particular,
+  LEVIR-CD (Zheng et al., 2020)                                     it is unknown whether the rank-preserving
+                                                                    properties of RALA translate effectively to
+  F1             90.40           89.87                              bi-temporal encoder–decoder architectures such
+  IoU            82.48           81.60                              as ChangeFormer, where accurate BCD requires
+  FLOPs (G)     138.77          135.62                              both fine-grained local discrimination and global
+  DSIFN-CD (Shen et al., 2021)                                      spatio–temporal reasoning. This gap is especially
+  F1             86.67           84.07                              relevant given the computational constraints of
+  IoU            76.48           73.96                              VHR remote sensing, where efficient attention
+  FLOPs (G)     248.77          228.62                              mechanisms must reduce complexity without
+                                                                    degrading segmentation accuracy.
+state-of-the-art performance on multiple datasets.                      In this work, the gap is addressed by introducing
+Vision Transformer (ViT) architectures (Dosovitskiy                 RALA-ChangeFormer, an efficient variant of
+et al., 2021; Raghu et al., 2023; Fan et al., 2024)                 ChangeFormer in which each Transformer block
+have demonstrated strong representational capacity                  replaces quadratic self-attention with the RALA
+and scalability in large-scale visual recognition                   mechanism, a rank-augmented linear attention
+tasks. Their ability to model non-local interactions                formulation that expands the key–value space through
+makes them naturally attractive for multi-temporal                  a weighted mixture of multiple low-rank projections,
+reasoning. However, these advantages come with                      preventing the collapse typically observed in
+a significant computational burden.          Standard               standard linear attention. The goal is to reduce the
+self-attention requires quadratic complexity O (N 2 ) in            computational and memory cost of multi-temporal
+both time and memory, considering N as the number                   BCD while preserving segmentation accuracy. The
+of tokens in the input. In multi-temporal BCD,                      analysis examines how rank augmentation behaves
+each sample contains two high-resolution images,                    within the hierarchical encoder–decoder design
+effectively doubling the sequence length and further                of ChangeFormer and quantifies its impact on
+amplifying the quadratic cost. As a result, existing                performance, FLOPs, GPU memory consumption,
+Transformer-based approaches often rely on small                    and maximum feasible batch size.
+patch sizes, heavy downsampling, or prohibitively                       The main contributions of this work are:
+small batch sizes, limiting their scalability and                     • The introduction of RALA-ChangeFormer,
+slowing experimentation in practical settings.                          a rank-augmented linear attention variant
+    To alleviate this bottleneck, a wide range of                       of ChangeFormer that achieves near-linear
+efficient attention mechanisms—kernelized linear                        complexity while maintaining competitive
+attention (Katharopoulos et al., 2020; et al., 2021a),                  accuracy in urban BCD.
+low-rank approximations (S. Wang and Ma, 2020;
+                                                                      • A detailed computational analysis quantifying
+et al., 2021b), and sparse or windowed attention
+                                                                        reductions in GPU memory consumption, FLOPs,
+widely used in vision (et al., 2021c; Wei et al.,
+                                                                        and the increase in feasible batch size enabled by
+2023)—have been proposed to reduce complexity to
+                                                                        rank-augmented attention.
+near-linear in N. Despite their theoretical appeal,
+these methods often suffer from a critical issue:                     • An extensive experimental evaluation on
+linear attention inherently collapses the rank of the                   LEVIR-CD and DSIFN-CD demonstrating that
+key–value (KV) representation, drastically reducing                     RALA-ChangeFormer preserves segmentation
+feature diversity and degrading accuracy in dense                       accuracy while improving computational
+prediction tasks, especially in vision. Recent studies                  efficiency and training scalability.
+formalize this phenomenon and introduce the RALA                        This paper is organized as follows. Section 2
+(Fan et al., 2025) formulation to mitigate it by                    reviews prior work on building change detection and
+explicitly increasing the rank of the intermediate                  efficient attention mechanisms. Section 3 introduces
+representations through learned token-wise weighting                the theoretical foundations of ChangeFormer and
+and output modulation. RALA breaks the traditional                  RALA, including the key equations and mechanisms
+low-rank/accuracy trade-off observed in earlier linear              required for our integration. Section 4 presents
+attention variants.                                                 the proposed RALA-ChangeFormer method and
+    Although RALA has demonstrated strong                           describes how rank-augmented linear attention is
+
+
+616
+                                          Efficient Multi-Temporal Building Change Detection with Reduced-Rank Linear Attention
+
+
+
+
+incorporated into the architecture.         Section 5           methods, including the Performer (et al., 2021a)
+details the experimental setup and analyzes the                 and Linear Transformers (Katharopoulos et al.,
+accuracy–efficiency trade-offs. Section 6 concludes             2020), replace softmax attention with feature
+the paper and outlines directions for future work.              maps to achieve O (N) complexity.           Low–rank
+                                                                approximations such as Linformer (S. Wang and
+                                                                Ma, 2020) and Nyströmformer (et al., 2021b) reduce
+2    RELATED WORK                                               computation by projecting the attention matrix into
+                                                                lower–dimensional spaces. Windowed or sparse
+Research on multi–temporal BCD has progressed                   variants (e.g., Swin Transformer (et al., 2021c)
+rapidly with the rise of deep learning and the                  and Sparsifiner (Wei et al., 2023)) restrict token
+availability of large–scale satellite datasets. A broad         interactions to learned or structured neighborhoods.
+spectrum of architectures has been proposed, ranging            Although effective in some vision tasks, these
+from early convolutional siamese designs (Daudt                 approaches often suffer from reduced feature
+et al., 2018; Yang et al., 2021; Guo et al., 2021;              diversity due to inherent low–rank behavior, which
+                                                                limits performance in dense prediction tasks such
+Cao and Huang, 2023; Xiao et al., 2024) to more
+                                                                as semantic segmentation.           Rank–Augmented
+elaborate encoder–decoder formulations tailored for
+                                                                Linear Attention (RALA) (Fan et al., 2025) directly
+urban structures (Zhao et al., 2023; Tan et al., 2024).
+                                                                addresses this issue by increasing the rank of
+More recent efforts focus on Transformer-based
+                                                                the key–value representation through token–wise
+bi–temporal reasoning (Fang and Li, 2021; Chen
+                                                                weighting and output modulation.
+et al., 2022; Bandara and Patel, 2022; Zheng et al.,
+                                                                Gap in the Literature.          Despite progress in
+2023; Teng et al., 2023), which model long-range
+                                                                both BCD architectures and efficient attention
+spatial–temporal interactions more effectively than
+CNN-based counterparts. Complementarily, a rich                 mechanisms, rank–augmented linear attention has
+line of work on efficient attention (Katharopoulos              not been explored in multi–temporal remote sensing.
+et al., 2020; et al., 2021a; S. Wang and Ma,                    Existing BCD Transformers still depend on full
+2020; et al., 2021b; et al., 2021c; Wei et al.,                 MHSA (Vaswani et al., 2017), which constrains
+2023) seeks to mitigate the quadratic complexity of             scalability to high resolutions and limits feasible
+MHSA. These trends motivate the development of                  batch sizes.     Likewise, prior efficient attention
+RALA–ChangeFormer.                                              techniques have not been systematically evaluated
+Transformer-Based Building Change Detection.                    under the spatial–temporal constraints of bi–temporal
+Early deep learning methods for BCD relied                      BCD. This motivates the integration of RALA into
+on convolutional Siamese networks with feature                  a BCD architecture to improve efficiency while
+differencing and multi–scale fusion modules,                    maintaining segmentation accuracy.
+including STANet and SNUNet–CD (Fang and
+Li, 2021; Zheng et al., 2020). Transformer–based
+architectures subsequently improved performance by              3     THEORETICAL BACKGROUND
+modeling long–range spatial–temporal dependencies.
+BIT introduced cross–temporal interaction via                   This       section     presents    the     proposed
+bidirectional attention (Chen et al., 2022),                    RALA-ChangeFormer, a computationally efficient
+ChangeFormer (Bandara and Patel, 2022) combined                 variant of ChangeFormer in which the quadratic
+hierarchical CNN encoders with lightweight                      Multi-Head Self-Attention (MHSA) is replaced with
+Transformer blocks,         and HFA–Net refined                 rank-augmented linear attention (RALA). In order
+multi–scale feature aggregation with high–frequency             to provide a better understanding, we organized the
+attention (Zheng et al., 2023). More recent efforts             paragraphs: (i) a brief overview of ChangeFormer,
+such as Swin–based BCD models (Teng et al., 2023)               (ii) a clear formulation of Rank-Augmented Linear
+further highlight the benefit of global receptive fields.       Attention (RALA), and (iii) the integration into the
+Despite these advances, all such models rely on                 bi-temporal encoder–decoder design. In addition,
+full Multi–Head Self–Attention (MHSA) (Vaswani                  this section introduces the theoretical formulation
+et al., 2017), whose quadratic complexity becomes               that underpins the proposed method, providing
+prohibitive for VHR imagery.                                    the mathematical foundations required for its
+Efficient and Linear Attention Mechanisms. To                   implementation and analysis.
+mitigate the quadratic cost of MHSA (Vaswani
+et al., 2017), several efficient attention mechanisms
+have been proposed. Kernelized linear attention
+
+
+                                                                                                                          617
+VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+
+
+
+
+Figure 1: Overview of the baseline ChangeFormer architecture. Recovery from ChangeFormer original paper (Bandara and
+Patel, 2022).
+
+3.1    ChangeFormer                                                 where Nl is large. Furthermore, this architecture
+                                                                    does not incorporate the shifted-window mechanism
+ChangeFormer (Bandara and Patel, 2022) is a                         used in Swin Transformer (Teng et al., 2023),
+hierarchical Siamese encoder-decoder architecture                   which further limits its ability to efficiently capture
+designed for bi-temporal building change detection.                 long-range dependencies at lower computational cost.
+An overview of the full architecture is shown in                    This motivates the integration of a more efficient
+Fig. 1. Given two VHR images It1 and It2 , the                      attention mechanism—specifically, rank-augmented
+model processes them through a shared convolutional                 linear attention—to reduce computational cost while
+encoder to obtain multi-scale feature maps                          preserving the representational capacity required for
+                   (l)   (l)                                        accurate change detection.
+                 Ft1 , Ft2 ∈ RHl ×Wl ×Cl ,                (1)
+where l denotes the resolution level in the hierarchy.              3.2 Rank-Augmented Linear Attention
+The encoder follows the same design principle as
+hierarchical Vision Transformer backbones such as                   Linear attention methods aim to reduce the O (N 2 )
+Swin (Teng et al., 2023): the spatial resolution is                 cost of standard softmax attention by replacing the
+progressively reduced while channel dimensionality                  kernel with a feature map κ(·). Standard attention is
+increases, enabling the model to capture both                       defined as
+fine-grained local texture and broader semantic                                                     
+                                                                                                       QK ⊤
+                                                                                                            
+context across scales.                                                      Attn(Q, K,V ) = softmax √         V,      (3)
+    At each scale, the bi-temporal feature maps                                                          d
+are concatenated channel-wise and projected into a                  where Q, K,V ∈ RN×d (Vaswani et al., 2017) contain
+sequence of tokens via a lightweight patch embedding                the queries, keys, and values for the N input tokens
+module:                                                             (each row Qi is the query vector of token i), and d
+                                                                    denotes the hidden embedding dimension. Forming
+                                    
+                            (l)  (l)
+    X (l) = PatchEmbed Ft1 ∥ Ft2 ∈ RNl ×Cl ,       (2)
+                                                                    the dense matrix QK ⊤ produces quadratic time and
+where Nl = Hl Wl is the number of tokens at level l.                memory cost.
+    The decoder is composed of a cascade of                             Linear attention replaces the softmax kernel with
+Transformer blocks operating at multiple resolutions.               a feature map:
+Each block contains Multi-Head Self-Attention                                 Attnlin (Q, K,V ) = κ(Q) κ(K)⊤V ,
+                                                                                                              
+                                                                                                                      (4)
+(MHSA) and a feed-forward network (FFN),
+refining token representations through long-range                   where κ(.) is a kernel feature map, reducing the
+spatio-temporal interactions before upsampling and                  complexity to O (Nd). The intermediate matrix
+fusion into the final change mask.
+                                                                                         κ(K)⊤V ∈ Rd×d                 (5)
+    Because MHSA has quadratic complexity in the
+sequence length (O (Nl2 )), the decoder becomes the                 acts as a global key–value aggregation buffer. In
+dominant computational bottleneck for VHR imagery                   practice, the equation 5 often becomes low-rank
+
+
+618
+                                           Efficient Multi-Temporal Building Change Detection with Reduced-Rank Linear Attention
+
+
+
+
+because many key vectors are nearly collinear. This
+collapse in feature diversity limits representational
+power and degrades dense prediction performance.
+
+Rank Augmentation. RALA (Fan et al., 2025)
+addresses this by explicitly increasing the rank of B.
+Let K j and V j denote the key and value vectors of
+token j. RALA constructs
+                       N
+                 B = ∑ α j κ(K j )⊤V j ,               (6)
+                      j=1
+                            N
+                      N = ∑ αj                         (7)
+                            j=1
+                                                                 Figure 2: RALA Transformer block replacing the standard
+where α j reweights each token using a global query
+                                                                 MHSA module. Recovery from RALA original paper (Fan
+vector                                                           et al., 2025).
+                         1 N
+                  Qg = ∑ Qi ,                   (8)
+                        N i=1
+encoding the overall semantic content of the                     4     METHOD
+sequence. The weights are computed as
+                         exp(Qg κ(K j )⊤ )                       RALA-ChangeFormer is constructed by replacing
+          αj = N ×                          , (9)                every MHSA block in the encoder of ChangeFormer
+                     ∑Nm=1 exp(Qg κ(Km )⊤ )                      with the rank-augmented linear attention module
+which emphasizes information-rich tokens and                     described in Section 3.2, where attention-related
+increases the effective rank of B.                               computational costs are dominant. All remaining
+                                                                 components-CNN encoder, feed-forward layers,
+Output Feature Modulation. Even if B achieves a                  skip connections, and multi-scale fusion-remain
+full-rank state, the output features                             unchanged, preserving full architectural compatibility
+                      Yi = κ(Qi ) B                  (10)        with the baseline design. The integration mechanism
+                                                                 is summarized in Figure 2.
+may still be low-rank. This follows from the matrix
+                                                                     Given the token sequence X (l) ∈ RNl ×Cl at
+inequality
+                                                                resolution level l, the block first computes query, key,
+  Rank(Y ) ≤ min Rank(κ(Q)), Rank(B) ≤ d, (11)                   and value projections
+which states that the output cannot have rank greater                Q = X (l)WQ ,       K = X (l)WK , V = X (l)WV ,
+than its limiting factors: the diversity of queries κ(Q)                                                         (13)
+and the diversity of the aggregated buffer B. When               after which the attention operation proceeds exactly
+κ contains many correlated query vectors (common                 following the equations introduced in Section 3.2,
+in remote sensing patches), Rank(κ(Q)) < d, causing              namely: the global query descriptor (Eq. 8),
+information loss even if B is full-rank.                         the token-wise relevance coefficients (Eq. 9), the
+    To restore feature diversity, RALA introduces a              rank-augmented key–value buffer (Eq. 6), and the
+token-wise modulation step:                                      modulated output features (Eq. 12).
+                                       
+                Yi = φ(Xi ) ⊙ κ(Qi ) B ,             (12)            The resulting token-specific attention output
+                                                                 A replaces the MHSA output of the original
+where φ(·) is a token-dependent transform applied                ChangeFormer block and is incorporated via a
+only for modulation, and ⊙ denotes the Hadamard                  residual connection:
+product. This injects token-specific information
+without increasing the asymptotic cost and increases                  Xout = X (l) + LN(A),         Y = FFN(Xout ),        (14)
+the expressive rank of the output. This operation                    This construction preserves the overall
+injects token-specific information into the output               representational    structure    of    the    original
+features, complementing the global mixing performed              ChangeFormer architecture-including multi-scale
+by B and effectively increasing the expressive rank              refinement, long-range reasoning, and residual
+of Y . The modulation is applied only channel-wise,              learning-while substituting the quadratic-cost MHSA
+preserving the linear-time complexity of the attention           blocks exclusively within the encoder with a
+operation.                                                       linear-time rank-augmented mechanism.
+
+
+                                                                                                                           619
+VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+
+
+
+
+Computational Complexity. Let N denote the                          Implementation Details.              All experiments
+number of tokens and d the hidden dimension.                        are implemented in PyTorch, matching the
+Standard MHSA requires time: O (N 2 d) and                          software environment used by the ChangeFormer
+memory: O (N 2 ) due to the formation of the                        implementation (Bandara and Patel, 2022) for fair
+dense N × N attention matrix. In contrast, the                      comparison.
+RALA module scales as time: O (Nd) and memory:                          For LEVIR-CD, both ChangeFormer (CF) and
+O (d 2 ) because no pairwise token interactions are                 RALA-ChangeFormer (RALA-CF) are initialized
+constructed explicitly.     Since N ≫ d for VHR                     from the SegFormer-B2 encoder pretrained on
+remote sensing images, this substitution results in                 ADE20K, following the training protocol of the
+substantially reduced computational cost and enables                original ChangeFormer (Bandara and Patel, 2022).
+significantly larger batch sizes, faster training, and              An initial learning rate with cosine decay of 1 × 10−4
+improved scalability to higher spatial resolutions.                 is used.
+    Functionally, the architecture preserves all                        For DSIFN-CD, CF is fine-tuned from the best CF
+capabilities of ChangeFormer—multi-scale feature                    checkpoint obtained on LEVIR-CD using a reduced
+reasoning, long-range spatial interactions, and                     learning rate of 6 × 10−5 . Analogously, RALA-CF
+precise boundary refinement—while reducing the                      is initialized from the best RALA-CF checkpoint
+computational burden within each Transformer                        trained on LEVIR-CD and optimized under the same
+block.     Because RALA operates as a drop-in                       schedule. In all experiments, the only architectural
+replacement for MHSA, the model maintains full                      difference between CF and RALA-CF lies in the
+compatibility with pretraining strategies, multi-scale              encoder attention modules (standard MHSA vs.
+inference, and existing training pipelines. This makes              rank-augmented linear attention).
+RALA-ChangeFormer suitable for high-resolution
+BCD and scalable to large bi-temporal datasets under                5.1 Evaluation Metrics
+fixed GPU budgets.
+                                                                    We report standard change detection metrics
+                                                                    following the state-of-the-art BCD models (Zheng
+5     EXPERIMENTS AND RESULTS                                       et al., 2020; Shen et al., 2021; Bandara and Patel,
+                                                                    2022; Chen et al., 2022; Fang and Li, 2021). To
+In order to show the effectiveness of                               measure computational efficiency, we additionally
+RALA-ChangeFormer, we evaluate our proposal                         track (a) total learnable parameters, (b) GFLOPs per
+on two widely used benchmarks. Our experiments                      forward pass, (c) peak GPU memory consumption,
+assess both segmentation accuracy and computational                 (d) maximum feasible batch size before OOM and (e)
+efficiency after replacing the quadratic MHSA                       training throughput (images/s).
+modules of ChangeFormer with the RALA                               Results on Segmentation Accuracy.
+mechanism. All comparisons are made against
+the original ChangeFormer (Bandara and Patel,                       Table 2: Segmentation accuracy of baseline BCD models
+2022).                                                              and our variants on LEVIR-CD and DSIFN-CD using
+                                                                    256 × 256 input patches and batch size 16. Metrics
+LEVIR-CD. LEVIR-CD (Zheng et al., 2020)
+                                                                    for SNUNet-CD and BIT are taken from the original
+contains 637 bi-temporal high-resolution image pairs                ChangeFormer paper (Bandara and Patel, 2022).
+(1024×1024) depicting building changes in rapidly                     Model                            Dataset    F1      IoU     OA
+developing urban areas. Following standard practice,                  SNUNet-CD (Fang and Li, 2021)   LEVIR-CD   88.16   78.83   98.82
+each pair is cropped into non-overlapping 256×256                     BIT (Chen et al., 2022)         LEVIR-CD   89.31   80.68   98.92
+                                                                      CF (Bandara and Patel, 2022)    LEVIR-CD   90.40   82.48   99.04
+tiles, yielding: Train/Val/Test = 6096 / 762 / 762.                   RALA-CF (ours)                  LEVIR-CD   89.87   81.60   98.99
+DSIFN-CD. DSIFN-CD (Shen et al., 2021) includes                       SNUNet-CD (Fang and Li, 2021)   DSIFN-CD   66.18   49.45   87.34
+                                                                      BIT (Chen et al., 2022)         DSIFN-CD   69.26   52.97   89.41
+multi-class land-cover and building change scenes                     CF (Bandara and Patel, 2022)    DSIFN-CD   86.67   76.48   95.56
+under heterogeneous imaging conditions.           Each                RALA-CF (ours)                  DSIFN-CD   84.07   73.96   92.44
+512×512 pair is divided into non-overlapping
+                                                                    As shown in Table 2, RALA-CF matches the
+256×256 tiles, producing: Train/Val/Test = 14400 /
+                                                                    segmentation accuracy of the baseline ChangeFormer
+1360 / 192.
+                                                                    on both datasets, while outperforming prior BCD
+     Ground-truth labels in both datasets are binary
+                                                                    models such as BIT and SNUNet-CD. This indicates
+change masks. For efficiency experiments, the
+                                                                    that replacing MHSA with rank-augmented linear
+following is added (i) input patch resolution, and
+                                                                    attention preserves the segmentation capability of
+(ii) batch size until GPU out-of-memory (OOM) is
+                                                                    ChangeFormer.
+reached.
+
+
+620
+                                          Efficient Multi-Temporal Building Change Detection with Reduced-Rank Linear Attention
+
+
+
+
+Efficiency Analysis.                                            ChangeFormer on both datasets (Zheng et al.,
+                                                                2020; Shen et al., 2021).             The differences
+Table 3: Efficiency comparison between ChangeFormer and         fall within normal training variance, indicating
+RALA-ChangeFormer (256 × 256 inputs, batch size 16).            that the rank-augmented linear formulation retains
+ Model        Params (M)   GFLOPs     Peak VRAM (GB)            the model’s ability to represent spatial–temporal
+ CF               247       248.77          27                  interactions between bi-temporal features maps.
+ RALA-CF          243       228.62          21                  Importantly, while many linear-attention variants
+                                                                (et al., 2021a; S. Wang and Ma, 2020; et al., 2021b)
+Table 3 shows that RALA-CF reduces FLOPs by
+                                                                exhibit a well-documented degradation in dense
+approximately 8–10% and peak memory usage by
+                                                                vision problems due to low-rank collapse, RALA
+20–30% without altering the overall architecture.
+                                                                avoids this issue by explicitly increasing the diversity
+These savings translate into faster training and more
+                                                                of its KV buffer. This preservation of representational
+flexible batch-size configurations.
+                                                                capacity is further illustrated by the attention maps
+Maximum Batch Size Experiments.
+                                                                in Fig. 3, which provide a qualitative visualization
+                                                                of the spatial attention distribution. Collectively,
+Table 4: Maximum batch size before OOM for different
+input resolutions. VRAM limit: 34–36 GB (A100 40 GB             these results confirm that RALA maintains reliable
+VRAM GPU).                                                      prediction for this specific tasks, despite replacing
+ Resolution    Model    Max Batch    VRAM at OOM (GB)
+                                                                quadratic attention.
+                CF         32               34                  Computational Benefits and Practical Scalability.
+              RALA-CF      48               34                  Table 3 shows clear reductions in FLOPs and peak
+                CF          8               34                  VRAM usage when MHSA is replaced with RALA.
+              RALA-CF      12               34
+                CF          2               36                  Although iteration-level speedups are modest, the
+              RALA-CF       3               36                  improvements compound at higher resolutions,
+                                                                where MHSA cost is highest. The increased feasible
+Ablation: MHSA vs. RALA. To isolate the                         batch sizes (Table 4) highlight the most practical
+contribution, we perform an ablation where only                 advantage: RALA-CF can process substantially
+encoder attention is replaced with RALA, and all                more images per iteration under identical hardware
+other components remain unchanged.                              constraints.    In the context of remote sensing,
+                                                                where datasets may contain tens or hundreds of
+Table 5: Ablation study isolating the encoder attention         thousands of patches, this translates into significantly
+mechanism.                                                      higher throughput and faster experimentation
+  Variant               GFLOPs         VRAM (GB)                cycles.     Moreover, training with larger batches
+  Baseline MHSA          86.17            12                    allows exposure to more diverse samples per
+  Encoder: RALA          76.95             8                    step, improving stability and enabling efficient
+                                                                learning on large, out-of-distribution datasets. In
+As shown in Table 5, most computational savings                 contrast, baseline MHSA-based architectures often
+originate from replacing MHSA within the encoder,               require prohibitively small batches that impair
+where token counts are highest and attention cost               convergence behavior on heterogeneous datasets such
+dominates.                                                      as DSIFN-CD.
+                                                                Encoder-Level Efficiency Gains. The ablation in
+5.2   Discussion                                                Table 5 isolates the source of the computational
+                                                                savings, showing that almost all reductions originate
+The experimental results demonstrate that integrating           from the encoder, where token density is highest and
+RALA into the encoder of ChangeFormer provides                  attention cost dominates. The decoder contributes
+consistent    computational     advantages     while            marginally to computational load, so modifying only
+preserving segmentation accuracy in multi-temporal              the encoder yields the majority of benefits while
+BCD. Since the modification affects only the                    maintaining full architecture compatibility.
+encoder self-attention modules—leaving the                          In summary, RALA-ChangeFormer achieves
+convolutional backbone, FFN layers, and decoder                 meaningful efficiency gains without compromising
+head unchanged—the magnitude of improvements is                 segmentation quality, while offering practical
+moderate but systematic across all benchmarks.                  scalability advantages for high-resolution or
+Accuracy–Efficiency Balance.          As shown in               large-scale BCD pipelines under fixed GPU memory
+Table 2, RALA-ChangeFormer achieves nearly                      budgets.
+identical F1, IoU, and OA scores to the baseline
+
+
+
+                                                                                                                          621
+                                VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+
+
+                                          Tenc_x2.block4.2                                       Tenc_x2.block4.2
+                           0                                                            0
+                                                                                                                          spatially disjoint but not fully independent in
+                                                                                                                          terms of acquisition conditions or geographic
+                                                                                                                          regions. While this work focuses on computational
+Dimensión / Canal (0 64)
+
+
+
+
+                                                             Dimensión / Canal (0 64)
+                                                                                                                          scalability and efficiency under commonly
+                           32                                                           32
+                                                                                                                          adopted BCD benchmarks, the generalization of
+                                                                                                                          RALA-ChangeFormer to unseen acquisition domains
+                                                                                                                          (e.g., cross-region or cross-sensor settings) remains
+                                                                                                                          an open question. Evaluating rank-augmented linear
+                           64
+                                0                256         512
+                                                                                        64
+                                                                                             0          256         512
+                                                                                                                          attention under fully independent data distributions is
+                                           Tokens (0 512)                                         Tokens (0 512)
+                                       (a) CF (MHSA).           (b) RALA-CF (RALA).                                       a promising direction for future work.
+                                Figure 3: Token-wise attention maps at the last encoder
+                                stage (N=512 tokens on the x-axis, d=64 channels on the
+                                                                                                                          Overall, although the proposed integration offers
+                                y-axis) for the baseline ChangeFormer and the proposed                                    practical advantages in memory efficiency, scalability,
+                                RALA-ChangeFormer.         Colors represent normalized                                    and batch-size flexibility, it does not eliminate
+                                attention intensity, where darker values indicate low                                     the structural constraints inherent to hierarchical
+                                attention response and brighter (purple) values indicate                                  encoder–decoder architectures. These considerations
+                                higher attention. The maps are shown for qualitative                                      frame the scope of improvements achieved by
+                                comparison only, illustrating that RALA preserves                                         substituting MHSA with rank-augmented linear
+                                non-collapsing spatial attention patterns comparable to
+                                MHSA.                                                                                     attention.
+
+                                5.3    Limitations
+                                                                                                                          6    CONCLUSION
+                                Despite the advantages demonstrated in Sections 5
+                                and 5.2, the proposed integration of rank-augmented                                       This work introduced RALA-ChangeFormer, an
+                                linear attention exhibits several limitations that                                        efficient variant of ChangeFormer in which the
+                                contextualize its practical impact.                                                       multi-head self-attention modules of the encoder are
+                                (1) Moderate End-to-End Computational Gains.                                              replaced with rank-augmented linear attention. All
+                                Although rank augmentation substantially reduces                                          remaining components of the architecture, including
+                                the cost of encoder self-attention, the overall                                           the convolutional backbone, feed-forward layers, and
+                                computational footprint of ChangeFormer is still                                          the lightweight MLP decoder, remain unchanged.
+                                influenced by multiscale fusion layers. As shown                                          The goal of this modification is to alleviate the
+                                in Table 3, the reduction in total GFLOPs remains                                         quadratic cost of MHSA in high-token regimes while
+                                moderate (8–10%), since attention constitutes only                                        preserving the representational capacity required for
+                                part of the complete pipeline.                                                            multi-temporal building change detection.
+                                (2) Efficiency Improvements Grow with Token                                                   Experimental evaluations on LEVIR-CD and
+                                Count. RALA provides the largest benefits when                                            DSIFN-CD show that RALA-ChangeFormer
+                                the number of tokens is high (e.g., 512 or 1024                                           maintains segmentation accuracy comparable to the
+                                resolution). At lower input sizes such as 256 × 256,                                      baseline model, confirming that the rank-augmented
+                                improvements are measurable but less pronounced,                                          KV buffer is sufficiently expressive for bi-temporal
+                                which limits impact for applications operating strictly                                   spatial-temporal reasoning.      Importantly, unlike
+                                at small patch resolutions.                                                               previous linear-attention formulations, RALA
+                                (3) Limited Impact on Model Expressiveness                                                avoids the low-rank collapse typically observed in
+                                Beyond Attention. While RALA mitigates the                                                dense prediction tasks, as further illustrated by the
+                                low-rank collapse common in linear attention and                                          qualitative attention-map comparisons.
+                                preserves segmentation performance, it does not                                               From a computational perspective, the proposed
+                                enhance the expressive capacity of non-attention                                          encoder-level integration yields consistent reductions
+                                modules such as convolutional encoders or decoder                                         in attention-related FLOPs and peak GPU memory
+                                fusion layers. As a result, the overall accuracy                                          usage, and increases feasible batch sizes, particularly
+                                remains bounded by the representational capacity of                                       at higher resolutions where attention costs dominate.
+                                the original ChangeFormer architecture.                                                   These improvements enhance practical scalability
+                                (4) Limited Evaluation on Independent                                                     under fixed memory budgets, enabling the model
+                                Acquisition Domains. The experimental evaluation                                          to process more patches per iteration and to
+                                follows the standard training and testing protocols                                       support efficient training in high-resolution or
+                                of LEVIR-CD and DSIFN-CD, where splits are                                                large-batch settings without increasing hardware
+                                                                                                                          requirements.      Overall, the results demonstrate
+
+
+                                622
+                                            Efficient Multi-Temporal Building Change Detection with Reduced-Rank Linear Attention
+
+
+
+
+that RALA-ChangeFormer provides a favorable                       Fan, Q. et al. (2025). Rala: Breaking the low-rank dilemma
+accuracy-efficiency trade-off for VHR change                           of linear attention. In Int. Conf. Learn. Represent.
+detection, preserving predictive behaviour while                       (ICLR).
+reducing resource demands.                                        Fan, Y. et al. (2024). Vitar: Vision transformer for any
+    Rather than proposing a novel change detection                     resolution. In Proc. IEEE/CVF Conf. Comput. Vis.
+                                                                       Pattern Recognit. (CVPR).
+formulation, this work aims to empirically assess
+                                                                  Fang, J. and Li, J. (2021). Snunet-cd: A densely connected
+whether modern linear-attention mechanisms                             siamese network for change detection of vhr images.
+can be integrated into hierarchical bi-temporal                        IEEE Geosci. Remote Sens. Lett., 18(12):2132–2136.
+change detection architectures without degrading                  Guo, H., Shi, Q., Marinoni, A., Du, B., and Zhang, L.
+performance, and to quantify the resulting                             (2021). Deep building footprint update network:
+efficiency-accuracy trade-offs.       In this context,                 A semi-supervised method for updating existing
+several promising directions remain for future work.                   building footprints from bi-temporal remote sensing
+One avenue is to explore adaptive or data-dependent                    images. Remote Sensing of Environment, 264:112589.
+strategies that refine the rank selection in RALA,                Hussain, M., Chen, D., Cheng, A., Wei, H., and
+potentially drawing on matrix reconstruction                           Stanley, D. (2013). Change detection from remotely
+techniques such as SVD to further enhance                              sensed images: From pixel-based to object-based
+                                                                       approaches. ISPRS Journal of Photogrammetry and
+representational diversity.       Another promising                    Remote Sensing, 80:91–106.
+direction is the integration of RALA into multi-scale             Katharopoulos, A., Vyas, A., Pappas, N., and Fleuret, F.
+or multi-task BCD frameworks, enabling a more                          (2020). Transformers are rnns: Fast autoregressive
+robust evaluation of its generalization capacity across                transformers with linear attention. In Proc. ICML.
+heterogeneous settings. Finally, with generative                  Raghu, A. et al. (2023). The revenge of vision transformers.
+approaches—such as diffusion and flow-matching                         Lecture Notes in Computer Science.
+models—emerging as powerful alternatives for BCD,                 S. Wang, B. Li, M. K. H. F. and Ma, H. (2020). Linformer:
+a key opportunity lies in developing memory-efficient                  Self-attention with linear complexity. In NeurIPS.
+attention formulations that can be embedded into                  Shafique, A., Cao, G., Khan, Z., Asad, M., and Aslam,
+these computationally demanding architectures.                         M. (2022). Deep learning-based change detection in
+                                                                       remote sensing images: A review. Remote Sensing,
+                                                                       14(4):871.
+                                                                  Shen, Y., Li, H., Wang, Q., and Hu, Y. (2021). A
+REFERENCES                                                             dense siamese network for change detection in remote
+                                                                       sensing images.        IEEE Trans. Image Process.,
+Bandara, W. G. C. and Patel, V. M. (2022). Changeformer:               30:7576–7590.
+       A transformer-based architecture for building change       Tan, X., Chen, G., Wang, T., Wang, J., and Zhang, X.
+       detection. In Proc. IEEE Int. Geosci. Remote Sens.              (2024). Segment change model for unsupervised
+       Symp. (IGARSS), pages 1590–1593.                                building change detection in vhr remote sensing
+Cao, Y. and Huang, X. (2023). A full-level fused cross-task            imagery. In IGARSS 2024 – IEEE International
+       transfer learning method for building change                    Geoscience and Remote Sensing Symposium, pages
+       detection using noise-robust pretrained networks on             8577–8580.
+       crowdsourced labels. Remote Sensing of Environment,        Teng, Y., Liu, S., Sun, W., Yang, H., Wang, B., and Jia,
+       284:113371.                                                     J. (2023). A vhr bi-temporal remote-sensing image
+Chen, H., Li, W., and Chen, X. (2022).                  Bit:           change detection network based on swin transformer.
+       Bi-temporal image transformer for remote sensing                Remote Sensing, 15(10):2645.
+       change detection. In Proc. IEEE/CVF Conf. Comput.          Vaswani, A. et al. (2017). Attention is all you need. In Adv.
+       Vis. Pattern Recognit. (CVPR), pages 8594–8604.                 Neural Inf. Process. Syst. (NeurIPS).
+Daudt, R. C., Le Saux, B., and Boulch, A. (2018). Fully           Wei, C., Duke, B., Jiang, R., Aarabi, P., Taylor, G. W.,
+       convolutional siamese networks for change detection.            and Shkurti, F. (2023). Sparsifiner: Learning Sparse
+       In 2018 25th IEEE International Conference on Image             Instance-Dependent Attention for Efficient Vision
+       Processing (ICIP), pages 4063–4067.                             Transformers. In Proc. CVPR, pages 22680–22689.
+Dosovitskiy, A. et al. (2021). An image is worth 16×16            Xiao, W., Cao, H., Lei, Y., Zhu, Q., and Chen, N.
+       words: Transformers for image recognition at scale.             (2024).      Cross-temporal and spatial information
+       In Int. Conf. Learn. Represent. (ICLR).                         fusion for multi-task building change detection using
+et al., K. C. (2021a). Rethinking attention with performers.           multi-temporal optical imagery. International Journal
+       ICLR.                                                           of Applied Earth Observation and Geoinformation,
+et al., Y. X. (2021b). Nyströmformer: A nyström-based                132:104075.
+       algorithm for approximating self-attention. In AAAI.       Yang, L., Chen, Y., Song, S., Li, F., and Huang, G. (2021).
+et al., Z. L. (2021c). Swin Transformer: Hierarchical Vision           Deep siamese networks based change detection with
+       Transformer Using Shifted Windows. In ICCV.                     remote sensing images. Remote Sensing, 13(17):3394.
+
+
+
+                                                                                                                            623
+VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+
+
+
+
+Zhang, C., Yue, P., Tapete, D., Jiang, L., Shangguan, B.,
+     Huang, L., and Liu, G. (2020a). A deeply supervised
+     image fusion network for change detection in high
+     resolution bi-temporal remote sensing images. ISPRS
+     Journal of Photogrammetry and Remote Sensing,
+     166:183–200.
+Zhang, C., Yue, P., Tapete, D., Jiang, L., Shangguan, B.,
+     Huang, L., and Liu, G. (2020b). A review of change
+     detection in high-resolution bi-temporal remote
+     sensing images. ISPRS Journal of Photogrammetry
+     and Remote Sensing, 166:183–200.
+Zhao, S., Zhang, X., Xiao, P., and He, G. (2023).
+     Exchanging dual-encoder–decoder: A new strategy
+     for change detection with semantic guidance and
+     spatial localization. IEEE Transactions on Geoscience
+     and Remote Sensing, 61:1–16.
+Zheng, G., Wang, Q., Xu, Y., Yang, G., and Sun, X. (2020).
+     A spatial-temporal attention-based method and a new
+     dataset for remote sensing image change detection.
+     Remote Sensing, 12(10):1662.
+Zheng, X., Zhang, L., and Du, B. (2023). Hfa-net:
+     High-frequency attention siamese network for change
+     detection. Pattern Recognition, 135:108717.
+
+
+
+
+624
+

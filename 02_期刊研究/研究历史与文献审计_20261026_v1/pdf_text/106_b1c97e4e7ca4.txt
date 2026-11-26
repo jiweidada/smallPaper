@@ -1,0 +1,83 @@
+http://www.aimspress.com/journal/mbe
+MBE, 20(8): 14158–14179.
+DOI: 10.3934/mbe.2023633
+Received: 12 April 2023
+Revised: 23 May 2023
+Accepted: 15 June 2023
+Published: 26 June 2023
+Research article
+AD-DETR: DETR with asymmetrical relation and decoupled attention in
+crowded scenes
+Yueming Huang1,2 and Guowu Yuan1,2,*
+1 School of Information Science and Engineering, Yunnan University, Kunming 650504, China
+2 Yunnan Key Laboratory of Intelligent Systems and Computing, Kunming 650504, China
+* Correspondence: Email: gwyuan@ynu.edu.cn; Tel: +8687165033748.
+Abstract: Pedestrian detection in crowded scenes is widely used in computer vision. However, it
+still has two di fficulties: 1) eliminating repeated predictions (multiple predictions corresponding to
+the same object); 2) false detection and missing detection due to the high scene occlusion rate and
+the small visible area of detected pedestrians. This paper presents a detection framework based on
+DETR (detection transformer) to address the above problems, and the model is called AD-DETR
+(asymmetrical relation detection transformer). We find that the symmetry in a DETR framework causes
+synchronous prediction updates and duplicate predictions. Therefore, we propose an asymmetric
+relationship fusion mechanism and let each query asymmetrically fuse the relative relationships of
+surrounding predictions to learn to eliminate duplicate predictions. Then, we propose a decoupled
+cross-attention head that allows the model to learn to restrict the range of attention to focus more
+on visible regions and regions that contribute more to confidence. The method can reduce the noise
+information introduced by the occluded objects to reduce the false detection rate. Meanwhile, in our
+proposed asymmetric relations module, we establish a way to encode the relative relation between
+sets of attention points and improve the baseline. Without additional annotations, combined with the
+deformable-DETR with Res50 as the backbone, our method can achieve an average precision of 92.6%,
+MR−2 of 40.0% and Jaccard index of 84.4% on the challenging CrowdHuman dataset. Our method
+exceeds previous methods, such as Iter-E2EDet (progressive end-to-end object detection), MIP (one
+proposal, multiple predictions), etc. Experiments show that our method can significantly improve the
+performance of the query-based model for crowded scenes, and it is highly robust for the crowded
+scene.
+Keywords: pedestrian detection; crowded object detection; DETR; end-to-end detector; crowded
+pedestrian scene; relation net; attention mechanism; symmetry
+
+---PAGE---
+
+14159
+1. Introduction
+1.1. Background
+Object detection in crowded scenes is widely used in self-driving, surveillance and robotics. There
+are two challenges for object detection in crowded scenes. One is the elimination of dense repetitive
+predictions, and the other is high false detection due to high occlusion rates. A good detector must
+detect all objects while avoiding repetitive prediction.
+To solve these problems, one-stage [1–3] and two-stage detectors [4–6] use dense-to-dense and
+dense-to-sparse structures to generate dense candidate boxes or sparse candidate boxes by setting dense
+anchors, respectively. The matching strategy achieves higher recall by assigning multiple candidates
+to one ground truth (GT). Since the network itself cannot de-duplicate, the higher recall will result
+in many repeated predictions, so these methods require additional post-processing to de-duplicate.
+De-duplication refers to the following: when multiple predictions correspond to the same GT, the
+model can eliminate the other repeated predictions while reserving the best one. Those anchor-based
+approaches use non-maximum suppression (NMS) [6,7] based on greedy algorithms or improved post-
+processing methods as the de-duplication module. In the NMS algorithm, di fferent intersection over
+union (IOU) threshold configurations is a trade-o ffstrategy. A high threshold increases accuracy but
+decreases recall and reduces repeated predictions; a low threshold raises the recall rate but decreases
+accuracy and generates a large number of repeated predictions. At the same time, when the IOU
+between GTs is higher than the IOU threshold specified by NMS, there will inevitably be missed
+detection. AdaptiveNMS [6] introduces an additional network to learn the density of GTs in di fferent
+scenes to dynamically modify the NMS threshold in real time to adapt to scenes with different densities.
+Soft-NMS [7] improves the original NMS, directly removes the GT with high surrounding overlap and
+reduces the surrounding prediction confidence, but it is still a greedy algorithm. In the dense object
+scene, the detectors based on greedy algorithm post-processing still have serious repeated prediction
+and missed detection.
+A series of end-to-end query-based detection methods [8–10], represented by DETR [11] and
+sparse-RCNN (sparse region convolutional neural network) [12], regard target detection as a set
+prediction problem and integrate the de-duplication ability into the network through the end-to-end
+learning prediction of bipartite graph matching. These methods avoid the repeated prediction and
+missed detection caused by the manual anchor setting and NMS based on the greedy algorithm. The
+improved methods of DETR [8–10, 13] solve the slow convergence, low accuracy and poor
+interpretability of the basic model of DETR. These improved methods have achieved state-of-the-art
+results on some famous general datasets such as COCO [14], PASCAL VOC [15], etc. They have
+significantly improved the performance compared with the previous framework [1, 16] of NMS
+post-processing methods based on greedy algorithms.
+However, these DETR-like models generally use a symmetrical decoder structure, which means
+that queries can equally pay attention to and gather information from each other in networks. As
+shown in Figure 1, we found that in a symmetrical structure, the prediction boxes at each stage tend
+to adopt the same strategy to update themselves, because they can sense each other equally. In the left
+of Figure 1, both prediction boxes a and b reduced their confidence and gave up regression to the GT,
+resulting in missed detection; In the right of Figure 1, both prediction boxes increased their confidence
+to regress to the GT, resulting in repeated predictions; we call it the synchronous update problem.
+Mathematical Biosciences and Engineering V olume 20, Issue 8, 14158–14179.

@@ -1,0 +1,38 @@
+4. Lecture notes on matroid optimization March 20th, 2009 11
+Theorem 4.6 Consider any face F of P . Then there exists a chain C and a subset J ⊆E
+such that:
+F = {x ∈ R|E| : x(S) ≤r(S) ∀S ⊆E
+x(C) =r(C) ∀C ∈ C
+xe ≥ 0 ∀e ∈E \J
+xe = 0 ∀e ∈J.}
+Proof: By Theorem 3.5 of the polyhedral notes, we know that any face is characterized
+by setting some of the inequalities of P by equalities. In particular, F can be expressed as
+F = {x ∈ R|E| : x(S) ≤r(S) ∀S ⊆E
+x(C) =r(C) ∀C ∈ F
+xe ≥ 0 ∀e ∈E \J
+xe = 0 ∀e ∈J.}
+whereJ = {e :xe = 0 for all x ∈F } and F = {S :x(S) =r(S) for all x ∈F }. To prove the
+theorem, we need to argue that the system of equations:
+x(C) =r(C) ∀C ∈ F
+can be replaced by an equivalent (sub)system in which F is replaced by a chain C. To be
+equivalent, we need that
+span(F) =span(C)
+where by span(L) we mean
+span(L) :=span{χ(C) :C ∈ L}.
+Let C be a maximal subchain of F, i.e. C ⊆ F , C is a chain and for all S ∈ F \ C , there
+exists C ∈ C such that S ̸⊆C and C ̸⊆S. We claim that span(C) =span(F).
+Suppose not, i.e. H ̸= span(F) where H := span(C). This means that there exists
+S ∈ F \ C such that χ(S) /∈ H but S cannot be added to C without destroying the chain
+structure. In other words, for any such S, the set of ’chain violations’
+V (S) := {C ∈ C :C ̸⊆S and S ̸⊆C}
+is non-empty. Among all such sets S, choose one for which |V (S)| is as small as possible
+(|V (S)| cannot be 0 since we are assuming that V (S) ̸= ∅ for all possible S). Now ﬁx some
+setC ∈V (S). By Lemma 4.5, we know that both C ∩S ∈ F andC ∪S ∈ F . Observe that
+there is a linear dependence between χ(C),χ (S),χ (C ∪T ),χ (C ∩T ):
+χ(C) +χ(S) =χ(C ∪S) +χ(C ∩S).
+This means that, since χ(C) ∈ H and χ(S) /∈ H, we must have that either χ(C ∪S) /∈ H
+or χ(C ∩S) /∈ H (otherwise χ(S) would be in H). Say that χ(B) /∈ H where B si either
+C ∪S or C ∩S. This is a contradiction since |V (B)|< |V (S)|, contradicting our choice of
+S. Indeed, one can see that V (B) ⊂V (S) and C ∈V (S) \V (B). △
+As a corollary, we can also obtain a similar property for an extreme point, starting from
+Theorem 3.6.

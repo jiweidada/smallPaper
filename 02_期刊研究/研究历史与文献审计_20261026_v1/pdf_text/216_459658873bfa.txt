@@ -1,0 +1,115 @@
+Fast and Accurate Image Restoration and
+Generation with Rank Enhanced Linear Attention
+Yuang Ai
+The Chinese University of Hong Kong
+yuang@link.cuhk.edu.hk
+Abstract.Transformer-based models have made remarkable progress
+in image restoration (IR) tasks. However, the quadratic complexity of
+self-attention in Transformer hinders its applicability to high-resolution
+images. Existing methods mitigate this issue with sparse or window-
+based attention, yet inherently limit global context modeling. Linear at-
+tention, a variant of softmax attention, demonstrates promise in global
+context modeling while maintaining linear complexity, offering a po-
+tential solution to the above challenge. Despite its efficiency benefits,
+vanilla linear attention suffers from a significant performance drop in
+IR, largely due to the low-rank nature of its attention map. To counter
+this, we propose Rank Enhanced Linear Attention (RELA), a simple yet
+effective method that enriches feature representations by integrating a
+lightweight depthwise convolution. Building upon RELA, we propose an
+efficient and effective Vision Transformer, named LAformer. LAformer
+eliminates hardware-inefficient operations such as softmax and window
+shifting, enabling efficient processing of high-resolution images. Exten-
+sive experiments across 7 IR tasks and 21 benchmarks demonstrate that
+LAformer outperforms SOTA methods and offers significant computa-
+tional advantages. Furthermore, we extend LAformer to diffusion-based
+and flow-based visual generation, showcasing its strong potential as a
+competitive alternative to DiT and SiT. Code and models are available
+athttps://github.com/shallowdream204/LAformer.
+Keywords:Image Restoration·Linear Attention·Visual Generation
+1 Introduction
+Image restoration (IR) aims to recover a high-quality (HQ) image by removing
+degradations from its degraded low-quality (LQ) counterpart. As a fundamental
+task in low-level vision, image restoration has a wide array of real-world appli-
+cations, spanning fields such as autonomous driving [129], surveillance monitor-
+ing [79], medical imaging [38],etc. Consequently, developing hardware-efficient
+IR networks holds substantial practical value.
+Over the past decade, convolutional neural networks (CNNs) have achieved
+remarkable progress in various image restoration tasks [32,106,118]. However,
+CNNs are often limited by their constrained receptive field, making it challenging
+arXiv:2505.16157v3  [cs.CV]  29 Aug 2026
+
+---PAGE---
+
+2 Y. Ai
+Ours
+31.9
+32.4
+32.9
+33.4
+PSNR (dB)
+150
+300
+600
+450
+100
+170
+240
+310
+IDT Res. AST His.
+Latency (ms)
+33.38
+33.06
+32.18
+31.87
+32.32
+OursHis.ASTRes.IDT
+87.16
+308.5
+112.1
+166.2
+237.8
+IDT Res. AST His. Ours
+FLOPs (G)
+IDT Res. AST His. Ours
+471
+620
+440 453
+162 5
+25
+45
+65
+Params (M)16.42
+26.13
+65.36
+16.62
+8.665
+SOTA Transformer-based IR methods Our Transformer-based IR method
+Fig.1:Comprehensive comparison with SOTA Transformer-based methods for image
+restoration (raindrop removal).
+to capture long-range dependencies. Recently, Transformer-based methods [9,24,
+113] have significantly advanced the performance of image restoration.
+WhileTransformerofferstheadvantageofaglobalreceptivefield,itscoreself-
+attention mechanism introduces quadratic computational complexity. Directly
+applying self-attention globally incurs substantial overhead, particularly when
+handling high-resolution images. To mitigate this, some methods compute self-
+attention within local windows [23,53,99], while others adopt sparse attention
+patterns [22,116]. While effectively reducing computational costs, these methods
+either limit global perception or are sensitive to degradation types due to specific
+attention patterns [126].
+The above analysis leads to a crucial question:Is it possible to design a
+hardware-efficient image restoration model that simultaneously preserves strong
+global perceptive capabilities?In this paper, we explore linear attention [42] as
+a potential solution to this issue. Compared to standard softmax attention [91],
+linear attention replaces the softmax operation with simpler activation functions
+(e.g., ReLU [3], ELU [27]) and reorders the computation to first calculateK⊤V.
+As shown in Fig. 2, linear attention reduces the computational complexity to
+a linear scale with respect to the number of visual tokensN, while preserving
+the global contextual advantages of softmax attention. When processing high-
+resolution images, the global receptive field of linear attention enables the cap-
+ture of long-range relationships between pixels, thereby enhancing restoration
+quality. These attributes motivate us to employ linear attention in developing
+an efficient and effective image restoration model.
+However, standard linear attention mechanisms appear suboptimal for image
+restoration, resulting in a notable performance drop relative to softmax atten-
+tion (see Tab. 14). Through rank analysis [52], we find that the low-rank nature
+of the attention map in linear attention severely limits the diversity of its out-

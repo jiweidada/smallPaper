@@ -1,0 +1,20 @@
+112事前协议、113代码→114实际结果。C0 online best_stg2（last_epoch94），固定四张all_count开发图902GT/453原sub4，单训练seed。原代码/online权重801张量严格加载，CPU2线程/affinity13,15/below-normal；实际8次forward、21次VJP、零更新，用时8.125秒。CP SHA和整个state_dict/BN前后相同。不是Adam端点、训练或AP。
+
+候选只改16384个restore参数中的普通final cx/cy加权L1梯度方向，其他损失和前向保留。原native matcher/union/分母/DN均记录。没有用BASE12的旧漏检组：按C0自身eval框分组，四图漏检sub4数36/104/237/9，原union配对41/105/124/13。eval与decoder.train输出最大boxes差约1.2e-7–1.8e-7、logits差2.1e-5–4.6e-5，已保留，不伪称数值全等。
+
+四图LOO平均gain，完整W方向范数已配平；gain越大表示-epsilon*D的局部SGD预测下降越多：
+               O             axis          M             S_axis        swap          rot45
+center         .0020240301   .0020327287   .0020325683   .0020299908   .0020324073   .0020328250
+total          .1244750431   .1233428695   .1232866386   .1236093825   .1232302151   .1232369985
+classification .0326198970   .0323179135   .0323282059   .0323897881   .0323384615   .0323026823
+hard_geometry  .0006708288   .0006890481   .0006881825   .0006844653   .0006873142   .0006885557
+
+axis对O的中心gain在3/4图更好；平均中心gain也严格高于O/M/S_axis/swap，hard geometry为正且高于O。这些正向事实保留。但axis未胜rot45，total/classification均低于O，故112原门槛false，不申请此精确轴路由版本训练。不能因旋转差很小便断言整条相位机制无效；也不能删掉分类/total代价改判。没有把其他投影事后选成新胜者。
+
+初步含义：局部中心监督的削弱/方向限制可能改变几何—分类取舍，但当前数据没有支持横坐标必须对应Hx、纵坐标必须对应Hy这一独占解释；更没有实际优化器更新或检测收益证据。按协议，本首检不足不等于Adam永久无效，但没有根据继续为这个精确版本申请训练。
+
+已保存03_eval_predictions_and_queries.pt：同四图C0 eval预测、真实原native selected_indices、GT/original_sub4及来源SHA，可作下一次零前向作用面统计。114全部逐图loss、union、梯度、方向及门槛在02_direction_results.json、04_execution.json和输出SHA清单，可复核。
+
+另一个前向奇偶中心头也不能仅凭D4反射性质立新：共享四点softmax期望本身已具相同局部排列等变性；共享线性分数去均值与原softmax严格相同。新的提议若只是Haar换基/分解softmax或删掉混合项，需先明确新的作用变量及其真实数据依据，不能换名复活。
+
+总研究目标未完成。继续给真正不同的可实施修订/设计，不停于本次阴性，也不重复追加不改变取舍的资格条件。先不新增训练，不操作远端或监测，不改旧证据。

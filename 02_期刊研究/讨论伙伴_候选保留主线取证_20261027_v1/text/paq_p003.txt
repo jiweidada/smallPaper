@@ -1,0 +1,178 @@
+BackboneBackbone
+Deformable 
+Encoder
+Deformable 
+Decoder & Head
+Dilated conv
+Relu
+1 x 1 conv
+Dilated conv
+Relu
+1 x 1 conv
+LayerNorm
+Relu
+Linear
+Linear
+LayerNorm
+Relu
+Linear
+Linear
+Fusion
+Fusion
+Fusion
+Weight 
+Generator 
+Avg Pooling
+s2
+s3s4s5
+s2s3s4
+s5
+Feature map
+Content-Aware Weight 
+Generator Module
+PatternsPatterns
+WD
+FFN
+Content queries
+Position queries
+Position Embedding
+Image FeatureFeature Extractor
+Weight Generator
+Feature Fusion
+Position Embedding
+Image FeatureFeature Extractor
+Weight Generator
+Feature Fusion
+Channel 
+Attention
+Spatial 
+Attention
+Quality-Aware One-to-
+Many Assignment
+Pattern-based Representation 
+Module
+BackboneBackbone
+Deformable 
+Encoder
+Deformable 
+Decoder & Head
+Dilated conv
+Relu
+1 x 1 conv
+Dilated conv
+Relu
+1 x 1 conv
+LayerNorm
+Relu
+Linear
+Linear
+LayerNorm
+Relu
+Linear
+Linear
+Fusion
+Fusion
+Fusion
+Weight 
+Generator 
+Avg Pooling
+s2
+s3s4s5
+s2s3s4
+s5
+Feature map
+Content-Aware Weight 
+Generator Module
+PatternsPatterns
+WD
+FFN
+Content queries
+Position queries
+Position Embedding
+Image FeatureFeature Extractor
+Weight Generator
+Feature Fusion
+Position Embedding
+Image FeatureFeature Extractor
+Weight Generator
+Feature Fusion
+Channel 
+Attention
+Spatial 
+Attention
+Quality-Aware One-to-
+Many Assignment
+Pattern-based Representation 
+Module
+Figure 2. Overview ofPaQ-DETR. Our framework integrates (1) a content-aware weight generator that adapts query composition to image
+features, (2) a pattern-based representation module that learns shared semantic bases, and (3) a quality-aware one-to-many assignment that
+provides balanced supervision.
+components. First, apattern-based dynamic query mod-
+uleconstructs each query as a convex combination of shared
+patterns using encoder-conditioned weights, enabling gra-
+dient sharing and stabilizing query semantics. Second, a
+quality-aware adaptive assignment mechanismadjusts
+both the number and selection of positive samples accord-
+ing to prediction quality, enriching supervision without aux-
+iliary decoders. Together, these components form a coher-
+ent and lightweight framework that jointly improves query
+adaptivity and supervision balance. We next describe the
+preliminaries and each component in detail.
+3.1. Preliminary
+DETR Architecture.A DETR-style detector typically
+consists of three components: a convolutional backbone, a
+transformer encoder–decoder, and task-specific prediction
+heads. Given an input imageI∈R h×w×3, the backbone
+extracts image tokensX∈R m×d, which are refined by
+the encoder via self-attention to produce contextualized fea-
+turesZ=Encoder(X)∈R m×d. The decoder operates on
+a set of object queriesQ={q 1, q2, . . . , qn} ∈R n×d, each
+of which iteratively attends to image features through self-
+and cross-attention acrossLlayers:
+Ql =FFN(CrossAttn(SelfAttn(Q l−1),Z)). (1)
+The final layer outputQ L is mapped by prediction heads
+to class probabilities and bounding boxesY=Head(Q L).
+This formulation eliminates non-maximum suppression and
+allows end-to-end optimization through bipartite matching,
+which forms the basis for our dynamic query design.
+One-to-Many Assignment.DETR formulates object de-
+tection as a bipartite matching problem, where each ground-
+truth object is uniquely paired with a single prediction. The
+optimal matchingσis obtained by minimizing a cost that
+jointly considers classification and bounding-box regression
+through Hungarian algorithm [21]. The one-to-one match-
+ing loss is expressed as:
+L1:1 =λ 1Lcls(cσ, c∗) +λ2Lbox(bσ, b∗) +λ3Lgiou(bσ, b∗),
+(2)
+whereL cls denotes the classification loss between the
+matched predictionc σ and ground-truth labelc ∗, andL box
+andL giou are theL 1 and GIoU losses between the matched
+boxesb σ andb ∗, respectively.
+Although one-to-one strategy enables clean end-to-
+end optimization, it provides extremely sparse supervi-
+sion—each ground truth updates only a single query. To
+enrich training signals, recent works extend to one-to-many
+assignment [1, 45], allowing multiple predictions to match
+the same object. The loss is accordingly reformulated as:
+L1:m =
+kX
+i=1
+
+λ1Lcls(cσ(i), c∗) +λ 2Lbox(bσ(i), b∗)
++λ 3Lgiou(bσ(i), b∗)
+
+,
+(3)
+whereσ(i)denotes the index of thei-th matched prediction
+amongkpositive samples for the same ground-truth pair
+(c∗, b∗). This relaxation improves convergence and gener-
+alization, but still relies on fixed numberkof positives.
+3.2. Dynamic Query Learning via Shared Patterns
+As illustrated in Fig. 2, our framework extends DETR
+with a dynamic query generation mechanism that constructs
+image-specific queries from a compact set of shared base
+patterns. The overall process consists of two components on
+the representation side: a content-aware weight generator
+that produces adaptive combination weights from encoder
+features, and a pattern-based module that learns reusable
+25506

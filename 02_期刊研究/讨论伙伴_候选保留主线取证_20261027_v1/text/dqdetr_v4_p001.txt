@@ -1,0 +1,40 @@
+DQ-DETR: DETR with Dynamic Query for Tiny
+Object Detection
+Yi-Xin Huang1⋆, Hou-I Liu⋆1, Hong-Han Shuai1, and Wen-Huang Cheng2
+1 National Yang Ming Chiao Tung University, Hsinchu, Taiwan
+{svkatie.nctu.ee08, k39967.c, hhshuai}@nycu.edu.tw
+2 National Taiwan University, Taipei, Taiwan
+wenhuang@csie.ntu.edu.tw
+Abstract. Despite previous DETR-like methods having performed suc-
+cessfully in generic object detection, tiny object detection is still a chal-
+lenging task for them since the positional information of object queries
+is not customized for detecting tiny objects, whose scale is extraordi-
+narily smaller than general objects. Additionally, the fixed number of
+queries used in DETR-like methods makes them unsuitable for detec-
+tion if the number of instances is imbalanced between different images.
+Thus, we present a simple yet effective model, DQ-DETR, consisting of
+three components: categorical counting module, counting-guided feature
+enhancement, and dynamic query selection to solve the above-mentioned
+problems.DQ-DETRusesthepredictionanddensitymapsfromthecate-
+goricalcountingmoduletodynamicallyadjustthenumberandpositional
+information of object queries. Our model DQ-DETR outperforms previ-
+ous CNN-based and DETR-like methods, achieving state-of-the-art mAP
+30.2% on the AI-TOD-V2 dataset, which mostly consists of tiny objects.
+Our code will be available athttps://github.com/Katie0723/DQ-DETR.
+Keywords: Detection Transformer· Query Selection· Tiny Object De-
+tection
+1 Introduction
+Convolutional neural networks (CNNs) excel at processing the RGB semantic
+and spatial texture features. Most object detection methods are primarily based
+on CNNs. For example, Faster R-CNN [16] introduces a region proposal network
+togeneratepotentialobjectregions.FCOS[19]appliesacenterpredictionbranch
+to increase the quality of the bounding boxes.
+However, CNNs are unsuitable for capturing long-range dependencies in the
+image, restricting the detection performance. Recently, DETR [2] incorporates
+CNN and transformer architecture to establish a new object detection frame-
+work. DETR utilizes the transformer encoder to integrate the partitioned im-
+age patches and passes them with the learnable object queries to the trans-
+former decoder for final detection results. Moreover, a series of DETR-like meth-
+ods [7,11,27,30] aim to advance DETR performance and accelerate convergence
+⋆ Equal contribution
+arXiv:2404.03507v4  [cs.CV]  7 Sep 2024

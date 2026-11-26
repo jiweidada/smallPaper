@@ -1,0 +1,49 @@
+10 D. Bolya et al.
+Table 2: Mask Rescoring. An ablation of MS-RCNN [13] and YOLACT++ [2] mask
+performance using the errors deﬁned in this paper.∆mAP50 is denoted as E for brevity,
+and only errors that changed are included. Mask scoring better calibrates localization,
+leading to decrease in localization error. However, by scoring based on localization, the
+calibration of other error types suffer. Note that this information is impossible to glean
+from the change in AP50 alone.
+Method AP 50
+¡ Ecls
+¡Eloc
+¡Ebkg
+¡Emiss
+¡ EFP
+¡EFN
+¡
+Mask R-CNN (R-101-FPN) 58.1 3.1 9.3 4.5 7.5 15.9 17.8
++ Mask Scoring 58.3 3.6 7.8 5.1 7.8 15.9 18.1
+Improvement +0.2 +0 .4 −1.5 +0.7 +0 .3 +0 .0 +0 .3
+YOLACT++ (R-50-FPN) 51.8 3.3 10.4 3.2 13.0 10.7 27.7
++ Mask Scoring 52.3 3.6 9.7 3.2 13.2 10.1 28.2
+Improvement +0.5 +0 .3 −0.7 +0.0 +0 .2 −0.5 +0 .6
+R-CNN Based Methods First, HTC [5] makes two main improvements over Mask
+R-CNN: 1.) it iteratively reﬁnes predictions (i.e., a cascade) and passes information
+between all parts of the model each time, and 2.) it introduces a module speciﬁcally
+for improved detection of foreground examples that look like background. Intuitively,
+(1) would improve classiﬁcation and localization signiﬁcantly, as the prediction and the
+features used for the prediction are being reﬁned 3 times. And indeed, the classiﬁcation
+and localization errors for HTC are the lowest of the models we consider in Fig. 4 for
+both instance segmentation and detection. Then, (2) should have the effect of eliciting
+higher recall while potentially adding false positives where something in the background
+was misclassiﬁed as an object. And this is exactly what our errors reveal: HTC has
+the lowest missed GT error while having the highest background error (not counting
+YOLACT++, whose distribution of errors is quite unique).
+Next, TridentNet [18] attempts to create scale-invariant features by having a separate
+pipeline for small, medium, and large objects that all share weights. Ideally this would
+improve classiﬁcation and localization performance for objects of different scales. Both
+HTC and TridentNet end up having the same classiﬁcation and localization performance,
+so we test this hypothesis further in Sec. 3.2. Because HTC and TridentNet make mostly
+orthogonal design choices, they would likely compliment each other well.
+One-Stage Methods RetinaNet [19] introduces focal loss that down-weights conﬁdent
+examples in order to be able to train on all background anchor boxes (rather than the
+standard 3 negative to 1 positive ratio). Training on all negatives by itself should cause
+the model to output fewer background false positives, but at the cost of signiﬁcantly
+lower recall (since the detector would be biased toward predicting background). The goal
+of focal loss then is to train on all negatives without causing extra missed detections. We
+observe this is successful as RetinaNet has one of the lowest background errors across
+models in Fig. 4a, while retaining slightly less missed GT error than Mask R-CNN.
+Then FCOS [23] serves as a departure from traditional anchor-based models, predict-
+ing a newly deﬁned box at each location in the image instead of regressing an existing

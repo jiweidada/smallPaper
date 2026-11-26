@@ -1,0 +1,140 @@
+Published as a conference paper at ICLR 2022
+DAB-DETR: D YNAMIC ANCHOR BOXES
+ARE BETTER QUERIES FOR DETR
+Shilong Liu1,2∗, Feng Li 2,3, Hao Zhang 2,3, Xiao Yang 1,
+Xianbiao Qi2, Hang Su 1,4, Jun Zhu 1,4†, Lei Zhang 2†
+1Dept. of Comp. Sci. and Tech., BNRist Center, State Key Lab for Intell. Tech.
+& Sys., Institute for AI, Tsinghua-Bosch Joint Center for ML, Tsinghua University.
+2International Digital Economy Academy (IDEA).
+3Hong Kong University of Science and Technology.
+4Peng Cheng Laboratory, Shenzhen, Guangdong, China.
+{liusl20,yangxiao19}@mails.tsinghua.edu.cn
+{fliay,hzhangcx}@connect.ust.hk
+{qixianbiao,leizhang}@idea.edu.cn
+{suhangss,dcszj}@mail.tsinghua.edu.cn
+ABSTRACT
+We present in this paper a novel query formulation using dynamic anchor boxes
+for DETR (DEtection TRansformer) and offer a deeper understanding of the role
+of queries in DETR. This new formulation directly uses box coordinates as queries
+in Transformer decoders and dynamically updates them layer-by-layer. Using box
+coordinates not only helps using explicit positional priors to improve the query-
+to-feature similarity and eliminate the slow training convergence issue in DETR,
+but also allows us to modulate the positional attention map using the box width
+and height information. Such a design makes it clear that queries in DETR can be
+implemented as performing soft ROI pooling layer-by-layer in a cascade manner.
+As a result, it leads to the best performance on MS-COCO benchmark among
+the DETR-like detection models under the same setting, e.g., AP 45.7% using
+ResNet50-DC5 as backbone trained in 50 epochs. We also conducted extensive
+experiments to conﬁrm our analysis and verify the effectiveness of our methods.
+Code is available at https://github.com/SlongLiu/DAB-DETR.
+1 I NTRODUCTION
+Object detection is a fundamental task in computer vision of wide applications. Most classical
+detectors are based on convolutional architectures which have made remarkable progress in the last
+decade (Ren et al., 2017; Girshick, 2015; Redmon et al., 2016; Bochkovskiy et al., 2020; Ge et al.,
+2021). Recently, Carion et al. (2020) proposed a Transformer-based end-to-end detector named
+DETR (DEtection TRansformer), which eliminates the need for hand-designed components, e.g.,
+anchors, and shows promising performance compared with modern anchor-based detectors such as
+Faster RCNN (Ren et al., 2017).
+In contrast to anchor-based detectors, DETR models object detection as a set prediction problem
+and uses 100 learnable queries to probe and pool features from images, which makes predictions
+without the need of using non-maximum suppression. However, due to its ineffective design and use
+of queries, DETR suffers from signiﬁcantly slow training convergence, usually requiring 500 epochs
+to achieve a good performance. To address this issue, many follow-up works attempted to improve
+the design of DETR queries for both faster training convergence and better performance (Zhu et al.,
+2021; Gao et al., 2021; Meng et al., 2021; Wang et al., 2021).
+Despite all the progress, the role of the learned queries in DETR is still not fully understood or uti-
+lized. While most previous attempts make each query in DETR more explicitly associated with one
+∗This work was done when Shilong Liu was intern at IDEA.
+†Corresponding author.
+1
+arXiv:2201.12329v4  [cs.CV]  30 Mar 2022
+
+---PAGE---
+
+Published as a conference paper at ICLR 2022
+Cross-Attention
+Layer 1
+Layer 2
+Decoder
+Embeddings
+Learnable
+Queries
+Image 
+Features
+Positional 
+Encodings
+QKV
+Cross-Attention
+Layer 1
+Layer 2
+Decoder
+Embeddings
+Learnable
+Queries
+Image 
+Features
+Positional 
+Encodings
+Reference
+Points
+Width & Height-Modulated 
+Cross-Attention
+Layer 1
+Layer 2
+Decoder
+Embeddings
+Image 
+Features
+Positional 
+Encodings
+Learnable
+Anchors
+𝑥, 𝑦
+𝑤, ℎ
+𝑥, 𝑦, 𝑤, ℎ
+(a) DETR (b) Conditional DETR (c) DAB-DETR
+QKV
+QKV
+Figure 1: Comparison of DETR, Conditional DETR, and our proposed DAB-DETR. For clarity, we
+only show the cross-attention part in the Transformer decoder. (a) DETR uses the learnable queries
+for all the layers without any adaptation, which accounts for its slow training convergence. (b) Con-
+ditional DETR adapts the learnable queries for each layer mainly to provide a better reference query
+point to pool features from the image feature map. In contrast, (c) DAB-DETR directly uses dynam-
+ically updated anchor boxes to provide both a reference query point (x,y ) and a reference anchor
+size (w,h ) to improve the cross-attention computation. We marked the modules with difference in
+purple.
+speciﬁc spatial position rather than multiple positions , the technical solutions are largely different.
+For example, Conditional DETR learns a conditional spatial query by adapting a query based on its
+content feature for better matching with image features (Meng et al., 2021). Efﬁcient DETR intro-
+duces a dense prediction module to select top-K object queries (Yao et al., 2021) and Anchor DETR
+formulates queries as 2D anchor points (Wang et al., 2021), both associating each query with a spe-
+ciﬁc spatial position. Similarly, Deformable DETR directly treats 2D reference points as queries
+and performs deformable cross-attention operation at each reference points (Zhu et al., 2021). But
+all the above works only leverage 2D positions as anchor points without considering of the object
+scales.
+Motivated by these studies, we take a closer look at the cross-attention module in Transformer
+decoder and propose to use anchor boxes, i.e. 4D box coordinates (x,y,w,h ), as queries in DETR
+and update them layer-by-layer. This new query formulation introduce better spatial priors for the
+cross-attention module by considering both the position and size of each anchor box, which also
+leads to a much simpler implementation and a deeper understanding of the role of queries in DETR.
+The key insight behind this formulation is that each query in DETR is formed by two parts: a
+content part (decoder self-attention output) and a positional part (e.g. learnable queries in DETR) 1.
+The cross-attention weights are computed by comparing a query with a set of keys which consists
+of two parts as a content part (encoded image feature) and a positional part (positional embedding).
+Thus, queries in Transformer decoder can be interpreted as pooling features from a feature map
+based on the query-to-feature similarity measure, which considers both the content and positional
+information. While the content similarity is for pooling semantically related features, the positional
+similarity is to provide a positional constraint for pooling features around the query position. This
+attention computing mechanism motivates us to formulate queries as anchor boxes as illustrated in
+Fig. 1 (c), allowing us to use the center position (x,y ) of an anchor box to pool features around the
+center and use the anchor box size (w,h ) to modulate the cross-attention map, adapting it to anchor
+box size. In addition, because of the use of coordinates as queries, anchor boxes can be updated
+dynamically layer-by-layer. In this way, queries in DETR can be implemented as performing soft
+ROI pooling layer-by-layer in a cascade way.
+We provide a better positional prior for pooling features by using anchor box size to modulate the
+cross-attention. Because the cross-attention can pool features from the whole feature map, it is cru-
+cial to provide a proper positional prior for each query to let the cross-attention module focus on a
+1See the DETR implementation at https://github.com/facebookresearch/detr. The com-
+ponents of queries and keys are also shown in each subplot of Fig. 1. Note that the learnable queries in DETR
+are only for the positional part. Related discussion can also be found in Conditional DETR (Meng et al., 2021).
+2

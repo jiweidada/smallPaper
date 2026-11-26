@@ -1,0 +1,87 @@
+Relation DETR: Exploring Explicit Position
+Relation Prior for Object Detection
+Xiuquan Hou 1 , Meiqin Liu 1,2,⋆ , Senlin Zhang 2 Ping Wei 1 , Badong
+Chen 1 , and Xuguang Lan 1
+1 National Key Laboratory of Human-Machine Hybrid Augmented Intelligence, Xi'an
+Jiaotong University, Xi'an 710049, China
+2 College of Electrical Engineering, Zhejiang University, Hangzhou 310027, China
+xiuqhou@stu.xjtu.edu.cn, {liumeiqin,slzhang}@zju.edu.cn,
+{pingwei,chenbd,xglan}@mail.xjtu.edu.cn
+Abstract. This paper presents a general scheme for enhancing the con-
+vergence and performance of DETR (DEtection TRansformer). We in-
+vestigate the slow convergence problem in transformers from a new per-
+spective, suggesting that it arises from the self-attention that introduces
+no structural bias over inputs. To address this issue, we explore incorpo-
+rating position relation prior as attention bias to augment object detec-
+tion, following the verication of its statistical signicance using a pro-
+posed quantitative macroscopic correlation (MC) metric. Our approach,
+termed Relation-DETR, introduces an encoder to construct position re-
+lation embeddings for progressive attention renement, which further
+extends the traditional streaming pipeline of DETR into a contrastive
+relation pipeline to address the conicts between non-duplicate predic-
+tions and positive supervision. Extensive experiments on both generic
+and task-specic datasets demonstrate the eectiveness of our approach.
+Under the same congurations, Relation-DETR achieves a signicant im-
+provement (+2.0% AP compared to DINO), state-of-the-art performance
+(51.7% AP for 1 × and 52.1% AP for 2× settings), and a remarkably faster
+convergence speed (over 40% AP with only 2 training epochs) than ex-
+isting DETR detectors on COCO val2017. Moreover, the proposed rela-
+tion encoder serves as a universal plug-in-and-play component, bringing
+clear improvements for theoretically any DETR-like methods. Further-
+more, we introduce a class-agnostic detection dataset, SA-Det-100k. The
+experimental results on the dataset illustrate that the proposed explicit
+position relation achieves a clear improvement of 1.3% AP, highlighting
+its potential towards universal object detection. The code and dataset
+are available at https://github.com/xiuqhou/Relation-DETR.
+Keywords: Detection transformer · Object detection · Relation network
+· Progressive attention renement · Feature enhancement
+⋆ Corresponding author
+
+---PAGE---
+
+2 X. Hou et al.
+1 Introduction
+Object detection aims to tackle the problems of bounding box regression and
+object classication for each object of interest. Recently, DEtection TRansformer
+(DETR) [4] has overcome the reliance on handcrafted designs of convolution
+detectors, achieving an elegant architecture in an end-to-end manner.
+Despite exhibiting impressive detection performance on large-scale datasets
+such as COCO [35], their performances are prone to be inuenced by dataset
+scale and suer from slow convergence. The root cause of the problem is the
+conict between non-duplicate predictions and positive supervision [23]. During
+the training process, DETR employs the Hungarian algorithm to assign a single
+positive prediction to each ground-truth for producing unique results. However,
+this leads to negative predictions dominating the majority of the loss function,
+causing insucient positive supervision. Therefore, more samples and iterations
+are required for convergence. Previous attempts have explored the issue by in-
+troducing train-only architectures ( e.g . query denoising [28], multiple groups of
+queries [6], auxiliary queries [23], collaborative hybrid assignment training [52])
+for additional supervision or by incorporating hard mining in loss functions ( e.g .
+IA-BCE loss [3], position-supervised loss [37]). Other works have proposed spe-
+cic structures for better interaction between queries and feature maps ( e.g . dy-
+namic anchor query [36], cascade window attention [46]), as well as techniques
+to focus on high-quality queries ( e.g . hierarchical ltering [20], dense distinct
+process [49] and query rank layer [40]). Despite these advancements, there has
+been little exploration of the issue from the perspective of self-attention, which
+is widely used in the transformer decoders in most DETR detectors.
+The eectiveness of self-attention lies in its establishment of a high-dimensional
+relation representation among sequence embeddings [4, 42], which also serves as
+a key component for modeling relations among dierent detection feature rep-
+resentations [4]. However, such relation is an implicit representation since it as-
+sumes no structural bias over inputs, in which even position information is also
+needed to be learned from training data [33]. Consequently, the learning process
+of transformer is data-intensive and slow to converge. This analysis motivates us
+to introduce task-specic bias for realizing faster convergence and reducing data
+dependence.
+In this paper, we explore enhancing DETR detectors from a novel perspective,
+namely explicit position relation prior. We rst establish a metric for quantifying
+position relations in images, and analyze the distribution to verify its statistical
+signicance. In this context, we introduce a position relation encoder to model
+all pairwise interactions between two bounding boxes, employing progressive
+attention renement for cross-layer information interaction. To maintain the
+end-to-end property while providing sucient positive supervision, we introduce
+a contrast relation strategy, which leverages both one-to-one and one-to-many
+matching while emphasizing the inuence of position relation on deduplication.
+The proposed method is named as Relation-DETR.
+Compared to previous works, the main feature of Relation-DETR is the inte-
+gration of explicit position relation. In contrast, prior works focus on implicitly

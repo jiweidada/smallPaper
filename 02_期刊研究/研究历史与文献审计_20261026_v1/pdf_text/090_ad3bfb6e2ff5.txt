@@ -1,0 +1,87 @@
+DASSF: Dynamic-Attention Scale-Sequence Fusion for
+Aerial Object Detection
+Haodong Li1 and Haicheng Qu1∗
+School of Software, Liaoning Technical University, Huludao, China
+Abstract. The detection of small objects in aerial images is a fundamental task
+in the field of computer vision. Moving objects in aerial photography have prob-
+lems such as different shapes and sizes, dense overlap, occlusion by the back-
+ground, and object blur, however, the original YOLO algorithm has low overall
+detection accuracy due to its weak ability to perceive targets of different scales.
+In order to improve the detection accuracy of densely overlapping small targets
+and fuzzy targets, this paper proposes a dynamic-attention scale-sequence fusion
+algorithm (DASSF) for small target detection in aerial images. First, we propose
+a dynamic scale sequence feature fusion (DSSFF) module that improves the up-
+sampling mechanism and reduces computational load. Secondly, a x-small object
+detection head is specially added to enhance the detection capability of small tar-
+gets. Finally, in order to improve the expressive ability of targets of different types
+and sizes, we use the dynamic head (DyHead). The model we proposed solves the
+problem of small target detection in aerial images and can be applied to multi-
+ple different versions of the YOLO algorithm, which is universal. Experimental
+results show that when the DASSF method is applied to YOLOv8, compared to
+YOLOv8n, on the VisDrone-2019 and DIOR datasets, the model shows an in-
+crease of 9.2% and 3.0% in the mean average precision (mAP), respectively, and
+outperforms the current mainstream methods.
+Keywords: aerial images · small target detection · feature fusion.
+1 Introduction
+Object detection is now widely applied across various fields, such as smart transporta-
+tion [5], medical diagnosis [15], industrial manufacturing [26], and re-identification [18].
+With the ongoing advancements in UA V technology and the maturation of remote sens-
+ing technology, aerial image target detection has emerged as a significant focus due
+to its vast potential. However, compared to traditional target detection scenarios, aerial
+images present unique challenges, including a wide range of target scales, small object
+sizes, diverse angle variations, complex backgrounds, and susceptibility to solar radia-
+tion and atmospheric transparency. These factors significantly complicate the accurate
+detection and identification of small targets in aerial images. Therefore, further research
+is needed to develop innovative methods and technologies to enhance the accuracy and
+efficiency of small target detection in these contexts.
+According to the MS COCO dataset [11] definition in the field of object detection,
+small objects are those smaller than 32 × 32 pixels. CFIL [22] introduces a frequency-
+domain feature extraction module [23] and frequency domain feature interaction to
+arXiv:2406.12285v2  [cs.CV]  22 Jun 2024
+
+---PAGE---
+
+2 Haodong Li and Haicheng Qu
+enhance salient features. MFC [16] proposes a frequency-domain filtering module to
+achieve dense target feature enhancement. LR-FPN [8] improves remote sensing target
+detection by enhancing low-level positional information and fine-grained context inter-
+action, leading to superior performance in agricultural and urban planning applications.
+PBSL [17] introduces a multimodal alignment approach to highlight relevant features
+and suppress irrelevant information. To address the issues of blurred boundaries and
+significant scale variations in high-resolution aerial images, Wang et al. [21] made en-
+hancements to the aerial image target detection task based on the YOLOX-X algorithm.
+By incorporating data augmentation, introducing a path aggregation network (PANet),
+and adding x-small detection heads, they significantly improved the overall detection
+capability of the network.
+While certain results have been achieved in aerial scene target detection tasks using
+these methods, there are still some problems, such as insufficient extraction of fea-
+tures of different scales by the neck network, information loss during the transmission
+process of small target features, and the use of too many cascade networks or attention
+mechanisms resulting in high computational overhead. In order to solve these problems,
+we present a YOLO model with dynamic-attention scale-sequence fusion (DASSF) to
+significantly improve detection accuracy. The main contributions of this paper can be
+summarized as follows:
+• We design a dynamic scale sequence feature fusion (DSSFF) module to accurately
+and efficiently extract global high-level semantic information in images of different
+scales, which not only reduces the model complexity but also can accurately detect
+small objects through point sampling.
+• By adding a x-small detection head with a resolution of 160 × 160, we can more
+exactly identify the categories of small targets and more precisely locate the coor-
+dinates of small targets during the detection stage, thereby improving the detection
+accuracy of models for small targets.
+• We use a dynamic head (DyHead) that combines scale, spatial, and task attention to
+improve the ability to integrate full-scale object features during the detection phase.
+It improves the detection of occluded targets commonly found in drone images and
+the blurring of targets affected by weather in remote sensing images.
+• The DASSF method we finally propose not only significantly enhances the detec-
+tion accuracy of objects at different scales and categories in aerial images, but also
+can be flexibly applied to various YOLO series algorithms.
+2 Proposed Method
+2.1 The Overall Architecture of DASSF-YOLO
+Fig 1 shows the overall architecture of the dynamic-attention scale-sequence fusion al-
+gorithm (DASSF) network model we designed. We use CSPDarknet53 as the backbone
+network. We utilize ASF-YOLO [6]’s neck network to enhance the detection of small,
+dense, and blurry targets in aerial images. The neck of the network utilizes the TFE in
+ASF-YOLO twice for fusing feature maps of different dimensions to obtain rich global
+channel information. Then apply the DSSFF to obtain accurate local location infor-
+mation. Then, the processed information is effectively interacted through the CPAM.

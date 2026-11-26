@@ -1,0 +1,191 @@
+LIP: Local Importance-based Pooling
+Ziteng Gao Limin Wang ∗ Gangshan Wu
+State Key Laboratory for Novel Software Technology, Nanjing University, China
+Abstract
+Spatial downsampling layers are favored in convolu-
+tional neural networks (CNNs) to downscale feature maps
+for larger receptive ﬁelds and less memory consumption.
+However , for discriminative tasks, there is a possibility that
+these layers lose the discriminative details due to improper
+pooling strategies, which could hinder the learning process
+and eventually result in suboptimal models. In this paper ,
+we present a uniﬁed framework over the existing down-
+sampling layers (e.g., average pooling, max pooling, and
+strided convolution) from a local importance view. In this
+framework, we analyze the issues of these widely-used pool-
+ing layers and ﬁgure out the criteria for designing an ef-
+fective downsampling layer . According to this analysis, we
+propose a conceptually simple, general, and effective pool-
+ing layer based on local importance modeling, termed as
+Local Importance-based Pooling (LIP). LIP can automati-
+cally enhance discriminative features during the downsam-
+pling procedure by learning adaptive importance weights
+based on inputs. Experiment results show that LIP consis-
+tently yields notable gains with different depths and differ-
+ent architectures on ImageNet classiﬁcation. In the chal-
+lenging MS COCO dataset, detectors with our LIP-ResNets
+as backbones obtain a consistent improvement ( ≥ 1. 4%)
+over the vanilla ResNets, and especially achieve the current
+state-of-the-art performance in detecting small objects un-
+der the single-scale testing scheme. 1
+1. Introduction
+For discriminative tasks like image classiﬁcation [8] and
+object detection [27], the modern architectures of convolu-
+tional neural networks (CNNs) mostly utilize spatial down-
+sampling (pooling) layers to reduce the spatial size of fea-
+ture maps in the hidden layers. Such pooling layers are for
+larger receptive ﬁelds and less memory consumption, espe-
+cially in extremely deep networks [34, 15]. The widely-
+used max pooling, average pooling, and strided convolution
+use a sliding window whose stride is larger than 1 and pool
+∗Corresponding author.
+1Code is available at https://github.com/sebgao/LIP.
+activations
+of patches
+how to
+downsample?
+Figure 1: Illustration of our motivation. (Left to right) the
+original image, some nearby patches, corresponding illus-
+trative activations in the feature map to downsample, and
+last, the output activations that we need. Here, red-tone
+activations are caused by the foreground bird. Blue-tone
+activations are caused by the background clutter in the top
+patch or the representive blue feather in the bottom patch.
+We want to preserve the red-tone activations in the top patch
+window and the blue-tone activations in the bottom. The
+downsampling method should recognize discriminative fea-
+tures adaptively across sliding windows.
+features by different strategies in each local window. But
+these layers might prevent discriminative details from be-
+ing well preserved, which are crucial for recognition and
+detection task. This is especially undesirable for discrim-
+inative features of tiny objects, as such details might be
+diluted with clutter activations or even not be sampled by
+improper downsampling strategies.
+In this paper, we aim to address these issues raised by the
+existing downsampling layers. To analyze their drawbacks,
+we present a uniﬁed framework from a local importance
+view. Under this new perspective, the existing pooling pro-
+cedure could be seen as aggregating features with their local
+importance in each sliding window. To our best knowledge,
+we are the ﬁrst to present a framework from the importance
+view for downsampling layers, which allows us to analyze
+and improve the pooling methods in a more principled way.
+As a result, we show that average and max pooling are both
+suboptimal due to the strong assumption or the invalid prior
+knowledge. Strided convolution adopts the improper inter-
+val sampling and also fails to model importance adaptively.
+To overcome their limitations, we present a new pooling
+method to learn importance weights automatically, coined
+as Local Importance-based Pooling (LIP).
+Basically, we argue that not all nearby pixels contribute
+3355
+
+
+---PAGE---
+
+equally and some features are more discriminative than the
+others within a neighborhood in the downsampling proce-
+dure, as illustrated in Figure 1. Therefore, it is expected
+to explicitly model the local importance and build a met-
+ric measure over pixels within local neighborhoods. From
+this analysis, we propose the LIP to meet the requirement
+of an ideal pooling operation. Speciﬁcally, LIP proposes to
+learn the metric of importance by a subnetwork based on
+the input features automatically. In this sense, LIP is able
+to adaptively determine which features are more important
+to be kept through downsampling. For instance, LIP en-
+ables the network to preserve features of tiny targets while
+discarding false activations of the background clutter when
+recognizing or detecting small objects. Moreover, LIP is a
+more generic pooling method than the existing methods, in
+sense that it is capable of mimicking the behavior of average
+pooling, max pooling and detail-preserving pooling [33].
+Experiments show LIP outperforms baseline methods by
+a large margin on ImageNet [8] with different architectures.
+We also evaluate our LIP backbones on the challenging
+COCO detection task [27], where localizing small objects
+play an important role. The both one- and two-stage de-
+tectors with our LIP-ResNets as backbones obtain a consis-
+tent improvement over the vanilla ResNets, and in particu-
+lar achieve a new state-of-the-art performance in detecting
+small objects under the single-scale testing scheme.
+2. Related Work
+Downsampling layers as basic layers in CNNs were pro-
+posed with LeNet-5 [20] as a way to reduce spatial resolu-
+tion by summing out values in a sliding window. Spatial
+downsampling procedures also exist in traditional methods.
+For example, HOG and SIFT [7, 29] aggregated the gradi-
+ent descriptors within each spatial neighborhood. Bag of
+words (BoW) based models also used intensive pooling in
+object recognition as to obtain more robust representations
+against translation and scale variance [37, 19].
+Modern CNNs utilize pooling layers to downscale fea-
+ture maps mainly for larger receptive ﬁeld and less mem-
+ory consumption. VGG [34], Inception [38, 18, 39] and
+DenseNet [17] used average and max pooling as down-
+sampling layers. ResNet [15] adopted convolutions whose
+stride is not 1 to extract features at regular non-consecutive
+locations as downsampling layers.
+Some pooling methods, including global average pool-
+ing [24], ROI pooling [9], and ROI align [14], aim to down-
+scale feature maps of arbitrary size to a ﬁxed size and there-
+fore enable the network to cooperate with inputs of different
+sizes. We do not discuss these methods as they are designed
+to speciﬁc architectures. Here, we only focus on pooling
+layers inside networks, that is, the ones that gradually down-
+scale feature maps by a ﬁxed ratio.
+There are some analysis on pooling methods before the
+widespread application of CNNs. Boureau et al. [2] ana-
+lyzed average and max pooling in traditional methods, and
+proved that max pooling can preserve more discriminative
+features than average pooling in terms of probability. The
+work [43, 41] showed that pooling can be without speciﬁc
+forms and learning to pool features is beneﬁcial. Our work
+mainly follows this research line and our results further sup-
+port these conclusions.
+Recent work about pooling has focused on how to bet-
+ter downscale feature maps in CNNs through new pooling
+layers. Fractional pooling [11] and S3pool [46] tried to im-
+prove the way to perform spatial transformation of pool-
+ing, which is not the focus of our paper. Mixed and hy-
+brid pooling [45, 21] used various combinations of max and
+average pooling to perform downscaling. Lp pooling [13]
+aggregated activations in the Lp norm way, which can be
+viewed as a continuum between max and average pooling
+controlled by the learned p. These methods can unify max
+and average pooling and further improve the performance
+of networks. However, they can simply learn better pool-
+ing method based on average pooling and max pooling, or
+the combination of them, but fails to provide more insights
+about general donwsampling methods. Saeedan et al. [33]
+argued that details should be preserved and redundant fea-
+tures can be discarded by proposed detail-preserving pool-
+ing (DPP). The detail criterion of DPP is relatively hand-
+crafted by calculating the deviation from statistics of pixels
+in sliding windows, which is heuristic and may be not opti-
+mal.
+In this paper, we analyze widely-used pooling layers
+based on a local importance view, which has not been in-
+vestigated in previous work. Our proposed LIP , naturally
+arisen from this concept, outperforms hand-crafted pooling
+layers by a large margin.
+Attention-based methods are recently popular in com-
+puter vision community [42, 49]. Our LIP can be also seen
+as a local attention approach designed for pooling, of which
+attention weights are in the softmax form. LIP mainly dif-
+fers from other attention methods in two important aspects
+for the better compatibility with downsampling procedure:
+(1) attention weights are produced by local convolutions
+in logit modules and then normalized locally; (2) LIPs do
+not adopt the key-query schemes in attention modeling for
+achieving better shift invariance.
+3. Local Importance Modeling
+In this section, we ﬁrst present the framework for down-
+sampling layers from local importance modeling view. We
+discuss some widely-used pooling layers in this framework.
+Next, we describe our proposed local importance-based
+pooling (LIP), which naturally arises from this analysis. Fi-
+nally, we show how to equip popular architectures with LIP
+layers and then obtain LIP-ResNet and LIP-DenseNet.
+3356

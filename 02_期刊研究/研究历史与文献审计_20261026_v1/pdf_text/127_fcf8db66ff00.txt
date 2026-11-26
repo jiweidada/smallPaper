@@ -1,0 +1,82 @@
+Better Sampling, towards Better End-to-end Small
+Object Detection
+Zile Huang Chong Zhang Mingyu Jin Fangyu Wu Chengzhi Liu
+Xiaobo Jin∗
+Xi’an Jiaotong-Liverpool University
+Zile.Huang21, Chong.zhang19, Mingyu.jin19@student.xjtlu.edu.cn,
+Fangyu.Wu02, Xiaobo.Jin@xjtlu.edu.cn
+Abstract
+While deep learning-based general object detection has made significant strides
+in recent years, the effectiveness and efficiency of small object detection remain
+unsatisfactory. This is primarily attributed not only to the limited characteristics
+of such small targets but also to the high density and mutual overlap among these
+targets. The existing transformer-based small object detectors do not leverage the
+gap between accuracy and inference speed. To address challenges, we propose
+methods enhancing sampling within an end-to-end framework. Sample Points
+Refinement (SPR) constrains localization and attention, preserving meaningful
+interactions in the region of interest and filtering out misleading information. Scale-
+aligned Target (ST) integrates scale information into target confidence, improving
+classification for small object detection. A task-decoupled Sample Reweighting
+(SR) mechanism guides attention toward challenging positive examples, utilizing
+a weight generator module to assess the difficulty and adjust classification loss
+based on decoder layer outcomes. Comprehensive experiments across various
+benchmarks reveal that our proposed detector excels in detecting small objects.
+Our model demonstrates a significant enhancement, achieving a 2.9% increase in
+average precision (AP) over the state-of-the-art (SOTA) on the VisDrone dataset
+and a 1.7% improvement on the SODA-D dataset.
+1 Introduction
+Since the emergence of deep convolutional neural networks (CNN), the performance of object
+detection methods has improved rapidly. There are two main approaches: two-stage proposal-based
+models with accuracy advantages [1] and single-stage proposal-free models with speed advantages
+[2]. However, despite recent tremendous advances in object detection, detecting objects under certain
+conditions is still difficult, such as being small, occluded, or truncated.
+Small target detection problems are mainly divided into four categories: multi-scale representation,
+contextual information, super-resolution and region proposal. Due to the tiny size and low resolution
+of small objects, location details are gradually lost in high-level feature maps. Multi-scale represen-
+tation [3] combines the location information of low-level features and the semantic information of
+high-level features. Contextual information, which exploits the relationship between an object in
+an image and its surrounding environment, is another novel way to improve small object detection
+accuracy. It is very necessary to extract more additional contextual information [4] as a supplement
+to the original ROI (Region of Interest) features because there are too few ROI features extracted
+from small objects. As mentioned above, fine details are crucial for object instance localization,
+which means that more details for small objects should be obtained. Super-resolution technology
+∗ Corresponding Authors.
+arXiv:2407.06127v1  [cs.CV]  17 May 2024
+
+---PAGE---
+
+Figure 1: Visualization of our methods within challenging scenes featuring crowds and overlapping
+objects. Our visual illustration emphasizes the effectiveness of scale-aligned target, sample reweight-
+ing, and sample point refinement within intricate scenes, allowing for a comparative analysis with a
+standard or baseline method.
+[5] attempts to restore or reconstruct the original low-resolution image to a higher resolution, which
+means more details of small objects can be obtained. Region-proposal [ 6] is a strategy aimed at
+designing more suitable anchor points for small objects. The anchors of the current leading detectors
+mainly focus on generic objects, and the size, shape and number of anchors used in general detectors
+do not match small objects well.
+Through the Transformer architecture, DETR [7] achieves competitive end-to-end detection perfor-
+mance in a one-to-one scheme, abandoning the manual components of NMS and eliminating the
+need for post-processing. However, the limited number and low quality of positive samples may lead
+to poor performance on objects of extremely limited size. Deformable DETR [8] uses deformable
+sampling points to enhance its feature decoding capabilities, but its performance in densely populated
+and overlapping scenes is unsatisfactory, and the ongoing challenge of effectively distinguishing
+positive and negative samples remains solve.
+To address the inherent challenges associated with small object detection and the limitations observed
+in current end-to-end object detectors, we introduce three different strategies aimed at mitigating
+these issues from different perspectives. In this work, we focus on improving the DETR method
+[7] for detecting small target objects. First, to mitigate potential clutter caused by background
+noise and surrounding elements, our approach follows an iterative refinement paradigm similar to
+[8], which focuses on refining the attention mechanism by merging updated box predictions from
+the previous layer, and effectively reduce confusion with background elements and noise. Second,
+sample point refinement (SPR) constrains the distribution and attention of sample points by setting
+learning goals for the deformable attention module in the decoder, instead of directly discarding
+reference points located outside the bounding box. This intentional inhibition can serve as a strategic
+stimulus for the model, resulting in a more object-centered deformable attentional sampling capability
+without losing surrounding information. Finally, a decoupled sample reweighting (SR) mechanism
+integrates a scaling factor into the target confidence, making the model inherently scale-aligned. The
+decoupled reweighting technique helps the model refocus its focus to learning from challenging
+positive examples at the feature level instead of the object level.
+In summary, the main contributions of this article are as follows:
+• We proposed Sample Points Refinement (SPR), which imposes constraints on the localization
+and attention of sample points within deformable attention. This ensures the preservation of
+2

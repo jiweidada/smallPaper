@@ -1,0 +1,71 @@
+Figure 3. The pipeline of DDQ . (a) shows the application of DDQ to an FCOS-like structure, which is a fully-convolutional network
+(FCN). It is thus dubbed DDQ FCN. The pyramid shuffle is applied to the last two and last convolution layers in the classification and
+regression branches, respectively. The class-agnostic NMS act as the distinct queries selection operation. At last, only distinct queries will
+be assigned labels before calculating loss. (b) shows the design of DDQ for R-CNN structures (DDQ R-CNN). The last feature maps of
+the classification and regression branches of DDQ FCN are concatenated and filtered as distinct queries. The distinct queries are then sent
+to the refining heads with their corresponding bounding boxes. (c) shows the design of DDQ for DETRs (DDQ DETR). After distinct
+queries selection, the remaining feature embedding in the encoder is projected with a linear to the content part of distinct queries. Their
+corresponding bounding boxes will be mapped to the position embedding part. Both parts will be sent to 6 refine stages. In such a long
+refine architecture, DQS will be applied before each refine stage to ensure distinctness.
+instance can be uniquely represented by its location in an
+image [29], it comes naturally to detect similar queries
+using the class-agnostic overlapping ratio between the
+bounding boxes predicted by queries. More specifically,
+we apply a class-agnostic NMS to select distinct queries
+for the following one-to-one assignment. The loss is
+thus only computed on the selected distinct queries. It
+should be noted that such an operation is adopted in both
+training and inference, instead of only in inference as an
+extra post-processing in traditional detectors. Therefore,
+such a pipeline still abides by the definition of end-to-end
+detectors. Compared to the training-unaware NMS in
+traditional detectors, it is designed to relieve the burden of
+one-to-one assignment during training, and can thus be set
+with an aggressive IoU threshold (0.7 in DDQ FCN and
+DDQ R-CNN, 0.8 in DDQ DETR), which is robust even on
+CrowdHuman dataset [23]. Such crowd scenes can not be
+properly handled by NMS as post-processing in traditional
+detectors. We validate this in Table. 4.
+Loss Components
+(1). Main Loss for Dense Distinct Queries . We simply
+apply the bipartite matching algorithm in DETR [2] with
+the same cost weight in the one-to-one assignment. No ex-
+tra prior (such as center priors in [28]) is adopted for a
+fair comparison with DETRs. After discriminating positive
+and negative samples, DDQ FCN adopts GIoU loss [22]
+and QFocal loss [16] with weights 2 and 1. For DDQ R-
+CNN and DDQ DETR, we just follow the implementation
+of Sparse R-CNN [26] and DINO [33].
+(2). Auxiliary Loss for Dense Queries . Despite the more
+efficient optimization in DDQ due to the removal of similar
+queries, it also results in numerous ”leaf” queries through
+which no gradients are back-propagated. Therefore, we de-
+sign an auxiliary head and an auxiliary loss to further har-
+ness the potential of the filtered queries following the design
+in DeFCN [28]. The auxiliary head is mostly identical to
+the main head, except that it adopts a soft one-to-many as-
+signment for dense queries to allow for dense gradients and
+more positive samples to speed up training. More details
+can be found in our supplementary material.
+4.2. DDQ FCN
+As shown in Fig. 3. (a), the DDQ principle is first applied
+to FCOS as an example of the FCN structure for object de-
+tection. It is found that dense queries are already available
+on the dense feature pyramid. However, as the dense queries
+are processed level by level with convolutional layers. The
+missing interaction across different levels poses a challenge
+for the optimization of one-to-one assignments.
+Inspired by channel shuffle operation in ShuffleNet [36],
+we propose a pyramid shuffle to compensate for the inter-
+action between queries in different levels where S channels
+across adjacent levels are shuffled to form a new feature
+pyramid. Specifically, features at level i exchange S chan-
+nels with those at level i − 1 and level i + 1 simultaneously.
+To account for the different spatial dimensions on the fea-
+ture pyramid, a bilinear interpolation is adopted when ex-
+changing features. We apply the pyramid shuffle operation
+on the last two and one convolution layer in the classifica-
+tion and regression branches, respectively. This approach
+stabilizes training and improves performance with negli-
+gible additional computation costs. In this work, we set
+4

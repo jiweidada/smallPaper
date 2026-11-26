@@ -1,0 +1,189 @@
+Variable-Granularity Tokenization for High-Resolution Object Detection
+Khayrul Islam
+Lawrence Livermore National Laboratory
+7000 East Ave, Livermore, CA 94550
+Islam11@llnl.gov
+Abstract
+ViT detectors fix a uniform token grid before any learned
+stage. A native-resolution aerial detector must then choose
+between resolving few-pixel objects and staying inside com-
+pute and memory limits. We introduce VGTok, a training-
+free tokenizer that sets patch granularity per region from
+pixels, ahead of the encoder. VGTok scores each re-
+gion by multi-scale morphological top-hat separability from
+its surround, then thresholds those scores at a per-image
+percentile, which fixes the token budget. A structure-
+tensor gate (λ min) refines only where two-dimensional ob-
+ject structure supports it, leaving one-dimensional clutter
+coarse. The resulting token set is a strict partition of the
+image. In a Co-DETR detector with an EVA-02 ViT-L en-
+coder, VGTok clears every published VisDrone-val AP and
+APS at every budget from 40% to 100% of tokens. At 40%
+it records 44.22 AP with three fifths of the sequence dis-
+carded before the first transformer block; dense, it reaches
+48.38 AP ,6.08above the strongest published entry. VGTok
+transfers to AI-TOD-v2 untouched, same scorer and same
+rank, and sets a new state of the art at 37.27 AP and 19.51
+APvt. As a pure drop-in into a frozen checkpoint it reaches
+36.29 AP at 78.5% of tokens, above every published entry,
+where our 376.3M-parameter detector clears a 3.0B multi-
+expert model. We show that a token budget fixed before the
+backbone, from local separability and structure geometry
+alone, holds accuracy on the tiny-object regimes that dom-
+inate aerial detection, at3.1×less encoder compute and
+1.9×less encoder memory. Code and models are avail-
+able atgithub.com/khayrulbuet13/vgtokand
+huggingface.co/khayrulbuet13/vgtok.
+This work was performed under the auspices of the U.S. Department
+of Energy by Lawrence Livermore National Laboratory under Contract
+DE-AC52-07NA27344. Release number: LLNL-CONF-2023636.
+(a)  Input with ground truth: 317
+instances, 280 below 32×32 px
+(b)  VGTok allocation: 70% of
+tokens, 47.8 AP zero-shot (−0.6 vs
+dense)
+358 nodes stopped by the gate
+(c)  Close-up of the
+boxed region
+(d)  Quadtree: contrast
+alone refines the paint
+204 tokens
+(e)  λmin gate: the paint
+costs one token, not four
+174 tokens
+10 stopped
+Figure 1. VGTok on a VisDrone frame at70%tokens. Contrast
+alone spends204tokens on painted crosswalk bars holding no ob-
+ject; theλ min gate emits the same crop in174. (a) Ground truth:
+317instances,280of them under32×32px. (b) The finest patch
+size stays on the vehicles while empty roadway, plaza and build-
+ing faces coarsen, at47.76AP zero-shot with no weight changed,
+5.46AP above the strongest published val result; Tab. 4 prints this
+budget trained. (c) The boxed region, enlarged: paint on plain as-
+phalt. (d) Contrast refines that paint to the finest size. (e) The gate
+stops the descent, one coarse token in place of four fine ones.
+1. Introduction
+A ViT detector reads an image as a grid of patches of one
+size, and every later stage computes on that grid. Small
+objects on aerial imagery occupy a handful of pixels, and
+a grid fine enough to resolve them is too expensive over a
+full frame. SAHI [5] regains that resolution by tiling the
+frame into overlapping chips, but spends the budget uni-
+formly, giving empty background and dense clusters iden-
+tical per-pixel allocation. Compute must therefore be spent
+selectively, on evidence cheap enough to read before the
+backbone runs.
+Tokenization fixes the token countNbefore any learned
+stage, so every mechanism that allocates compute after it
+(token pruning and merging [11, 29, 52, 56, 58, 92], sparse
+and density-guided detection heads [41, 42, 60, 84, 102],
+1
+arXiv:2608.28706v1  [cs.CV]  27 Aug 2026
+
+---PAGE---
+
+crop-and-tile inference [43, 50, 53, 91, 100], saliency-
+guided warping [59, 79, 80, 103]) inherits a token budget
+it cannot enlarge, or leavesNuntouched and carries every
+prediction back through an inverse map.
+Any tokenizer that varies the ViT’s patch size must de-
+cide from pixels alone whether a region deserves resolution,
+either by learning the decision [15, 39, 75, 93, 99] or by cut-
+ting a scalar measure of intra-patch structure (entropy, blur
+energy, a Laplacian response) at a constant [16, 54, 62, 97].
+Either way the measure scores a region in isolation. De-
+tection asks a different question. An object is defined by
+separation from its surround, so the informative quantity is
+separability from the surround [33, 69]. The two diverge
+where the surround is textured and the target smooth. A
+scalar average attenuates a target in proportion to its area, so
+the evidence weakens as the target shrinks. VGTok there-
+fore scores a region, ahead of patch projection, by its sepa-
+rability from the surround, a multi-scale morphological top-
+hat whose max over structuring-element sizes and polarities
+keeps the score independent of target area.
+Both approaches then refine the same way, replacing
+a selected region with four sub-patches and emitting all
+four [39, 62, 93], so refining costs four tokens even where
+the evidence is a single straight edge. Leaving the regular
+grid costs more still, giving up the pretrained patch embed-
+ding [1, 106], and a second uniform scale raises the token
+count [14]. VGTok instead separates the decision to refine
+from the evidence that would justify it. A region is refined
+only whereλ min, the smaller eigenvalue of the structure ten-
+sor [70], reports two-dimensional structure, and otherwise
+stops at its own coarse size (Fig. 1). The token set stays a
+strict partition. A road marking costs1token where all-or-
+nothing refinement costs4.
+We cut tokens with these two training-free statistics in a
+plain ViT-L detector at2048×1152[28, 51, 107]. Every
+budget from40%to100%of the tokens beats every pub-
+lished VisDrone-val AP and AP S: discarding60%of the
+sequence leaves44.22AP and35.56AP S, and the same
+detector run dense reaches48.38AP against the42.3of
+the strongest published entrant [85], a margin of6.08AP.
+On AI-TOD-v2, carried across with no retuning and no
+weight changed, VGTok holds36.29AP at78.5%of to-
+kens, and36.57at its70%operating point, against35.7
+for the strongest entrant published on that test split [101],
+a3.0B multi-expert model to our376.3M. The shorter se-
+quence runs packed and variable-length [21–23], which is
+what turns removed tokens into removed work [3, 26]. Be-
+cause neither statistic is learned, the budget is not a property
+of the weights. A learned scorer settles the retained fraction
+during training [39, 93], and an absolute per-scale thresh-
+old settles it implicitly [16, 62, 97]; a per-image percentile
+makes it an argument the operator supplies at inference.
+One released checkpoint therefore serves the whole lad-
+der, so a deployment picks its own point on the accuracy–
+compute curve and moves it later without retraining.
+2. Related Work
+2.1. Mixed-scale patchification
+Aerial tiny-object detection is resolution-limited, since a
+handful of pixels decides assignment, localisation and eval-
+uation alike [71, 81, 82, 86, 88, 89, 104]. Chips and
+pyramids buy that resolution back by running the detec-
+tor twice [5, 43, 50, 57, 73, 74, 91, 100], and warping
+buys it in one pass [59, 79, 80, 103]. Sparse and density-
+guided heads [13, 42, 60, 84, 102, 105] and token prun-
+ing [41, 52, 58] then work within a length settled before
+they ran.
+Patch size is a controllable model axis, and FlexiViT
+serves many sizes from one weight set [9, 24, 27], uniform
+across the frame and fixed at deploy time. Varying it by
+region means recursing on a quadtree, classical in image
+coding [40, 64, 77], where the recursion was never the hard
+part: exhaustive rate-distortion search was displaced by
+cheap partition predicates [8, 36]. A tokenizer inherits nei-
+ther that search nor its objective, only the demand that the
+predicate run from pixels before the encoder. (Quadtree at-
+tention recurses inside attention, not over granularity [78].)
+Setting granularity ahead of the backbone is established.
+A quadtree halted on summed edge magnitude is training-
+free, as is the gradient-thresholded quadtree QLIP drops
+into a frozen encoder [16, 97], and evaluators built from
+edge, entropy and frequency cues do the same [2, 15,
+45, 87, 95]. Each halts on gradient strength, which a
+painted line supplies as readily as a vehicle; we test in-
+stead whether the gradients agree on a direction. An ex-
+act token count is Quadformer’s [62], per-input adaptivity
+is MSViT’s, learned inside the network [39], and a quantile
+is DART’s, differentiable inside a learned scorer [93]. A
+top-down16/32/64ladder over ragged sequences packed
+block-diagonally is the standard execution path for this fam-
+ily [17, 39, 62, 93]. We fix that ladder across every tokenizer
+we compare, so that the scorer is the only term that varies,
+and re-open the choice of scorer under a matched budget on
+aerial data.
+Two further choices follow from the aerial setting, and
+neither is the recursion. An absolute per-scale constant fixes
+the retained fraction only implicitly, and the constants are
+themselves tuned [16, 62, 97]; a per-image percentile makes
+that fraction an operator input, holds competing scorers to
+identical budgets, and transfers a rank set on VisDrone to
+AI-TOD-v2 unchanged. And where adapting a detector to
+a new tokenizer ordinarily costs a finetune [2, 39, 93], VG-
+Tok’s scorer and gate add no parameter and its fusion is inert
+at initialisation, so the tokenizer drops into a released check-
+point unchanged, which is what the80%row is. Refinement
+2

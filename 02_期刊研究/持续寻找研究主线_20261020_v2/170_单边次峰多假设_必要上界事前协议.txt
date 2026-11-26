@@ -1,0 +1,35 @@
+170 单边次峰多假设：必要作用面上界（执行前冻结）
+日期：2026-10-21。设计来源为168中Claude唯一完整首答；原文已全文读取。
+本协议和171只由C写入，未运行；由root审查并调度执行。默认新输出172_C0_secondary_peak_upperbound。不得覆盖既有输出，不改157/158或任何历史门槛。
+
+一、目的、对象与停止条件
+只检查一个具体读出：原33节点四边PMF，每query最多一个单边次峰副框，原期望主框保留；副分数为原sigmoid类别分数乘次峰/主峰质量，仍竞争跨类top300。
+当前先计算其更宽的必要上界：同query同时允许四个单边副框及原框，按GT选择可用框，但query容量仍为1、真类资格固定为原native top300。实际部署选择不得看GT，本次oracle也不当部署读出。上界只针对query容量1主指标，不是该方案COCO AP或允许同query多框各覆盖GT时的召回上界。
+仅127同C0 online四张开发输入；全902 GT，缓存原sub4标记453。sub4在组内独立作最大匹配，不能由全图匹配筛出。不是双seed、val/test或AP。135−51不是84个唯一GT，不以此构造cohort。原域135只说明域内有gap，不能推出框族整体不是瓶颈或PMF双峰是原因。
+唯一继续资源判据：tau=.1上界sub4真类IoU>=.5计数相对原51净增>=10，且至少2图净增>0。否则停止这个精确单边second-peak K2版本。tau=.2仅描述，不救失败。阳性只允许进入已定selector/分数预算检查；不等于统计显著、训练许可、AP收益或新颖性。不否定所有多模态读出。
+
+二、固定数学与数值定义
+e顺序l,t,r,b。由FP32 final_corners reshape(300,4,33)，按native Integral的FP32 softmax和F.linear取得p和d_bar。节点由原native weighting_function(32, up=[.5], reg_scale=[4])产生，都是FP32；不是均匀节点。native distance2bbox(ref_points_initial,d,reg_scale)解码，原框仍以缓存pred_boxes为准。期望重建与原框最大绝对差需<=1e-6，否则停止并报接口错误，不给方法结果。
+峰定义：对每条FP32 p，把完全相等的连续值并为最大plateau区间[a,b]。区间值严格大于每个存在的左右邻居时为局部峰；端点仅比较存在的一侧；全平分布算唯一plateau峰。以a为代表节点，质量为该单个节点的raw p[a]，不是plateau总质量、不是峰间重归一。峰按质量降序，质量相同按代表index升序。取前两峰；两个不同峰区间之间必须至少有一个低值节点（因此代表index差>=2），不额外平滑或挑更远峰。零质量平台不能成为两个正峰之一。
+只在有两个峰且第二峰单节点质量>=tau时生成该边副框。第一峰必不低于第二峰，所以其质量也>=tau；ratio=p_second/p_main满足0<ratio<=1。相等质量允许，绝不因结果删去。tau主值.1，描述值.2，FP32概率转FP64后和十进制阈值直接比较，不加epsilon。
+第e个副框只令d[e]=node(second[e])，其他三边仍为原expected d_bar；不把其他边改到主峰。每query四边分别尝试。无裁图、无中心/宽高clamp。仅有限且width>0、height>0的副框合法；无第二峰的槽记原框占位但valid=false。非法副框逐项报告，不能换边或改节点挽救。不同边或原框数值重合不另去重，不增加query容量。
+实际后续K2 selector若获继续资格：从满足tau的边按第二峰质量最大选择一边，tie按l,t,r,b；若该被选框非法则不发副框，不能在看GT后换边。此次不运行这个selector的评价，也不混入额外控制或新增方法。
+
+三、分数预算与并列规则：本精确读出的明确补充
+原native资格为FP32 sigmoid(pred_logits).flatten().topk(300)，须与127保存natural_top300_flat_indices逐项一致。一个query可能有多类资格，几何匹配不看类，真类匹配要求(q,GTlabel)属于此资格；两者都query容量1。
+并列分数时，所有main优先于secondary；原main内部保存原native top300顺序，剩余main按分数降序、flat index升序续接。此tie规则是精确读出的补充，不能默认拼接后任意torch.topk在相等值时自动满足。
+证明：设a=(q,c)原资格外，原已有300个main在总序中先于main(a)。任一secondary(a)分数<=main(a)；严格更低时这些300个main仍在其前；相等时main优先规则亦使这300个main在其前。因此secondary(a)不能进入新top300，main(a)也不能。添加副框只能挤掉一部分原资格，不能增加资格。本次让全部原资格保留，故是宽上界。没有main优先tie规则时，相等分数的任意重排可破坏命题，代码包含这一反例。
+合成自检在任何cache读取/哈希之前运行：端点峰、平顶代表/质量、全平、非相邻、等高峰ratio=1；单边native变换及零/负宽高剔除；严格分数与cutoff并列下资格不扩张；匹配query容量1而非把副框当独立query。失败直接停止，不打开cache。
+
+四、评价与输出
+先分别解码合法副框，构造I[q,g]=max(original与四个合法副框的IoU)。合法框用native FP32输出，再FP64计算IoU。每阈值t=.5/.75生成I>=t的二分图；GT按all/sub4组分别取列，class图另乘固定资格矩阵。确定性最大匹配按q/index升序，保存匹配对、所用副框编号与IoU；此编号是oracle witness，不能当selector标签证明可学。保留原框保证原<=tau.2上界<=tau.1上界，逐项断言。
+八项计数均报：all/sub4 × geometry/trueclass × .5/.75。原八项必须复现127：allgeo05=370,sub4geo05=66,allgeo075=184,sub4geo075=15,allclass05=324,sub4class05=51,allclass075=162,sub4class075=10。报告每图及合计、tau.1/.2、正图数、所有边峰数直方图、两峰频次、过阈值及合法副框数、每query合法数量、比值/质量、非法原因。逐GT“存在任一覆盖框”的新增/丢失另报，不能用某次最大匹配身份变动宣称保住同一GT。
+另报阈值±1e-8计数敏感性，纯诊断、不改主gate。所有图与框生成先于GT评价；无GT诱导候选。
+输出：00_synthetic.json；01_candidates.pt（四图候选/峰/valid/原分数等派生缓存，无P2复制）；02_image_0至3.json（含峰频次、计数、匹配和perGT）；03_results.json（汇总与冻结gate）；04_execution.json（资源、源哈希、无前向等计数）。可先用--synthetic-only，只写默认新目录172_C0_secondary_peak_synthetic_precheck中的00/04，不读或哈希127；完整运行默认目录仍为172_C0_secondary_peak_upperbound，并重新合成自检。--out只接受当前v2下新的172_*目录。
+
+五、输入身份、资源与边界
+127/01_cache.pt SHA256=f2fb2120ccd670f846a0a70651a3fabbf9bcfb636c94d43d33f8dc34eceac79c。
+checkpoint身份仅从cache核对9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e，weight_key=model_online；不加载/访问checkpoint。reg_max32/up.5/reg_scale4，model_state_sha256=c10a2b8b8f7244c6bdb4d1a3261a85af829d303b18469ceefb25acc5fdd5e60b。
+复用136文件的纯数学/资源/匹配函数，固定其SHA10bc190cce57688cd8c04b31190fc356244cc2afd6df5b6c74f8bed4eca6ab26；不调用其main、不运行旧PMF检查。native只导入box_ops与dfine_utils，不建model。
+环境CPU2线程、interop1、BelowNormal、affinity[13,15]、RAM>8GiB；不满足即停。零模型前向/反传/VJP/缓存autograd/训练/更新，无optimizer、无远端。所有cache/source哈希执行前后核对，输出限定新目录。估计执行约10–60秒（含库加载、cache读写及哈希；未经实测，不保证）。
+本原理不声称“峰替期望”首次；root已读Deep Mixture Density Network Eq7/8的最高成分/期望切换。当前未证明固定预算的指定两框方案有独立贡献，先用上述可失败上界作取舍。

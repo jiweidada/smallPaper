@@ -1,0 +1,193 @@
+Efﬁcient DETR: Improving End-to-End Object Detector with Dense Prior
+Zhuyu Yao Jiangbo Ai * Boxun Li Chi Zhang
+Megvii Technology
+{yaozhuyu, liboxun, zhangchi }@megvii.com jiangboml@gmail.com
+Abstract
+The recently proposed end-to-end transformer detec-
+tors, such as DETR and Deformable DETR, have a cas-
+cade structure of stacking 6 decoder layers to update ob-
+ject queries iteratively, without which their performance
+degrades seriously. In this paper, we investigate that the
+random initialization of object containers, which include
+object queries and reference points, is mainly responsible
+for the requirement of multiple iterations. Based on our
+ﬁndings, we propose Efﬁcient DETR, a simple and efﬁcient
+pipeline for end-to-end object detection. By taking advan-
+tage of both dense detection and sparse set detection, Ef-
+ﬁcient DETR leverages dense prior to initialize the object
+containers and brings the gap of the 1-decoder structure
+and 6-decoder structure. Experiments conducted on MS
+COCO show that our method, with only 3 encoder layers
+and 1 decoder layer, achieves competitive performance with
+state-of-the-art object detection methods. Efﬁcient DETR is
+also robust in crowded scenes. It outperforms modern de-
+tectors on CrowdHuman dataset by a large margin.
+1. Introduction
+Object detection is a classic task in computer vision that
+studies to locate bounding boxes and predicts categories of
+objects in images. Modern detectors [9, 27, 24, 20] generate
+dense anchors with the sliding window method to establish
+connections between network predictions and the ground
+truth. Post-processing methods like non-maximum suppres-
+sion (NMS) is used to remove the redundancy of predic-
+tions. These hand-crafted components can not achieve the
+end-to-end object detection.
+Recently, DETR [2] proposed to build an end-to-end
+framework based on an encoder-decoder transformer [34]
+architecture and bipartite matching, which directly predicts
+a set of bounding boxes without post-processing. How-
+ever, DETR requires 10 to 20 times of training epochs than
+modern mainstream detectors [27, 24, 20] to converge, and
+*This work was done at Megvii Technology.
+DetectionHead
+ObjectContainer
+Feature
+Extractor
+……
+6x
+Cascade
+FeatureRefiner
+Random
+Initialization
+(a)
+ObjectContainer
+FeatureRefiner
+(b)
+DensePrior
+Initialization
+DecoderLayer
+DecoderLayer
+DecoderLayer
+DecoderLayerFeature
+Extractor DetectionHead
+Figure 1. Previous end-to-end detectors (a) and ours (b)
+shows relatively low performance in detecting small ob-
+jects. Deformable DETR [43] solves the two problems in
+the following two aspects: (i). replacing global scoped at-
+tention with local spatial attention, which accelerates the
+convergence of training. (ii). replacing single-scale feature
+maps with multi-scale feature maps, which signiﬁcantly im-
+proves the performance in detecting small objects.
+The DETR’s pipeline can be abstracted as shown in
+Fig.1(a). We deﬁne the object container as a container of
+structured information, which includes different kinds of
+object features. Object queries and reference points both
+belong to the object container, since the object queries and
+the reference points could represent the abstract features
+and positional information of objects. A set of randomly
+initialized object containers are fed to a feature reﬁner to
+interact with the features extracted from the image. Specif-
+ically, 6 decoder layers with cross-attention modules play
+the role of a cascade feature reﬁner which updates object
+containers iteratively. The reﬁned object containers con-
+tribute to the ﬁnal predictions of DETR. Moreover, the fea-
+ture from the image is extracted from a feature extractor,
+which has a CNN backbone and 6 encoder layers in DETR.
+In a word, image and randomly initialized object contain-
+arXiv:2104.01318v1  [cs.CV]  3 Apr 2021
+
+---PAGE---
+
+ers pass through the feature extractor and cascade feature
+reﬁner to get ﬁnal results. In this pipeline, both DETR and
+Deformable DETR have a 6-encoder and 6-decoder trans-
+former architecture. We hypothesize that this structure is
+the key for the DETR series to achieve high accuracy in ob-
+ject detection.
+In this paper, we investigate the components of DETRs
+for understanding their mechanism. We conduct extensive
+experiments and ﬁnd that the decoder layer with an extra
+auxiliary loss contributes most to the performance. The
+transformer decoders iteratively interact object containers
+with the feature maps. We explore that the random initial-
+ization of object containers in DETRs is mainly responsible
+for the requirement of multiple reﬁnement times (i.e., de-
+coder layers) and leads slow convergence.
+However, it’s hard to directly analyze object queries [2]
+as they are just a set of abstract features. Thanks to the De-
+formable DETR, it proposes the reference points [43] for
+object queries. Reference points are 2-d tensors that rep-
+resent the guess of box centers. By visualizing reference
+points of a trained model, we ﬁnd that they proves to serve
+just as anchor points [33, 40, 17, 7] in anchor-based meth-
+ods [27, 22]. Furthermore, we report that different initial-
+ization of reference points leads to huge performance differ-
+ences in the 1-decoder structure. Here comes the question:
+which initialization is better for object containers in end-to-
+end detectors?
+In this paper, we propose Efﬁcient DETR, a simple but
+efﬁcient end-to-end detector 1(b). Efﬁcient DETR has two
+parts: dense and sparse. Both parts share the same detec-
+tion head. In the dense part, a class speciﬁc dense pre-
+diction based on sliding-windows is performed to gener-
+ate proposals. Top-K (K=100 in this paper) scored 4-d
+proposals and their 256-d encoder features are taken as
+the reference points and object queries. The initialization
+of object containers is so reasonable that our method is
+able to achieve better performance and fast convergence
+with only 1 decoder layer. Speciﬁcally, a 3-encoder and
+1-decoder structure based on Deformable DETR, could
+achieve competitive performance (44.2AP in COCO [21])
+with a ResNet50 [11] backbone and faster (36 epochs) train-
+ing.
+2. Related Work
+2.1. One-stage and Two-stage Detectors
+Mainstream detectors are mostly based on anchor boxes
+or anchor points. Anchors are generated at the center
+of each sliding-window position, which offers candidates
+for objects. In one-stage detectors, such as YOLO [24],
+SSD [22], RetinaNet [20], and FCOS [33], the network
+directly predicts categories and offsets of anchors for the
+whole feature maps. A one-to-many label assignment rule
+is usually adopted to compute targets for each anchor. Post-
+processing such as NMS is used to remove duplicate pre-
+dictions of objects. In contrast, two-stage detectors, such
+as Faster RCNN [27] and Mask RCNN [10], don’t directly
+output ﬁnal predictions. Instead, they perform class agnos-
+tic dense predictions ﬁrstly to generate foreground propos-
+als by a Region Proposal Networks (RPN) [27, 1, 35]. An
+ROIPool [27] or ROIAlign [10] layer is used to extract fea-
+tures of region proposals from the backbone features. NMS
+is also used for the ﬁnal results. The ROIPool and ROIAlign
+layers solve the feature misalignment problem and reﬁne
+proposals. As a result, two-stage detectors usually demon-
+strate better performance than one-stage detectors.
+2.2. End-to-end Detectors
+End-to-end detectors, such as [36], DETR [2], De-
+formable DETR [43], and Sparse RCNN [31], don’t require
+extra post-processing stages and perform object detection
+in an end-to-end framework. DETR is built in an encoder-
+decoder transformer architecture. Backbone features are
+passed through 6 encoder layers to extract context informa-
+tion for each position of the feature maps. Object queries,
+deﬁned as learned positional encodings [34, 2], are sent to
+6 decoder layers to iteratively interact with the encoder fea-
+tures. Object queries have a small size, for example, 100
+in DETR. Final results are predicted from object queries
+by a detection head. A set prediction loss, i.e., the bipar-
+tite matching loss, is added to each decoder layer for re-
+ﬁnement. Without any hand-crafted components, DETR di-
+rectly predicts a set of boxes with scores as the ﬁnal predic-
+tions. However, DETR needs a long training process (∼500
+epochs) and is not good at detecting small objects.
+To solve these problems, Deformable DETR and Sparse
+RCNN both propose an effective good solution. In De-
+formable DETR, multi-scale features are used to help de-
+tect small objects. It generates a reference point for each
+object query, and proposes a deformable attention mod-
+ule [4, 42, 43], to make each reference point only focuses on
+a small ﬁxed set of sampling points. This modiﬁcation turns
+the global connections in the transformer to local connec-
+tions and signiﬁcantly raises the converging speed from 500
+epochs of DETR to 50 epochs. Deformable DETR is also in
+a 6-encoder and 6-decoder architecture. Sparse RCNN pro-
+posed a purely sparse framework for object detection with
+learnable proposals. A 256-d proposal feature is generated
+for each learnable region proposal in pair. Similar to the
+object queries in DETR, proposal features are fed to 6 dy-
+namic instances interactive head [31] to interact with the
+region feature from feature pyramid networks (FPN) [19].
+The RoI layer limits the proposal feature to only interact
+with a few local features and makes Sparse RCNN have a
+fast converging speed (36 epochs). Besides, [32], [5] and
+[8] also studied the convergence problem of DETR in other

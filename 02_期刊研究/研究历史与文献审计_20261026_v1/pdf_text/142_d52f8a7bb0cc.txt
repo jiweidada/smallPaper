@@ -1,0 +1,178 @@
+Boundary-aware Camouﬂaged Object Detection via Deformable Point Sampling
+Minhyeok Lee1 Suhwan Cho1 Chaewon Park1 Dogyoon Lee1 Jungho Lee1 Sangyoun Lee1,2
+1 Yonsei University
+2 Korea Institute of Science and Technology (KIST)
+Abstract
+The camouﬂaged object detection (COD) task aims to
+identify and segment objects that blend into the background
+due to their similar color or texture. Despite the inherent
+difﬁculties of the task, COD has gained considerable at-
+tention in several ﬁelds, such as medicine, life-saving, and
+anti-military ﬁelds. In this paper, we propose a novel solu-
+tion called the Deformable Point Sampling network (DPS-
+Net) to address the challenges associated with COD. The
+proposed DPS-Net utilizes a Deformable Point Sampling
+transformer (DPS transformer) that can effectively cap-
+ture sparse local boundary information of signiﬁcant ob-
+ject boundaries in COD using a deformable point sampling
+method. Moreover, the DPS transformer demonstrates ro-
+bust COD performance by extracting contextual features for
+target object localization through integrating rough global
+positional information of objects with boundary local in-
+formation. We evaluate our method on three prominent
+datasets and achieve state-of-the-art performance. Our re-
+sults demonstrate the effectiveness of the proposed method
+through comparative experiments.
+1. Introduction
+Camouﬂaged object detection (COD) is an image seg-
+mentation task that aims to identify objects that are chal-
+lenging for human detection due to their similarity in ap-
+pearance to the background. COD has recently been used
+in various applications, such as polyp segmentation in the
+medical ﬁeld, lifesaving in extreme environments, and an-
+timilitary camouﬂage. COD is similar to salient object de-
+tection (SOD) in that there is no prior information about the
+target object; however, it is a more challenging task because
+the target is camouﬂaged. Therefore, the detection of subtle
+differences in color and pattern of camouﬂaged objects is
+crucial for successful COD.
+Various studies [9,16,17,30,33,34,48,49] propose deep
+learning-based methods to address the challenges of COD.
+Some approaches [30, 49] extract global texture features of
+w/o DPSw/  DPS (Ours)
+Activation map Boundary map Prediction map
+Figure 1. Effectiveness of the proposed DPS transformer. The vi-
+sualization shows the activation maps of the features learned by
+the naive encoder without DPS transformer (Top), and the features
+learned with the DPS transformer (Bottom).
+the camouﬂaged object to learn its information separated
+from the background. However, since the texture of most
+camouﬂaged objects is similar to the background, distin-
+guishing subtle differences in boundary local information
+remains a challenging task. Jia et al. [17] use a multistage
+prediction method that predicts the camouﬂaged object after
+magnifying the image based on its pre-predicted position.
+However, this method suffers from the drawback of hav-
+ing a large inference time because the same model is used
+repeatedly. Recent studies [16, 34, 48] improve model per-
+formance by introducing an additional module that recon-
+structs boundaries from encoder features. Typically, these
+approaches attach boundary prediction branches to the en-
+coder to provide additional supervision signals for object
+edges. These techniques can encourage the encoder to fo-
+cus more on the object boundary regions during the train-
+ing phase. However, due to the limitations of the encoder’s
+feature extraction capabilities, low-quality predictive masks
+are generated in the boundary regions when the camou-
+ﬂaged object and the background are very similar, as shown
+in the activation map in Figure 1 (a).
+To solve these problems, we propose the Deformable
+Point Sampling network (DPS-Net). Our model employs a
+Deformable Point Sampling transformer (DPS transformer)
+to directly capture sparse supervision signals for object
+arXiv:2211.12048v2  [cs.CV]  11 Mar 2023
+
+---PAGE---
+
+boundary areas from the encoder features. The DPS trans-
+former consists of a local extractor, a global extractor, and
+an aggregator. Firstly, the local extractor divides the image
+into patches and extracts local information from deformable
+sampling points using offset encoders. This feature sam-
+pling method encourages the extraction of more informa-
+tion in meaningful areas of the disguised object boundaries
+through predicted offsets. Thus, the local extractor can learn
+detailed local information of camouﬂaged objects and dis-
+tinctive features from the background while increasing the
+computational efﬁciency of the model by sampling only
+useful information. Secondly, the global extractor creates
+soft object region masks for the objects and the background
+from the input features. Global features are extracted from
+each feature map area by applying global average pooling
+to the generated mask region. This process enables effec-
+tive extraction of global features of camouﬂaged objects
+and speciﬁes their approximate location. Finally, the ag-
+gregator aggregates the generated local and global features.
+Although local information about boundaries is critical in
+COD, focusing only on local information can overlook im-
+portant global information for roughly estimating the loca-
+tion of the target object. Therefore, we design an aggregator
+to simultaneously utilize global and local information. Fig-
+ure 1 (b) demonstrates that the proposed DPS transformer
+effectively complements the feature extraction capability of
+the encoder and integrates global positional information and
+local boundary information. As a result, the DPS trans-
+former identiﬁes the overall tendency of the image by con-
+sidering the global context and local details of the image
+simultaneously. Moreover, it helps in understanding bound-
+aries by capturing the ﬁne structure of the object and conse-
+quently allows the model to generate an accurate prediction
+map.
+We tested our method on three popular datasets:
+CHAMELEON [31], CAMO [20], and COD10K [9]. These
+datasets contain various challenging scenarios, and the pro-
+posed model achieves state-of-the-art performance on all
+three datasets. In addition, we performed various ablation
+studies to prove the effectiveness of the model and show
+that robust COD is possible in challenging scenes.
+Our main contributions can be summarized as follows:
+• We propose a novel DPS network with a DPS trans-
+former to overcome the limitations of the previous
+COD model. The DPS transformer directly capture
+sparse supervision signals for object boundary areas
+from the encoder features.
+• The proposed model effectively combines local bound-
+ary information using deformable sampling points and
+global information of the object to generate accurate
+boundary maps and prediction masks.
+• The proposed network achieves state-of-the-art perfor-
+mance on the CHAMELEON [31], CAMO [20], and
+COD10K [9] datasets. Additionally, we demonstrate
+the effectiveness of the proposed method through var-
+ious ablation studies.
+2. Related Work
+Camouﬂaged Object Detection Traditional COD meth-
+ods [2, 10, 15, 18] use hand-crafted features such as color,
+boundary, texture, convex, and brightness to distinguish
+camouﬂaged objects from their backgrounds. However,
+these hand-based methods have poor detection results when
+the target object has colors and textures that are very similar
+to those of the background.
+To solve this problem, deep learning-based COD meth-
+ods [9, 16, 17, 30, 33, 34, 47–49] have been recently pro-
+posed. For example, SINet [9] approaches COD as an
+SOD problem and applies sophisticated SOD technology to
+the network. Some studies [30, 49] extract texture infor-
+mation to separate the target object from the background.
+However, these methods often fail when the target object
+shares the same texture features with the background. Jia et
+al. [17] uses a network to specify the approximate location
+of the target object and repeats the process of magnifying
+and cropping the image based on this approximate location.
+However, their iterative multi-stage method has the disad-
+vantage of signiﬁcantly increasing the model’s inference
+time. Zhong et al. [47] proposes a frequency-enhancement
+module to focus on feature points in the frequency domain
+that are distinct from the background. Furthermore, several
+recent papers [16, 34, 43, 48] improve the model’s perfor-
+mance by reconstructing the boundaries of the target object
+from encoder features and integrating them. However, be-
+cause boundary information is directly extracted from the
+encoder, there is a problem that the quality of the recon-
+structed boundary is dependent on the quality of the encoder
+feature.
+3. Proposed Approach
+3.1. Overall Architecture
+Figure 2 shows the overall architecture of DPS-Net. The
+proposed model comprises an RGB encoder, a boundary de-
+coder for boundary reconstruction, and a feature pyramid
+network-based [22] decoder for generating a ﬁnal segmen-
+tation map. As a ﬁrst step, the proposed model extracts
+and integrates multi-scale features from encoder blocks us-
+ing multi-scale feature fusion modules (MFFMs). Next, the
+proposed DPS transformer block extracts global and local
+features of target objects and aggregates those features. The
+boundary decoder predicts the boundary map Epred, and
+Epred is merged with the aggregated features through the
+boundary fusion modules (BFMs). Finally, the model gen-
+erates a ﬁnal prediction maskIpred through a decoder.

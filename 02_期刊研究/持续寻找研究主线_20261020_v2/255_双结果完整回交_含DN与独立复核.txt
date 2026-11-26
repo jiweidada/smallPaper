@@ -1,0 +1,701 @@
+当前目标及已失败版本核心账本：
+=====核心资产摘录，完整旧发言与原始数表均保留，以下不新增结果=====
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+
+【最新完整实测；不得以旧2/4图判断覆盖它】
+247｜双BASE24完整结果回交；两项执行均已完成；不新增训练
+2026-10-21。此为全部预定arm的紧凑汇总；完整逐stage/逐query/编码/证书与source manifest在下列文件，不能只看有利字段。
+
+一、执行与来源
+238：237按236兼容审计使用原保存G0；16 development缓存、64模型输入曝光，60.953秒，0checkpoint/model/newforward/gradient/update/heldout，source SHA全不变。原223/224失败保持。235的566个q/50曝光跨平台择解差全为最高票并列，原G0未被当前平台值替换。
+244：243修复230的容量helper接线（230误调用183而真正函数在159），旧231FAILED保留。合成及完整16缓存执行成功，41.234秒，0checkpoint/model/newforward/autograd/update/heldout，source SHA全不变。数学/尺度/容差/门槛完全沿229。
+两个seed用相同开发输入，非64张独立新图；batch03=512平方、batch05=544平方，其余640平方。current_sub4是实际输入短边<4；原始曝光original_sub4无标记为NA。
+
+二、真实GO单调修复（238）
+指标为固定匹配监督，未改变预测、不是检测命中/AP。
+-- seed1 GT=6629, GO槽=6291, 必要约束noncopy=True
+{"arm":"G0","outside":2451.0,"v":48948.983447472536,"final_IoU":1847.3638704688492,"ref_IoU":1766.9141544562517,"native_cost":9435.335136502981,"owner_changes":0.0,"repaired_old_outside":0,"lost_old_inside":0,"changed_still_outside":0,"forbidden_edges":0,"changed_owners":0}
+{"arm":"G_repair","outside":2407.0,"v":48912.67112371416,"final_IoU":1826.350913300921,"ref_IoU":1747.172392378845,"native_cost":9484.591577082872,"owner_changes":113.0,"repaired_old_outside":44,"lost_old_inside":0,"changed_still_outside":0,"forbidden_edges":0,"changed_owners":113}
+{"arm":"U_cost","outside":2369.0,"v":48973.58486991559,"final_IoU":1825.2364260639733,"ref_IoU":1740.65461983368,"native_cost":9497.190288156271,"owner_changes":648.0,"repaired_old_outside":109,"lost_old_inside":27,"changed_still_outside":353,"forbidden_edges":380,"changed_owners":648}
+{"arm":"U_change","outside":2369.0,"v":49045.93361575556,"final_IoU":1821.1034672307287,"ref_IoU":1742.7159430838947,"native_cost":9521.76286636293,"owner_changes":202.0,"repaired_old_outside":82,"lost_old_inside":0,"changed_still_outside":39,"forbidden_edges":39,"changed_owners":202}
+{"arm":"ref_IoU_face","outside":2430.0,"v":52313.067944131406,"final_IoU":1850.3044530458137,"ref_IoU":1773.5281417447113,"native_cost":9717.653596922755,"owner_changes":468.0,"repaired_old_outside":81,"lost_old_inside":60,"changed_still_outside":126,"forbidden_edges":186,"changed_owners":468}
+{"arm":"final_IoU_face","outside":2451.0,"v":52758.321180729756,"final_IoU":1855.9547337427648,"ref_IoU":1767.5716717869072,"native_cost":9691.795122012496,"owner_changes":503.0,"repaired_old_outside":79,"lost_old_inside":79,"changed_still_outside":144,"forbidden_edges":223,"changed_owners":503}
+{"arm":"native_cost_face","outside":2448.0,"v":48948.04988392716,"final_IoU":1850.5550925825228,"ref_IoU":1763.6541020977456,"native_cost":9415.87471614778,"owner_changes":440.0,"repaired_old_outside":33,"lost_old_inside":30,"changed_still_outside":306,"forbidden_edges":336,"changed_owners":440}
+实际tiny全臂cohort={"G0":{"assigned_slots":2235,"support_slots":1029,"repaired_from_cohort":0,"repaired_to_cohort":0,"lost_from_cohort":0,"changed_from_cohort":0},"G_repair":{"assigned_slots":2235,"support_slots":1036,"repaired_from_cohort":7,"repaired_to_cohort":4,"lost_from_cohort":0,"changed_from_cohort":12},"U_cost":{"assigned_slots":2235,"support_slots":1044,"repaired_from_cohort":26,"repaired_to_cohort":14,"lost_from_cohort":2,"changed_from_cohort":278},"U_change":{"assigned_slots":2235,"support_slots":1044,"repaired_from_cohort":18,"repaired_to_cohort":13,"lost_from_cohort":0,"changed_from_cohort":34},"ref_IoU_face":{"assigned_slots":2235,"support_slots":1025,"repaired_from_cohort":37,"repaired_to_cohort":24,"lost_from_cohort":21,"changed_from_cohort":240},"final_IoU_face":{"assigned_slots":2235,"support_slots":1013,"repaired_from_cohort":30,"repaired_to_cohort":23,"lost_from_cohort":31,"changed_from_cohort":248},"native_cost_face":{"assigned_slots":2235,"support_slots":1028,"repaired_from_cohort":13,"repaired_to_cohort":4,"lost_from_cohort":4,"changed_from_cohort":244}}
+-- seed2 GT=6629, GO槽=6351, 必要约束noncopy=True
+{"arm":"G0","outside":2326.0,"v":37663.95092379626,"final_IoU":1880.551085826246,"ref_IoU":1816.7889869735372,"native_cost":9421.55770854652,"owner_changes":0.0,"repaired_old_outside":0,"lost_old_inside":0,"changed_still_outside":0,"forbidden_edges":0,"changed_owners":0}
+{"arm":"G_repair","outside":2288.0,"v":37647.7738091585,"final_IoU":1866.2250723961915,"ref_IoU":1803.3105248666186,"native_cost":9463.147346898913,"owner_changes":90.0,"repaired_old_outside":38,"lost_old_inside":0,"changed_still_outside":0,"forbidden_edges":0,"changed_owners":90}
+{"arm":"U_cost","outside":2240.0,"v":38465.662808316934,"final_IoU":1864.5791661233197,"ref_IoU":1795.0473168305257,"native_cost":9449.834827005863,"owner_changes":807.0,"repaired_old_outside":116,"lost_old_inside":30,"changed_still_outside":489,"forbidden_edges":519,"changed_owners":807}
+{"arm":"U_change","outside":2240.0,"v":38098.11789678144,"final_IoU":1859.1104211684105,"ref_IoU":1796.632308211382,"native_cost":9499.810031488538,"owner_changes":202.0,"repaired_old_outside":86,"lost_old_inside":0,"changed_still_outside":52,"forbidden_edges":52,"changed_owners":202}
+{"arm":"ref_IoU_face","outside":2305.0,"v":40044.36806278187,"final_IoU":1882.206884046347,"ref_IoU":1823.5659831262674,"native_cost":9680.933645144105,"owner_changes":542.0,"repaired_old_outside":72,"lost_old_inside":51,"changed_still_outside":144,"forbidden_edges":195,"changed_owners":542}
+{"arm":"final_IoU_face","outside":2340.0,"v":41493.26768804854,"final_IoU":1889.767425287162,"ref_IoU":1816.5827724529445,"native_cost":9755.318177312613,"owner_changes":627.0,"repaired_old_outside":76,"lost_old_inside":90,"changed_still_outside":214,"forbidden_edges":304,"changed_owners":627}
+{"arm":"native_cost_face","outside":2334.0,"v":38315.85018252696,"final_IoU":1885.6435131771905,"ref_IoU":1813.2996231875363,"native_cost":9368.708393588662,"owner_changes":633.0,"repaired_old_outside":42,"lost_old_inside":50,"changed_still_outside":446,"forbidden_edges":496,"changed_owners":633}
+实际tiny全臂cohort={"G0":{"assigned_slots":2247,"support_slots":1093,"repaired_from_cohort":0,"repaired_to_cohort":0,"lost_from_cohort":0,"changed_from_cohort":0},"G_repair":{"assigned_slots":2247,"support_slots":1105,"repaired_from_cohort":12,"repaired_to_cohort":7,"lost_from_cohort":0,"changed_from_cohort":20},"U_cost":{"assigned_slots":2247,"support_slots":1121,"repaired_from_cohort":40,"repaired_to_cohort":28,"lost_from_cohort":5,"changed_from_cohort":382},"U_change":{"assigned_slots":2247,"support_slots":1122,"repaired_from_cohort":32,"repaired_to_cohort":24,"lost_from_cohort":0,"changed_from_cohort":56},"ref_IoU_face":{"assigned_slots":2247,"support_slots":1092,"repaired_from_cohort":29,"repaired_to_cohort":28,"lost_from_cohort":17,"changed_from_cohort":276},"final_IoU_face":{"assigned_slots":2247,"support_slots":1069,"repaired_from_cohort":29,"repaired_to_cohort":23,"lost_from_cohort":38,"changed_from_cohort":319},"native_cost_face":{"assigned_slots":2247,"support_slots":1085,"repaired_from_cohort":15,"repaired_to_cohort":11,"lost_from_cohort":17,"changed_from_cohort":342}}
+两seed原定必要screen都是true，但不是训练或创新许可。修复44/38、改owner113/90；tiny净支持增7/12，直接新target为tiny的outside→inside行4/7，伴随inside跨cohort流入解释差异。241独立复核接受；修复曝光13/32和20/32的当前owner-IoUsum均下降。伴随69/52 inside换绑的IoUsum−28.0059/−19.3547；39/21条旧IoU≥.5换到<.5。以上不是检测TP损失，是监督目标改变的真实代价。原finalIoU0的repair有34/44、30/38，不能声称移除了这些边的强final FGL梯度。
+
+三、位移标度全部八臂（244）
+N=原生；F4/F8=保留basebox、全部残差物理单位设4/8实际输入像素下限；E4/E8=只扩每query两端点，与同k F完全同支持；C4/C8=直接clamp pre尺寸；T2=旧全局endpoint2、内部31节点不变。
+-- A，主集合：原GO actual-sub4∩原nativeFP32IoU0∩原支持外；F4必要screen=True
+{"arm":"N","main_denominator":1170,"main_new_support":0,"new_support_all_GO":0,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":0,"GO":6291,"IoU_mean":0.29365187961941175,"IoU_delta_sum":0.0,"geometry_delta_sum_valid":0.0,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":0,"down05":0,"up075":0,"down075":0,"tiny_n":2235,"tiny_IoU_delta_sum":0.0,"tiny_up05":0,"tiny_down05":0,"tiny_new_invalid":0}
+{"arm":"F4","main_denominator":1170,"main_new_support":2,"new_support_all_GO":2,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":2,"GO":6291,"IoU_mean":0.29366037871012773,"IoU_delta_sum":0.05346777969420565,"geometry_delta_sum_valid":-0.227083126077783,"new_invalid":0,"zero_to_positive":1,"positive_to_zero":0,"up05":0,"down05":5,"up075":0,"down075":1,"tiny_n":2235,"tiny_IoU_delta_sum":0.10133755307783014,"tiny_up05":0,"tiny_down05":2,"tiny_new_invalid":0}
+{"arm":"E4","main_denominator":1170,"main_new_support":2,"new_support_all_GO":2,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":2,"GO":6291,"IoU_mean":0.2936530511901908,"IoU_delta_sum":0.007370351771280374,"geometry_delta_sum_valid":-0.1919217371809594,"new_invalid":0,"zero_to_positive":1,"positive_to_zero":0,"up05":0,"down05":1,"up075":0,"down075":0,"tiny_n":2235,"tiny_IoU_delta_sum":-0.006891823196105647,"tiny_up05":0,"tiny_down05":1,"tiny_new_invalid":0}
+{"arm":"C4","main_denominator":1170,"main_new_support":2,"new_support_all_GO":2,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":1,"GO":6291,"IoU_mean":0.2928718856866883,"IoU_delta_sum":-4.906941830763164,"geometry_delta_sum_valid":9.24554917594895,"new_invalid":0,"zero_to_positive":3,"positive_to_zero":0,"up05":1,"down05":27,"up075":1,"down075":9,"tiny_n":2235,"tiny_IoU_delta_sum":-5.526969101173823,"tiny_up05":1,"tiny_down05":27,"tiny_new_invalid":0}
+{"arm":"F8","main_denominator":1170,"main_new_support":11,"new_support_all_GO":24,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":46,"GO":6291,"IoU_mean":0.2930862118553696,"IoU_delta_sum":-3.5586159035893696,"geometry_delta_sum_valid":11.312101067379214,"new_invalid":0,"zero_to_positive":2,"positive_to_zero":4,"up05":12,"down05":30,"up075":10,"down075":21,"tiny_n":2235,"tiny_IoU_delta_sum":-1.2744235891873692,"tiny_up05":11,"tiny_down05":19,"tiny_new_invalid":0}
+{"arm":"E8","main_denominator":1170,"main_new_support":11,"new_support_all_GO":24,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":46,"GO":6291,"IoU_mean":0.2935185118648724,"IoU_delta_sum":-0.8390165438069792,"geometry_delta_sum_valid":-1.159044470525377,"new_invalid":0,"zero_to_positive":3,"positive_to_zero":0,"up05":2,"down05":12,"up075":1,"down075":4,"tiny_n":2235,"tiny_IoU_delta_sum":-1.1976351295107008,"tiny_up05":2,"tiny_down05":12,"tiny_new_invalid":0}
+{"arm":"C8","main_denominator":1170,"main_new_support":7,"new_support_all_GO":19,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":29,"GO":6291,"IoU_mean":0.27620580280045104,"IoU_delta_sum":-109.75326926808171,"geometry_delta_sum_valid":221.5005069313704,"new_invalid":0,"zero_to_positive":15,"positive_to_zero":0,"up05":17,"down05":277,"up075":18,"down075":126,"tiny_n":2235,"tiny_IoU_delta_sum":-70.97488450284852,"tiny_up05":1,"tiny_down05":172,"tiny_new_invalid":0}
+{"arm":"T2","main_denominator":1170,"main_new_support":245,"new_support_all_GO":598,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":660,"GO":6291,"IoU_mean":0.29136728512044446,"IoU_delta_sum":-14.372383993003067,"geometry_delta_sum_valid":41.56052006873436,"new_invalid":1,"zero_to_positive":62,"positive_to_zero":22,"up05":15,"down05":37,"up075":11,"down075":25,"tiny_n":2235,"tiny_IoU_delta_sum":-5.5139668755297695,"tiny_up05":2,"tiny_down05":14,"tiny_new_invalid":1}
+-- B，主集合：原GO actual-sub4∩原nativeFP32IoU0∩原支持外；F4必要screen=False
+{"arm":"N","main_denominator":1066,"main_new_support":0,"new_support_all_GO":0,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":0,"GO":6351,"IoU_mean":0.2961031243170637,"IoU_delta_sum":0.0,"geometry_delta_sum_valid":0.0,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":0,"down05":0,"up075":0,"down075":0,"tiny_n":2247,"tiny_IoU_delta_sum":0.0,"tiny_up05":0,"tiny_down05":0,"tiny_new_invalid":0}
+{"arm":"F4","main_denominator":1066,"main_new_support":0,"new_support_all_GO":0,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":0,"GO":6351,"IoU_mean":0.2960423372035601,"IoU_delta_sum":-0.38605895786128486,"geometry_delta_sum_valid":1.0823040752349185,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":0,"down05":0,"up075":2,"down075":1,"tiny_n":2247,"tiny_IoU_delta_sum":-0.42982736791519227,"tiny_up05":0,"tiny_down05":0,"tiny_new_invalid":0}
+{"arm":"E4","main_denominator":1066,"main_new_support":0,"new_support_all_GO":0,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":0,"GO":6351,"IoU_mean":0.2960934312279349,"IoU_delta_sum":-0.061560809057170554,"geometry_delta_sum_valid":0.0874141273488937,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":0,"down05":0,"up075":0,"down075":0,"tiny_n":2247,"tiny_IoU_delta_sum":-0.07940872361678576,"tiny_up05":0,"tiny_down05":0,"tiny_new_invalid":0}
+{"arm":"C4","main_denominator":1066,"main_new_support":0,"new_support_all_GO":0,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":0,"GO":6351,"IoU_mean":0.2955077061558756,"IoU_delta_sum":-3.78150074170526,"geometry_delta_sum_valid":7.672947936621101,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":1,"down05":11,"up075":2,"down075":6,"tiny_n":2247,"tiny_IoU_delta_sum":-4.197267015172371,"tiny_up05":0,"tiny_down05":11,"tiny_new_invalid":0}
+{"arm":"F8","main_denominator":1066,"main_new_support":11,"new_support_all_GO":17,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":21,"GO":6351,"IoU_mean":0.2952401104002465,"IoU_delta_sum":-5.4810013857061985,"geometry_delta_sum_valid":15.897911178091316,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":2,"up05":11,"down05":34,"up075":18,"down075":22,"tiny_n":2247,"tiny_IoU_delta_sum":-3.0201751055594825,"tiny_up05":7,"tiny_down05":17,"tiny_new_invalid":0}
+{"arm":"E8","main_denominator":1066,"main_new_support":11,"new_support_all_GO":17,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":21,"GO":6351,"IoU_mean":0.2957655009894599,"IoU_delta_sum":-2.144245753611569,"geometry_delta_sum_valid":2.649522697348765,"new_invalid":0,"zero_to_positive":0,"positive_to_zero":0,"up05":2,"down05":3,"up075":0,"down075":3,"tiny_n":2247,"tiny_IoU_delta_sum":-2.3401582014053597,"tiny_up05":0,"tiny_down05":2,"tiny_new_invalid":0}
+{"arm":"C8","main_denominator":1066,"main_new_support":8,"new_support_all_GO":16,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":6,"GO":6351,"IoU_mean":0.27984729023928673,"IoU_delta_sum":-103.24080222796142,"geometry_delta_sum_valid":217.1707802334936,"new_invalid":0,"zero_to_positive":9,"positive_to_zero":0,"up05":14,"down05":249,"up075":19,"down075":104,"tiny_n":2247,"tiny_IoU_delta_sum":-67.78902116232751,"tiny_up05":0,"tiny_down05":154,"tiny_new_invalid":0}
+{"arm":"T2","main_denominator":1066,"main_new_support":216,"new_support_all_GO":649,"lost_support_all_GO":0,"all300_unrestricted_new_tiny":608,"GO":6351,"IoU_mean":0.29246654131479943,"IoU_delta_sum":-23.095938647380223,"geometry_delta_sum_valid":134.49570959928278,"new_invalid":4,"zero_to_positive":67,"positive_to_zero":58,"up05":11,"down05":29,"up075":9,"down075":19,"tiny_n":2247,"tiny_IoU_delta_sum":-9.170530316944616,"tiny_up05":0,"tiny_down05":5,"tiny_new_invalid":2}
+严格按229：k4主集合1170/1066，新增2/0，mixed，双seed必要screen未过；all300无限类别newtiny同为2/0。因此此精确k4版本不申请训练、不作为已保留主线。k8为预定敏感性：主新增11/11、all300newtiny46/21，不得升为主来救结果。T2主245/216、all300newtiny660/608，其旧两seed12轮真实训练mixed仍保留。
+F/E支持等价自检通过；它们内部box/编码差确实不同，但不同不等于受益。F4/E4无新invalid；T2全GO新invalid1/4必须保留。所有冻结几何非新模型前向，后层attention和PMF没有适应，不能当训练收益预判。
+239是结果前推荐有限N/E4/F4训练的意见，其前提为229通过；现在此前提未满足。245仅存未执行条件预案，不能据其纸面方案宣布主线完成。
+
+四、下一步讨论要求
+不要为F4改k、改群体或改screen；不要靠‘有个新公式’保它。原约束repair的necessary noncopy已双seed证实，但效应有限且伴随代价，讨论应具体说明能否修订学习机制，不能把支持计数当AP。
+也可以继续UI已提出的pre中心新增观测、局部条件补全等实质不同设计；须从当前真实数据明确作用对象、原文对照、强简单控制及最低成本无训练核查。不要从‘原三阶段没覆盖’推成原图没有信息或天然槽不足。
+240已逐原代码纠正：COCO100是useCats=1下每图每类；实际postprocessor跨query×class top300，可一q多类；不能用全类别query第100名判断AP零代价。组合匹配交互也可经外部query的增广链发生，不只四候选组内重复；NMS仍是强控制但不定理性复制。旧160 score交换非加性阴性保留，不可换名重做；改变实际框的16动作与score交换不是同一动作，但需新真实证据。
+
+五、完整可复核文件（均可本地只读，不读heldout）
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\238_BASE24_saved_GO_repair_probe\01_results.json SHA256=32f2b9ce607ccf744e1e25578309dca345a8973a900c5d9604e6b5981fd1e900
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\244_BASE24_cached_displacement_floor_probe_fixed\01_results.json SHA256=9dfbf71fc5ea60820b529c4e1e0fb0c0412fd96af034a40f439a3e98618160b9
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\244_BASE24_cached_displacement_floor_probe_fixed\02_output_sha256.json SHA256=1fb64644422ac499eb3bc5b5afa22f1d5e7856409514c4fcfd2266f38d0f4233
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\241_B_双BASE24修复结果复核与作用量.txt SHA256=4e7155fd235a45823ad1dbb6f5f4ce296c5107e589afa5f1b2379678cd1cb7da
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\226_A_FDR固定物理步长_设计与原文边界.txt SHA256=7da468a66ec744a008a9b832d6b608fdf22f94a45000b64dbc68daf653ad4ca7
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\239_A_物理标度候选值得训练与否_最低证据.txt SHA256=3ffb62cf2e46b959b76c38eaa85d57f3d5166fbde7cae9261d2501aa101d98a5
+C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\240_圆桌第二轮_评估与匹配口径纠正.txt SHA256=15c34824f079bd9a53f6e417f04adc96189d140df703d2f416982255898598b0
+244每batch {A,B}_batchXX.json与_arrays.npz保存全部stage、GO/own/DN、编码及实际几何，02_output_sha256逐文件列SHA；238每batch_assignments.json和_matrices.npz保存所有运输证书/逐query/精度域，01_results含全artifact SHA。以上未生成任何AP数值。
+
+
+【评估及组合匹配口径纠正】
+240｜对219/220圆桌第二轮的已核口径纠正（只读代码；无新增训练）
+2026-10-21。用于下一次完整结果回交，不作为候选通过记录。
+
+一、不能把COCO maxDets=100说成全图全类别只评前100个query
+项目recipe 相位机制论文_20261018/data/source_snapshot/common.yml 第8行 evaluator.max_dets=100，第233行 num_top_queries=300。
+实际native engine/deim/postprocessor.py 的use_focal_loss分支（约99–106行）先sigmoid，再scores.flatten(1)跨300query×10class选top300。相同query可以有多个类别候选；不是先每query取argmax再排序300个query。
+本地原作者pycocotools实现 code/query_context_gap_20261004_v1/local_deps/pycocotools/cocoeval.py：useCats默认1（511行）；evaluate按catId逐类调用evaluateImg（142–155行）；evaluateImg按_gts[imgId,catId]、_dts[imgId,catId]取数据（241–243行），再dtind[0:maxDet]截断（约260行）。所以这里的100是每图、每类的截断，不能用全类别query第100名作为“之后都不影响AP”的判断。
+该源码只证明对应项目COCO协议。官方VisDrone、UAVDT有各自规则；不能把A8 UAVDT cap30移植到本次development几何缓存。BASE24 development缓存本轮并未执行正式AP。
+要查删除R的部署影响，必须保存真实flatten候选(q,c)、全局top300入选、之后每类rank/cap，不能只用max-class query rank。对argmax query排序可以另列，但不得伪装原后处理。
+
+二、“组间匹配交互只等于四候选组内去重”并非已证
+完整匹配代价/最大匹配还可能通过未替换的外部query产生交互。简单图例：固定query x可连g1或g2；候选a仅连g1，b仅连g2。相对只含x的图，单加a、单加b各增加1，合加却只增加1。a与b的GT邻域不相交，交互通过x发生，不能据此假定a/b之间的NMS必复制完整集合效用。
+组内NMS仍是值得设置的强简单控制；上例不是为新联合选择器背书，更不证明实际预测里有足够此类结构。若要做新核查，必须在真实候选图里查实际非加性及部署greedy，不由理论例子立项。
+
+三、旧160阴性保留，不能扩大也不能遗忘
+158/159/160已经检验过C0四图、top300边界1024个score交换：实例Hi标签与分别增删d_sep的十阈值向量完全相同，预定非复制门槛失败；不进入共享头。这个精确动作不能换名重做。
+当前UI C的“改变四个实际框、枚举16种保留/替换”的动作与旧score互换不同，因此不能仅凭关键词判同一个失败候选。但也不能说它已获得非加性证据。需要先写清真实候选来源、固定集合/score、16动作、最强独立选择及NMS控制、实际协议与事前规则，再决定是否值得做最低成本检查。
+
+四、本地缓存前置失败的事实
+223按原222协议在A batch00的saved native union reproduction检查fail closed，未产生任何候选结果；224保留失败现场，源SHA全部不变。
+235只读16个development analysis JSON、0预测张量/模型，核native _get_go_indices在当前Windows torch2.5.1+cpu重建：与原保存GO有566个query不同，影响50/64模型输入曝光（A261/27图，B305/23图）；每一个差异的旧GT和新GT都同为该query最高票并列。层顺序与映射方向没有差异。没有证据把它称为方法阴性或数据损坏。
+新236/237兼容修订在看任何repair候选结果之前编写：始终保留原saved G0及其q/GT/class预算，不用当前平台重建值替换；完整记录已证并列差，并继续原成本、own、分母、预算和证书核验。所有候选、强控制、screen和输入不变。尚不能称238已执行或成功。
+
+五、floor强简单控制已经补齐
+226已给出按真实输入4px主、8px敏感性的FDR残差单位floor；每query/轴只扩两端点的E_k与全节点floor F_k物理支持完全相同。因此支持新增绝不能作为F_k优于E_k的证据。旧global endpoint2保留+.213/−.374 mixed、内部31点未变；普通/DN目标与实际decode改变后IoU权重也可能改变。229/230在准备缓存诊断，尚无结果，不借预期值宣布主线。
+
+
+【原图重读/采样最近原文核查；列清已覆盖和剩余变量】
+194｜原图重读与采样：原文边界、真正剩余变量和一次最低成本判别
+日期：2026-10-21。责任：native Astra A；只读审查，未运行模型、实验程序或训练，未改旧源/配置/证据。本次只新增本文件。
+
+一、直接判断与版本边界
+
+不把“二维密度warp＋源坐标框＋T处attention读取”直接作为新方法申请训练。FOVEA、SALISA覆盖前置非均匀采样；更直接的LZU已覆盖zoom后把特征unzoom、在原坐标完成检测，而且支持非可分二维变换。Rosenblatt不是新变换，源坐标监督也不是首次。
+但不能据此断言C与LZU离散实现全同：C可把非均匀特征格保留到decoder的实际采样点，省去LZU在均匀源格上的中间投影。以下把“在哪里恢复均匀格”作为唯一主要修订变量，明确它是候选机制而非已经成立的论文创新。A的观测约束校正作为有明确区别的另一备选记录，不同时主推两个大改动。
+
+本次亲读189_圆桌原始备份时，文件已经有第3轮：C已撤回中心热图驱动warp，改全图加四块中一块、预测追加分辨率的成对几何收益；A已改双头相减以保证同观测零校正。不能将已撤回的C2伪装为当前圆桌共识。这里保留C2核查是执行root指定任务；C3的直接先例另列第六节。
+
+二、亲读原文到底覆盖了什么
+
+1. FOVEA, ICCV 2021, §3.1–3.3，Eq.3–8。
+https://arxiv.org/html/2108.12102v1
+原文定义源→warp的T，以I_w(u)=I(T^{-1}(u))采图；Eq.4–5用saliency和距离核对源坐标加权平均形成逆映射。主设计改成两轴可分以保持矩形，反射padding避免裁边；预测框经T^{-1}返回原空间、原空间算损失。它已经讨论RPN的源空间delta与warp空间RoI读取不一致的问题。故“框在源空间、特征在另一空间”不是未被发现的问题；C可计算T并逐采点读取是一个具体接口差别。
+核查方式：arXiv原文HTML亲读；CVF PDF直接open为403，未冒称PDF成功。
+
+2. SALISA, ECCV 2022, §3.1–3.3，Eq.1–3。
+https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136700296.pdf
+https://arxiv.org/html/2204.02397
+16×16控制点的TPS网格：W=[[K,P],[P^T,0]]^{-1}V，G=L'W。以注意力采样器网格G'监督，Loss_grid=Σ M⊙||G−G'||_2。原文明说二维密度边际化会把两处对角目标的交叉空区也放大，并用选择性网格监督缓解。它的框仍在变形图预测，再插值位移回源空间；未采用C所写的源坐标DETR查询。故“发现交叉空区问题”和“用二维变换缓解”都已覆盖；不能把Rosenblatt满足面积式直接算方法增量。
+核查方式：官方PDF正文及arXiv HTML亲读。
+
+3. Learning to Zoom and Unzoom, CVPR 2023，§4.1–4.2、§5.1。
+https://arxiv.org/abs/2303.15390
+本地亲读：文献_相关原始论文_20261004\_text\230_Learning_to_Zoom_and_Unzoom_arXiv2303_15390v1_Claude新方案复核_20261006.txt。
+注意其T记号方向与C相反：LZU的T是输出→输入。Eq.5用分片双线性映射近似T，Eq.6对每个quadrilateral分片求逆。方法先zoom输入、运行空间网络、再unzoom特征；§5.1是在FPN各层之后unzoom。非可分warp的可逆实现已经给出；采用可分主实验的理由是非可分未带来更好表现且更慢，不是“不支持二维”。
+这比FOVEA/SALISA更接近C：源标签不变、不将非线性变形后的四角假装为精确矩形，已由特征unzoom实现。C的连续读取F_w(T(x))就是该特征拉回在x的按需求值。完整网络不必相同：C另外更改encoder位置编码及提案初始化，离散插值次序也不同。必须把差别限定在这些确切位置。
+另一个不能忽略的结果：原文Table 2显示只有低分辨率输入时非均匀放大也可改善；因此原图重读后收益不能自动解释为找回新像素，也可能只是尺度适配。
+
+4. ZoomDet, 2026，Adaptive Image Zoom-in with Bounding Box Transformation for UAV Object Detection。
+https://arxiv.org/abs/2602.07512
+本地亲读：_text\176_ZoomDet_arXiv2602.07512v2.txt。
+它预测稠密offset作输入zoom，用box面积放大目标训练，并以corner-aligned查表近似处理前后框变换。UAV/VisDrone、单画布非均匀zoom、用GT框约束magnification都不是本项目新背景；C源坐标读取确实免去该corner approximation，但LZU已经有更直接的特征级解法，不能只与ZoomDet的较弱接口相比。
+
+三、C2公式成立的范围：面积守恒不等于信息和形状守恒
+
+按189原式：H∈[0,1]，μ=1+3H，m(x)=∫μ(x,t)dt，Z=∫m(x)dx；
+u=T_x(x)=Z^{-1}∫_0^x m(s)ds，v=T_y(x,y)=m(x)^{-1}∫_0^y μ(x,t)dt。
+DT=[[m/Z,0],[∂_xT_y,μ/m]]，det(DT)=μ/Z>0。
+该式是三角Rosenblatt变换。可先反解x，再在对应x的条件CDF反解y。源空间区域R得到的连续画布面积为∫_R μ/Z；两轴边际的交叉空区问题没有被强制重现。
+
+三个实质限制：
+(a) 1≤μ≤4仅限制det，不限制剪切∂_xT_y或最小奇异值；面积增加可能是一轴扩、一轴压。局部像素坐标Jacobian须用A=diag(W_net,H_net)DT diag(1/W_src,1/H_src)，不能混用归一化单位。
+(b) 若H只在很窄的GT中心核为正，获得额外面积的是核附近，不等于整个目标尤其两条边都获足够采样。GT面积∫det与短边有效分辨率应分报。
+(c) 连续严格可逆不保证“粗网格算CDF、双线性上采样两个坐标场、再数值反查”仍是精确互逆。应由同一个分片条件CDF实现正反映射，验证T^{-1}(T(x))，不能分别拟合两个网格。
+
+对局部近似仿射框，宽方向法向分辨率可写w_src/||A^{-T}e_x||，高方向为h_src/||A^{-T}e_y||，不是sqrt(det A)乘短边。这只是几何诊断，不是新的优化方法；一般非线性框应检查边界采点，不能拿中心Jacobian当精确整框量。
+源图3px变成网络0.75px仍可能丢信息，不能用“原图不足4px”作为统一否决线。反过来，原图尺寸较大也不保证16²采样或CNN保住了对应信息。
+
+四、唯一主要修订：保留非均匀特征格，消除中间均匀化
+
+令F_l为warp图经过backbone/neck后的第l层离散特征，B为双线性读取，s_{qh lk}为源坐标的原生deformable sampling point，a为原注意力权重。
+
+直接稀疏读取：
+  o_direct(q)=Σ_{h,l,k} a_{qhlk} B[F_l](T(s_{qhlk}))。
+LZU接普通deformable head的最直接移植：
+  U_l(x_i)=B[F_l](T(x_i))，x_i为均匀源格点；
+  o_dense(q)=Σ_{h,l,k} a_{qhlk} B[U_l](s_{qhlk})。
+连续理想情形等价；离散情形中B[ B[F_l]∘T 在源格的样本 ]一般不等于B[F_l]∘T。direct省去的不是最后读点，而是先把已为小目标增加密度的特征投回均匀源格。
+
+可证伪问题：目标区域在warp特征格上获得的细节，是否在这一均匀化步骤被再次平滑，而直接读取能够保留？如果只是任何两次插值都有的微小数值差、没有与有效放大区域/真实采点关联，这条仍不足成为论文主线。一次采样合成是常见数值原则，不能凭公式不等就声称首次。
+这与原C2有一个重要修订：先固定同一T、同一采样密度、同一source坐标encoder/anchor设计，只比较“稠密unzoom后读取”与“直接复合读取”。不要把Rosenblatt、预览网络、位置编码、query初始化四处改动捆绑后，仍把收益都归给消除插值。
+
+真正代码点（均已静态阅读，不改源）：
+1) native\engine\deim\dfine_decoder.py:132–170。
+4D参考框当前先算s=c+offset*num_points_scale*(w,h)*offset_scale。应在完整s形成之后做T(s)，再进入default或fallback attention core；T(c)+原offset不正确，T(c)+DT(c)offset也只是局部近似。越界源点保持padding语义，不夹到边界。
+2) 同文件_generate_anchors，约775–800：目前中心是warp均匀grid，wh=.05*2^level。源坐标版本的center须为T^{-1}(grid)。首版wh明确保留原source归一化尺度，不能把非线性warp的四角包络误称精确source anchor。source anchor是回归先验，不保证与该特征的实际感受野相同。
+3) _get_decoder_input约814–832：encoder bbox head与topK anchor必须在同一source坐标系；eval缓存self.anchors/self.valid_mask不能跨不同逐图T复用。
+4) hybrid_encoder.py约491–560：sin/cos位置编码与eval缓存需按每图T^{-1}(grid)生成；为保持identity可复现，先还原到原实现的网格数值单位再编码。decoder query_pos_head、DN bbox、pre box、FDR四边积分/支持域、matcher和全部loss留在source坐标。
+5) 以上仍不是让卷积对任意warp等变。CNN/FPN邻接关系在warp空间，畸变影响继续存在；只是保证坐标和读取一致。
+
+最强简单控制：同T的dense-LZU，必须排第一。其次同样面积预算的可分LZU、相同画布的普通uniform、与总像素/实测成本匹配的uniform tiling。为辨别是否纯插值损失，dense-LZU增加源格采样密度或采用更合适插值也是强控制，额外内存/FLOPs如实算。只胜均匀输入，不能归因本修订。
+
+最低成本的一次无训练检查（这里未执行）：
+先选择已有预测与原图可对应的一小批自然图，固定列表和T构造；不用再次选择127四张mosaic作唯一证据。若有已存常规预测，可用同一份预测KDE构造固定T；没有则GT密度仅作为机制上界，必须明确oracle，不能评估控制器可部署性。只需一次冻结warp前向取得F_l和source采点/权重；复用这些张量离线算direct/dense，不优化参数、不训练preview。检查真实采点输出差、对坐标的梯度差、对象区域与背景分布，并用高密度dense-LZU分辨离散化贡献。identity T须复现native。
+若现有资产只允许原图/标注和零模型程序，就先做坐标与两种离散采样算子核对，结果只能决定实现是否值得采缓存，不能宣称真实特征证据。若真实读点两路相同，或差别完全由更便宜的dense插值控制复制且无成本优势，就停止这个精确增量。若差别确实触及被放大的目标，允许进入一次正式训练申请讨论，不要求它先证明AP；仍须把同T dense-LZU列为训练主对照。数值非零、局部梯度好、oracle面积正均不是自动GO。
+
+五、A的原图重读：已有覆盖、具体替代与数据链
+
+AutoFocus（ICCV2019）§4已用低分辨率小目标图产生原图FocusChips、再次检测及边界合并；CornerNet-Saccade §3.1–3.2已从低分辨率attention/粗框选择原生裁片以改善定位。两者均不是只裁已经降采样的图。
+https://arxiv.org/html/1812.01600
+https://arxiv.org/html/1904.08900
+故原图裁剪、围绕预测框局部再看、共享检测器/多尺度都不是A剩余贡献。
+
+A3的具体不同是限制校正函数：
+ H_q=C(I_src,A^{-1}W_q)，L_q=C(I_net,W_q)，W_q=2*sg(b_q)；
+ δ_q=h(q,φ(H_q),φ(L_q))−h(q,φ(L_q),φ(L_q))；
+ b'_q=Π_W(b_q⊕δ_q)。
+同观测必为零校正，query本身不能走一个自由偏置纠框。与简单原生单路头的区别是函数族约束，不是像素量本身。若作为C停止后的具体替代，可先用更便宜、可审计的实现δ=K(q,φ(L))·[φ(H)−φ(L)]，K输出4×d且不加输出bias；这等价于对新增观测残差做条件线性校正，避免两个任意h前向。它有明确实现和消融，但“残差＋条件线性”本身仍非新数学，不能据此宣布主线已成立。
+最强控制是相同原生像素预算的自由单路校正；另需L/L空观测、原生路由网络输入上采样替换，以及不带query条件的共享残差头。若单路更好，保留简单方案，不因有identity保证强留差分。
+
+实际数据链比公式多一个关键事实：
+common.yml先Mosaic(output_size=320)，随后photometric、zoom-out、IoU crop、flip、Resize640，再可能collate mixup。mosaic.py:load_samples_from_dataset在拼图前已经self.resize每张源图；只保存“最终Resize之前的mosaic”不等于保留相机原生像素。mixup也不是单一A^{-1}。
+如检查当前C0，H必须依据四个原图的采样来源及混合系数重放同一观测；不能把干净原图与带mixup/颜色变化的L作差，再称高频信息。第一次便宜检查可以使用自然图验证直接resize链；这不改变未来C0训练配方，但不能宣称增强接口已经验证。
+300×16×16=76,800个每路采样位置，两路153,600；按640²画布约37.5%位置量，尚未算φ、两头/条件矩阵与访存，不能用“小裁片”直接称成本近零。通常有多个q重读同区域，读数不是独立信息量。
+
+一次最低成本A检查无需训练：对已缓存ordinary自身匹配(q,g)固定W_q，求窗口内最高可能IoU及实际H/L样本差，报告原图→各降采样步骤尺寸链。若输出框必须完全落在矩形W内，则max_{b⊆W}IoU(b,g)=|W∩g|/|g|，由b=W∩g达到。用自身GT，不把任意q窗口覆盖的GT算作该监督可受益。H−L非零可能来自插值/光度误差，不自动是目标信息；须有同链低分辨率替代控制。窗口上界非零也不是创新。此检查足以决定信息前提是否值得训练验证，但不会提前决定学习收益。
+
+六、C3收益选块的直接先例，和一篇新增近邻
+
+Dynamic Zoom-in Network, CVPR2018，亲读本地_text\171_Dynamic_Zoom_In_CVPR2018.txt §3.1–3.2：
+R(s,a)=Σ_{k∈a} (|g_k−p_k^low|−|g_k−p_k^high|)−λ b/B；
+min_W (|g_k−p_k^low|−|g_k−p_k^high|−Φ(W,f_k^low))²。
+https://openaccess.thecvf.com/content_cvpr_2018/html/Gao_Dynamic_Zoom-In_Network_CVPR_2018_paper.html
+这已经是用粗细成对实际收益训练低分辨率选择器，再决定高分辨率区域。C3把score误差换成最大匹配IoU代理、动作缩为四选一，是具体差别，但目前没有足以立新的作用机制；不能把“不是预测数量而是收益”当新概念。
+AdaZoom亲读本地172 §3.2–3.3，Eq.3–5：位置/尺度/长宽比联合策略，按目标尺寸加权区域recall，之后以1−c_i更新难目标权重并协同训练。它并非Dynamic Zoom-in同一种成对收益，二者应准确区分。
+
+新增原始近邻：Khujamatov et al., Differentiable Resolution Allocation for Tiny Object Detection in UAV Imagery, Sensors 2026,26(19),6157，2026-09-28，doi:10.3390/s26196157。
+https://www.mdpi.com/1424-8220/26/19/6157
+本次搜索工具实际返回出版社正文部分§3：低分辨率density、Gumbel top-K可微原生裁剪、crop内wavelet恢复、density初始化sparse queries、全局合并。故“把可微裁剪、局部高频、密度query组合起来”已有很近先例。它不是已确认覆盖A3的同位置H/L反事实零校正；已返回部分没看到该公式，不能把没看到等同不存在。
+证据等级：亲读搜索工具返回的出版社正文及方法段；直接HTML/PDF/XML多次429或不可访问，Eq.2–12不全。未核到可复现代码，未审核其AP公平性，不引用其性能作为本项目证据。不能冒称全文完整亲读。
+另检索命中2026 SpiralFovea非均匀tokenization，但OpenReview为验证页；只有摘要线索，不能用于精确否决或支持C稀疏接口。留作后续文献缺口。
+
+七、资产能支持到哪一步
+
+189共同材料A1：C-Cmean三个seed APs +.836978/+.164133/+.163016pp；A3短边<4漏检中三观察阶段无几何覆盖4029/4147。前者支持细节路径值得研究，后者指向当前几何失败；均不证明Resize造成信息丢失，也不证明上述新接口会改善。
+本审查没有新增性能数字。C的唯一主要修订是“同一warp下保留非均匀特征格至稀疏读取”的离散信息路径，给出了代码、强控制和可失败检查；它目前仍较薄，不能把坐标自洽或插值差当论文贡献。若它只剩普通采样合成，具体替代是A3的新增观测约束校正，而不是继续换warp权重。原生裁片能否碰到自身监督失败、能否带来额外可用观测，要以真实采样链核对，不设原图4px等任意资格线，也不要求训练前先证明AP。
+
+本次结束的是指定原文边界审查，不是持续寻找主线的目标。GO缓存188由其他代理负责，本文件未重复核查或据其结果决定采样候选。
+
+
+【上一场完整11答，原样保留；第3轮A调用失败没有保存局部回答】
+[第1轮 Claude · 设计与证据整合]
+## 当前主张：支持修复线的天花板已经可见，改为检验“支持宽度的绝对像素下限”
+
+### 独立依据（已知事实）
+
+- 210的repair只修了5条支持外配对，其中短边<4的只有1条；5条的新target IoU全都低于.5。
+- 07在固定支持下做33节点重锚，只新增5/3条；all300原本不可达1170/895，重锚后只新增2/1。
+- 211已纠正一个前提：pre的几何本来就受GO g的L1/GIoU监督。
+
+条件性推论：在固定FDR支持宽度下，无论是重排owner还是平移中心，可达集合都几乎不变。我把作用变量换成支持的绝对尺度。在D-FINE的参数化里，边偏移的像素量与参考框宽度w成正比。对极小参考框，±4端点换算到像素后只有约1.5w，所以小框的可达范围在像素上天然很窄。
+
+217已确认，旧range2是在全局把端点乘2。它的12轮结果是mixed（ΔAPs +.213/−.374）。我提一个待核假设：range2的负面部分来自大框bin被普遍变粗，而不是扩域本身无用。
+
+### 设计：尺度下限的偏移标度（只对小参考框扩域）
+
+设参考框中心为c、宽为w（高同理）。保持零偏移时的恒等，把锚半宽和偏移标度解耦：
+
+```
+w' = max(w, s_min)                      # s_min 例 8px/640，事前固定
+x1 = c − w/2 − d_l · w'/reg_scale       # 原式里两处都用 w
+bbox2distance 同步使用 w'，FGL 标签与预测一致
+```
+
+- 当w≥s_min时，计算完全等同native，大框的bin精度不变。
+- 当w<s_min时，物理可达范围放大，bin的像素间距同步变粗。
+
+代码作用点在dfine_utils的distance2bbox和bbox2distance，以及它们在decoder和criterion（FGL目标）中的全部调用点。必须保证预测、ordinary FGL和DN FGL三处同用w'。具体行号需由root核对，我没有读源码。
+
+需要说明的是，IoU0配对的FGL权重为0，所以本设计改变的不是FGL信号。它改变的是最终框能否被L1/GIoU拉到GT处的可达性。
+
+### 强简单对照
+
+1. 旧range2：全局端点×2，已有结果。
+2. pre框尺寸下限：直接在pre head输出上clamp w≥s_min。这改的是框本身，不改标度；如果它复制了效果，本设计就没有独立价值。
+3. 已有的repair。
+
+### 一次会改变取舍的最低成本核查
+
+用222/223的两个BASE24 development缓存，零新forward。逐query重算支持域，按s_min∈{4,8}px与range2分别统计：
+
+- (a) IoU0且在支持外的GO槽中，变为支持内的数量，并单列短边<4；
+- (b) all300不可达的GT中，变为可达的数量；
+- (c) 受影响的参考框数量，以及其bin像素间距的变化。
+
+事前判据（建议值，待用户确认）：
+
+- 若floor在(a)(b)上的新增量与重锚同量级（个位数），就停止本线，说明问题在出生而不在支持。
+- 若floor在极小GT上达到range2新增量的大半，同时大参考框受影响为0，才值得申请一次与range2同配方的有限训练。
+
+### 缺口与先例
+
+- 尺寸下限和range分配本身都有先例（最小anchor、FCOS的尺度区间），增量很薄。
+- 可达不等于AP。若出生是主因（A3中约96%三阶段都无覆盖），本线的收益上限会被压低。
+- 是否立线由用户决定。
+
+[第1轮 Codex A · 结构与信息路径]
+回应Claude本轮“固定支持下平移中心的空间已见顶”及“绝对尺度下限”：我接受把偏移标度与pre框尺寸分开，但不接受前一个推论。210检验的是固定槽的owner重排，07检验的是33节点重锚，都不能排除可学习中心移动。另据217，旧range2保留内部31点，只扩大端点；“大框bin普遍变粗导致负效应”尚无依据。215的5条修复均有正IoU，也已改变我对修复后FGL能否参与的判断。
+
+我的主候选转向**让新增图像观测移动支持中心**。这是194原图增量校正的接口修订：将校正从最终输出前移到pre参考框，检验局部证据能否通过后续解码继续发挥作用。
+
+对停止梯度的pre裁窗，读取同位置原图观测H与网络输入观测L，令：
+\[
+\delta_q=\rho\tanh\!\left(
+K(q,\phi(L_q))[\phi(H_q)-\phi(L_q)]
+\right),\qquad
+r'_q=(c_q+\delta_q,w_q,h_q).
+\]
+K输出二维位移，先固定\(\rho=4\)输入像素。H=L时严格零校正；宽高不直接改变，避免靠增宽完成支持修复。原生pre几何监督仍指向真实GO，不增加虚构的另一套几何目标。
+
+代码接口是pre框形成后、参考框detach之前；让同一\(r'\)进入后续实际使用它的采样参考、FDR解码及FGL目标转换，保留原有detach规则。具体引用链仍待核，不能声称梯度只进encoder。它改变预测框后，IoU权重和FGL标签都可能改变，不能沿用“原IoU为零，所以不改变FGL”的概括。
+
+依据194提供的原文核查，AutoFocus、CornerNet-Saccade已覆盖原图重读；材料中的DINO先例也排除了把参考框反传本身算新。剩余待证差别是：**新增观测约束的中心更新，放在解码前是否优于直接末层校正**。最强控制应是相同原生像素预算的自由中心回归头，以及相同差分头放在末层；floor可作廉价基准。若自由头复制效果，就撤掉差分约束。
+
+最低成本检查先用真实GO配对计算：固定宽高、中心限移±4像素时，哪些原支持外目标能够进入支持，按极小目标单列。这不重复222/223的owner修复。若没有足够作用对象，就撤回这个精确版本；有也只说明值得继续查信息前提。原图与增强输入的采样来源、混合系数仍是具体材料缺口，两路读取和增强溯源也是主要工作量。目前我改变了干预位置的取舍，尚未认定其创新强度足以申请训练。
+
+[第1轮 Codex B · 数据与可实施设计]
+回应A本轮“新增观测前移到pre中心”和Claude“支持尺度下限”：我接受A对固定支持天花板及range2内部节点的纠正；同时撤回我在218提出的兼容集合方案——pre几何本来就使用GO，那个双几何目标冲突并不存在。仍有分歧：移动或扩大已有query的支持，尚不能解释如何恢复缺少合适实例槽的目标。
+
+我提出一个不同候选：**固定300槽的局部集合替换**，检验局部图像证据能否同时纠正框和重新分配实例归属。已知repair修复5条、极小目标仅1条；A8额外FP为729/475，但重复FP变化只有−9/+7。因此不能把重复当作已证主因，也不能只以新增覆盖评价局部分支。
+
+具体设计：在输入坐标划定64像素方格，按停止梯度的pre中心数量选最密一格 \(W\)，令其中query集合为 \(S\)、数量为 \(k\)。从网络输入读取该格及固定边缘余量，经浅层编码器和局部集合解码器输出恰好 \(k\) 个框：
+\[
+\widetilde P_S=D(Q_S,E(I|_W)),\qquad
+P'=(P\setminus P_S)\cup\widetilde P_S .
+\]
+局部输出中心限制在 \(W\)，宽高可跨界。冻结原检测器，使用替换后的完整集合重新做一对一匹配，以原权重分类、L1/GIoU训练新增模块；推理删除对应原输出，仍保留300槽。代码接口在末层输出与criterion之间，另加输入裁片编码。这里重新分配的是预测实例，不能沿用旧GO索引监督新增头。
+
+待证机制是：同一窗口内，逐框校正可能维持错误的实例分工；联合产生一个集合，能否用相同槽数恢复遗漏并减少无效预测。**最强简单控制**是相同裁片、编码器和槽数的独立逐query校正；再比较相同局部输出追加后取300，隔离“替换”本身的价值。若独立头复制收益，就取消集合解码结构。
+
+最低成本核查可使用已有development缓存，严格按上述无GT选窗规则构造混合匹配图：窗外保留实际预测边，窗内 \(k\) 槽允许连接窗内GT，计算最大匹配净增，并单列极小遗漏与原有覆盖损失。这只是容量上界。若选窗主要包含已覆盖目标，或净增空间极小，我会撤掉这个精确版本；有空间才值得讨论训练。
+
+194已核的局部重读先例意味着“裁片再检测”不足以立新。尚缺固定槽替换的直接近邻比较，也缺这些窗口中的真实失败分布；新增编码和解码成本需要计入。我的判断转向检验局部实例分工，但其创新强度仍未解决。
+
+[第1轮 Codex C · 数学与强简单对照]
+### 当前主张：把“重新分配实例”与“query间交互”分开检验
+
+回应B本轮“逐框校正可能维持错误实例分工，因此采用局部集合替换”：我支持检验集合替换，但这里有一个关键混杂。**独立逐query头若同样接受完整集合的重新匹配，也能改变实例归属**；联合解码器真正增加的是query间的信息交互，不能把重匹配的收益归给它。A对固定支持天花板、旧range2内部节点的纠正也改变了我的判断：repair的5条修复不足以否定可学习中心移动。
+
+### 具体修订：保留恒等解的固定槽集合更新
+
+沿用B的64像素选窗，但按**最终框中心**选择最密格，而非pre中心；令其中的最终query组成\(S\)。这样原输出就是合法起点，避免选中的query在解码后已移出窗口，却被强迫拉回。
+
+读取网络输入裁片，得到每槽局部特征：
+\[
+h_i=\operatorname{CrossAttn}(q_i,E(I_W)),\qquad
+z_i=h_i+\operatorname{SA}(\{h_j:j\in S\})_i .
+\]
+共享头输出中心、尺寸和分类残差：
+\[
+c'_i=\Pi_W(c_i+\Delta_i),\quad
+s'_i=s_i\exp(\eta_i),\quad
+a'_i=a_i+\epsilon_i .
+\]
+残差末层零初始化；零残差严格恢复原预测。窗外输出保留，总数仍为300。冻结原检测器，以完整替换集合重新匹配，训练新增模块的分类、L1/GIoU。代码作用点在末层输出与criterion之间，训练和推理使用同一选窗、投影规则；不沿用旧GO监督新增集合。
+
+**主对照**删除槽间自注意力，换成逐槽MLP，保留相同裁片、残差参数化、完整重匹配，并匹配参数与计算预算。它检验交互是否必要；另一项直接框校正只能作为较弱对照。
+
+### 最低成本检验与证据边界
+
+现有development缓存即可按上述规则选窗：窗外保留真实IoU边，窗内保留原边，并允许连接中心位于窗内的GT，计算这一离散oracle的最大匹配增量，单列极小遗漏。保留原边使原匹配始终可行；但这不保证学习后覆盖不降，更不保证AP。
+
+若增量接近零，我会降低此版本优先级；若有明显空间，只支持研究局部集合更新。**联合头与独立头具有相同的这个oracle图**，因此该核查不能证明交互值得训练。
+
+已知A8额外FP为729/475，故后续还必须评价分类与误检。尚缺固定槽局部更新的直接原文比较及实际裁片成本。我的取舍转向这条可清楚归因的候选，但“交互是否胜过独立头、是否构成实质增量”仍未解决。
+
+[第2轮 Codex A · 结构与信息路径]
+回应C第一轮“联合头与独立头具有相同oracle图”：我接受，这改变了我对集合替换对照的判断。完整重匹配本身即可改变实例归属，交互是否有价值必须另证。同样，我上轮的中心可达性检查也有缺口：**能够移到目标附近，不等于读取窗口看到了目标。**
+
+具体反例：单轴参考框中心0、宽1，GT中心3、宽1；中心允许移动±4像素，几何上可以修复。但若沿用194的两倍框宽裁窗，窗口仅为[−1,1]，完全看不到GT。这样的成功上界不能支撑“新增观测驱动修复”。
+
+我将主候选修订为**观察窗口覆盖允许移动区域的pre中心校正**。令ρ＝4输入像素，W为停止梯度的pre框四边各外扩ρ，H、L分别为同位置原图与网络输入的16×16采样：
+\[
+d_q=\phi(H_q)-\phi(L_q),\quad
+\delta_q=\rho\tanh[K(q,\phi(L_q))d_q],\quad
+r'_q=(c_q+\delta_q,w_q,h_q).
+\]
+宽高不直接改变，H＝L时严格零校正。扩大窗口只是修复观测盲区，不单独算创新；固定采样数也不保证保留细节。
+
+代码作用点仍在pre框形成之后，但必须明确：**pre_outputs也替换为r′**，让新增头接受已有GO的L1/GIoU；后续实际使用参考框的采样、FDR解码和标签转换保持一致，沿用原detach规则。否则只修改被detach的下游参考框，可能切断新增头的训练路径。
+
+已知210只修复5条、极小目标1条，215确认五条均有正IoU；这些既不能证明图像信息不足，也不能否定可学习中心移动。依194提供的原文核查，AutoFocus、CornerNet-Saccade已覆盖原图重读。剩余问题是新增观测约束的更新放在解码前，是否比末层校正更有价值。最强控制为相同裁片的自由中心回归头，以及使用**同一pre裁片和特征**、仅把校正施加于末层的差分头；不能同时更换裁窗位置。
+
+最低成本核查不重复222/223：按真实GO配对，交叉统计“固定宽高、限移±4可进入支持”与“GT完整落入W”，单列极小目标，并报告部分可见比例。若两者交集很小，我会撤回这个精确接口；若交集充足，下一缺口才是原图来源、增强映射和混合系数能否支持同观测比较。该检查不需新forward，但H/L的信息增量不能靠现有预测缓存确认。我的观测窗口设计已改变；差分约束是否胜过自由头、是否足以构成主线，仍未解决。
+
+[第2轮 Codex B · 数据与可实施设计]
+回应C第一轮“独立头经完整重匹配也能改变实例归属”：这改变了我的判断，我撤回把重新分工归因于槽间交互的解释。也接受A第二轮“几何可达不等于观察到目标”。但固定窗内原有槽数 \(k\) 仍有限制：若窗口只有两个预测中心、实际有五个目标，联合头与独立头都最多提供两个实例。
+
+我将主候选修订为**固定总预算的跨窗槽位调剂**，先取消槽间自注意力。按最终框中心选择最密的64像素格 \(W\)，原窗内槽为 \(S\)；从窗外选择最多四个最高类别分数最低的槽 \(R\)。读取 \(W\) 及固定外扩边缘的网络输入，独立交叉注意力头产生 \(k+|R|\) 个局部预测：
+\[
+P'=(P\setminus(P_S\cup P_R))\cup
+D(Q_S\cup U_{|R|},E(I_W)).
+\]
+\(U\) 是初始化于窗内均匀位置的新槽，输出中心限制在 \(W\)。冻结原检测器，完整集合重新匹配，使用分类、L1/GIoU训练新增模块；接口在末层输出与criterion之间，总输出仍为300。调入槽不能保持C提出的恒等初始化，这是真实代价。
+
+待证机制是：已有预测密度能否找到需要更多实例容量的区域，而低分槽能否提供可用预算。已知A3有4029/4147个极小漏检目标三阶段无覆盖，但没有观察全池，不能据此证明槽不足；低分也不等于背景。A8额外FP为729/475，使删除有效预测与新增误检都必须评价。
+
+最强简单控制使用**完全相同的局部输出，保留 \(R\) 原预测，再按原后处理取300**；两者局部计算相同，直接检验提前调走槽是否优于追加候选。另保留 \(R=\varnothing\) 的独立局部头，检验增加局部容量是否必要。若追加控制更好，就撤掉强制调剂。
+
+最低成本核查沿用development缓存的无GT选窗规则：固定窗外真实边，删除 \(R\) 原边，保留 \(S\) 原边并增加局部槽到窗内GT的理想边，比较最大匹配净增；同时单报删除 \(R\) 造成的覆盖损失、极小遗漏及裁片可见比例。这只是容量探针。若最密窗主要覆盖已有目标，或调入收益被删除损失抵消，我会撤回该版本。直接近邻尚需核对动态query分配与局部再检测；目前改变的是容量分配变量，创新强度仍未解决。
+
+[第2轮 Codex C · 数学与强简单对照]
+### 回应B第二轮：容量增加不等于必须提前删除低分槽
+
+B提出“调入四槽，并与保留原槽后取300比较”，改变了我的取舍：应直接检验**哪些替换值得发生**。局部候选相同时，追加方案的候选集合包含强制替换方案，故其最大匹配上界不会更低。强制删除若有实际收益，必须来自选择或训练机制，不能归因于独有的容量空间。A关于“可达但未观察到”的纠正也成立，局部候选必须受真实裁片覆盖约束。
+
+### 具体修订：允许撤销的四槽集合替换
+
+先保留原窗内输出，取消整窗重建。沿用B的无GT选窗及四个低分窗外槽 \(R\)，局部头从裁片产生四个候选 \(l_j\)。每个候选对应一个原槽 \(r_j\)，定义：
+
+\[
+P_z=(P\setminus R)\cup
+\{\,z_j?l_j:r_j\,\}_{j=1}^{4},
+\qquad z\in\{0,1\}^{4}.
+\]
+
+全部16种选择均保持300个输出，\(z=0\)严格保留基线。新增头预测各集合相对基线的匹配代价：
+
+\[
+y_z=\operatorname{sg}[J(P_z,G)-J(P_0,G)],
+\]
+
+其中 \(J\) 使用完整集合的原生分类与框匹配代价。预测器读取四对候选、原预测集合摘要及局部特征；推理选择预测代价最低的组合。
+
+冻结原检测器；局部候选头始终在“四槽全替换”的集合上接受重匹配及分类、L1/GIoU监督，避免选择器早期总保留原槽而切断学习。选择器单独回归上述停止梯度标签。接口仍在末层输出之后；推理无需匹配GT。代价标签只是训练代理，不代表AP。
+
+### 强对照与一次判别
+
+首要对照是**相同四个候选追加后按原规则取300**；其次把集合风险限制为四项独立风险之和，检验联合取舍是否必要。这借用了A此前的候选风险思想，风险回归本身不能算创新。
+
+最低成本核查可用已有pre/aux框充当代理候选，按固定规则选取窗内四框，枚举16种替换，比较联合最优、独立选择和原分数选择。若联合取舍几乎没有额外空间，就删掉集合选择器；代理结果不能冒充新头效果。
+
+已知repair仅修复5条、极小目标1条，尚未证明容量不足；A8额外FP为729/475，也未证明低分槽可安全删除。仍缺直接近邻原文及真实候选的可学性证据。我的判断转向检验“成组替换是否减少有效实例被挤掉”，其创新强度仍未解决。
+
+[第2轮 Claude · 设计与证据整合]
+## 回应C第二轮：上界方向成立，但300槽可能不是AP的约束
+
+C说“局部候选相同时，追加集合包含强制替换集合，所以最大匹配上界不会更低”。我接受，这也让B第二轮“删低分槽换容量”的独有空间在oracle上归零。但B、C两条都把固定300输出当作预算，这里需要先核一个前提。
+
+**已知事实。** COCO标准评测按每图score前100（maxDets=100）计算AP。A8的UAVDT是每帧30个。
+
+**条件性推论。** 若B选出的低分槽R本来排在100名之后，删除它们对AP的代价为零，“替换还是追加”这一区分随之消失。真正决定收益的变量是局部候选的score能否排进前100，并且不挤掉已有的TP。A8的额外FP为729/475，其危害同样取决于这些FP的分数排位，不取决于数量。
+
+**项目侧缺口。** 内部development评测是否也取100，需要root核对配置。
+
+**对C的16组合选择器的反例。** 四个候选之间只有一种交互途径：争夺同一个GT。例如两个候选都靠近同一个遗漏GT，独立风险会判两者都“好”，联合风险只保留其中一个。因此联合选择器的独有价值约等于组内去重。强简单对照应改为：独立风险加四候选组内NMS。如果这个对照复制了收益，就删掉集合选择器。
+
+## 修订我第一轮的尺度下限
+
+A指出我“range2负面来自大框bin变粗”没有依据，这一点成立，我撤回。217已确认range2保持内部31点不变、只改端点。
+
+不过这反而更清楚地说明了floor的区别：
+- 当w<s_min时，floor按w′缩放整组33点，小参考框的整个分布在像素上变宽；
+- range2对所有框只延长两端。
+
+两者作用于不同的变量，floor不是range2换了个名字。
+
+我也接受A的另一点：210/07只检验了固定槽的重排和重锚，不能推出“可学习的中心移动已经见顶”。
+
+## 一次会改变取舍的最低成本核查（未执行）
+
+用222/223的development缓存，零新forward，先做排位核查：
+- R槽及所有已匹配query在score排序中的名次分布；
+- 名次大于100的query匹配到GT的数量，单列短边<4。
+
+**判据：**
+- 若R几乎全部排在100名之后，B/C的问题改写为“局部候选的分数校准与插入排位”。强对照应是相同局部框配上原分数头的重打分，而不是比较槽数。
+- 若名次大于100的匹配不少，容量调剂才有意义。
+
+floor的支持域核查与第一轮相同，重点看all300不可达集合（07：1170/895，重锚只新增2/1）。新增量若仍是个位数，就停止floor。
+
+## 仍未解决
+
+- floor与A的pre中心校正可以组合，但应先分别测作用面。
+- 排位结论只决定该比较什么，不代表AP。
+- 是否立线由用户决定。
+
+[第3轮 Codex B · 数据与可实施设计]
+### 对同行的回应
+
+回应C第二轮“追加集合包含强制替换集合”和Claude第二轮“收益取决于排位”：这改变了我的判断，我撤回强制调走低分槽的主张。A3已有1886/1923个“末框有覆盖、真类未过预算或分数”的目标，排序确有作用对象。但不能直接把COCO的maxDets=100当作项目全图跨类别截断，须区分类内评测限制与模型输出topK。
+
+我仍不同意“联合取舍仅等于四候选组内去重”：原框a可覆盖g₁、g₂，新框b只覆盖g₁，加入b可能释放a去覆盖g₂；这涉及原集合的替代关系。不过，它也不足以支持复杂选择器。
+
+### 当前修订：已有预测条件化的局部补全
+
+取消强制删除和16组合评分，保留原预测。沿用最终中心最密64像素窗W，产生四个追加候选：
+\[
+L=D(U,E(I_W),\operatorname{Enc}(P_W)).
+\]
+\(P_W\)包含与窗口相交的原框、类别分数及位置。待证机制是：相同局部图像，在已有实例被解释的程度不同时，四槽能否优先寻找剩余实例。
+
+冻结检测器。按固定类别一致、IoU≥.5规则，将原预测与窗内GT作最大匹配，未覆盖集合记为R；新增头对R重新匹配，使用分类、L1/GIoU。再加入配对训练：同一图像隐藏一个已匹配原预测，同时从合并集合中删除它，重新计算R。推理不隐藏预测，候选追加后按原流程排序。代码作用点是末层输出后的裁片头、预测集合编码及补全标签构造。
+
+这项干预使“缺少哪个实例”随可见预测集合变化；但人工隐藏的易目标未必代表真实漏检，不能用重建成功替代自然遗漏恢复。
+
+### 强对照与最低成本判别
+
+最强简单控制是相同裁片、四槽和预算的普通局部检测头，预测窗内全部GT，再与原集合做跨集合去重和分数校准；另比较条件头不做隐藏训练。若普通检测加后处理持平，就删除补全机制。
+
+最低成本核查仍只需已有development缓存：按实际选窗规则，统计窗内自然未覆盖GT、四槽容量上限，以及人工隐藏新增目标与自然遗漏的尺寸、原最佳IoU分布。若窗口主要含已覆盖目标，或训练标签几乎全来自人工隐藏，我会撤回这一版本。
+
+已知A8额外FP为729/475，因此补全也必须承担误检代价。当前缺少集合条件化补全的直接近邻原文；这是可证伪候选，尚不能凭条件输入和隐藏训练认定创新成立。
+
+[第3轮 Codex C · 数学与强简单对照]
+### 回应B第三轮：补全目标应允许原匹配重新分配
+
+你提出“已有预测条件化补全”，改变了我的取舍：我撤回主推16组合选择器，支持先检验补全头。但你反驳Claude的反例，也揭示了“先固定未覆盖集R”的问题：原框a可覆盖g₁、g₂，新框b只覆盖g₁；若首次匹配把a分给g₁，R就只剩g₂，新增头会因没有预测g₂受罚，尽管a→g₂、b→g₁已能共同覆盖。**未覆盖目标的身份可能取决于任意择解。**
+
+### 当前修订：保留原覆盖数量，联合决定补全归属
+
+保留B的条件头、四槽、选窗和隐藏训练；只修订监督构造。令P为原流程实际保留的预测，L为四个局部候选。原预测到GT的边仍要求类别一致且IoU≥.5；局部槽允许连接窗内GT。在一对一匹配M上求：
+
+\[
+M^*=\operatorname{lexmin}_M
+\left(-|M_P|,\,-|M_L|,\,
+\sum_{(l,g)\in M_L}C_{\rm native}(l,g)\right).
+\]
+
+先保留原集合最大覆盖数量，再最大化可补全数量，最后按原生代价选归属。原预测可以改匹配身份；新增槽按所得标签接受分类、L1/GIoU，未匹配槽接受背景监督。分配停止梯度；隐藏原预测后同步重建图。代码作用点仅是新增头的标签分配，推理仍直接追加排序。
+
+这不是新的匹配算法；待证贡献仍是**已有预测能否引导局部观测寻找剩余实例**。覆盖数量约束也不保证AP或原有每个GT均受保护。
+
+### 强对照与最低成本判别
+
+主对照应是取消预测集合输入及隐藏训练、采用同一分配规则的普通局部头，再接相同去重和分数校准；另保留B的固定R监督，隔离标签择解影响。
+
+零新forward即可用已有pre/aux框作四个代理候选，比较固定R与允许重新分配时的新增覆盖，记录差异是否来自上述匹配链。若差异近零，就删除这层分配复杂度；代理结果不能证明真实补全头有效。
+
+已知A3的1886/1923属于“末框已有覆盖、真类未过预算或分数”，不能全算作几何补全对象；本设计仍可能漏掉这类失败。尚缺自然遗漏在选窗中的分布，以及条件补全的直接近邻原文。我的判断转向补全机制，但隐藏训练能否迁移到自然漏检、是否胜过普通检测加后处理，仍未解决。
+
+[第3轮 Claude · 设计与证据整合]
+## 回应：C第三轮的lexmin分配，以及B第三轮的选窗规则
+
+C认为“未覆盖集R取决于任意择解”，这一点改变了我的判断。B的固定R监督确实会因a→g₁的择解而错罚新增槽。C的lexmin先取原预测最大覆盖，再取补全最大覆盖。在二部图上，由Mendelsohn–Dulmage可知，这样得到的总匹配数等于全图最大匹配数。因此这层分配本身没有缺陷，也正如C所说，不是新算法。
+
+但两位都漏了一处口径。|M_P|是按最大匹配算的覆盖，COCO评测则是按score贪心逐类匹配。A3已有1886/1923个“末框有覆盖但未过预算或分数”的目标，说明排序失败真实存在。补全监督和评测口径不一致，可能把“原框已能覆盖”的GT误判为不需要补全。
+
+我对B的保留在选窗规则。“最终中心最密”这个规则会优先挑出预测已经很多的区域。A3显示，约10305/10397个漏检在三个阶段都没有几何覆盖。条件性推论是：自然遗漏多半落在预测稀疏处，而最密窗内的作用对象可能很少。这一点待核，现在不能下结论。
+
+## 修订：以“未被解释的证据”选窗
+
+保留B的条件补全头和C的lexmin标签，只替换选窗规则，规则不使用GT：
+
+```
+e(x) = Σ_{t∈pool} max_c σ(s_tc) · κ(x−c_t) · [1 − max_{p∈P} IoU(b_t, p)]
+W    = argmax_W Σ_{x∈W} e(x)
+```
+
+- pool使用已缓存的enc/pre/aux框及其分数。
+- e(x)表示有响应、但没有被最终集合解释的证据密度。
+- 代码作用点只在选窗函数，补全头和标签与B、C相同。
+- 其价值只在于更好地对准自然遗漏，不单独算创新。
+
+**强对照**
+1. 用B的最密规则选窗，其余全部相同。
+2. 无条件局部头，配同样选窗、lexmin标签和跨集合去重。
+
+如果对照2持平，就说明集合条件化输入无效。
+
+## 一次最低成本核查（未执行）
+
+用222/223的两份development缓存，零新forward，比较三种选窗：
+- (a) 最密规则；
+- (b) 残差规则；
+- (c) 每图含自然遗漏最多的oracle窗，作为上界。
+
+每种都报告：
+- 窗内自然遗漏GT数，单列短边<4；
+- 遗漏GT在窗内是否完整可见；
+- 四槽容量能覆盖的比例。
+
+此外，按评测口径做一次排位核查：给代理候选赋予原集合第k名的分数，看它们能否进入实际的topK或maxDets。
+
+**判据**
+- 若(a)接近(c)，保留B的原规则。
+- 若(a)远低于(b)，改用残差规则。
+- 若(c)本身的每图遗漏都接近0，说明单窗补全没有作用面。这时整条局部补全线应让位，而不是继续加机制。
+
+**缺口**：216的enc是selected encoder300还是全池，需要root核对。A4的全池只在BASE132上做过。
+
+## 仍未解决
+
+- 隐藏训练迁移问题：人工隐藏的目标通常带有强局部证据，自然遗漏缺乏这种证据。B的隐藏训练应作为消融项，不宜作为主信号。
+- A8的额外FP为729/475，必须按分数排位而不是按数量评估。
+- 目前缺少集合条件化补全的直接近邻原文。
+- 是否立线由用户决定。
+
+【完整结果层别补充；纠正247概括只指ordinary final GO，DN也必须披露】
+254｜244次要DN层非法框补充；不得以主final GO无invalid概括全分支。
+247中“F4/E4无新invalid”仅指其主结果表的ordinary final固定GO；DN另有副作用，完整结果从未clamp/丢弃。以下逐seed、逐stage真实固定DN正槽之n/invalid/new/original计数，均为冻结PMF重解码，不是新模型forward或AP。k4已mixed未过、k8不升主，结论不变。
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"F4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"F8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_0","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"F4","n":6629,"invalid":2,"newly_invalid":2,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"F8","n":6629,"invalid":208,"newly_invalid":208,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_1","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"F4","n":6629,"invalid":2,"newly_invalid":2,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"F8","n":6629,"invalid":215,"newly_invalid":215,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"A","stage":"dn_2","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"F4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"F8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_0","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"F4","n":6629,"invalid":2,"newly_invalid":2,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"F8","n":6629,"invalid":184,"newly_invalid":184,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_1","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"E4","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"E8","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"F4","n":6629,"invalid":1,"newly_invalid":1,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"F8","n":6629,"invalid":184,"newly_invalid":184,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"N","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+{"seed":"B","stage":"dn_2","pairs":"DN_positive","arm":"T2","n":6629,"invalid":0,"newly_invalid":0,"originally_invalid":0}
+
+
+【独立253复核摘要】
+253 C：物理标度缓存结果独立复核
+复核对象：229/242/243及244完整输出；2026-10-21。
+
+结论：现有存证未发现阻断结果解释的实现或汇总错误。接受k=4主必要screen为mixed、不通过：A主组1170槽新增2槽，B主组1066槽新增0槽。本精确k4“修复该失败组物理支持”的双seed依据未建立，不能据此申请训练。k8的11/11是原定敏感性，不能升格为主检或挽救k4。此次243只是230的容量函数模块接线修复，并非另一个实验方法；231失败记录保持原样。
+
+一、复核范围与来源链
+本次仅用PowerShell只读文本/JSON、SHA256和小型汇总，没有torch、PT反序列化、NPZ数组解码、匹配/flow重算、模型、forward、梯度或训练。NPZ检查的是文件身份与manifest链接，不冒称独立重算了其每个张量。新增文件仅本253。
+244/00记录的70个来源文件逐个重新计算SHA，全部匹配；其中包含固定16个prediction PT、analysis、source/recipe/输入shape元数据、229、230、242、243、237及旧失败记录。244/02列出的34个输出文件全部重新计算SHA并匹配，包含16个batch JSON、16个NPZ、00及01；01的32个artifact SHA均与02对应条目相同。NPZ共1,762,312,620字节。02按既有写法不含自身哈希，本报告另列其身份。
+231/FAILED.json仍为首个A batch00调用P.B.matching_count失败；没有完成batch结果，不构成方法阴性。243将其改接P.A.matching_count，并加入空图/已知匹配六例和模块身份检查；数据、公式、尺度、容差和gate未改。244的合成检查及saved-GO portability检查均报告通过。
+
+244记录complete，耗时41.234秒；16次预测缓存读取、16次native matcher调用；model build/CP load/forward/backward/VJP/autograd/update/heldout均0。资源为CPU torch2.5.1，threads2、interop1、affinity[13,15]、BelowNormal、记录可用RAM23.699GiB。运行前后70项source unchanged均true，且本次再次核验其当前SHA。
+16个batch各4输入，A/B各32输入曝光、各6629 GT、各2707 actual_input_sub4 GT；是相同development输入上的两个模型结果，不是64张独立新图。batch03为512²、05为544²，其余640²，逐批记录一致。原始original_sub4布尔标记在64个final记录均不可用，不能用当前actual_input_sub4冒充。每图均有final/aux_0/aux_1/dn_0/dn_1/dn_2，DN_num_group均1。
+
+二、主计数与汇总一致性
+从16个batch JSON重新汇总，96项预定主计数与01逐项一致；各臂final GO的n、invalid、inside及IoU/几何损失sum亦一致（浮点核对容差1e-10）。A的两个k4新增槽分别位于batch00/image3和batch03/image0；B无新增。
+
+量                                              A              B
+final GO总槽                                    6291           6351
+actual_input_sub4 GO槽                          2235           2247
+原N tiny GO inside                              1029           1093
+主组：actual tiny且原native IoU=0且N outside      1170           1066
+F4主组新增槽/新增唯一GT曝光                       2/2            0/0
+F4全GO新增支持/丢失支持                           2/0            0/0
+F4 all300无类别原不可达tiny→可达                   2              0
+N→F4 tiny精确GT支持图query容量1                  1232→1234      1340→1340
+F8主组新增槽（仅敏感性）                          11             11
+F8 all300原不可达tiny→可达（仅敏感性）             46             21
+
+这里“支持内”是四条GT边恰可表示，容量是该图最大匹配；既不是IoU.5/.75检测上界，也不是AP、分类正确覆盖或真实训练后可达性。本表固定原GO多重配对，新增槽与跨输入GT曝光均不能当独立样本。
+
+三、k4作用少的直接证据与缺失项
+F4只对pre ref至少一轴小于4真实像素的query生效；tiny GT本身小于4，并不意味着与它配对的pre ref也小于4。JSON中可直接读出的final计数如下：
+
+量                                              A              B
+所有query曝光                                   9600           9600
+ref至少一轴激活k4                               285(2.969%)    233(2.427%)
+ref至少一轴激活k8（仅描述）                       2819           2279
+GO内激活k4槽                                    253            211
+tiny GO内激活k4槽                               223/2235       183/2247
+上述激活tiny槽中原N已inside                       162/223        135/183
+上述激活tiny槽中原N outside                       61             48
+
+激活tiny槽的原inside比例为72.646%/73.770%；多数被该尺度操作触及的tiny配对已在原支持域内，因此不能通过“扩大域”再修一次。全部tiny GO原inside比例为46.040%/48.643%，与激活子组并不相同。
+主组与refactive4的精确交集未在JSON中单列；x/y分轴激活计数也未显式保存于JSON。本次不读取PT或解码NPZ补算，不把223/183冒充主组激活数。可由已有集合计数给出严谨界：A的tiny outside为2235−1029=1206，其中main1170，故非main outside为36；激活outside为61，所以main∩active介于25和61。B为2247−1093=1154，非main outside88，激活outside48，所以交集介于0和48。即主组至少1109/1170=94.786%、1018/1066=95.497%的槽根本不激活k4，公式在这些槽上代数不变。
+这说明小作用面首先来自干预变量与预定失败组的有限重合；在少量可能生效的原outside槽上，四边共同支持仍只新增2/0。数据不支持进一步把原因硬归为某层kernel、attention、分类或梯度，也不证明所有绝对物理尺度方法无效。上述解释不改变原主集合、阈值或去留结论。
+
+四、F/E、精度及非法框
+在全部stage/配对/预定组上，9216项F/E inside及outside-edge汇总检查相同；final两类class口径×两cohort×两尺度的512项支持图汇总逐项相同，包括query容量1、可达GT及边界计数。运行源码还逐项断言了F/E编码inside数组、all300支持图相等及N包含于F。此次未解码NPZ再计算图，但其身份全部锁定；不能把同支持对照视为F的优势。
+独立端点公式最大差1.735e−18 normalized；native FP32重解码对缓存最大误差A/B均1.1920929e−7；共同FP64最大差A8.5075771e−8、B8.8960766e−8，覆盖384个image-stage记录，均低于原定1e−6，未放宽容差。F/E内部节点确实不同：final GO的F4/E4 exact_same_boxes仅A8/32、B6/32图为true，exact_same_targets各8/32；差异存在不代表优越或新颖。
+
+冻结PMF下final GO平均变化（相对共同FP64 N，几何为5L1+2(1−GIoU)，负数较低）：
+                   A IoU变化       A几何变化          B IoU变化       B几何变化
+F4                 +8.49909e−6     −3.60965e−5        −6.07871e−5     +1.70415e−4
+E4                 +1.17157e−6     −3.05073e−5        −9.69309e−6     +1.37638e−5
+固定tiny GO的.5跨阈值：F4 A上0/下2、B上0/下0；E4 A上0/下1、B上0/下0。它们是固定配对几何变化，没有加入类别和检测重匹配，不能称tiny AP或训练结果。
+
+普通final/aux_0/aux_1的固定GO及own中，N/F4/E4/C4/F8/E8/C8均无非法框；T2在final GO产生A1+B4个新非法框，final own合计3个。这些配对有重叠，不能相加成独立query或GT。
+DN不能省略：跨A/B、每层13258个DN正槽，F4在dn_1/dn_2新非法框分别4/3；F8分别392/399。dn_0无此问题；对应E4/E8未出现非法框。72个stage×pair-kind×arm汇总组均无nonfinite配对预测框；出现的非法框被保留，IoU记0、GIoU/组合loss记NA并保留分母，没有静默clamp。这里也不能跨层求和后声称同样数量的独立失败目标。此现象说明同步ordinary/DN改公式时需正视合法框副作用；它是原定次要描述，不另设结果后gate。
+
+五、按事前协议收束
+接受01中的necessary_screen_both=false、screen_status=mixed。停止本精确k4针对预定失败组的双seed支持修复主张，不因k8、T2或更换cohort而追认通过。T2仍是原有强对照，其旧训练mixed不被本次支持计数覆盖。F/E同支持和其冻结均值差，只说明支持与内部节点是两个不同作用变量，未建立内部标度优于同支持端点控制的训练证据。
+当前结果供圆桌继续修订；不授权新训练，不推断AP，不否定全部物理标度、FDR或query设计。若未来提出不同变量，须作为新方案另行事前定义，而不能修改本次已失败主尺度的记录。
+
+关键SHA256
+244/00_inputs_and_synthetic.json
+626ce41b80efcb07ae7d400312b41c153ff8591f7d4ba8a716db765c8340c56d
+244/01_results.json
+9dfbf71fc5ea60820b529c4e1e0fb0c0412fd96af034a40f439a3e98618160b9
+244/02_output_sha256.json
+1fb64644422ac499eb3bc5b5afa22f1d5e7856409514c4fcfd2266f38d0f4233
+243_BASE24_cached_displacement_floor_probe_fixed.py
+0840b94e8528a461902456b7d0985060216386b795abd954062a4848bc93db0e
+231/FAILED.json
+094ce4611ea2efcb15d88aae29b48783f456c41b4cd38cdd5eeea28b1546e1b1

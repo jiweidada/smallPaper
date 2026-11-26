@@ -1,0 +1,76 @@
+FADE: Fusing the Assets of Decoder and
+Encoder for Task-Agnostic Upsampling
+Hao Lu , Wenze Liu , Hongtao Fu , and Zhiguo Cao ⋆
+School of Artificial Intelligence and Automation,
+Huazhong University of Science and Technology, Wuhan 430074, China
+{hlu,wzliu,htfu,zgcao}@hust.edu.cn
+Abstract We consider the problem of task-agnostic feature upsampling
+in dense prediction where an upsampling operator is required to facili-
+tate both region-sensitive tasks like semantic segmentation and detail-
+sensitive tasks such as image matting. Existing upsampling operators of-
+ten can work well in either type of the tasks, but not both. In this work,
+we present FADE, a novel, plug-and-play, and task-agnostic upsampling
+operator. FADE benefits from three design choices: i) considering en-
+coder and decoder features jointly in upsampling kernel generation; ii)
+an efficient semi-shift convolutional operator that enables granular con-
+trol over how each feature point contributes to upsampling kernels; iii)
+a decoder-dependent gating mechanism for enhanced detail delineation.
+We first study the upsampling properties of FADE on toy data and then
+evaluate it on large-scale semantic segmentation and image matting. In
+particular, FADE reveals its effectiveness and task-agnostic characteris-
+tic by consistently outperforming recent dynamic upsampling operators
+in different tasks. It also generalizes well across convolutional and trans-
+former architectures with little computational overhead. Our work ad-
+ditionally provides thoughtful insights on what makes for task-agnostic
+upsampling. Code is available at: http://lnkiy.in/fade_in
+Keywords: Feature upsampling; dense prediction; dynamic networks;
+semantic segmentation; image matting
+1 Introduction
+Feature upsampling, which aims to recover the spatial resolution of features,
+is an indispensable stage in many dense prediction models [25,1,36,34,41,37].
+Conventional upsampling operators, such as nearest neighbor (NN) or bilinear
+interpolation [15], deconvolution [40], and pixel shuffle [26], often have a prefer-
+ence of a specific task. For instance, bilinear interpolation is favored in semantic
+segmentation [4,37], and pixel shuffle is preferred in image super-resolution [14].
+A main reason is that each dense prediction task has its own focus: some
+tasks like semantic segmentation [18] and instance segmentation [11] are region-
+sensitive, while some tasks such as image super-resolution [8] and image mat-
+⋆ Corresponding author
+
+---PAGE---
+
+2 H. Lu et al.
+IMAGEGROUNDTRUTHINDEXNETA2UCARAFEFADE
+Figure 1: Inferred segmentation masks and alpha mattes with different
+upsampling operators . The compared operators include IndexNet [19], A2U [7],
+CARAFE [32], and our proposed FADE. Among all competitors, only FADE generates
+both the high-quality mask and the alpha matte.
+ting [39,19] are detail-sensitive. If one expects an upsampling operator to gen-
+erate semantically consistent features such that a region can share the same
+class label, it is often difficult for the same operator to recover boundary details
+simultaneously, and vice versa. Indeed empirical evidence shows that bilinear
+interpolation and max unpooling [1] have inverse behaviors in segmentation and
+matting [19,20], respectively.
+In an effort to evade ‘trials-and-errors’ from choosing an upsampling opera-
+tor for a certain task at hand, there has been a growing interest in developing a
+generic upsampling operator for dense prediction recently [22,30,32,33,19,20,7].
+For example, CARAFE [32] demonstrates its benefits on four dense prediction
+tasks, including object detection, instance segmentation, semantic segmentation,
+and image inpainting. IndexNet [19] also boosts performance on several tasks
+such as image matting, image denoising, depth prediction, and image recon-
+struction. However, a comparison between CARAFE and IndexNet [20] indicates
+that neither CARAFE nor IndexNet can defeat its opponent on both region- and
+detail-sensitive tasks (CARAFE outperforms IndexNet on segmentation, while
+IndexNet is superior than CARAFE on matting), which can also be observed
+from the inferred segmentation masks and alpha mattes in Fig. 1. This raises an
+interesting question: Does there exist a unified form of upsampling operator that
+is truly task-agnostic?
+To answer the question above, we present FADE, a novel, plug-and-play,
+and task-agnostic upsampling operator which Fuses the Assets of Decoder and
+Encoder (FADE). The name also implies its working mechanism: upsampling
+features in a ‘fade-in’ manner, from recovering spatial structure to delineating
+subtle details. In particular, we argue that an ideal upsampling operator should
+be able to preserve the semantic information and compensate the detailed infor-
+mation lost due to downsampling. The former is embedded in decoder features;
+the latter is abundant in encoder features. Therefore, we hypothesize that it is
+the insufficient use of encoder and decoder features bringing the task dependency

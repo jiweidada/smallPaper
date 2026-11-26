@@ -1,0 +1,32 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 19
+Fig. 9: Possible Deﬁnitions for Missed GT. Deﬁning the oracle for missing GT is
+difﬁcult, so it’s important to choose a good deﬁnition. Here we compare ways of choosing
+the score for a new true positive versus just removing GT (what we use in our main
+paper).
+at random. However, as we see in Fig. 9, both methods produce the same skewed results
+as simply setting the score to−∞ does (e.g., Mask R-CNN and RetinaNet for removing
+GT and setting the score to 1 are nearly identical, but wildly different for the other
+deﬁnitions).
+In general, we can’t trust the distribution of scores given by the detector as accurate,
+since some detectors like to use all of the available bandwidth of detections (100 per
+image for COCO) by ﬂooding the predictions with low scoring detections that have
+some chance of being correct. This produces skewed results when deﬁning the score
+as anything that depends on these low scoring detections (−∞, mean, sample). Thus,
+we can’t tell what the score for the new prediction should be, leaving us with the only
+option of deﬁning the missed GT oracle as removing true negatives.
+B.2 Breaking Ties in Error Assignment
+Some situations can cause a predicted box to have two separate errors with two different
+ground truth. This is because when computingIoUmax for classiﬁcation error, we use
+GT of a different class, while for localization we use the GT of the same class. Thus,
+it’s possible for a given prediction to have a localization error w.r.t. one GT and a
+classiﬁcation error w.r.t. another GT (as illustrated in Fig. 10).
+While these ties don’t happen often ( ∼ 0.78% of Mask R-CNN predictions on
+COCO), it is important to deal with them in a deﬁned way. In the case presented in
+Fig. 10, we prioritize localization error over classiﬁcation error, choosing to trust the
+classiﬁcation of the model more than its localization. This choice is largely arbitrary
+(there are arguments for both) but needs to be made. For all other tie breakers, we follow
+the order we deﬁne the error types.
+Note that this tie breaking is not to be confused with computing errors progressively.
+In our implementation, we ﬁrst assign an error type to each false positive and false
+negative, and then only after all positives and negatives are accounted for do we compute
+∆AP .

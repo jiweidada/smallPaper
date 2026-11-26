@@ -1,0 +1,106 @@
+Academic Editor: Junyeong Kim
+Received: 11 December 2025
+Revised: 23 January 2026
+Accepted: 27 January 2026
+Published: 23 February 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+CSF-Net: Cross-Stage Fusion Network with Dual Backbone for
+Small Object Detection
+Beilei Wang, Hongyu Li, Lin Wei and Yichuan Zhang *
+Software College, Northeastern University, Shenyang 110819, China; wangbl@swc.neu.edu.cn (B.W.);
+lihongyu1@mails.neu.edu.cn (H.L.); weil2@mails.neu.edu.cn (L.W.)
+* Correspondence: zhangyc@swc.neu.edu.cn
+Abstract
+Small object detection remains a challenge in computer vision due to low pixel occu-
+pancy, feature scarcity, and susceptibility to background interference. Conventional single-
+backbone networks often struggle to balance deep semantic extraction with the preservation
+of shallow details. Deep down-sampling can lead to the loss of edge and texture infor-
+mation, while late-stage fusion may fail to recover these details effectively. To address
+these limitations, this paper proposes a Cross-Stage Fusion Network with a Dual Backbone
+(CSF-Net). Our network employs an asymmetric design: a shallow backbone maintains
+a higher resolution to preserve fine-grained details, while a deep backbone extracts con-
+textual semantics. These two streams interact via progressive cross-stage connections,
+facilitating the early fusion of small object information. Experiments on the Micro RGB
+UAV dataset indicate that CSF-Net improves the mAP of the YOLOV8 baseline from 62.8%
+to 67.0%, validating the effectiveness of the proposed architecture in enhancing detection
+performance for small targets.
+Keywords: small object detection; cross-stage fusion; dual backbone; dynamic fusion
+1. Introduction
+In recent years, while general-purpose object detection has progressed significantly,
+small object detection remains a critical and persistent challenge in computer vision. How-
+ever, within this domain, there exists an even more distinct and difficult challenge: the detec-
+tion of “Micro” objects. Unlike standard small objects (e.g., those defined as<32 × 32 pixels
+in datasets like COCO or VisDrone), micro objects suffer from extreme information sparsity,
+often occupying fewer than 16 × 16 pixels or appearing as sub-pixel targets in high-altitude
+surveillance imagery. This creates unique difficulties beyond standard small object de-
+tection, including severely limited resolution, sparse contextual information, and high
+susceptibility to background interference [1].
+The central dilemma stems from the inherent information sparsity of these micro
+targets. First, targets occupy minimal pixels; thus, repeated down-sampling in deep neural
+networks rapidly degrades or permanently destroys their critical features. Second, their
+diminutive scale affords little intrinsic visual distinction, distinct from the relatively richer
+features found in larger “small” objects typical of general benchmarks. Consequently,
+methods optimized for general small object datasets often fail in these extreme micro-scale
+scenarios due to the overwhelming dominance of background noise. In high-precision,
+safety-critical applications—such as autonomous driving (distant pedestrians and traffic
+signs) [2], remote sensing/UAV imagery (dense or distant targets), and medical image
+Sensors 2026, 26, 1387 https://doi.org/10.3390/s26041387
+
+---PAGE---
+
+Sensors 2026, 26, 1387 2 of 14
+analysis (micro-lesions)—the risks of missed detections and false positives escalate sharply
+as target size decreases to the micro scale. This severely compromises the reliability and
+performance of detection systems in real-world deployments, necessitating validation on
+datasets specifically designed for these extreme conditions, such as the Micro RGB UAV
+dataset used in this study.
+Small object detection faces a fundamental dilemma: targets occupy minimal pixels
+and lack intrinsic visual distinction. Existing research paths addressing this information
+sparsity all suffer from limitations. Multi-scale fusion paradigms, such as FPN [3], employ
+deep down-sampling strategies that often lead to the irreversible loss of critical details
+early in the network. Furthermore, Attention Mechanisms like CBAM [4], while mitigating
+interference, are constrained by static weights that lack input adaptability, causing weak
+signals to be submerged by background noise. Although high-resolution architectures
+represented by HRNet [5] preserve details, they incur prohibitive computational overhead
+unsuitable for edge scenarios. Consequently, current methods either lose critical details
+prematurely or fail to effectively suppress noise during fusion.
+To address these limitations, we propose the Cross-Stage Fusion dual-backbone Net-
+work (CSF-Net). First, we design the Channel Switch (CSwitch) module to establish early
+cross-stage connections, transmitting shallow, high-resolution features to deep layers to
+prevent irreversible information loss. Second, we introduce the Dynamic Fusion (DFuse)
+module. Unlike static approaches, DFuse employs an input-adaptive channel screening
+mechanism to dynamically adjust fusion weights, ensuring valid small object signals are
+not overwhelmed by background noise. Finally, in the P3 detection head, we introduce the
+CReToNeXt module to replace the original C2f component. By employing a cross-depth
+dense connection structure, CReToNeXt enables fine-grained extraction and reuse of shal-
+low details without incurring additional computational overhead. The main contributions
+of this paper are summarized as follows:
+• We propose CSF-Net, an architecture optimized for small object detection. Our asym-
+metric dual-backbone strategy seeks to balance high-resolution detail preservation
+with structural efficiency.
+• We introduce an early fusion mechanism. By coordinating early feature injection
+(CSwitch) with structural adaptive alignment (DFuse), we address the limitations of
+static fusion strategies in handling heterogeneous features.
+• We refine the detection head by incorporating the CReToNeXt module, which employs
+a cross-depth dense connection structure to improve feature utilization.
+2. Related Works
+The fundamental challenge of small object detection lies in its intrinsic information
+sparsity. The minimal pixel proportion of small objects results in their feature representa-
+tions being inherently weak within deep neural networks. Crucially, as this weak signal
+undergoes multiple irreversible down-sampling operations during forward propagation, it
+becomes highly susceptible to permanent loss. Furthermore, it is easily suppressed and
+obscured by complex background noise. To tackle these dual challenges of feature loss and
+noise interference, current research primarily proceeds along three main avenues: multi-
+scale feature fusion, high-resolution feature preservation, and contextual enhancement and
+Attention Mechanisms.
+2.1. Multi-Scale Feature Fusion
+To address the rapid degradation and eventual loss of small object features in deep
+networks, Feature Pyramid Network (FPN) was introduced, quickly becoming a standard
+configuration in modern object detectors. FPN constructs a top-down pathway with lateral
+https://doi.org/10.3390/s26041387

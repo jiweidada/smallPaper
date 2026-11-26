@@ -1,0 +1,228 @@
+Diagnosing Error in Object Detectors 9
+N L M H N L M H N L M H N L M H N L M H N L M H N L M H
+0
+0.2
+0.4
+0.6
+0.8
+0.49
+0.23
+0.08
+0.00
+0.56
+0.65
+0.140.17 0.15
+0.12
+0.020.00
+0.21
+0.110.12
+0.05
+0.41
+0.32
+0.21
+0.09
+0.22
+0.14
+0.040.02
+0.10
+0.350.33
+0.25
+airplane bicycle bird boat cat chair table
+VGVZ 2009: Occlusion
+N L M H N L M H N L M H N L M H N L M H N L M H N L M H
+0
+0.2
+0.4
+0.6
+0.8
+0.37
+0.23
+0.08
+0.03
+0.68
+0.72
+0.27
+0.46
+0.050.020.000.00
+0.22
+0.13
+0.08
+0.00
+0.23
+0.17
+0.120.11
+0.240.21
+0.12
+0.03
+0.15
+0.29
+0.42
+0.36
+airplane bicycle bird boat cat chair table
+FGMR (v4): Occlusion
+XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL
+0
+0.2
+0.4
+0.6
+0.8
+0.02
+0.35
+0.47
+0.76
+0.35
+0.14
+0.50
+0.56
+0.620.66
+0.000.01
+0.11
+0.41
+0.29
+0.01
+0.11
+0.22
+0.33
+0.12
+0.01
+0.15
+0.45
+0.60
+0.53
+0.01
+0.09
+0.21
+0.17
+0.02 0.00
+0.35
+0.45
+0.37
+0.11
+airplane bicycle bird boat cat chair table
+VGVZ 2009: BBox Area
+XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL
+0
+0.2
+0.4
+0.6
+0.8
+0.00
+0.10
+0.48
+0.64
+0.11
+0.20
+0.77
+0.60
+0.69
+0.74
+0.000.020.05
+0.10
+0.02 0.00
+0.06
+0.22
+0.43
+0.14
+0.00
+0.16
+0.21
+0.31
+0.40
+0.01
+0.17
+0.260.26
+0.05 0.03
+0.12
+0.52
+0.47
+0.32
+airplane bicycle bird boat cat chair table
+FGMR (v4): BBox Area
+Fig. 5. Sensitivity and Impact of Object Characteristics: APN (’+’) with standard error bars
+(red). Black dashed lines indicate overall AP N. Key: Occlusion: N=none; L=low; M=medium;
+H=high. Bounding Box Area: XS=extra-small; S=small; M=medium; L=large; XL =extra-large.
+occ trn size asp view part0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.098
+0.356
+0.213
+0.361
+0.026
+0.488
+0.120
+0.406
+0.187
+0.373
+0.105
+0.382
+0.302
+VGVZ 2009: Sensitivity and Impact
+occ trn size asp view part0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.100
+0.278
+0.153
+0.288
+0.060
+0.419
+0.074
+0.403
+0.065
+0.301
+0.069
+0.324
+0.238
+FGMR (v2): Sensitivity and Impact
+occ trn size asp view part0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.103
+0.323
+0.201
+0.323
+0.060
+0.445
+0.121
+0.435
+0.110
+0.375
+0.082
+0.362
+0.277
+FGMR (v4): Sensitivity and Impact
+Fig. 6. Summary of Sensitivity and Impact of Object Characteristics: We show the average
+(over categories) AP N performance of the highest performing and lowest performing subsets
+within each characteristic (occlusion, truncation, bounding box area, aspect ratio, viewpoint, part
+visibility). Overall AP N is indicated by the black dashed line. The difference between max and
+min indicates sensitivity; the difference between max and overall indicates the impact.
+potential impact. For example, detectors are very sensitive to occlusion and truncation,
+but the impact is small (about 0.05 AP N) because the most difﬁcult cases are not com-
+mon. Object area and aspect have a much larger impact (roughly 0.18 for area, 0.13
+for aspect). Overall, VGVZ is more robust than FGMR to viewpoint and part visibility,
+likely because it is better at encoding texture (due to bags of words features), while
+FGMR can accommodate only limited deformations. The performance of VGVZ varies
+more than FGMR with object size. Efforts to improve occlusion or viewpoint robust-
+ness should be validated with specialized analysis so that improvements are not diluted
+by the more common easier cases.
+One of the aims of our study is to understand why current detectors fail to detect
+30− 40% of objects, even at small conﬁdence thresholds. We consider an object to
+be undetected if there is no detection above 0.05 PN (roughly 1.5 FP/image). Our anal-
+ysis indicates that size is the best single explanation, as nearly all extra-small objects
+go undetected and roughly half of undetected objects are in the smallest 30%. But size
+accounts for only 20% of the entropy of whether an object is detected (measured by
+information gain divided by entropy). Contrary to intuition, occlusion does not increase
+the chance of going undetected (though it decreases the expected conﬁdence); there is

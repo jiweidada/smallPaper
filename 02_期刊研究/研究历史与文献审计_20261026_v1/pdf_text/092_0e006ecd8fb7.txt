@@ -1,0 +1,168 @@
+Improving Shift Invariance in Convolutional Neural Networks with
+Translation Invariant Polyphase Sampling
+Sourajit Saha
+University of Maryland, Baltimore County
+ssaha2@umbc.edu
+Tejas Gokhale
+University of Maryland, Baltimore County
+gokhale@umbc.edu
+Abstract
+Convolutional neural networks (CNNs), widely deployed
+in several applications, contain downsampling operators in
+their pooling layers which have been observed to be sensi-
+tive to pixel-level shift, affecting the robustness of CNNs.
+We study shift invariance through the lens of maximum-
+sampling bias (MSB) and find MSB to be negatively cor-
+related with shift invariance. Based on this insight, we
+propose a learnable pooling operator called Translation
+Invariant Polyphase Sampling (TIPS) to reduce MSB and
+learn translation-invariant representations. TIPS results in
+consistent performance gains on multiple benchmarks for
+image classification, object detection, and semantic seg-
+mentation in terms of accuracy, shift consistency, shift fi-
+delity, as well as improvements in adversarial and distribu-
+tional robustness. TIPS results in the lowest MSB compared
+to all previous methods, thus explaining the strong empiri-
+cal results. TIPS can be integrated into any CNN and can be
+trained end-to-end with marginal computational overhead.
+Code: https://github.com/sourajitcs/tips/
+1. Introduction
+Shift invariance is an ideal property for visual recogni-
+tion models to ensure that outputs remain invariant to small
+pixel-level shifts in input images. Shift-invariance is de-
+sirable for image classification to ensure that categorical
+outputs are not affected by small horizontal and/or vertical
+pixel shift, and shift-equivariance is desirable for object de-
+tection and semantic segmentation to ensure that pixel-shift
+in the image results in equivalent shift in outputs. Recent
+studies have also found shift-invariant vision models to be
+more robust on out-of-distribution testing and adversarial
+attacks, making shift invariance an important facet of trust-
+worthiness and risk assessment for visual recognition.
+Although convolution layers are shift-equivariant [27],
+recent studies [1, 15] reveal that pooling operators such
+as max pooling, average pooling, and strided convolution
+Figure 1. Translation-Invariant Polyphase Sampling (TIPS) is a
+pooling operator that improves shift invariance of CNNs. (a) An
+illustration of the improvements in semantic segmentation with
+TIPS; (b) Greater shift consistency of TIPS at higher degrees of
+pixel shift; (c) TIPS results in consistent and architecture-agnostic
+improvements in accuracy and four measures of shift invariance
+for image classification and semantic segmentation.
+break shift invariance by violating the Nyquist sampling
+theorem [36]. Since these pooling operators sample the
+highest feature activation in a pooling window, we study
+if this design choice can explain model’s performance un-
+der pixel shift, by introducing the concept of Maximum-
+Sampling Bias (MSB) which denotes the tendency to pool
+larger values within pooling windows. We observe a strong
+negative correlation between MSB and shift invariance, i.e.
+models with higher MSB are the least shift invariant.
+Informed by this finding, we design a pooling opera-
+tor, Translation Invariant Polyphase Sampling (TIPS), to
+discourage MSB and improve invariance under shift trans-
+formations. We introduce two loss functions: LF M – to
+discourage known failure modes of shift invariance and
+Lundo – to learn to undo standard shift. We demonstrate
+This WACV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+620
+
+
+---PAGE---
+
+Figure 2. TIPS downsamples ReLU-activated intermediate feature map X into ˆX with stride s and learns polyphase mixing coefficients τ
+(using a small fully convolutional functionfθ) which results in the output feature map as the weighted linear combinationˆX. The polyphase
+decomposition on input feature map X results in polyi which are then mixed as a weighted linear combination with τ to compute ˆX.
+that this approach consistently improves robustness under
+shift transformation on multiple image classification, object
+detection, and semantic segmentation benchmarks, outper-
+forming data augmentation and contrastive learning strate-
+gies, and resulting in state-of-the-art performance in terms
+of accuracy, shift consistency, and shift fidelity under stan-
+dard and circular shift transformations, while operating at
+a small computational overhead. In real world scenarios,
+standard shifts are more likely to occur than circular shifts;
+however, current literature largely focuses on circular shift
+invariance. We show that our method improves shift invari-
+ance on both circular shift and standard shift (shown in Fig-
+ure 1). When tested on adversarial attacks, patch attacks,
+and natural corruptions, models trained with TIPS exhibit
+greater robustness than previous pooling operators.
+2. Related Work
+Robustness of CNNs has been examined under geomet-
+ric transformations [8, 12], domain shift [46], attribute
+shift [16], adversarial attacks [32], and natural corrup-
+tions [20]. Distributional robustness of CNNs has been ex-
+plored through random or learned data augmentation [17,
+47], contrastive learning [23], and Bayesian approaches [7].
+Dense Sampling and Anti-aliasing. Conventional slid-
+ing window downsampling in computer vision algorithms
+is typically applied with stride that is bigger than 1 which
+breaks shift equivariance [42]. Shift invariance can be im-
+proved through dense sampling [28] with dilated convolu-
+tions [48] with susceptibility to griding artifacts. Zhang
+et al . [49] suggest BlurPool to enhance shift invariance
+through anti-aliasing before downsampling, whereas Zouet
+al. [50] propose DDAC, to learn low pass anti-aliasing filter.
+Polyphase Sampling. APS [4] and LPS [40] use polyphase
+sampling to satisfy the Nyquist sampling theorem [36] and
+permutation invariance which provides robustness against
+circular shifts. APS enhances shift invariance by sam-
+pling the highest energy polyphase index ( ℓp norm) while
+LPS learns the sampling. LPS being sensitive to gumble
+Feedforward 
+& 
+Backpropagate
+Feedforward
+𝑿
+𝑿𝒕
+conv TIPS𝑰
+𝝍(𝑿)
+Prediction
+Ground T ruth
+ℒ𝐹𝑀
+ 
+ 
+ℒ𝑡𝑎𝑠𝑘
+ℒ𝑢𝑛𝑑𝑜
+Pixel 
+Shift
+Figure 3. The end-to-end training pipeline with TIPS, regular-
+ization to undo shift Lundo, regularization to discourage known
+failure modes LF M, and downstream task loss Ltask.
+softmax temperature can sample polyphases to maximize
+downstream objective which does not consider shift in-
+variance unless training data is shift-augmented. Evidence
+[4, 39, 49, 50] suggests that although polyphase sampling
+methods can improve shift invariance for circular shift, they
+still struggle to deal with standard shift; we show that TIPS
+can benefit both. The focus of this study is to improve ro-
+bustness of CNNs against both standard and circular shifts,
+which constitute significant aspects of model evaluation.
+3. Translation Invariant Polyphase Sampling
+In this section, we discuss the design of our proposed
+TIPS pooling layer and the workflow to train CNNs with
+TIPS. Let X∈Rc×h×w be a ReLU-activated feature map,
+where c, h, w are the number of channels, height, and
+width. A pooling layer with sampling rate or stride s (also
+called s×s pooling) downsamples X into ˆX.
+3.1. TIPS: A Learnable Pooling Layer
+TIPS learns to sample polyphase decompositions of in-
+put feature maps X using two branches, as shown in Fig-
+ure 2. In the first branch, polyphase components of X with
+stride s are computed similar to Chaman et al. [4]:
+polyis+j(X) = X[k, sn1 + i, sn2 + j], (1)
+∀ i, j∈Z
+s−1
+0 ; k∈Z
+c−1
+0 ; n1∈Z
+⌈ h
+s ⌉
+0 ; n2∈Z
+⌈ w
+s ⌉
+0 .
+621

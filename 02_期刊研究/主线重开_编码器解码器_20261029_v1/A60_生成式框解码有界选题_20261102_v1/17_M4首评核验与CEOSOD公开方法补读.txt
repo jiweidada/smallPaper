@@ -1,0 +1,56 @@
+## Material Passport
+
+Origin Skill: academic-research-suite / experiment-agent + deep-research
+Origin Mode: 原训练继续；保存评价数组核验与最近公开方法补读
+Verification Status: ANALYZED；没有重跑检测器，不称独立训练复现
+Version Label: A60_M4_CEOSOD_public_v1
+本轮执行模型：gpt-6.1-sol，单助手。此前记录保留原执行来源。
+
+A60：M4首评与CEOSOD公开图、配置补读
+
+一、当前主问题
+VisDrone航拍小目标的生成式框解码训练中，在完全相同的尺寸偏置扰动框下，以目标相对几何误差定义的进度作为条件，能否优于物理插值时间？本候选是训练条件改动；尚无Q结果，也没有有效新主线结论。
+
+二、新取得的同轮检测结果
+指标百分制，差值为M减B的绝对百分点，均为固定第4轮raw模型；640stretch、10类、300推理proposals、原图裁剪面积small、class0 union过滤。内部COCO-style，非官方VisDrone挑战分数。
+
+组 | AP | AP50 | AP75 | APs | APs75 | APm | APl | ARs
+B4 | 14.225526 | 25.966519 | 13.681481 | 7.530884 | 5.698331 | 21.801347 | 42.500420 | 15.049135
+M4 | 14.279197 | 26.059329 | 13.803041 | 7.561385 | 5.984549 | 21.782941 | 45.369134 | 15.035183
+M-B | +0.053671 | +0.092810 | +0.121559 | +0.030501 | +0.286218 | -0.018406 | +2.868713 | -0.013952
+
+【事实】M已完成4轮并继续原第5轮；Q未启动。B12 AP17.506696/APs10.166364是另一训练时长，不能拿它与M4作效果差值。
+【计算】M4的APs仅比B4高0.030501pp；小目标AP75高0.286218pp；ARs略低。方向混合，不能据此判断12轮终点，也不能把M的结果当Q有效。
+【核验】14个保存文件的传输/ZIP内哈希核对通过；保存precision/recall数组重聚合的8项指标与原记录误差<1e-10。前4个完整训练轮的原训练raw-stream摘要与B相同，首8个实际输入字段相同，扰动框与条件哈希按设计不同。评价GT哈希及先验流哈希相同。
+【边界】这是保存数组和日志的核验，不是重新COCO匹配或模型复跑；完整输入流摘要由原trainer产生，没有独立重放每张图。M4权重仅核对远端字节SHA，尚未下载；固定12轮M/Q权重仍按已冻结归档方案处理。
+核验：M4_saved_metrics_local_verification_v1.json。原始保存材料：epoch4_M_saved_metrics_remote_v1。验证脚本：verify_M4_saved_metrics_v1.py。
+
+三、CEOSOD本次实际读到了什么
+论文：Cao, Z.; Li, J.; Zhou, M. A Novel One-Step Small Object Detector for Autonomous Aerial Vehicles. IEEE Transactions on Cybernetics, 2026. DOI10.1109/TCYB.2026.3704176。
+作者项目：https://github.com/BrainPotter/CEOSOD
+作者机构题录：https://researchwith.njit.edu/en/publications/a-novel-one-step-small-object-detector-for-autonomous-aerial-vehi/
+固定作者仓库pin：2a3a49d1c193ff5996f1f39c41df8914eccd65b1。
+
+【原始材料】本次已直接视觉阅读graphs/pic1.png、pic2.png，阅读Base-CEOSOD.yaml和ceosod.visdrone.res50.yaml。图中已有时间条件f_theta(x_t,t)、一致性噪声框到检测框映射、Swin/FPN、self-attention、dynamic convolution、RoI。VisDrone R50配置有10类、500 proposals、450000训练iter；Base配置含P2—P5 RoI特征、多尺度480—800训练尺寸和batch8。
+【阅读范围】这些图和配置不是论文完整方法；本次题名、DOI、机构仓库及PDF定向检索仍未获得全文。没有完整detector实现可查，因此不能据图中未写某公式就判定作者没有该机制。
+【推断】A60只能讨论相同尺寸偏采样扰动框下的具体条件表示差异；“首次一步生成式航拍检测”“首次噪声框+时间条件”“新编码器解码器原语”等主张均不成立。作者README指标与本次12轮受控实验不能直接排名。
+材料及下载哈希：CEOSOD_public_supplement_v3/fetch_receipt.json。
+全文检索记录：CEOSOD_public_supplement_v3/search_receipts.json。
+补读矩阵：02d_CEOSOD公开材料与条件归因边界_v1.json。
+该补读没有把任何论文标记为用户已读，也未修改423条文献总库。
+
+四、算法归因限制
+【源码事实】box_progress_conditioning_v1.py要求progress为每图一个值，然后跨query展开。M用各query实际物理alpha作条件，alpha依其相对框几何误差变化；Q则用同图共享的u。M/Q的扰动框相同。
+【推断】即便未来Q超过M，也同时包含条件含义与同图query时间标签一致性/分布变化，不能把结果唯一归因于“修复了几何时间瓶颈”。筛选可判断这项具体训练改动是否值得继续，不能直接证明唯一机制或排除所有替代解释。
+
+五、继续执行的固定判据
+原监督器仍按B→M→Q，每组最多12轮。主终点是固定12轮raw模型。继续门槛全部保留：
+Q-B APs>=0.5pp；Q-M APs>=0.3pp；Q-B AP>=-0.2pp；Q/M中位模型时延<=1.10。
+本次M4数据不用于提前改变门槛、选best、增加seed或调整配方。若失败，停止该具体配方并继续实质不同机制；若通过，再结合最近方法与归因限制判断可保留的论文贡献。
+
+六、本轮与总目标状态
+前一目标轮分类：verified wait——当时已确认原M进程身份存活，尚无M检测指标。
+本轮分类：progress——新增并核验原M4同轮指标/四轮输入流，并补读CEOSOD作者方法图和配置，缩小可辩护的增量范围。
+总目标active，mainline_validated=false；Q未测试，固定12轮去留证据未齐。
+报告中的服务器UTC只作原始标签；本轮查验时间在回执中另存客户端UTC，训练耗时沿用原进程monotonic。
+

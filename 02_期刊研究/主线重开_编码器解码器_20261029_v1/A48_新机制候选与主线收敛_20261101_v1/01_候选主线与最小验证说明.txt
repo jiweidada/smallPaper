@@ -1,0 +1,65 @@
+2026-11-01｜A48 实例等量统计：可检验候选，尚无有效性结论
+
+目标：找到有证据支撑、相对最近方法有可区分操作、单卡24GB可判别的小论文主线。不是证明本候选必然有效。本目标在候选失败后继续有效，不用又一项阴性诊断代替找到主线。
+
+当前数据/算法/问题/增量
+数据：VisDrone2019-DET，train6471 / val548，10类。主机现有数据复用，保留原件。输入沿用A43整图拉伸640×640与确定性水平翻转；本轮不是官方VisDrone训练配方或挑战榜单评估。
+算法：ECDet-S / EdgeCrafter d8752b75c9beaecfcdd0e5cd207bae3b6946ae23，9,803,112参数。只是沿用可承担、已打通的宿主；不因宿主较新便声称创新。
+问题假说：检测以实例为监督单位，但编码器普通空间BN以像素位置计算统计量。大量微小实例所占面积很低，按普通前景框像素加权也可能仍偏向大框。按实例等量估计训练统计是否值得？该机制尚待训练验证。
+候选增量：四个FPN/PAN融合出口的BN，在训练时使用“均匀空间分布 + 每个有效GT框贡献单位质量”的均值/方差。推理用训练所得running statistics和原BN affine，恢复普通BN类，不增加预测掩码、decoder读出或损失项。
+这是已有加权归一化的一项任务特定扩展候选，不声称新发明BN或已经找到无人做过的问题。
+
+已有项目证据（CPU数据核查）
+核对全部6471份训练原始标注SHA，与A43清单一致，343204个有效GT。
+按640×640输入中的框面积分组：
+<8×8：80220个，实例占比23.373853%，累计框面积占比1.233657%。
+8×8至<16×16：118695个，实例占比34.584387%，框面积占比7.807998%。
+16×16至<32×32：93824个，实例占比27.337677%，框面积占比22.539019%。
+≥32×32：50465个，实例占比14.704083%，框面积占比68.419327%。
+累计框面积/整图面积约8.140200%。框可重叠且框内含背景/遮挡，此数不是分割前景比例。输入面积分组也不是评估APs的原图面积口径。
+这些量只证明计数/面积差异，不证明BN已导致漏检或加权必定更优。记录：data_and_site_audit.json。
+代码核查：ECDet-S decoder input_proj在等通道时为Identity，不能在那里虚构BN改动；实际修改的是encoder.fpn_blocks.{0,1}.cv4.norm与encoder.pan_blocks.{0,1}.cv4.norm，均真实存在192通道BatchNorm2d。
+
+与历史的逐项边界
+20261027 文献问题入口核查：固定132模型的raw/EMA运行统计交叉替换已失败；本候选从公共初始化重训，改变统计的空间测度，不交换旧状态，也不指认EMA是bug。该旧阴性保留。
+D025：尺度/尺度内注意力权重归一化；原H没有训练端点。当前操作是特征BN一二阶统计，不改attention概率、采样点或尺度quota。未验证不改写成旧训练阴性。
+D015：背景协方差/几何读取；D041：类别/尺寸先验分数校准；A46：头类负梯度；均不等同本候选。
+A42定位读出、A43实例query蒸馏、A44细粒度预算、A47标注抖动匹配均不重启。旧文件/源码/权重/停止裁决保留。
+
+最近工作与阅读范围
+1. Yasuda等，Consistent Batch Normalization for Weighted Loss in Imbalanced-Data Environment，NOLTA2020，10.1587/nolta.11.454。已取得PDF，阅读问题定义与§4.1公式/反传，查看§4.2数字实验讨论；未逐页全文审读。原文已经用样本权重计算BN均值/方差并讨论加权损失一致性。因此加权BN及方差校正不是创新。当前差异仅为检测框实例→空间统计的测度与无推理标签的特定训练操作，必须用M对照判别。
+https://www.jstage.jst.go.jp/article/nolta/11/4/11_454/_pdf
+2. Xiao等，CateNorm: Categorical Normalization for Robust Medical Image Segmentation，arXiv2103.15858v2，MICCAI Workshop DART2022。已取得作者PDF，阅读§3和式1–5、训练与推理流程；非全文。原文已明确背景主导BN的问题；操作是由预测类别mask产生空间可变affine，与普通BN并行，分两阶段训练，测试前向两次。当前直接改全局训练统计的实例权重，原affine不加分支，测试仍单次；不把背景主导问题称为新发现。
+https://arxiv.org/abs/2103.15858v2
+3. Du等，Adaptive Sparse Convolutional Networks with Global Context Enhancement for Faster Object Detection on Drone Images，CVPR2023，CEASC。已读作者arXiv HTML §1、§3.1.2/式2–3和§3.2；PDF下载通道失败，非PDF全文阅读。原文以全局上下文特征统计归一化稀疏前景特征，并有dense分支MSE、残差和可学习mask预算；当前不做稀疏检测/全局特征分支，使用训练框的实例均衡统计。这篇是无人机场景的关键近邻。
+https://openaccess.thecvf.com/content/CVPR2023/html/Du_Adaptive_Sparse_Convolutional_Networks_With_Global_Context_Enhancement_for_Faster_CVPR_2023_paper.html
+4. Yu等，Region Normalization for Image Inpainting，AAAI2020，10.1609/aaai.v34i07.6967。本轮仅摘要/原文元数据；PDF未取得，原来误猜的CVPR路径未用作证据。已知操作是损坏/未损坏区域分开归一化；不将区域归一化本身列创新。
+https://arxiv.org/abs/1911.10375
+5. Joao等，Understanding Marker-Based Normalization for FLIM Networks，VISAPP2024，10.5220/0012385900003660。本轮仅官方摘要与首页抽取，PDF未取得。已研究由标记统计做z-score及object/background采样比例；不能把前景参与统计概念称为首次。
+https://www.scitepress.org/Papers/2024/123859/123859.pdf
+6. FlowDet: Unifying Object Detection and Generative Transport Flows，arXiv2512.16771v1 / CVPR2026Workshop LoViF。本轮已读§3.1–3.4、先验和配对消融表，非全文所有实验。已有尺寸分桶Gaussian mixture、按图预测先验、Hungarian配对、随机源框padding及多种ODE步进，常规生成式decoder改法不再作为新候选。并检索到IEEE TCYB2026 A Novel One-Step Small Object Detector for Autonomous Aerial Vehicles，DOI10.1109/TCYB.2026.3704176，但该篇仅官方作者机构摘要/元数据，不据此推断完整方法。
+https://arxiv.org/abs/2512.16771v1
+https://researchwith.njit.edu/en/publications/a-novel-one-step-small-object-detector-for-autonomous-aerial-vehi/
+
+检索策略与边界
+任务定向、非系统综述；日期截止2026-11-01。先查已有记录，再从生成式检测decoder和特征归一化两个不同机制家族查近邻。没有以关键词未命中声明“无人做过”。技术比较优先原始论文/官方项目，二手页面只作线索。
+检索串包括：weighted batch normalization；masked batch normalization object detection；object-aware batch normalization；instance-wise normalization bounding boxes；foreground-aware normalization；object-balanced normalization detection；scale-balanced batch normalization；instance-balanced normalization；foreground batch normalization statistics；Region Normalization for Image Inpainting；CateNorm categorical statistics；Adaptive Sparse Convolutional Networks drone。
+原始工具结果保存在search_raw_records_v1.json；下载状态、来源、版本与SHA在source_acquisition_v1.json及统一文献库的*.source.json。PDF受限项不冒充全文。检索不是完整查新证明，若试验有信号，还必须扩大“box/instance-weighted spatial moments”等近义方法检索及引用追踪。
+
+三组最小验证（具体实现见protocol_FROZEN.json）
+B：原版普通BN。
+M：相同加权BN算子，前景部分按框像素累计质量分配，重叠按重数计。
+Q：相同算子，先使每个框的分数覆盖质量归一为1，再在全batch聚合；实例不按框面积分配质量。
+M/Q同样与均匀空间分布混合；lambda从0在前1618步线性至0.5，随后固定；空GT退回均匀。
+三组9,803,112参数、同公共初始化、seed20261101、相同图像/标注/顺序/翻转、BF16前向+FP32 criterion、AdamW、batch8，各12轮9708次正式更新。不存在教师网络或额外损失。
+保存第4/8/12轮EMA评估，但只按固定12轮EMA判别：Q−B APs≥0.5pp，Q−M APs≥0.3pp，且Q−B总体AP≥−0.2pp；任一不满足即停止当前配方，不扫lambda、层、seed救援。
+这是投入下一阶段的实用门槛，不是显著性或发表门槛。12轮单seed不充分证明长程收敛、泛化或创新成立。训练前容量检查每组3次真实训练更新+1次无GT原BN推理，合计上限12前向/9更新；与正式训练分记。
+沿用A43字节相同COCO-style评估器，maxDets300，原图裁剪框面积，class0 union-IoA过滤；不是官方VisDrone榜单分数。不要与旧DEIM132或A43旧主机结果直接作受控差值。
+
+主要风险与证伪
+已有WBN、CateNorm与区域统计先例很近，差异可能不足以成为独立期刊贡献；即使AP提高也须诚实归属已有算子。
+框并非分割mask，等量分配可能放大小框背景或标注噪声；运行统计偏移可能恶化校准。M用于排除“只需提高前景像素质量”的简单解释。
+如果Q≈M，只保留通用前景归一化效果，不声称实例均衡增量；如果Q不胜B，停止此配方。若有信号，下一阶段才安排独立seed、GN/现成强归一化对照、完整配方和第二数据集，不提前追加。
+
+当前裁决
+已有可信数据差异和可区分操作，值得一次小验证；尚无新训练AP，主线未确认。实际启动/进度/失败以远端回执和后续状态文件为准。代码准备、CPU算子检查、上传和supervisor启动均不能代替正式训练结果。

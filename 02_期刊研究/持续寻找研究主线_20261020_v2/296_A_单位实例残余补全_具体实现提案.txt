@@ -1,0 +1,68 @@
+296｜单位实例残余补全：具体实现与有限学习预算提案
+2026-10-21。仅设计，没有实现训练代码、模型构建、前向、训练、检查新数据或远端动作。推荐将“质量参考独立分配→行容量截断→超额退null→类别残余参与四query生成”作为一次有限学习比较；不将联合OT、原图crop、固定四槽或求解器本身当创新。293/294的oracle结果不作为这版成立前提，联合重分配留待后续独立扩展。
+
+一、为什么此刻值得有限学习，而不是继续旧固定读出
+真实284密度原窗：合法条件同时包住额外几何遗漏的tiny为13/14；无合法解释条件包住遗漏中心的tiny为66/93。说明“已有框覆盖范围不等于已解释实例”有实际位置；这些集合重叠，不能相加当收益。276真实回收所有take4 tiny Geo0新增为0，所选top8旧几何池也无tiny Geo0可命中；因此本方案必须生成新几何，不再把旧pre/aux候选重排当主线。密度窗完整tiny Geo0166/318、理想每图四槽上限和62/75，仅说明资源面。
+284采用预测中心在W内的供给；以下改为正面积相交，不能把13/14、66/93写成新定义的实测计数。本轮亲读276/01_results.json summaries.{A,B}.windows.A_density.wrong_conditions.all_unexplained：相交口径中无解释条件覆盖tiny Geo0为82/137；不与284求并。这可说明相交条件并非空构想，仍不能替代新M0/自然图训练集统计。这里不新增几何资格门槛。
+279/289固定重心及H−L差分未达到主条件，295保留停止；290旧成熟EMA ROI精修主accepted0且raw未胜degraded也保留。这些不证明新实例头能学会，但当前要回答的是可学习单位质量/对应是否比同监督history-map更好，冻结oracle无法回答；有明确强对照和小额闭合预算后，有限学习是合适的下一证据。
+
+二、先闭合供给、全局解释和局部遗漏三个集合
+1) 全局检测器：BASE24 seed1/2 last_epoch23各自checkpoint['model'] raw，原native eval640，无DN/训练增强。保留原300框与300×10 logits，全程detach。fullP指其原生flatten(query,class) top300再严格score>.001得到的candidate实例；同query异类可同时存在，不按query合并，不先perclass100，不按GT筛选。每个candidate提供一单位，不是每个query一单位。
+2) 窗：640输入平面64×64固定网格，密度分数是原final300框中心数；取最高分、并列row-major最早格，严格复用262.choose_without_GT中A_density语义，不用GT/新头挑窗。640恰为10×10；每图一窗，无halo。局部RGB把同一物理W映射回原RGB后采为128²；只读自然图，禁止从Mosaic source_ids伪造原图映射。所有臂共享同像素和坐标。
+3) 前向供给P_W={p∈fullP:area(box_p∩W)>0}。不要求中心在W；保留未clip的局部相对框坐标，不能裁框后改IoU/供应身份。非有限/非正面积框fail closed报错；模型正常框仍按全部相交实例保留，不按分数额外剪枝。该筛选只依预测和W，部署无GT。
+4) 一次性全图M0：在fullP×全图native有效GT上，合法边为同类且原生FP32 IoU≥.5，求lex(最大匹配数，最小原生matcher cost，固定索引次序)。cost以全图归一化框计算，沿native matcher的2·focal-class(α=.25,γ=2)+5·L1−2·GIoU；类别边已限制同类。candidate对应原q的该真类cost，不另发明距离。第三级按candidate的原flatten index排序，最小化owner-GT-index向量（未匹配记最大哨兵），不是简单相加索引，也不用epsilon扰动第一二级。实现可用最大基数后精确cost+确定性lex精化；原FP32 cost是有限二进制数，需保存矩阵/hash和完整owner数组。此处是缓存标签的确定性，不宣称新匹配算法；实现尚缺，不能把普通Hungarian调用冒称已完成三层lex。
+5) M0完全不看W或新head。令G_W为完整位于W的native GT，E_W={g∈G_W:g被M0匹配}，U_W=G_W\E_W。每个j∈P_W，若M0(j)=g∈G_W，解释目标为该g的单位散射K_g；否则目标null=1。null表示“没有本地完整实例解释”，可包括窗外/跨界真GT owner、重复候选、无合法边、容量未匹配，绝不都叫全局FP；不再按border GT ignore或在前向删掉它。
+闭合证明：若g完整在W且M0有合法owner p，IoU(p,g)≥.5保证p与g正面积相交，g⊂W于是p∈P_W。因此每个全局已解释的完整GT在局部都有供应，且M0一对一，理想逐类质量恒等式成立：m*−Σ_j T*_j=Σ_(g∈U_W)K_g。旧“P中心在W”不具备此保证。M0一次固定消除了newhead变化反过来改变遗漏标签的自引用，三臂共享同U_W；不是270允许原owner随局部输出择解的版本。
+限制也固定：fullP M0覆盖不等于正式P100/COCO greedy覆盖，某GT可能被M0解释却在perclass100或greedy后丢失，因而不是本头补集。此版聚焦新几何/Geo0出生，不宣称处理全部评价FN；不能看到结果后改M0为有利口径。partial GT不进密度或新增几何正目标，其owner进null；这是完整实例任务定义，不是说可见partial像素是背景真相。
+
+三、网络接口和前向公式（拟实现，尚无代码）
+接口 ResidualCompletionHead(rgb[B,3,128,128], P_box[B,J,4], P_class[B,J], P_score[B,J], valid[B,J]) → {pred_boxes[B,4,4], pred_logits[B,4,10], mass, independent_plan, cap_plan, null, residual}。J可变，padding只mask不存在项；GT、M0、U_W从不传forward。
+RGB trunk：三组3×3 stride2 padding1 Conv(3→32→64→128)+GroupNorm(8组)+SiLU，记输出f3；再f=f3+SiLU(GN8(Conv3×3,128→128,stride1,padding1(f3)))，得到f[B,128,16,16]。不用预训练小头、不用BN依赖batch统计，不拼全局query特征；局部输入自身是新增观察。三臂RGB结构/宽度相同，固定2D正弦位置编码。
+10类mass头1×1 conv：m_ci=softplus(z_ci)，不是sigmoid前景概率，单格可>1。目标m*_ci=Σ_(g∈G_W,class=c)K_gi。K_g按292/293的16²格中心双线性四点散射，越界邻点夹到边界格累加，总和严格1；不Gaussian、不max归一化、不除网格数，单位是每格实例mass。训练不将GT mass送forward。
+候选编码a_j=Linear128(SiLU(Linear15→128([未clip局部xyxy四维,10类onehot,score一维])))；图像key k_i=W_k f_i。C_ij=−<W_q a_j,k_i>/sqrt(128)+d_out(x_i,box_j)，d_out为点到框外的逐轴非负距离除原预测wh之和；λgeometry固定1。κ_j=Linear128→1(SiLU(Linear256→128([a_j,mean_i f_i])))，只作null代价。只连自身预测类，ε=1，null参考质量1；所有尺寸固定，不随开发计数调。
+令mbar=stopgrad(m)用于分配质量支路，以保留明确单位监督；共享RGB trunk仍受检测/assoc梯度，不能说m完全不受其它训练影响，只有mass-head专属参数仅从density loss直接更新。
+独立分配（以logsumexp实现）：K_ij=mbar_ci exp(−C_ij)，K0_j=exp(−κ_j)，p_ij=K_ij/(K0_j+Σ_l K_lj)，p0_j=K0_j/同分母。零质量行无连接，无供应时r=mbar。
+一次行cap与退null：u_ci=Σ_(j:class=c)p_ij；a_ci=1(u=0)，否则min(1,mbar_ci/u_ci)；T_ij=a_ci p_ij；z_j=p0_j+Σ_i(1−a_ci)p_ij；r_ci=mbar_ci−Σ_jT_ij≥0。每列ΣT+z=1，每行ΣT≤mbar；超额只退null，不被OT强行迁往另一位置。浮点末端clamp_min(0)只处理数值，不改变数学定义。无迭代solver。
+统一生成接口：设b=mbar（N_density、H22_density）或b=r（R_residual），v_i=log1p(b_:i)∈R^10；cross-attention value为W_v f_arm,i+W_r v_i，key为W_k f_arm,i。每层每head的attention logit加log(Σ_c b_ci+η/256)，η=1e−4为整窗总floor质量。N/H同样使用stopgrad(m)，不能让它们独有直接改变mass的梯度通路；R唯一将此显式density prior换成扣除解释后的r。class vector进value，总量仅偏置空间；不能只让R得到显式密度先验再归因于解释，AFWD等已有密度引导不是这里的新变量。相同floor总量避免随分格数膨胀；不宣称实际改分辨率严格等价。
+四个learned query，d128、4heads、2层pre-LayerNorm self-attn/cross-attn、FF128→512→128(GELU)、dropout0；最终共享Linear128→10类别头和MLP128→128→128→4(ReLU)框头，输出10类sigmoid logits和自由local cxcywh。中心初始化2×2位置(.25/.75)，wh初始化(.25,.25)W；bbox四维raw输出加对应固定reference的inverse_sigmoid后sigmoid，后续允许全W中心/宽高变化，没有±4px/oldwh限制。框边可越W，不靠GT裁框；映射全图后沿native后处理。query embedding std.02，Xavier其它线性层；分类末层weight=0、bias=logit(1e−4)，零训练时新分数低于.001；bbox末层零初始化结合上述reference。mass-head weight=0、bias=softplus_inverse(1/256)，初始每类整窗质量1、总10，不让默认softplus(0)产生1774个实例质量。null末层weight/bias均0；W_q初始0、W_k随机Xavier，使C起点为固定geometry项而后能学习，其他公共初态逐项复制。三臂共享相同初始公共权重文件，不按独立随机数调用顺序碰巧初始化。
+
+四、三臂与监督公平
+N_density（简称N）：同crop、同四槽、相同固定U_W目标、密度/assoc监督；生成读RGB f与显式mbar类别value+总量logbias，不读P/history/r。P仍进入辅助association分支以获得相同额外GT监督，不能通过共享forward张量偷传到生成；训练中aux梯度塑造f是各臂共同设置。它是对已有检测无条件、但有同等density prior的强simple，不是弱化成纯RGB。
+H22_density（简称H）：共享N的mbar生成通路，额外得到原始计数和分数加权history两组各11通道。令cell_i为W的16×16等面积格，a_ij=area(cell_i∩box_j)/area(cell_i)，按未clip框与格子的精确矩形面积计算，不用中心point/binary采样，避免tiny框在格内却全零。Hraw_ci=Σ_(j:class=c)a_ij，Hscore_ci=Σ_(j:class=c)score_j·a_ij，两组各再附total=Σ_c，合22通道，raw数量可>1，不逐图归一或按GTmask。一个3×3 stride1 Conv(22→128)加到16² RGB f得到f_H，再供生成key/value；conv零初始化，其余公共初态相同。m/C/κ的公共辅助分支仍从原RGB f计算，不从history污染的分支另给额外监督。此为强IterDet-style适配，计数与score加权一次都给它，不新增臂、不以二者较差者作对照。
+R_residual（简称R）：RGB f不变，统一density接口中唯一改mbar→r，P只经独立分配/cap的类别残余参与生成，不再额外拼P token/history。三个arm都构造m、C、κ、p、Tcap、z并使用相同L_mass/L_assoc；N/H中的r不进入检测计算，三个arm都有显式密度value/logbias。这样R−N才排除“只是显式density prior”，R−H再排除一般可学习历史条件。各arm参数/实际FLOPs/训练与部署时延分别列出；N/H部署可删仅aux association分支，较低成本要如实作为强对照优势。
+最强外参E8→4：以N_density为底的同crop、同显式density接口、同监督普通8query补集检测头，训练用8槽匹配全部U_W，推理按max-class score选4个query（并列query index），再同全局融合。它有两倍输出中间槽但最终4query，同算子成本统计须包含R的关联与cap；若E8→4更快或等成本而复制收益，不能声称R具有效率/方法特异优势。此臂为核心比较有保留信号后必须面对的后续12 head epochs（6×2）上限，未包含本次36，也未获执行授权；不让第一轮无限扩臂。普通全GT局部检测可作后续训练目标外参，本次先隔离解释机制。
+
+五、固定损失与四槽溢出
+局部目标是完整U_W中全部GT，不先按tiny/大小/分数挑4。局部native Hungarian在4×|U_W|上以cost_class2、bbox5、giou2匹配；|U_W|>4时匹配min(4,N)，其余GT保留于target/归一化分母和统计，不改成负例或伪称都已监督。计数与sum min(4,N)单列，四槽容量不是可被loss魔法突破的保证。空U_W时全部四query为分类负项，box loss安全为0。
+L_det重用native DEIMCriterion.loss_labels_mal及loss_boxes：MAL正类target=stopgrad(IoU)^1.5，负类权重sigmoid(logit).detach()^1.5；其余系数与BASE24 recipe一致，L_det=L_MAL+5L1+2(1−GIoU)。newhead matcher的α=.25/γ2与MAL的γ1.5不要混淆。分母沿原生max(1,Σ|U_W|)，而非仅matched数；先在独立adapter直接调用这两函数，避免native full criterion创建GO/aux/FGL/DN支路。4slot无FGL/DDF/denoising、多层aux或新score校准变量。
+L_mass=Σ_ci[m_ci−m*_ci+m*_ci log((m*_ci+1e−8)/(m_ci+1e−8))]/max(1,|G_W|)，m*=0项按0log0=0；每窗再batch均值。这是单位mass KL/Poisson偏差，允许密集多实例同格。
+L_assoc用同M0：本地解释j→g时ℓ_j=−Σ_i K_gi log(Tcap_ij+1e−8)；其余j为−log(z_j+1e−8)。分别对解释组/null组求均值，再对非空组均值，避免多数null直接淹没正组；J=0时0。两个组都为同前向计划的监督，不按GT移除前向供应。三臂相同loss、权重和batch；L_total=L_det+L_mass+L_assoc，λ均1，六轮内不调。
+R_residual在严格过载u>mbar区域对u的残余导数为0；u=mbar是min/clamp折点，所选子梯度由实际算子决定，不能无条件说为0。单条件或全部饱和时assoc对C/κ也可能失去信号，不能承诺aux总能解冻。必须在训练日志记录mass损失/总量误差、association解释/null分组、饱和行比例及各模块梯度是否非零，而不是只看detloss下降。该日志用于解释已进行的有限学习，不是新增冻结AP前置门槛。共享f可被多项loss更新，sg(m)只截数值支路，不能假装是完全独立估计器。
+
+六、拟新文件、缓存与真正的源码接点
+拟新独立目录英文小论文/code/unit_instance_completion_20261021_v1/，目前不存在实现；拟文件head.py（RGB/mass/association/cap/三接口/4decoder）、targets.py（全图M0、完整GT、单位scatter）、cache.py（自然数据/全局raw/窗/crop）、criterion_adapter.py（native matcher+MAL/boxes）、train_head.py、evaluate.py、configs/locked.json、tests/test_contracts.py。新数据和实验账本独立放data/unit_instance_completion_20261021_v1/，seed{1,2}/arm{N_density,H22_density,R_residual}分目录。此为拟路径，不是可执行命令已验证的宣称。
+只读native来源：code/local_candidates_20261004_v2/native/engine/deim/{deim.py,dfine_decoder.py,matcher.py,deim_criterion.py,postprocessor.py}及HGNetv2/HybridEncoder；模型工厂按288与08 recipe。source/package/checkpoint SHA沿现有BASE24 manifest锁定。新head在冻结全局forward之后作为独立模块执行，不改原decoder内部pre/attention/PMF，不修改旧源。
+全局读取自然RGB→native PIL Resize640→float32/255；一次缓存每图每seed原pred_boxes/logits、fullP身份、W、真实原图WH、source SHA、native GT/annotation_id、完整集、M0/成本身份和U_W。裁片自然原图edge坐标为[(x0+(u+.5)W_width/128)·orig_width/640, 同y]，减.5转像素中心索引，float32双线性border-replicate，无额外锐化/核/抗混叠，RGB/255；128²缓存存float32并hash，采样版本固定。H/L术语不在本轮混用，所有arm用同crop缓存。原图每图一次解码可供两个rawseed选择各自W，同seed三臂共享。不得把现有32增强曝光作为3235自然图已缓存；当前需要新缓存，必须计首次检测器开销。
+sample_plan development固定3235自然图作为本次全部head训练集；不触isolated heldout3236图，不用其元数据/像素选策略。三臂每seed全3235图一窗，含U_W空窗，不能按GT正例采样改变曝光。两个global seed可能选不同W/M0，所以三臂在同seed严格配对；两seed是模型重复，不是两批独立自然图。
+
+七、六轮训练和独立末端评估（可申请预算，尚未授权/执行）
+训练原全局零更新，两个raw全局模型各缓存3235次，共6470个首次全局forward；三臂共享。局部head为6轮×3arm×2seed=36个head epochs，绝不是36个完整检测器epochs。每arm每seed3235×6=19410个crop曝光，六个run共116460；batch16、drop_last=False→每轮203步、每run1218步、合7308 optimizer steps。单图一窗，无翻转/Mosaic/Mixup/随机颜色或重新采窗，首轮便于审计。缓存费用另计。
+AdamW lr1e−4、betas(.9,.999)、weight_decay1e−4，bias/norm不decay；前100步线性warmup从1e−5到1e−4，随后cosine到1e−5，6轮终止；clip_grad_norm1，FP32。head初始化seed分别2026102101/2026102102；同global seed下N_density/H22_density/R_residual公共参数逐项复制同初态、共用每轮shuffle文件，各run独立optimizer，数据顺序相同。没有warmstart旧ROI头，没有EMA/best选轮、resume已有优化器或中途调参；断点仅恢复本run完整状态及既定shuffle位置，不能偷偷加步。
+训练仅看已锁训练日志用于实现故障/NaN停止，不依据val选择epoch或调损失。6轮末对三个arm固定last一次独立native val548评估，两个global seed各548个冻结forward可在所有arm间共用，共1096；评估crop/head另计。只在协议和代码冻结、训练结束后执行，当前不读取val图像/标注开发新规则。这里“独立”指head训练集与末端评估数据隔离，不假称该历史公开val从未被项目看过。
+融合必须拼原global300×10 logits+新增4×10 logits，以及对应304框，重新走原PostProcessor flatten top300→严格>.001，再由原native COCO evaluator每图每类max100；无NMS/新的去重、温度、gate、score倍率或额外topK。四query可产生多类candidate，与原生同query异类语义一致，不假称只追加4个class实例。新增head低分是否进入预算、挤掉了谁必须记录，不能给它绕过原预算。
+参数量/显存/总耗时/GPU小时目前NA：网络尚未实现，没有测量来源；不得挪用旧53k ROI头耗时，也不能称小头近零成本。已知预算下限是6470缓存全局forward+1096末评全局forward+116460训练crop曝光+评估head与128²采样成本，运行设备/墙钟须在获准实现后以固定小synthetic benchmark实测并锁定上限，再提交具体执行申请。
+
+八、训练前锁定主指标、保留/混合/阴性含义
+主效用：原native APs及AP，R_residual分别对N_density、H22_density和同seed全局baseline逐项报告，不只取较弱对照。机制指标：原final300任意类IoU<.5的完整窗tiny Geo0中，新增真类TP和.5/.75几何覆盖；同时报全部GT、FP、原TP新增/丢失、进入post300/perclass100的新candidate数。M0-unmatched、Geo0和正式greedy FN单列，不互换。每图保存固定身份，图为配对单位；两seed共享自然图，不能假装1096独立样本。
+模型量：单位mass总量/类误差、null对应、错误条件(a/c类)是否仍误扣遗漏质量、R是否被decoder使用；用于解释，不以oracle图不同或loss下降取代检测收益。
+若R在两个seed上相对N/H有同向APs改善、AP无系统性损失，且观察到真实tiny Geo0新几何而非只有分数变化，可保留进入完整配方与E8→4外参预算讨论；六轮的微小正数不等于方法成立，需把逐图差、95%配对图bootstrap区间与两seed离散度一起交审，区间跨零不能包装显著。无任意0.2pp门槛，也不要求这次短训先“证明论文”。
+若三个头都能补全而R不胜同监督N/H，则局部新头可学但本单位残余增量未成立；不能把普通补全收益记给R。若R对两对照方向mixed，完整报mixed，不自动加轮/改η/改供给或M0；若R两seed均无几何或效用优势，停止该精确参数化。若所有头训练尚未形成有效新框，说明本6轮/网络/配方未给学习证据，不证明任意生成器不可行，也不自动追加训练。实现合同不通过属于工程失败，修复不能隐瞒为方法阴性或悄改协议。
+
+九、相对原文究竟剩什么，为什么仍值得付有限算力
+本轮已直接打开并读IterDet原文§3式1：H_xy=Σ_b1[(x,y)∈b]，一层history卷积与骨干早期特征相加，随机GT分成old/new训练补集。它已覆盖检测历史条件化和补集监督；H22适配补上十类/总计数、score加权、精确cell面积和本任务真实M0标签，并共享显式density通路，不能把原作歪成硬擦除mask。来源：https://arxiv.org/html/2005.05708v1#S3 。
+已直接读Iter-E2EDET§3.2式2–4/算法1：accepted/noisy划分、关系编码及先匹配accepted再匹配剩余GT；其§3.3末层框identity也明确。故M0-first、条件query、新框与局部预算这些组合区别本身不足立新。来源：https://arxiv.org/html/2203.07669v1#S3.SS2 。PS-RCNN自然遗漏监督、SuperGlue容量/null、MESH可学质量/OT仍按264/270覆盖，本文没有重新逐式亲读后二者，不能扩大本轮查新完成范围。
+本次真正要检验的是“含错历史的实例解释量”接口：同类单位视觉质量可多实例同格；每个已有candidate至多解释一个实例单位，允许非本地解释为null；用一趟容量截断限制重复消耗，把已具备的显式density prior换成类别残余value与总残余空间偏置。它直接约束部署前向的量及生成接口，区别于让普通history卷积自由学会忽略错条件。它是明确且可失败的归纳偏置，不是已有结果已证明的效果或新颖性；若N_density或H22_density同监督复制它，就没有理由继续主张该机制优势。
+当前建议：可以准备上述36 head epochs的有限比较申请，理由是作用面有真实资产、供给/目标闭合、实现变量明确且有强simple；不是因为用了新名字或oracle非零。正式训练代码、合成合同、实现计费和运行申请仍未完成；此文不授权训练，也不声称命令已经可启动。
+
+十、实现前必须完成的有限合同（不是追加自然数据筛选）
+同类合法M0 owner在完整W时必在相交供给；outside/partial owner为null而非FP；同query异类candidate不合并；M0不随W/newhead变化；scalar0GT/0P/密集同格/边界scatter单位质量；独立计划列和、cap行界、退null守恒、无供应r=m；同cost质量拆分后聚合计划不变；三臂GT/辅助监督/cache SHA相同；三臂统一sg(m)与value/logbias接口；H22精确cell面积及score两组各11通道；4槽N>4完整target保留；empty loss安全；固定参数/同RGB下N_density的pred_boxes/logits对P扰动严格不变（其aux可变，训练过程不要求相同）；H/R输入不含GT；新低logit初态完整融合与baseline逐字段parity；native MAL/boxes adapter逐项对照原函数；全部全局参数无grad且state不变。梯度饱和/共享trunk路由仅合成核对实现，不要求先有冻结AP。上述代码和单测尚未写，不虚构通过。

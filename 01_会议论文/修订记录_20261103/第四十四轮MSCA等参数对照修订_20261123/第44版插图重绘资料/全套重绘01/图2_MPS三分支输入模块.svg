@@ -1,0 +1,114 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="167.64mm" height="72.08520mm" viewBox="0 0 960 412.8" version="1.1" role="img" aria-labelledby="fig-title fig-desc">
+  <title id="fig-title">Multi-branch progressive stem</title>
+  <desc id="fig-desc">The image feeds three parallel branches. Their aligned 16-, 8- and 4-channel features are concatenated in that order into Z. Z also supplies the value path for residual weighting. A single-channel spatial gate is broadcast over Z; the fusion and final stride-two convolution produce 16 × 160 × 160.</desc>
+  <metadata>Revision 44, Figure 2. Scientific sources: EnhancedStemBlock.py, the Figure 2 label sheet and revision 44 section 3.2. Layout references: MambaVision (CVPR 2025), Fig. 3 for orthogonal branches; the approved Figure 1 artwork. Native SVG shapes, text and connectors.</metadata>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#223D4B"/>
+    </marker>
+    <marker id="weight-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#265F64"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="412.8" fill="#FFFFFF"/>
+  <g id="connections" inkscape:label="Data flow">
+    <path d="M83 139 H118" stroke="#223D4B" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M118 139 V52 H141" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-main" data-from="input" data-to="main" marker-end="url(#flow-arrow)"/>
+    <path d="M118 139 H141" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-detail" data-from="input" data-to="detail" marker-end="url(#flow-arrow)"/>
+    <path d="M118 139 V226 H141" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-highpass" data-from="input" data-to="highpass" marker-end="url(#flow-arrow)"/>
+    <circle cx="118" cy="139" r="3.05" fill="#223D4B"/>
+    <path d="M478 52 H513 V100 H539" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="main-concat" data-from="main" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M478 139 H539" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="detail-concat" data-from="detail" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M478 226 H513 V178 H539" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="highpass-concat" data-from="highpass" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M668 139 H717" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="z-gate" data-from="concat" data-to="gate" marker-end="url(#flow-arrow)"/>
+    <path d="M691 139 V298" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="z-value" data-from="concat" data-to="weighting" marker-end="url(#flow-arrow)"/>
+    <circle cx="691" cy="139" r="3.05" fill="#223D4B"/>
+    <path d="M836 222 V298" stroke="#265F64" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="gate-weight" data-from="gate" data-to="weighting" marker-end="url(#weight-arrow)"/>
+    <path d="M658 341 H614" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="weight-fusion" data-from="weighting" data-to="fusion" marker-end="url(#flow-arrow)"/>
+    <path d="M367 341 H322" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="fusion-downsample" data-from="fusion" data-to="downsample" marker-end="url(#flow-arrow)"/>
+    <path d="M144 341 H85" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="downsample-output" data-from="downsample" data-to="output" marker-end="url(#flow-arrow)"/>
+  </g>
+  <g id="input" inkscape:label="Input X">
+    <path d="M33.0 119.92 l8 -3.84 H83.0 L75.0 119.92 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M75.0 119.92 L83.0 116.08 V158.08 L75.0 161.92000000000002 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="33.0" y="119.92" width="42" height="42" fill="#C7DDDF"/>
+    <path d="M41.40 119.92 V161.92000000000002 M33.0 128.32 H75.0 M49.80 119.92 V161.92000000000002 M33.0 136.72 H75.0 M58.20 119.92 V161.92000000000002 M33.0 145.12 H75.0 M66.60 119.92 V161.92000000000002 M33.0 153.52 H75.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M77.80 118.58 V160.58" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M80.60 117.23 V159.23" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="33.0" y="119.92" width="42" height="42" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="58" y="98" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Input X</text>
+    <text x="58" y="189" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">3 × 640 × 640</text>
+  </g>
+  <g id="output" inkscape:label="Output">
+    <path d="M37.0 325.88 l12 -5.76 H85.0 L73.0 325.88 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M73.0 325.88 L85.0 320.12 V356.12 L73.0 361.88 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="37.0" y="325.88" width="36" height="36" fill="#C7DDDF"/>
+    <path d="M46.00 325.88 V361.88 M37.0 334.88 H73.0 M55.00 325.88 V361.88 M37.0 343.88 H73.0 M64.00 325.88 V361.88 M37.0 352.88 H73.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M77.20 323.86 V359.86" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M81.40 321.85 V357.85" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="37.0" y="325.88" width="36" height="36" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="61" y="301" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Output</text>
+    <text x="61" y="394" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">16 × 160 × 160</text>
+  </g>
+  <g id="main" inkscape:label="Main branch">
+    <rect x="141" y="18" width="337" height="69" fill="#E9EEF4" stroke="#75899B" stroke-width="1.4" rx="3"/>
+    <text x="154" y="40" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="start" font-weight="bold">Main branch</text>
+    <text x="465" y="39" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="end" font-weight="normal">16 channels</text>
+    <text x="154" y="70" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="start" font-weight="normal">3 × 3 conv (stride 2) → 3 × 3 conv (stride 1)</text>
+  </g>
+  <g id="detail" inkscape:label="Detail branch">
+    <rect x="141" y="99" width="337" height="79" fill="#E9EEF4" stroke="#75899B" stroke-width="1.4" rx="3"/>
+    <text x="154" y="121" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="start" font-weight="bold">Detail branch</text>
+    <text x="465" y="120" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="end" font-weight="normal">8 channels</text>
+    <text x="154" y="145" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="start" font-weight="normal">Two 3 × 3 convs (stride 1)</text>
+    <text x="154" y="166" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="start" font-weight="normal">2 × 2 average pooling (stride 2)</text>
+  </g>
+  <g id="highpass" inkscape:label="High-pass branch">
+    <rect x="141" y="190" width="337" height="79" fill="#E9EEF4" stroke="#75899B" stroke-width="1.4" rx="3"/>
+    <text x="154" y="212" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="start" font-weight="bold">High-pass branch</text>
+    <text x="465" y="211" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="end" font-weight="normal">4 channels</text>
+    <text x="154" y="236" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="start" font-weight="normal" xml:space="preserve">X − AvgPool<tspan font-size="12.16" dy="3.52">3×3</tspan><tspan dy="-3.52">(X) → 1 × 1 conv</tspan></text>
+    <text x="154" y="257" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="start" font-weight="normal">3 × 3 depthwise conv → bilinear resize</text>
+  </g>
+  <g id="concat" inkscape:label="Channel concatenation">
+    <rect x="539" y="77" width="129" height="123" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="603.5" y="104" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.3" text-anchor="middle" font-weight="bold">Concatenate</text>
+    <rect x="562" y="119" width="47.42857142857143" height="11" fill="#648D99"/>
+    <rect x="609.4285714285714" y="119" width="23.714285714285715" height="11" fill="#92B2BB"/>
+    <rect x="633.1428571428571" y="119" width="11.857142857142858" height="11" fill="#BED1D4"/>
+    <rect x="562" y="119" width="83" height="11" fill="none" stroke="#668990" stroke-width="0.8"/>
+    <text x="603.5" y="157" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle" font-weight="bold" font-style="italic">Z</text>
+    <text x="603.5" y="183" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.7" text-anchor="middle" font-weight="normal">28 × 320 × 320</text>
+  </g>
+  <g id="gate" inkscape:label="Spatial gate">
+    <rect x="717" y="46" width="225" height="176" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="4"/>
+    <text x="829.5" y="73" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="19.7" text-anchor="middle" font-weight="bold">Spatial gate A(Z)</text>
+    <path d="M731 84 H928" stroke="#A8C1BB" fill="none" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="829.5" y="107" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="16.6" text-anchor="middle" font-weight="normal">1 × 1 conv (28 → 2)</text>
+    <text x="829.5" y="131" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="16.6" text-anchor="middle" font-weight="normal">BN → SiLU</text>
+    <text x="829.5" y="155" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="16.6" text-anchor="middle" font-weight="normal">7 × 7 conv (2 → 1)</text>
+    <text x="829.5" y="179" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="16.6" text-anchor="middle" font-weight="normal">sigmoid</text>
+    <text x="829.5" y="209" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">1 × 320 × 320</text>
+  </g>
+  <text x="679" y="260" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="end" font-weight="bold" font-style="italic">Z</text>
+  <text x="848" y="260" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="start" font-weight="bold">A(Z)</text>
+  <g id="weighting" inkscape:label="weighting">
+    <rect x="658" y="298" width="284" height="86" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="800.0" y="329" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">Residual weighting</text>
+    <text x="800.0" y="360" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle" font-weight="normal">Z ⊙ (1 + A(Z))</text>
+    <desc>The single-channel spatial weight broadcasts across all 28 concatenated channels.</desc>
+  </g>
+  <g id="fusion" inkscape:label="fusion">
+    <rect x="367" y="299" width="247" height="84" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="490.5" y="322" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Fusion</text>
+    <text x="490.5" y="346" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16.5" text-anchor="middle" font-weight="normal">1 × 1 conv (28 → 32)</text>
+    <text x="490.5" y="370" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16.5" text-anchor="middle" font-weight="normal">3 × 3 conv (32 → 16)</text>
+  </g>
+  <g id="downsample" inkscape:label="downsample">
+    <rect x="144" y="299" width="178" height="84" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="233.0" y="322" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Downsampling</text>
+    <text x="233.0" y="346" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16.3" text-anchor="middle" font-weight="normal">3 × 3 conv (16 → 16)</text>
+    <text x="233.0" y="370" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16.5" text-anchor="middle" font-weight="normal">stride 2</text>
+  </g>
+</svg>

@@ -1,0 +1,101 @@
+FC
+FC
+ FC
+FC
+ FC
++
+pairwise context
+other
+detections
+pairwise
+computations
+pooling
+per-detection
+computations
+across-detection
+combination and embedding
+to next
+block
+Figure 3: One block of our Gnet visualised for one detection. The representation of each detection is reduced and then
+combined into neighbouring detection pairs and concatenated with detection pair features (hatched boxes, corresponding
+features and detections have the same colour). Features of detection pairs are mapped independently through fully connected
+layers. The variable number of pairs is reduced to a ﬁxed-size representation by max-pooling. Pairwise computations are
+done for each detection independently.
+The ﬁrst block takes an all-zero vector as input. The
+detections’ information is fed into the network in the “pair-
+wise computations” section of ﬁgure
+3 as described below.
+In future work this zero input could potentially be replaced
+with image features.
+Pairwise detection context. Each mini-batch consists of
+all n detections on an image, each represented by a c dimen-
+sional feature vector, so the data has size n × c and access-
+ing to another detection’s representations means operating
+within the batch elements. We use a detection context layer,
+that, for every detection di, generates all pairs of detections
+(di, dj) for which dj sufﬁciently overlaps with di (IoU >
+0.2). The representation of a pair of detections consists of
+the concatenation of both detection representations and g di-
+mensional detection pair features (see below), which yields
+an l = 2 c + g dimensional feature. To process each pair
+of detections independently, we arrange the features of all
+pairs of detections along the batch dimension: if detection
+di has ki neighbouring detection that yields a batch of size
+K × l, where K = ∑n
+i=1(ki + 1) since we also include
+the pair (di, di). Note that the number of neighbours ki (the
+number of pairs) is different for every detection even within
+one mini-batch. To reduce the variable sized neighbourhood
+into a ﬁxed size representation, our architecture uses global
+max-pooling over all detection pairs that belong to the same
+detection (K × l → n × l), after which we can use normal
+fully connected layers to update the detection representation
+(see ﬁgure
+3).
+Detection pair features. The features for each detection
+pair used in the detection context consists of several prop-
+erties of a detection pair: (1) the intersection over union
+(IoU), (2-4) the normalised distance in x and y direction
+and the normalised l2 distance (normalized by the average
+of width and height of the detection), (4-5) scale difference
+of width and height (e.g. log (wi/wj)), (6) aspect ratio dif-
+ference log (ai/aj), (7-8) the detection scores of both de-
+tections. In the multi-class setup, each detection provides a
+scores vector instead of a scalar thus increasing the number
+of pair features. We feed all these raw features into 3 fully
+connected layers, to learn the g detection pair features that
+are used in each block.
+Block. A block does one iteration allowing detections to
+look at their respective neighbours and updating their repre-
+sentation (sketched in ﬁgure
+3). It consists of a dimension-
+ality reduction, a pairwise detection context layer, 2 fully
+connected layers applied to each pair independently, pool-
+ing across detections, and two fully connected layers, where
+the last one increases dimensionality again. The input and
+output of a block are added as in the Resnet architecture
+[
+11]. The ﬁrst block receives zero features as inputs, so
+all information that is used to make the decision is boot-
+strapped from the detection pair features. The output of the
+last block is used by three fully connected layers to predict
+a new score for each detection independently (ﬁgure
+2).
+Parameters. Unless speciﬁed otherwise our networks have
+16 blocks. The feature dimension for the detection features
+is 128 and is reduced to 32 before building the pairwise
+detection context. The detection pair features also have
+32 dimensions. The fully connected layers after the last
+block output 128 dimensional features. When we change
+the feature dimension, we keep constant the ratio between
+the number of features in each layer, so indicating the de-
+tection feature dimension is sufﬁcient.
+Message passing. The forward pass over serveral stacked
+blocks can be interpreted as message passing. Every de-
+tection sends messages to all of its neighbours in order to
+negotiate which detection is assigned an object and which
+detections should decrease their scores. Instead of hand-
+crafting the message passing algorithm and its rules, we de-
+liberately let the network latently learn the messages that
+are being passed.
+4511

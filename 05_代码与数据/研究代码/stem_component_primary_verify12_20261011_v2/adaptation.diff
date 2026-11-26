@@ -1,0 +1,20 @@
+--- C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\stem_component_primary_analysis12_20261011_v1\verify_primary.py
++++ C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\stem_component_primary_verify12_20261011_v2\verify_primary.py
+@@ -13,8 +13,9 @@
+ def module(name,p):
+     s=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+ 
+-def verify(seed):
+-    arm='highfreq_rgb';folder=ROOT/f'outputs/stem_component_primary_collection_20261011_v2/seed{seed}_{arm}_v1'
++def verify(seed, arm):
++    assert arm in ('detail_lowres','highfreq_rgb','attention_spatial_mean','early_final_downsample')
++    folder=ROOT/f'outputs/stem_component_primary_collection_20261011_v2/seed{seed}_{arm}_v1'
+     meta=read(folder/'remote_collection_metadata_v1.json')
+     executed=read(folder/'remote_collection_execution_v1.json');transport=read(folder/'remote_collection_transport_v1.json')
+     assert sha(folder/'remote_collection_execution_v1.json')==transport['sha256']
+@@ -80,4 +81,4 @@
+     print(json.dumps(dict(seed=seed,status=result['status'],files=result['files_verified'],AP=100*meta['native_stats'][0],APs=100*meta['native_stats'][3])))
+ 
+ if __name__=='__main__':
+-    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);a=p.parse_args();verify(a.seed)
++    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--arm',choices=('detail_lowres','highfreq_rgb','attention_spatial_mean','early_final_downsample'),required=True);a=p.parse_args();verify(a.seed,a.arm)

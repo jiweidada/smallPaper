@@ -1,0 +1,110 @@
+Sigsoftmax: Reanalysis of the Softmax Bottleneck
+Sekitoshi Kanai
+NTT Software Innovation Center, Keio Univ.
+kanai.sekitoshi@lab.ntt.co.jp
+Yasuhiro Fujiwara
+NTT Software Innovation Center
+fujiwara.yasuhiro@lab.ntt.co.jp
+Yuki Yamanaka
+NTT Secure Platform Laboratories
+yamanaka.yuki@lab.ntt.co.jp
+Shuichi Adachi
+Keio Univ.
+adachi.shuichi@appi.keio.ac.jp
+Abstract
+Softmax is an output activation function for modeling categorical probability distri-
+butions in many applications of deep learning. However, a recent study revealed
+that softmax can be a bottleneck of representational capacity of neural networks in
+language modeling (the softmax bottleneck). In this paper, we propose an output
+activation function for breaking the softmax bottleneck without additional parame-
+ters. We re-analyze the softmax bottleneck from the perspective of the output set
+of log-softmax and identify the cause of the softmax bottleneck. On the basis of
+this analysis, we propose sigsoftmax, which is composed of a multiplication of an
+exponential function and sigmoid function. Sigsoftmax can break the softmax bot-
+tleneck. The experiments on language modeling demonstrate that sigsoftmax and
+mixture of sigsoftmax outperform softmax and mixture of softmax, respectively.
+1 Introduction
+Deep neural networks are used in many recent applications such as image recognition [15, 12], speech
+recognition [11], and natural language processing [21, 29, 6]. High representational capacity and
+generalization performance of deep neural networks are achieved by many layers, activation functions
+and regularization methods [23, 12, 28, 13, 9]. Although various model architectures are built in
+the above applications, softmax is commonly used as an output activation function for modeling
+categorical probability distributions [4, 9, 12, 21, 29, 6, 11]. For example, in language modeling,
+softmax is employed for representing the probability of the next word over the vocabulary in a
+sentence. When using softmax, we train the model by minimizing negative log-likelihood with a
+gradient-based optimization method. We can easily calculate the gradient of negative log-likelihood
+with softmax, and it is numerically stable [3, 4].
+Even though softmax is widely used, few studies have attempted to improve its modeling performance
+[5, 7]. This is because deep neural networks with softmax are believed to have a universal approx-
+imation property. However, Yang et al. [31] recently revealed that softmax can be a bottleneck of
+representational capacity in language modeling. They showed that the representational capacity of the
+softmax-based model is restricted by the length of the hidden vector in the output layer. In language
+modeling, the length of the hidden vector is much smaller than the vocabulary size. As a result, the
+softmax-based model cannot completely learn the true probability distribution, and this is called
+the softmax bottleneck. For breaking the softmax bottleneck, Yang et al. [31] proposed mixture of
+softmax (MoS) that mixes the multiple softmax outputs. However, this analysis of softmax does not
+explicitly show why softmax can be a bottleneck. Furthermore, MoS is an additional layer or mixture
+model rather than an alternative activation function to softmax: MoS has learnable parameters and
+hyper-parameters.
+Preprint. Work in progress.
+arXiv:1805.10829v1  [stat.ML]  28 May 2018
+
+---PAGE---
+
+In this paper, we propose a novel output activation function for breaking the softmax bottleneck
+without additional parameters. We re-analyze the softmax bottleneck from the point of view of the
+output set (range) of a function and show why softmax can be a bottleneck. This paper reveals that
+(i) the softmax bottleneck occurs because softmax uses only exponential functions for nonlinearity
+and (ii) the range of log-softmax is a subset of the vector space whose dimension depends on the
+dimension of the input space. As an alternative activation function to softmax, we explore the output
+functions composed of rectiﬁed linear unit (ReLU) and sigmoid functions. In addition, we propose
+sigsoftmax, which is composed of a multiplication of an exponential function and sigmoid function.
+Sigsoftmax has desirable properties for output activation functions, e.g., the calculation of its gradient
+is numerically stable. More importantly, sigsoftmax can break the softmax bottleneck, and the range
+of softmax can be a subset of that of sigsoftmax. Experiments in language modeling demonstrate
+that sigsoftmax can break the softmax bottleneck and outperform softmax. In addition, mixture of
+sigsoftmax outperforms MoS.
+2 Preliminaries
+2.1 Softmax
+Deep neural networks use softmax in learning categorical distributions. For example, in the classiﬁ-
+cation, a neural network uses softmax to learn the probability distribution overM classesy∈RM
+conditioned on the inputx asPθ(y|x) whereθ is a parameter. Leth(x)∈Rd be a hidden vector
+andW∈RM×d be a weight matrix in the output layer, the output of softmaxfs(·) represents the
+conditional probability of thei-th class as follows:
+Pθ(yi|x) = [fs(Wh (x))]i = exp([Wh (x)]i)∑M
+m=1 exp([Wh (x)]m), (1)
+where [fs]i represents thei-th element offs. We can see that each element offs is bounded from
+zero to one since the output of exponential functions is non-negative in Eq. (1). The summation
+of all elements offs is obviously one. From these properties, we can regard output of the softmax
+trained by minimizing negative log-likelihood as a probability [4, 18]. If we only need the most likely
+label, we can ﬁnd such a label by comparing elements ofWh (x) without the calculations of softmax
+fs(Wh (x)) once we have trained the softmax-based model. This is because exponential functions
+in softmax are monotonically increasing.
+To train the softmax-based models, negative log-likelihood (cross entropy) is used as a loss function.
+Since the loss function is minimized by stochastic gradient descent (SGD), the properties of the
+gradients of functions are very important [23, 25, 8]. One advantage of softmax is that the gradient of
+log-softmax is easily calculated as follows [3, 4, 1, 7]:
+∂[logfs(z)]i
+∂zj
+=
+{
+1− [fs(z)]j if j =i,
+− [fs(z)]j if j̸=i, (2)
+wherez =Wh (x). Whereas the derivative of the logarithm can cause a division by zero since
+dlog(z)
+dz = 1
+z , the derivative of log-softmax cannot. As a result, softmax is numerically stable.
+2.2 Softmax bottleneck
+In recurrent neural network (RNN) language modeling, given a corpus of tokensY = (Y1,...,Y T ),
+the joint probabilityP (Y ) is factorized asP (Y ) = ∏
+tP (Yt|Y<t) = ∏
+tP (Yt|Xt), whereXt =
+Y<t is referred to as the context of the conditional probability. Output of softmax fs(Wh (Xt))
+learnsP (Yt|Xt) where (a)h(Xt)∈Rd is the hidden vector corresponding to the contextXt and
+(b)W is a weight matrix in the output layer (embedding layer). A natural language is assumed as a
+ﬁnite set of pairs ofxt andP∗(Y|xt) asL ={(x1,P∗(Y|x1)),..., (xN,P∗(Y|xN ))}, whereN is
+the number of possible contexts. The objective of language modeling is to learn a model distribution
+Pθ(Y|X) parameterized byθ to match the true data distribution P∗(Y|X). Note that upper- and
+lower-case letters are used for variables and constants, respectively, in this section. Under the above
+assumptions, lety1,...,y M beM possible tokens in the languageL, the previous study of Yang
+2

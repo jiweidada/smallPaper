@@ -1,0 +1,226 @@
+Separation-Aware Downsampling for V ehicle Detection
+Yupei Guo
+ a, Yota Yamamoto
+ b and Yukinobu Taniguchi
+ c
+Department of information and Computer Science, Tokyo University of Science, Tokyo, Katsushika, Japan
+Keywords: Vehicle Detection, Downsampling, Convolution, Wavelet Transform.
+Abstract: Vehicle detection faces significant challenges due to severe occlusion and scale variation, especially in im-
+ages captured by Unmanned Aerial Vehicle (UA V) and Closed-Circuit Television (CCTV). To address these
+issues, we propose a novel Separation Strategy that rethinks downsampling operations in object detectors.
+Our approach introduces two specialized downsampling modules: Phase-Split Downsampling (PSD) for spa-
+tial separation during feature extraction, preserving fine-grained details essential for small vehicle detection;
+and Wavelet Transform Downsampling (WTD) for frequency separation during feature fusion, allowing dis-
+tinct processing of global context and local details. By integrating these modules into a one-stage detection
+framework, we enhance the model’s ability to handle occlusion and scale variation effectively. Extensive ex-
+periments on UA V and CCTV datasets demonstrate that our method outperforms state-of-the-art detectors in
+both accuracy and efficiency. We improve mAP by up to+2-3% over baseline on VisDrone dataset and+6%
+on MLITcctv dataset. This results validate the effectiveness of our Separation Strategy in challenging vehicle
+detection scenarios.
+1 INTRODUCTION
+Object detection technology has developed rapidly in
+recent years, leading to the development of several
+strong baselines, such as Faster R-CNN (Ren, Shao-
+qing , et al., 2015), YOLO (Redmon, Joseph , et al.,
+2016), and DETR (Carion, Nicolas , et al., 2020).
+These detectors strive to enhance detection accuracy
+while making model lightweight, thereby seeing in-
+creasing application in fields like industry (Wang,
+Dadong , et al., 2021), agriculture (Yamamoto, Yota
+, et al., 2025), and transportation (Guo, Yupei , et al.,
+2025). Among these applications, object detection
+holds particular significance for intelligent transporta-
+tion systems. Unlike traditional methods such as radar
+(Petrovskaya, Anna , et al., 2009) or Light Detection
+And Ranging (LiDAR) (Cao, Xianbin , et al., 2011),
+it allows for the precise classification of vehicle type,
+a capability that is fundamental to sophisticated traffic
+management.
+In the context of our research, vehicle detection
+is predominantly performed using images from two
+main sources: Unmanned Aerial Vehicle (UA V) (Sri-
+vastava, Srishti , et al., 2021) and Closed-Circuit Tele-
+a
+ https://orcid.org/0009-0006-7358-6315
+b
+ https://orcid.org/0000-0002-1679-5050
+c
+ https://orcid.org/0000-0003-3290-1041
+OcclusionOcclusion Scale variation Scale variation
+CCTVUAV
+(a)
+0.0 0.2 0.4 0.6 0.8 1.0
+Height Ratio
+0
+5
+10
+15
+20
+25Proportion
+Dataset
+VisDrone
+coco
+no partial heavy
+Occlusion Level
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Proportion
+VisDrone
+(b)
+Figure 1: The challenges in vehicle detection: (a) Intuitive
+examples illustrating the two main problems in object de-
+tection from both UA V (Left) and CCTV (Right) images.
+(b) Scale and occlusion statistics on benchmarks. Kernel
+density analysis of detection object width for VisDrone, and
+MS COCO (Left). Occlusion proportions unified to three
+levels (Right).
+vision (CCTV) (Guo, Yupei , et al., 2025). CCTV
+cameras operate continuously and serve the public by
+enabling continuous traffic monitoring and data col-
+Guo, Y ., Y amamoto, Y . and T aniguchi, Y .
+Separation-Aware Downsampling for Vehicle Detection.
+DOI: 10.5220/0014393400004084
+Paper published under CC license (CC BY -NC-ND 4.0)
+In Proceedings of the 21st International Conference on Computer Vision Theory and Applications (VISAPP 2026) - Volume 1 , pages 483-490
+ISBN: 978-989-758-804-4; ISSN: 2184-4321
+Proceedings Copyright © 2026 by SCITEPRESS – Science and T echnology Publications, Lda.
+483
+
+
+---PAGE---
+
+lection. On the other hand, UA V offers superior de-
+ployment flexibility and broader area coverage. De-
+spite their different viewpoints, as shown in Figure
+1a, detectors for both scenarios face common chal-
+lenges, including the need for real-time performance,
+and robustness against occlusion and scale variation.
+As shown in Figure 1b, compared to general object
+detection datasets like MS COCO (Lin, Tsung-Yi ,
+et al., 2014), UA V datasets such as VisDrone (Zhu,
+Pengfei , et al., 2021) contain a much higher propor-
+tion of small objects with almost half of objects expe-
+riencing occlusion.
+To address these challenges, some methods focus
+on creating hybrid modules that combine convolution
+and attention. However, the use of attention mech-
+anisms, inevitably increases computational complex-
+ity. Furthermore, conventional downsampling opera-
+tions in detectors often entangle spatial and frequency
+information, leading to the loss of small-scale fea-
+tures. This motivates our design of a novel separation
+strategy that revisits downsampling as a phase- and
+frequency-aware process. Our core premise is that the
+optimal downsampling method should adapt to its ar-
+chitectural context. The contributions of our work can
+be summarized as follows:
+i) We propose a novel, dual-paradigm downsam-
+pling strategy that applies Phase-Split Downsam-
+pling during the feature extraction stage to pre-
+serve fine-grained details, and Wavelet Transform
+Downsampling during the feature fusion stage to
+process global and local information as distinctly
+separate entities.
+ii) We construct a novel object detector based on this
+strategy, designed to handle the diverse and chal-
+lenging difficulties posed by severe occlusion and
+scale variation in vehicle detection.
+iii) We conduct experiments on both UA V and CCTV
+datasets. Our proposed model outperforms main-
+stream and other state-of-the-art detectors by
+achieving the best precision with competitive
+computational efficiency. This demonstrates its
+effectiveness in improving vehicle detection per-
+formance.
+2 RELA TED WORK
+2.1 Hybrid Module
+Hybrid modules are attracting increasing attention as
+they combine the complementary advantages of con-
+volutional operations and self-attention mechanisms.
+A mainstream line of research integrates convolution
+Input image
+Backbone
+CSPDarknet
+Conv + C3k2
+PSD
+C3k2
+PSD
+C3k2
+PSD
+C3k2
+PSD
+C3k2
+SPPFStage
+Layer 4
+Stage
+Layer 3
+Stage
+Layer 2
+Stage
+Layer 1
+Stem
+Layer
+C3k2
+WTD
+Concat
+Upsample
+Concat
+Upsample
+C3k2
+Concat
+WTD
+Concat
+Neck
+PAFPN
+Head
+Decoupled
+Conv Conv2d
+Conv Conv2d
+CIoUConv Conv2d
+Conv Conv2d BCE
+CIoU
+CIoU
+DWConv
+Conv Conv2d BCEDWConv
+Conv Conv2d BCEDWConv
+Figure 2: Illustration of Vehicle detector with separation
+strategy (VSS).
+and self-attention across different blocks or stages
+(Li, Kunchang , et al., 2023; Lin, Weifeng , et
+al., 2023). Other methods integrate convolution and
+self-attention more tightly within each block (Guo,
+Jianyuan , et al., 2022; Han, Dongchen , et al., 2023;
+Guo, Yupei , et al., 2025). Parallel hybridization has
+also been explored one alternative, where convolu-
+tion and self-attention operate independently and their
+outputs are fused (Pan, Xuran , et al., 2022; Zhu, Lei
+, et al., 2024). However, most prior works rely on
+architectural fusion.
+2.2 Wavelet-Based Method in
+Computer Vision
+Wavelet techniques have been increasingly integrated
+into computer vision for richer multi-frequency rep-
+resentations. Recent works insert wavelet decomposi-
+tion into convolutions or Transformer pipelines to en-
+hance classification, super-resolution, and detection
+performance (Finder, Shahaf E , et al., 2024; Li, Wen-
+jie , et al., 2024; Yan, Feng , et al., 2025; Atamna,
+Mehdi , et al., 2024). However, most prior studies
+place wavelet operations at intermediate layers. In
+contrast, our work uses frequency separation explic-
+itly during downsampling, assigning low-frequency
+components to attention and high-frequency compo-
+nents to convolution for complementary processing.
+2.3 Object Detection in UA V Images
+UA V object detection is challenged by small targets
+and heavy occlusions in dense scenes. Recent works
+improve efficiency and accuracy with coarse-to-fine
+or sparsity-driven designs (Yang, Chenhongyi , et
+al., 2022; Li, Chen , et al., 2025). Others pursue
+lightweight architectures and better baselines, includ-
+ing orientation-aware modules and upgraded YOLO
+VISAPP 2026 - 21st International Conference on Computer Vision Theory and Applications
+484

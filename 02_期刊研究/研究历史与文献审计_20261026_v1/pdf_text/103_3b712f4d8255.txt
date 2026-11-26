@@ -1,0 +1,102 @@
+arXiv:2407.17140v1  [cs.CV]  24 Jul 2024
+RT-DETRv2: Improved Baseline with Bag-of-Freebies for
+Real-Time Detection Transformer
+Technical Report
+Wenyu Lv1 Yian Zhao2 Qinyao Chang1 Kui Huang1 Guanzhong Wang1 Yi Liu1
+1Baidu Inc. 2Peking University Shenzhen Graduate School
+lvwenyu01@baidu.com zhaoyian@stu.pku.edu.cn
+Abstract
+In this report, we present RT-DETRv2, an improved Real-TimeDEtection TRansformer (RT-DETR).
+RT-DETRv2 builds upon the previous state-of-the-art real- time detector, RT-DETR, and opens up
+a set of bag-of-freebies for ﬂexibility and practicality, a s well as optimizing the training strategy to
+achieve enhanced performance. To improve the ﬂexibility, w e suggest setting a distinct number of
+sampling points for features at different scales in the defo rmable attention to achieve selective multi-
+scale feature extraction by the decoder. To enhance practic ality, we propose an optional discrete
+sampling operator to replace the grid_sample operator that is speciﬁc to RT-DETR compared to
+YOLOs. This removes the deployment constraints typically associated with DETRs. For the training
+strategy, we propose dynamic data augmentation and scale-a daptive hyperparameters customization
+to improve performance without loss of speed. Source code an d pre-trained models will be available
+at https://github.com/lyuwenyu/RT-DETR.
+1 Introduction
+Object detection is a fundamental vision task that involves identifying and localizing objects in an image. Among
+them, real-time object detection is an important ﬁeld and ha s a wide range of applications, such as autonomous
+driving (Atakishiyev et al. [2024]). With the development o f the last few years, YOLO detectors (Redmon and Farhadi
+[2017, 2018], Bochkovskiy et al. [2020], Glenn. [2022], Xu e t al. [2022], Li et al. [2023], Wang et al. [2023], Glenn.
+[2023], Wang et al. [2024a,b]) are without doubt the most pre stigious framework in this ﬁeld. The reason for this is
+the reasonable balance achieved by the YOLO detectors.
+The advent of RT-DETR (Zhao et al. [2024]) opens up a new techn ological avenue for real-time object detection,
+breaking the dependency on the YOLO in this ﬁeld. RT-DETR pro poses an efﬁcient hybrid encoder to replace the
+vanilla Transformer encoder in DETR (Carion et al. [2020]), which signiﬁcantly improves the inference speed by de-
+coupling the intra-scale interaction and cross-scale fusi on of multi-scale features. To further improve the performa nce,
+RT-DETR proposes the uncertainty-minimal query selection, which provides high-quality initial queries to the decoder
+by explicitly optimizing the uncertainty. Moreover, RT-DE TR provides a wide range of detector sizes and supports
+ﬂexible speed tuning to accommodate various real-time scen arios without retraining. RT-DETR represents a novel,
+end-to-end, real-time detector that marks a signiﬁcant adv ancement for the DETR family.
+In this report, we present RT-DETRv2, an improved real-time detection Transformer. This work is built upon the
+recent RT-DETR and opens up a set of bag-of-freebies for ﬂexibility and practicality within the DETR family, as well as
+optimizing the training strategy to achieve enhanced performance. Speciﬁcally, RT-DETRv2 suggests setting a distinct
+number of sampling points for features at different scales w ithin the deformable attention module to achieve selective
+multi-scale feature extraction by the decoder. In the realm of enhancing practicality, RT-DETRv2 provides an optional
+discrete sampling operator to replace the original grid_sample operator, which is speciﬁc to DETRs, thus eliminating
+the deployment constraints typically associated with dete ction Transformers. Furthermore, RT-DETRv2 optimizes
+the training strategy, including dynamic data augmentatio n and scale-adaptive hyperparameters customization, with
+the objective of improving performance without loss of spee d. The results demonstrate that RT-DETRv2 provides
+an improved baseline with bag-of-freebies for RT-DETR, inc reases the ﬂexibility and practicality, and the proposed
+training strategies optimize the performance and training cost.
+
+---PAGE---
+
+RT-DETRv2: Improved Baseline with Bag-of-Freebies for Rea l-Time Detection Transformer
+2 Method
+The framework of RT-DETRv2 remains the same as RT-DETR, with only modiﬁcations to the deformable attention
+module of the decoder.
+2.1 Framework
+Distinct number of sampling points for different scales. Current DETRs utilize the deformable attention mod-
+ule (Zhu et al. [2020]) to alleviate the high computational o verhead caused by the long sequence of inputs composed
+of multi-scale features. The RT-DETR decoder retains this module, which deﬁnes the same number of sampling points
+at each scale. We argue that this constraint ignores the intr insic differences in features at different scales and limit s
+the feature extraction capability of the deformable attent ion module. Therefore, we propose to set distinct numbers of
+sampling points for different scales to achieve more ﬂexibl e and efﬁcient feature extraction.
+Discrete sampling. To improve the practicality of the RT-DETR and to make it avai lable everywhere. We focus
+on comparing the deployment requirements of YOLOs and RT-DE TR, where the RT-DETR-speciﬁc grid_sample
+operator limits its broad applicability. Therefore, we pro pose an optional discrete_sample operator to replace the
+grid_sample, thus removing the deployment constraints of RT-DETR. Speciﬁcally, we perform a rounding operation
+on the predicted sampling offsets, omitting the time-consu ming bilinear interpolation. However, the rounding opera-
+tion is non-differentiable, so we turn off the gradient of th e parameters used to predict the sampling offsets. In practi ce,
+we ﬁrst employ the grid_sample operator for training and then replace it with the discrete_sample operator for
+ﬁne-tuning. For inference and deployment, the model employ s the discrete_sample operator.
+2.2 Training Scheme
+Dynamic data augmentation. To equip the model with robust detection performance, we pro pose the dynamic
+data augmentation strategy. Considering the poor generali zability of the detector in the early training period, we app ly
+stronger data augmentation, while in the later training per iod we decrease its level to adapt the detector to the detecti on
+of the target domain. Speciﬁcally, we maintain the RT-DETR d ata augmentation in the early period, while turning off
+RandomPhotometricDistort, RandomZoomOut, RandomIoUCrop, and MultiScaleInput in the last two epochs.
+Scale-adaptive hyperparameters customization. We also observe that the scaled RT-DETRs of different sizes a re
+trained with the same optimizer hyperparameters, resultin g in their sub-optimal performance. Therefore, we propose
+scale-adaptive hyperparameters customization for scaled RT-DETRs. Considering that the pre-trained backbone for
+light detector ( e.g., ResNet18 (He et al. [2016])) has lower feature quality, we i ncrease its learning rate. On the
+contrary, the pre-trained backbone with large detector ( e.g., ResNet101 (He et al. [2016])) has higher feature quality
+and we decrease its learning rate.
+3 Experiment
+3.1 Implementation Details
+Table 1: The hyperparameters of RT-DETRv2.
+Model Backbone lrbackbone lrdet
+RT-DETRv2-S ResNet18 1e-4 1e-4
+RT-DETRv2-M ResNet34 5e-5 1e-4
+RT-DETRv2-L ResNet50 1e-5 1e-4
+RT-DETRv2-X ResNet101 1e-6 1e-4
+As with RT-DETR, we use ResNet (He et al. [2016]) pretrained
+on ImageNet as the backbone and train RT-DETRv2 with the
+AdamW (Loshchilov and Hutter [2018]) optimizer with a batch
+size of 16 and apply the exponential moving average (EMA) with
+ema_decay = 0 .9999. For the optional discrete sampling, we
+ﬁrst pre-train 6× with the grid_sample operator and then ﬁne-
+tune 1× with the discrete_sample operator. For scale-adaptive
+hyperparameters customization, the hyperparameters are s hown
+in Tab. 1, where lr represents the learning rate.
+3.2 Evaluation
+RT-DETRv2 is trained on COCO (Lin et al. [2014]) train2017 and validated on COCO val2017 dataset. We report
+the standard AP metrics (averaged over uniformly sampled Io U thresholds ranging from 0.50 − 0.95 with a step size
+of 0.05), and AP val
+50 commonly used in real scenarios.
+2

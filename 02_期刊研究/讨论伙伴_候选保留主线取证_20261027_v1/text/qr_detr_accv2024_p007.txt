@@ -1,0 +1,42 @@
+QR-DETR: Query Routing for Detection Transformer 7
+00,050,10,150,20,250,30,350,40,45
+123456Decoder Layer
+Self-AttentionCross-AttentionSelf & Cross-Attention
+(a) Impact on AP when using only SA, CA,
+and both in Deformable DETR.
+35,836,136,436,73737,337,637,938,238,5
+30028026024022020018016014012010050
+mAP
+Number of Object Queries
+Deformable-DETR
+(b) Effect of reducing object query count on
+mAP in a pre-trained Deformable-DETR.
+Fig. 2: Impact of removing SA and CA layers and number of object queries on mAP.
+2.1. However, decreasing the query count from 300 to 150 leads to minimal AP
+degradation (-0.5 AP). We hypothesize that this moderate degradation in AP is
+due to the redundancy in learned features across object queries [39], resulting in
+similar representations among queries, sufficient for final prediction. This high-
+lights that not all object queries are essential for the effective functioning of the
+DETR model, motivating the development of our QR-DETR.
+4 QR-DETR
+Based on the analyses in the previous section, we hypothesize that object queries
+can be partitioned into relevant and irrelevant subsets:
+Q = [Qr,Qir] ∈ RNq×d (4)
+where the subscriptr and ir corresponds to relevant or irrelevant. Unfortunately,
+there is no well-defined metric to reliably identify optimal object queries, as
+they encode a combination of positional and content information. Providing a
+learnable confidence score and threshold for each query is inherently unstable,
+as the optimal threshold may vary across queries.
+To address this issue, we propose an entry-exit query strategy called QR-
+DETR, which employs a routing mechanism that allows the model to learn and
+determine which object queries to direct through or out of the stack. This pro-
+cess is conducted end-to-end, without any constraints. This data-driven strategy
+enables the model to determine the most suitable object queries based on their
+overall contribution. The flexibility introduced by this approach addresses the
+absence of a proper metric for evaluating individual object query quality. By
+allowing the model to freely select object queries, it can potentially identify
+the most effective representations. In this way, these queries can be refined by
+passing through the layer or retained as they are by passing out of the layer.
+Our QR-DETR comprises three wrappers around decoder blocks, selectively
+processing or bypassing queries through each block based on a router (Fig. 3).
+360

@@ -1,0 +1,33 @@
+本协议与113_C0_restore_route_frozen.py先于本次模型诊断结果生成。
+
+目的与范围
+只检查C0原restore权重W上的中心L1梯度是否具有跨开发图的坐标—相位对应性。W原形状[256,64,1,1]，按pixel_unshuffle的c*4+(2*i+j)解释为[256,16,4]。不改前向、不训练、不调用优化器、不修改任何原文件或权重。103的末框±2上界不是本梯度路由的可学习性或作用范围证明。
+
+锁定资产与输入
+104_C0_本地资产严格加载核验.json指定的online checkpoint、原HGNetv2_Light源码及common.yml；逐项校验104所记SHA。仅用77_all_count_frozen/00_all_count_inputs.pt和85_source_self_attention/00_selected.json中的同四图及原original_sub4布尔标签。顺序完全沿85，不新增图、不重新挑GT。四图是重复使用的开发面板，leave-one-development-image-out不是独立留出。C0仅一训练seed，不能称双seed验证。raw optimizer仅确认存在且为四组，本实验不使用其状态产生更新，也不把SGD方向检查外推为Adam结果。
+
+前向、匹配与损失
+每图先model.eval()、no_grad前向一次，用该C0自身全部300个普通final框定义原sub4中“没有任何几何IoU>=.5框”的GT组，不使用类别或分数筛选。该遍同时只读记录native _select_topk的真实default selected_indices，按同logits.max(-1).topk300重算并校验memory/anchor的gather与原函数输出逐元素一致；不替换其输出。保存eval预测、selected_indices、targets、original_sub4、事件与输入SHA，供后续C0作用面零前向复用，不采集新P2特征。随后model.eval(); model.decoder.train()，全模型BN继续eval，按固定种子20261021为每图独立重置Python/NumPy/Torch RNG，前向一次，保留原aux/enc/pre/DN输出。所有dropout须为0；两种模式统一禁用MHA fastpath。两种模式的普通final预测差异如实保存，分组以第一遍eval预测为准，不因差异改组。
+原native DEIMCriterion、matcher/use_uni_set、权重和分母原样执行；epoch=checkpoint.last_epoch，step=0、epoch_step=1、global_step=None。记录实际final普通boxes的union索引与分母，禁止另跑/替换matcher来选择更好配对。分类按原MAL全分支加权loss之和计算。其他loss包括宽高L1、GIoU、FGL/DDF、分类、辅助/pre/enc/DN均不被本候选路由。
+只对W取以下五个VJP：普通final加权cx L1；普通final加权cy L1；完整原loss；全部原分类loss；上述C0自身漏检sub4组在普通final原union配对中的加权L1+GIoU。最后一项沿用完整原final分母，禁止重新按子组归一化。组中GT可无union配对；原样记录GT数、独立GT数、配对数，零组保存零梯度，不偷换组。
+为节省内存，仅W requires_grad=True，其余参数作常数；这保留对W的偏导，不声称得到全网络更新。autograd.grad不累积.param.grad，不做backward/step。每图完整原loss须与cx+cy+独立构造rest数值重构一致；首图再独立求rest VJP，检查W梯度重构。总模型前向8次，主VJP20次，加rest核验1次，共21次；失败不自动重试扩大预算。
+
+投影、候选与简单对照
+h0=(1,1,1,1)/2，hx=(-1,1,-1,1)/2，hy=(-1,-1,1,1)/2，hd=(1,-1,-1,1)/2，Pa=ha*ha^T。
+对每个留出开发图j，其余三图梯度分别求算术平均，记X,Y,T，R=T-X-Y，C=X+Y。对W最后相位轴右乘投影。构造完整方向D=R+C_arm：
+O: C_arm=C；Pdelta: (X+Y)(Px+Py+Pd)；Pxy: (X+Y)(Px+Py)；axis: XPx+YPy；M: 0.5*(X+Y)(Px+Py)=0.5*(axis中心部分+swap中心部分)；swap: XPy+YPx；rot45: XPa+YPb，其中a=(hx+hy)/sqrt(2)，b=(-hx+hy)/sqrt(2)。M在任何本次模型前向前加入，避免把Pxy=2M的强度差误认为轴向对应；rot45始终分别路由X和Y，不能先把两个旋转投影相加。
+每个非O候选另有S_arm: C_arm=||候选中心部分||/||C|| * C。S保留原中心方向，只匹配候选中心部分范数，R不变。分母为0时不生成伪方向，判为此首检不足。
+报告raw完整方向D以及把每个完整方向乘以||D_O||/||D||的total_direction_norm_matched版本。后者配平完整W方向范数；S则另行控制中心分量强度。两种配平含义不能混淆。零方向原样报告且不获得继续资格。
+每个测试图用自身真实W梯度计算gain=<G_test,D>；若虚拟SGD方向为-W方向，即dW=-epsilon*D，则loss变化的一阶近似为-epsilon*gain。只做点积，既不修改权重，也不实际计算或施加SGD/Adam步长。报告完整原loss、普通final中心、cx、cy、分类、自身漏检sub4几何六项；正gain表示该方向预测下降。分图原值与四图等权均值全部保留。
+
+事前继续门槛（只锁axis，不按结果另选最好投影）
+以total_direction_norm_matched结果判定：
+1. 至少三图的自身漏检sub4组有普通final union配对且几何梯度非零；四个训练侧原中心梯度、O方向及axis方向范数均非零。
+2. axis的四图平均中心gain为正，严格高于O、M、S_axis、swap、rot45；至少3/4图的中心gain严格高于O。3/4仅为继续首检的资源判据，不是统计显著性或独立重复。
+3. axis的平均完整原loss、分类、自身漏检sub4几何gain分别不低于O；自身漏检sub4几何平均gain为正。
+比较公差固定为1e-6*max(|a|,|b|,1e-12)；严格高于是a>b+公差，不低于是a>=b-公差。公差仅处理浮点误差，不是事后效果阈值。未通过只表示此C0/四开发图/W局部SGD对应性首检不足，不申请这版训练；不宣布整个相位方案或Adam更新永久无效，不降低门槛、不改GT、图、损失或投影救结果。通过仅允许继续原文/结构和优化器层核查，并不自动批准训练、证明AP或方法创新。
+
+执行前及完整性测试
+脚本含纯合成：四Haar基正交、投影对称/幂等、各rank及和、轴交换/45度rank一致；实际F.pixel_unshuffle通道相位顺序；右乘投影与Haar系数重建一致；共享J示例说明输入投影不保证参数更新后的激活仍处于该子空间。合成测试不加载模型、不计算模型VJP。
+执行时CPU仅2线程、interop1、below-normal优先级、affinity[13,15]，各前向/VJP前available RAM必须>8GiB；CUDA不得可用。不访问网络/远端、不读留出集、不启动后台监控。不输出或修改checkpoint；前后重新哈希checkpoint、model.state_dict（含BN）；全部.param.grad须保持None。恢复原requires_grad标志。禁止写pyc。
+结果写新114_C0_restore_route_frozen/，目录已存在即停止，不覆盖旧结果。保存逐图预测/原union/分母/损失/梯度、完整方向点积与门槛明细、输入及脚本/协议/原源码SHA、执行计数、失败记录（若发生）。本协议与脚本由C起草，C不执行；根代理审查后执行。

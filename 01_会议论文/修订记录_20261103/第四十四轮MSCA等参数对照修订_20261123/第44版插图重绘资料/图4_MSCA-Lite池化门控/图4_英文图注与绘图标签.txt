@@ -1,0 +1,20 @@
+﻿图 4　MSCA-Lite 池化门控
+
+这幅图要表达什么
+说明三个尺度的特征怎样生成权重，以及这份权重最终乘到哪一条特征上。
+
+可复制的英文绘图标签
+• Input F · 512 × 40 × 40
+• Identity
+• 2 × 2 average pooling (stride 2) → bilinear upsampling to 40 × 40
+• 4 × 4 average pooling (stride 4) → bilinear upsampling to 40 × 40
+• Mean of three aligned features → F_ms
+• Energy gate G(F_ms) · λ = 0.0001
+• Original feature F (value path)
+• Output Y = F ⊙ G(F_ms)
+
+重绘时核对
+两路池化输出先恢复到输入尺寸，再与恒等支路取均值。从 F 另引一条直线到末端乘法，保留原始特征的路径。
+
+第 44 版英文原图注
+Fig. 4. MSCA-Lite. The energy gate is computed on the aligned contextual feature, and the value path is the original input F.

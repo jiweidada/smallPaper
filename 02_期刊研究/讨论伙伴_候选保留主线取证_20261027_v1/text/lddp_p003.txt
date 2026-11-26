@@ -1,0 +1,118 @@
+Algorithm 1 LDDP Learning
+Input Set X :{i : i∈ mini-batch},
+{bc
+i , t c
+i : ∀i∈ X, c = 0 ,···, K}
+: box probability and
+offset values,
+Output LossL, ∂L/∂b c
+i ∀i∈ X
+Xs←
+subset of X including non-background proposals
+with high overlap with gt boxes
+Φi← IoUi,gti ∀i∈ Xs,
+Y ← Apply Alg. 2 on Xs,
+B← background proposals as deﬁned in§ 2.1.2,
+Φi← Eq. (3), (4) ∀i∈ X,
+L← Eq. (1), (2),
+∂L/∂b c
+i← Eq. (
+5), (6) ∀i∈ X, c ∈{ 0,···, K}
+returnL, ∂L/∂b c
+i2.1.1 Determinantal Point Process
+A point processP on a discrete set X ={x1,···, x N} is
+a probability measure on the set of all subsets of X.P is
+called a determinantal point process (DPP) if:
+PL(Y = Y ) = det(LY )
+det(L + I)
+where I is an identity matrix, L is the kernel matrix, and Y
+is a random subset of X . The positive semi-deﬁnite kernel
+matrix L indexed by elements of Y models diversity among
+items: the marginal probability of inclusion of each single
+item is proportional to the diagonal values of the kernel
+matrix
+L, while correlation between each pair of items is
+proportional to the off-diagonal values of the kernel. As a
+result, subsets with higher diversity measured by the kernel
+have higher likelihood.
+In the object detection scenario, items are indeed the
+set of proposals in the image produced by the region pro-
+posal network. Given the bounding box probability scores
+of softmax loss layer and location offsets from the bound-
+ing box regressor layer for the given set of proposals for
+image i, X i, we seek for a precise and diverse set of boxes,
+Y i. In other words, the probability of selecting informa-
+tive non-redundant boxes given the whole set of background
+and non-background proposals should be maximized during
+training. Simultaneuosly, the probability of selecting back-
+ground boxes, denoted by Bi, should be minimized. We
+employ a learn-able determinantal point process layer by
+maximizing the log-likelihood of the training set and mini-
+mizing the log-likelihood of background proposals election:
+L(α ) = log
+∏
+i
+Pα(Y i|X i)
+Pα(Bi|X i)
+=
+∑
+i
+[
+log Pα(Y i|X i)− log Pα(Bi|X i)
+]
+(1)
+where α refers to the parameters of the deep network.
+Algorithm 2 LDDP Inference
+Input Set X: Set of proposals and their prediction scores
+and box offsets,
+T : ﬁxed threshold
+Output
+Set Y : Non-overlapping representative proposals
+Y ←∅ , Y ′← X,
+while len(Y ) < # Dets and Y ′̸=∅ do
+cost(i)← maxj Sij
+k← arg maxi∈ Y ′ Pα(Y∪ i|X)
+if cost(k) <T then
+Y ← Y∪ k
+end if
+Y ′← Y ′\k
+end while
+return Y
+For simplicity, we assume that number of images per
+iteration is one and thus, remove index i from our notations.
+We follow the same mini-batch setting as in Faster R-CNN
+network [16] where m is the number of object proposals in
+each iteration or the size of mini-batch.
+Given a list of object proposals as output of the RPN
+network, X, a posterior probability Pα(Y|X) modeled as a
+determinantal point process would imply which boxes should
+be selected with a high probability:
+Pα(Y = Y|X) = det(LY )
+det(L + I) ,
+Li,j = Φ 1/2
+i SijΦ1/2
+j ,
+Sij = IoUij× simij,
+IoUij = Ai∩ Aj
+Ai∪ Aj
+,
+simij = 2IC (lcs(Ci, C j))
+IC (Ci) + IC (Cj) . (2)
+The above distribution model considers relation among dif-
+ferent proposals (indexed by i, j ) through their similarity
+encoded by Sij (which is the product of their spatial overlap
+rate and category similarity) as well as their individual qual-
+ity score Φi. We now proceed to explain each quantity in the
+distribution model.
+We set S = S + ǫI with a small ǫ > 0 to make sure that
+the ensemble matrix L is positive semi-deﬁnite, which is im-
+portant for a proper DPP model deﬁnition. Here, det(L + I)
+is a normalizing factor, and IoUij is the Intersection-over-
+Union associated with each pair of proposals i and j, where
+Ai is the area covered by the proposal i. Motivated by
+[13, 15], we consider the semantic relation among propos-
+als, simij, as the semantic similarity between the labels of
+each pair of proposals (i, j ). Here lcs(Ci, C j) refers to the
+lowest common subsumer of the category labels Ci and Cj
+in the WordNet hierarchy. The information content of class
+7151

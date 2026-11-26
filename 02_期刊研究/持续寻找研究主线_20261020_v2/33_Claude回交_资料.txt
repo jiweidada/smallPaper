@@ -1,0 +1,145 @@
+来源：本对话原生专家通道 /root/astra_design_b，请求模型gpt-6-astra、reasoning_effort=xhigh、fork_turns=none。用户明确授权三Codex+Claude讨论；仅只读专家，主助手执行代码。软件原B调用5分钟超时回执25保留，不伪称以下内容由那次失败产生。
+
+B建议核查：用固定查询预算下的真实解码收益，监督encoder候选入选；共享几何辅助只作可拆分的配套项。这是未验证设计，尚不具备训练资格。
+
+1. 事实与问题。16号摘要中，短边＜4的全池encoder几何覆盖比TopK仅多4.56/6.08pp；因此不能预设大批好框被排序挡住。但它只比较encoder框，未测未入选token经过原decoder后的贡献。可失败问题是：某些被排除的真实token，能否在不增加300预算、不提供GT框初始化时，恢复遗漏目标且不牺牲原覆盖？若不能，先停此线。
+
+2. 具体方法。原集合为S。训练时选一个未入选的GT近中心位点i，用其原memory与原enc_bbox_head预测，替换低分槽j，得到S'=S-{j}+{i}。两集合分别经过同一decoder，计算几何最大一对一覆盖C_.5、C_.75。仅当C_.5不下降且至少一项增加，记为有效替换，并使用
+L_admit=sg(w_ij)*log[1+exp(s_j-z_{i,y_g})], w_ij=ΔC_.5+ΔC_.75。
+s_j是原选择规则的最大类别logit，z_{i,y_g}是真类logit。监督的是相同预算下的解码后新增价值。有效位点再可加Claude的5L1+2LGIoU，但须做“几何／入选／两者”拆分，不能把联合收益都归给新增项。推理保留原TopK；额外decoder前向仅训练使用，训练成本必须报告。
+
+3. 作用点。已读冻结dfine_decoder.py约825–850行：在_select_topk后构造替换集合，替换content与预测reference的一整对；两者保持原detach规则。排序损失回到enc_score_head及encoder，几何辅助回到共享enc_bbox_head。GT只用于候选训练标签和收益评估，不能把GT坐标塞进reference，否则检验的是更强oracle。
+
+4. 近邻与剩余区别。本轮亲读Co-DETR §3.2–3.3、DDQ §4.1–4.4和Sparse-DETR §3.3：Co-DETR已有密集监督和额外正坐标queries；DDQ已有NMS筛选distinct queries及被过滤位点辅助监督；Sparse-DETR已有decoder注意力反馈学习token选择。RT-DETRv3也已处理encoder密集监督。剩余待证明的区别仅是：用实际替换引起的集合检测增益监督入选，而非位置正标签、框间重叠或注意力大小。不能概括成首次decoder反馈或首次监督未选token。
+
+5. 最强简单替代。同样预算的DDQ式NMS筛选；Claude中心纯几何；同位点分类＋几何。这些都应保留。若普通密集分类＋几何复制收益，复杂反事实训练没有必要。
+
+6. 最低成本首检。无需反传：两个seed固定development00/01，缓存encoder，每图按固定GT编号取首个最终未覆盖tiny GT，选择P3最近有效未选位点，替换原最低分槽；完整运行decoder。对照用同一槽替换成原rank301，另测DDQ式选择。事前要求两个seed都出现实际新增IoU≥.5覆盖，尝试目标恢复率均≥10%，全图几何覆盖均不下降，并优于rank301扰动；失败便停此精确版。通过仅说明存在可利用的入选机会，再做跨批完整历史Adam虚拟步，评价自然TopK后的真实输出，而非排序loss。
+
+最关键异议：此首检只能识别被选入是否有用，不能证明历史稀疏监督造成排除，更不能保证单token分类分数能学会依赖整个集合的替换价值。若有oracle恢复却不能迁移到自然TopK，应该放弃该排序实现，不能把oracle上限当方法收益。
+
+
+来源同26；B收到主持人五项追问后补答，没有执行脚本或修改文件。
+
+1. 原设计只要求最大一对一覆盖数C_.5不下降；C_.75单独报告，不补加双阈值均不降门槛。训练有效替换也按此定义；若.75下降，应完整呈现，不能用加总权重遮盖。
+
+2. 同意：原已覆盖GT的保留，按该GT是否仍存在IoU≥阈值的框逐GT统计，避免最大匹配的任意ID重分配；同时另报两个阈值的最大匹配数、新增及丢失GT。分类结果用fresh原生排名，不沿用槽号对应关系。
+
+3. 同意两seed共享输入，仅取两者baseline均未覆盖的tiny GT；每图按固定GT编号选首个，最多8个/seed。各seed用距该GT中心最近的有效未选P3位点，替换各自原最低分source。没有合格GT的图跳过，不补搜更有希望的目标。
+
+4. 10%是事前建议的pilot最低作用面；8目标时意味着每seed至少恢复1个，不代表统计功效或显著性。实际分母不足8时仍报告原分母，不追加样本追门槛。
+
+5. 必须承认：当前L_admit是反事实筛选正样本后的加权成对排序，尚不能声称超出更好的positive mining，也不能精确表达非可加集合收益。部署时原encoder分数只能学习其平均近似。强对照应有同预算encoder自身IoU质量target、同一反事实正样本但等权训练，以及按原score／固定随机规则替换。当前可检验的新增变量仅为解码后净收益标签及其权重；若等权挖掘或encoder-IoU复制效果，就不能保留集合净收益学习的贡献主张。冻结首检只决定是否值得继续检验这个缺口。
+
+
+来源：本对话原生专家通道 /root/astra_design_c，请求gpt-6-astra/xhigh、fork_turns=none。B及补答→C顺序；只读，没有代码执行。
+
+C建议保留B的冻结首检，但当前排序损失不足以支持集合收益学习；首检通过后，应检验一个真正以集合为条件的交换方法。
+
+1. 数学修订。27允许ΔC_.75为负，因此原权重可能≤0；负权重会让softplus损失向错误方向无界下降。保留既定有效替换定义，先用恒正权重1，C_.75独立报告；不要用截断加总掩盖高阈值退步。这个修订只是反事实正样本挖掘。推高一个真类logit也不保证自然TopK换入，必须检查真实成员和最终输出。
+
+2. 结构性候选。改为交换价值头u(i,j|S\j)：输入候选、被换出token的memory和预测框，再汇聚候选与保留集合的特征、相对位置及重叠关系。以完整decoder的ΔC_.5作停止梯度回归标签，纳入正、零、负替换，保留不交换动作。推理从固定rank301–364和原最低8个source枚举交换，仅执行预测净增益最大的正值一次，预算仍300。它改变决策所用信息及推理规则；是否值得增加复杂度仍待检验。
+
+3. 先检验结构必要性。首检通过后，对全部原定目标再固定第二近未选P3位点h、次低分槽k，运行S、S−j+i、S−k+h、S−{j,k}+{i,h}四集合，记录i的边际收益是否随h在场而改变。交互不等于创新，NMS式冗余也能解释；必须与仅用encoder框重叠的规则比较。同时记录成功i是否落入自然rank301–364池：池外oracle收益不能支撑这版部署设计。
+
+4. 冻结首检。两seed共享development00/01；每图按GT编号取首个两baseline均无IoU≥.5框覆盖、shortside＜4的GT，最多8目标，不补搜。各seed取最近有效未选P3 source，距离并列按source编号，替换各自最低分槽；使用真实memory、原预测reference和完整decoder，不给GT坐标。C_.5用全图最大一对一匹配；目标恢复、原GT保留用逐GT存在框覆盖另报。每臂重算原生类别排名、真类入预算情况。
+
+5. 门槛及强对照。事前明确C_.5不降按每seed所有尝试图的计数和验收，并完整列逐图下降；10%恢复、胜rank301均逐seed判断，不能事后换口径。8目标至少救回1个只是pilot资源条件。rank301换同槽；DDQ启发式对全有效预测框按原分数作类别无关NMS、阈值固定.8，取300，不足按原排序补齐，记录补齐数。以后训练必须比较同位点等权挖掘、encoder-IoU质量监督、分类＋几何辅助；交换头再对比同参数但不输入集合的版本。被简单对照复制就撤去复杂贡献主张。
+
+6. 原文差别。本轮读了归档Co-DETR §3.2–3.3、DDQ §4.1–4.4、Sparse-DETR §3.3–3.4，未作最新穷尽检索。Co-DETR已有密集辅助及正坐标额外queries；DDQ已有重叠筛选、被过滤位点辅助及逐阶段DQS；Sparse-DETR用DAM监督encoder更新token筛选，另用objectness选decoder queries。本候选可检验的差别仅是真实交换标签＋集合条件决策，不能声称首次反馈、首次密集监督或已具发表价值。当前只推进上述无训练检查。
+
+
+Material Passport
+Origin Skill: academic-research-suite / experiment-agent
+Origin Mode: run；冻结特征、独立新线性分支虚拟单步
+Origin Date: 2026-10-21T07:52:45Z
+Verification Status: 本地合成/输入SHA/原模型与缓冲不变检查通过；没有训练/AP或独立复现证据
+Version Label: boundary_frozen_v2
+
+执行已完成，结果23_boundary_frozen_v2/01_results.json，事前19。两个BASE24 online seed，各固定development00/01，两向跨批。每批4张同640增强输入；原CPU同前向pre union/GT/normalizer，无GPU indices拼接，无heldout。
+仅提取原stem→stage0 P2特征，共4次局部backbone前向，实际P2为[4,64,160,160]，stride4。所有其他模型参数冻结，新W从0做一次fresh-moment AdamW函数端点，原pre头组lr=.0004。其余公式和去留口径见19。不更新任何检测器参数，不写checkpoint，不累计步数。
+
+对照：difference/mean各1024参数；full_concat2048参数，并非同参数。mean_matched、concat_matched只用生成批logit位移RMS配平到difference，评价批不参与。所有臂读取完全相同的4边×2条带×16点。
+主群体：原ordinary pre union中pre IoU==0且GT输入shortside<4；与07的final-IoU0支持外群体不同。seed1/2分别399/401次配对曝光；聚合normalizer1818/1820，两向分子相加/总normalizer，不逐图平均。
+
+各臂相对original的主群体几何贡献差，原始loss单位，正数较差（不是AP或百分点）：
+                      seed1              seed2
+difference            +.001602977377     +.000229820619
+mean                  +.003020235135     -.000626159297
+full_concat           +.004273877456     +.002180188467
+mean_matched          +.000536591794     -.001261912424
+concat_matched        +.000397179857     -.001154585238
+difference在两个seed均比original更差，且均没有胜过配平后的两个简单对照；seed2也没有胜过原mean。
+all ordinary difference-original =+.054919181438 / +.056682989759，两seed均较差。
+
+跨批逐方向的主群体difference-original：
+seed1 00→01 +.003750053791（149曝光），01→00 +.000310948134（250曝光）。
+seed2 00→01 +.002335134932（149曝光），01→00 -.001031887959（252曝光）。
+完整其余分组/所有臂/所有方向原始结果均在JSON，没有删除有利方向。
+
+按事前判据，本版不保留为值得申请训练的特征前提。不调条带宽/学习率/批次拯救此版。
+能说：指定冻结P2、固定pre配对与新W单步检查，没有观察到差分相对于原方案和强简单对照的可迁移优势。
+不能说：浅层特征完全不含边界信息；所有边界回归无用；该方案长期训练必降AP；完整模型联合训练已被反证。这是head-only fresh-state局部检查，不是完整历史Adam网络端点。两批重复开发、不是独立统计验证。一次未通过不结束用户的持续找主线目标。
+
+数学和完整性：零W框最大误差1.11e-16；FP64几何与原生保存FP32损失差最大1.74e-7；原checkpoint/模型状态与BN缓冲SHA保持。条带越图采样点184/912/384/1093，各批分母153600，padding=border统一处理。
+20脚本第一版在合成差分=拼接恒等式处2.6645352591e-15超过绝对2e-15断言，未进入真实缓存/候选计算。原失败21完整保留。22只把这条数值断言改为dot-product浮点舍入上界，另输出23；未改科学门槛或任何实验参数。修订清单03_predata_revision.json、最终SHA04_final_manifest.json。
+
+最近原文15已核：BorderDet/SABL已有边界特征修框；剩余内外差分属于参数化/归纳偏置，concat线性包含它，当前无数字支持其必要性。Claude的未入选中心纯几何辅助仍是未测试候选；RT-DETRv3/Co-DETR已解决密集encoder监督，剩余头共享/只补几何需实质设计与强简单对照，不把它自动当新方法。
+
+圆桌软件限制：25导出回执表明本场首位Astra调用07:43:01启动、07:48:01被软件5分钟上限终止，0完整回答，不是研究结论。上一场B未完成、C未发言也不当共识。不得伪称四位均已审本结果。后续需如实回交完整阴性，再寻真正不同设计；当前不训练、不远程、不监测。
+
+
+尚未计算本候选任何完整decoder替换结果。依据26/27/28登记；不是训练资格或AP结论。
+
+真实问题：旧A4只比较dense encoder预测框，未让被排除source过完整decoder。现有几何覆盖余量小，不预设有大批好候选。问题是原真实source在同300预算下是否能救回原漏检，而非增加框数/提供GT坐标。
+
+数据：BASE24 online seed1/2、原development00/01（每批4张共享640增强输入），原严格加载model。固定train-mode/同一原BN缓冲/同DN整数seed；不追溯历史CUDA随机流。原始输入和checkpoint SHA核对。可缓存完整encoder输出，重复同一decoder，首次split pipeline与原DEIM.forward代码逐项一致；同一选择原样重放baseline框/类别必须逐值一致，否则停止实现，不放宽门槛。
+
+队列/训练/GPU/远端/heldout全不操作；模型无反传、无参数更新、无optimizer状态改写。只读历史文件，输出独立31目录。CPU2线程BelowNormal，>8GiB可用RAM，15分钟仅此新进程上限。
+
+先只生成两seed baseline，随后按每图固定GT索引递增，选择两seed共同满足“shortside640<4且300最终普通框均无IoU>=.5”的首个GT。最多8个/seed，共享同GT；无合格图跳过、不补搜、不增数据追门槛。N>300图保留并报告容量；不是独立GT抽样验证。
+
+动作均保持普通Q=300、DN及原targets不变：
+1 original：原source集合，不修改。
+2 GTcenter_source：在P3有效未选位点中取距指定GT中心最近者，距离并列按source编号；替换原max-class score最小source（原topK最后槽）。使用该source实际memory+原enc_bbox_head预测reference，不能用GT框、手调宽高或回归目标改变reference。
+3 rank301：同槽替换为原分类排序第301名有效source。
+4 DDQ_initial_NMS：全有效encoder原预测框、原max-class score作类别无关NMS，阈值.8（DDQ DETR原§4.4）；取300，不足按原score补齐并报告。仅初始选择的启发式控制，不是复现DDQ训练/逐层DQS。
+5 fixed_random_source：从同图有效未选P3位点按seed-independent固定随机序列选1个（种子20261021+batch*4+image），同槽替换，不用GT。描述性强简单扰动，不新增正式门槛。
+各图动作在batch内可并行实施，因为解码器不跨image注意力；其他无合格图original不变。选source/rank/GT/meta写清，不能从多个候选结果中挑最好。
+
+指标：全GT最大一对一几何覆盖C_.5、C_.75（只算数不依赖GT匹配身份）；逐GT存在任一预测框的覆盖mask用于新增/丢失和目标恢复，避免最大匹配任意ID分配。每臂fresh自然class×query展开top300后，按真类/IoU另报目标是否入预算及0.001/0.3分数口径；不是COCO AP。输出所有图、所有阈值和所有对照，不沿用原槽号对齐评估。
+记录GTcenter source原分类排名、encoder自身IoU、替换后decoder IoU、是否原rank301–364池；这是C的固定自然候选池适用范围，不把池外oracle成功当部署证据。只给GT选择source是训练/诊断oracle，不能当部署选法。
+
+首检资源门槛保持B/C口径：每seed目标恢复率>=10%（整数10*recovered>=attempts，attempts0为NA）；聚合尝试图的C_.5总数不下降；每seed恢复数严格多于rank301。C_.75单独完整报告，不加事后双阈值不降门槛；原已覆盖GT丢失数逐图报告，不用C_.5不降冒充一个都没丢。
+DDQ/随机是否复制机会另作明确方法取舍：即使首检通过，若简单规则已复制所得恢复而无额外原覆盖代价，仍不能称交换价值方法有独立依据，需要后续真正有判别力的设计；不把这句改成数据后调整的数值硬门槛。
+
+首检失败：不申请训练这个精确source入选机会版本、不挑另一个GT/阈值救方案，完整交回四专家；不外推所有query改造无效，活动目标继续。
+首检通过：只支持该开发样本有可利用入选机会；还需C所述集合条件/交互与强简单对照、近邻原文和后续自然TopK效果验证，不能立即说创新成立或交付完成。本轮暂不跑四集合/反传/训练。
+
+数学检查先于模型：最大匹配计数对槽置换不变；两个GT共享同一框不能当2个一对一检出；展开top300允许一个query多类别，保留原推理规则；baseline重放无差；NMS只使用原预测与score，不读取GT。
+
+
+本轮新增的原文/源码核对，供剩余专家补答和候选修订。不是新增数值结果，不将未做检查说成已完成。
+
+1. 边界路线的实际最近原文
+BorderDet ECCV2020，12_BorderDet原PDF（项目已有）及_text正文§3.2–3.3已读。它从粗框四边按位置做双线性采样，各边独立通道最大池化，结合原点特征，再做细框/类别预测。因此“粗框决定边界读取，再修框”确实已有。
+https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123460528.pdf
+SABL ECCV2020，78_SABL原PDF（项目已有）及_text正文§3.1–3.2已读。它RoIAlign→二维特征按方向加权聚合→四边特征→桶分类和桶内偏移。因此“每边专门特征/范围加细回归”已有，但不等于明确成对内外差分。
+https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123490392.pdf
+A的成对内外均值差、零初始化和生成FDR初始参考的位置是具体剩余差别。线性拼接已经包含差分作为权重约束，不能声称扩大表达能力。concat输入2C若直接接4输出，其参数自然是差分C的两倍；不能同时原通道数和参数量都声称完全相同，需定义压缩/共享权重或显式报告成本。
+Claude所说“GT不与条带相交就必无信息”不成立：骨干特征有超过采样点的感受野。精确条带相交表只能是读取几何位置的描述，不能是候选是否具备目标信息的必要条件。不能据几何相交0直接证明没有特征信号。若做虚拟分支更新，可直接检验实际特征的跨批可用性，比无限加相交表更有判别力。
+历史fine_residual_20261008_v4/geometry.py已在旧阶段核过：P3细节在encoder原初框头之前残差加入；两个候选训练被用户停止于10/17轮，不是当前pre首层条带差分。它不是完全相同的结构，但不能忘记此项目已尝试局部高分辨率几何残差且没有完成正证据。
+
+2. 密集监督路线的实际最近原文
+RT-DETRv3 WACV2025，项目“专家组_20261007_RTDETRv3_WACV2025_arXiv2409.08475v1.pdf”，原§3.1、§3.3已读：在多尺度encoder输出接PP-YOLOE式独立CNN辅助头，ATSS→TaskAlign分配，分类VFL+几何DFL，训练使用、推理丢弃。不能写成原文没有处理encoder稀疏监督。Claude的剩余差别是直接复用原enc_bbox_head且只补几何、中心位点一GT取舍；这更像对稀疏监督机制的具体拆分，尚未证明它超过全任务密集监督。
+https://arxiv.org/abs/2409.08475
+Co-DETR ICCV2023已归档，原文§3.2–3.3：辅助一对多head的encoder监督，并按正坐标生成额外decoder queries。与“直接只监督原回归头”不是严格同公式，但共享主原则，不可把增加encoder几何正样本当新原理。
+https://openaccess.thecvf.com/content/ICCV2023/papers/Zong_DETRs_with_Collaborative_Hybrid_Assignments_Training_ICCV_2023_paper.pdf
+冻版dfine_decoder.py _get_decoder_input约828–850行：先enc_score_head对dense memory分类，再topk，enc_bbox_head只对gather后的memory计算框。未入选位点没有这一次直接框监督，但头是共享的，仍有经其他位点/decoder cross-attention的间接学习，不能说其回归头从未被训练。
+Claude建议“同分数分档下入选框比未选框差就否定监督缺口主因”不能识别因果；topk本身由分数和图内竞争决定，且当前入选不是历史入选频率。最多描述表，不足以得出欠训练是否是主因。若要测这个设计，更直接的是同预算独立虚拟步：新增几何vs同位点分类+几何vs简单更多位点/随机同预算，评价另一批的原生指标和原目标保真。需要事前定义中心冲突与完整参数/当前Adam，不能自动承诺通过。
+
+3. 可用的另一处已核源码事实（不是新机制结果）
+原enc proposal的特征和参考坐标可有差异：decoder初始content=enc_topk_memory.detach()，位置由sigmoid(enc_bbox_head(memory)+anchor)给出，而后者可偏离原memory网格中心。DINO则content静态learnable、只用encoder初始化位置，原§3.4已核。因此若要重访初始化，必须面对DINO静态内容/直接采样回归中心/原本已存在的cross-attention三种强简单对照，不宜仅提出新query门控。
+原MAL代码loss_labels_mal：matched真类target=IoU^gamma、weight=1，其他类weight=p^gamma。因此IoU0 matched真类也被压低分数，是DEIM设计本身，不能把读出这条公式当新发现或无效性证明。DEIM原CVPR2025§3已有低质量匹配的MAL动机；是否对tiny优化造成特定问题需要实际检验，不能凭公式反过来保证换focal有用。
+
+请剩余B/C先修订前人具体设计、补清方法增量和最低成本判别，不要只把以上近邻名称当否决票。也可从这些实质变量之外提出更好的方法。没有达到训练资格时新目标保持活动，且当前不训练、不远程、不监测。

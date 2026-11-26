@@ -1,0 +1,89 @@
+The Unmanned Aerial Vehicle Benchmark:
+Object Detection and Tracking
+1Dawei Du, 2Yuankai Qi, 2Hongyang Yu, 1Yifan Yang, 1Kaiwen Duan,
+1Guorong Li, 3Weigang Zhang, 1Qingming Huang, 4Qi Tian
+1University of Chinese Academy of Sciences
+2Harbin Institute of Technology
+3Harbin Institute of Technology, Weihai
+4The University of Texas at San Antonio
+dawei.du@vipl.ict.ac.cn
+Abstract. With the advantage of high mobility, Unmanned Aerial Ve-
+hicles (UAVs) are used to fuel numerous important applications in com-
+puter vision, delivering more eﬃciency and convenience than surveillance
+cameras with ﬁxed camera angle, scale and view. However, very limited
+UAV datasets are proposed, and they focus only on a speciﬁc task such
+as visual tracking or object detection in relatively constrained scenar-
+ios. Consequently, it is of great importance to develop an unconstrained
+UAV benchmark to boost related researches. In this paper, we construct
+a new UAV benchmark focusing on complex scenarios with new level
+challenges. Selected from 10 hours raw videos, about 80 , 000 represen-
+tative frames are fully annotated with bounding boxes as well as up to
+14 kinds of attributes ( e.g., weather condition, ﬂying altitude, camera
+view, vehicle category, and occlusion) for three fundamental computer
+vision tasks: object detection, single object tracking, and multiple object
+tracking. Then, a detailed quantitative study is performed using most re-
+cent state-of-the-art algorithms for each task. Experimental results show
+that the current state-of-the-art methods perform relative worse on our
+dataset, due to the new challenges appeared in UAV based real scenes,
+e.g., high density, small object, and camera motion. To our knowledge,
+our work is the ﬁrst time to explore such issues in unconstrained scenes
+comprehensively.
+Keywords: UAV, Object Detection, Single Object Tracking, Multiple
+Object Tracking
+1 Introduction
+With the fast development of artiﬁcial intelligence, higher request to eﬃcient and
+eﬀective intelligent vision systems is putting forward. To tackle with higher se-
+mantical tasks in computer vision, such as object recognition, behavior analysis
+and motion analysis, researchers have developed numerous fundamental detec-
+tion and tracking algorithms for the past decades.arXiv:1804.00518v1  [cs.CV]  26 Mar 2018
+
+---PAGE---
+
+2 arXiv
+Datasets Attributes
+UA VFrames Boxes Tasks Vehicles Weather Occlusion Altitude View Year
+MIT-Car [34] 1.1k 1.1k D ! 2000
+Caltech [14] 132k 347k D ! 2012
+KAIST [23] 95k 86k D ! ! 2015
+KITTI-D [19] 15k 80.3k D ! ! 2014
+MOT17Det [1] 11.2k 392.8k D ! 2017
+CARPK [22] ! 1.5k 90k D ! 2017
+Okutama [3] ! 77.4k 422.1k D 2017
+PETS2009 [18] 1.5k 18.5k D,M ! 2009
+KITTI-T [19] 19k > 47.3k M ! ! 2014
+MOT15 [26] 11.3k > 101k M ! 2015
+DukeMTMC [38] 2852.2k 4077.1k M ! 2016
+DETRAC [46] 140k 1210k D,M ! ! ! 2016
+Campus [39] ! 929.5k 19.5k M ! 2016
+MOT16 [29] 11.2k > 292k M ! ! 2016
+MOT17 [1] 11.2k 392.8k M ! ! 2017
+ALOV300 [40] 151.6k 151.6k S 2015
+OTB100 [49] 59k 59k S 2015
+VOT2016 [15] 21.5k 21.5k S ! 2016
+UA V123 [31] ! 110k 110k S ! 2016
+UA VDT ! 80k 841.5k D,M,S ! ! ! ! ! 2017
+Table 1: Summary of existing related datasets (1 k = 103). D=DET, M=MOT,
+S=SOT.
+To evaluate these algorithms fairly, the computer vision community has de-
+veloped plenty of datasets including detection datasets ( e.g., Caltech [14] and
+DETRAC [46]) and tracking datasets ( e.g., KITTI-T [19] and VOT2016 [15]).
+The common shortcoming of these datasets is that videos are captured by ﬁxed
+or moving car based cameras, which is limited in viewing angles in surveillance
+scene.
+Beneﬁting from ﬂourishing global drone industry, Unmanned Aerial Vehicle
+(UAV) has been applied in many areas such as security and surveillance, search
+and rescue, and sports analysis. Diﬀerent from traditional surveillance cameras,
+UAV with moving camera has several advantages inherently, such as easy to
+deploy, high mobility, large view scope, and uniform scale. Thus it brings new
+challenges to existing detection and tracking technologies, such as:
+– High Density . Since UAV cameras are ﬂexible to capture videos at wider
+view angle than ﬁxed cameras, leading to large object number.
+– Small Object. Objects are usually small or tiny due to high altitude of
+UAV views, resulting in diﬃculties to detect and track them.
+– Camera Motion. Objects move very fast or rotate drastically due to the
+high-speed ﬂying or camera rotation of UAVs.
+– Realtime Issues. The algorithms should consider realtime issues and main-
+tain comparable accuracy on embedded UAV platforms for practical appli-
+cation.
+To study these problems, limited UAV datasets are collected such as Campus [39]
+and CARPK [22]. However, they only focus on a speciﬁc task such as visual

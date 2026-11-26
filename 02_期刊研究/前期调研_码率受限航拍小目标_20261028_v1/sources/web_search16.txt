@@ -1,0 +1,288 @@
+Masked Feature Compression for Object Detection (https://www.mdpi.com/2227-7390/12/12/1848)
+ [wordlim: 200] Published: 2.4 years ago; Crawled: last month; 
+
+Open Access Article
+
+# Masked Feature Compression for Object Detection
+
+by
+
+Chengjie Dai
+
+ImageChengjie Dai
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1}^{} (/cnd-cgi/l/email-protection#000331000305010009714b5b441f5455441f525f),
+
+Tiantian Song
+
+ImageTiantian Song
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 2}^{} (/cnd-cgi/l/email-protection#001d74151a001d151a5a071b1a133407000110111a005a19151a171c11070011065a15175a011f),
+
+Yuxuan Jin
+
+ImageYuxuan Jin
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1}^{} (/cnd-cgi/l/email-protection#00036a04131f121f0b042a10001f440f0e1f440904),
+
+Yixiang Ren
+
+ImageYixiang Ren
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1}^{} (/cnd-cgi/l/email-protection#001079011018171e0b1c173903130c571c1d0c571a17),
+
+Bowei Yang
+
+ImageBowei Yang
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1}^{} (/cnd-cgi/l/email-protection#000d6215070b1b221808174c0706174c010c) and
+
+Guanghua Song
+
+ImageGuanghua Song
+
+SciProfiles Scilit Preprints.org Google Scholar
+
+^{ 1,*}^{} (/cnd-cgi/l/email-protection#000f6714080900271d0d1249020312490409)
+
+^{1}
+
+The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+
+^{2}
+
+The Department of Mathematics, The University of Manchester, Manchester M13 9PL, UK
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+Mathematics 2024, 12(12), 1848; https://doi.org/10.3390/math12121848
+
+Submission received: 17 May 2024 / Revised: 6 June 2024 / Accepted: 11 June 2024 / Published: 14 June 2024
+
+(This article belongs to the Special Issue Computer Vision, Image Processing Technologies and Artificial Intelligence, 2nd Edition)
+
+Download keyboard_arrow_down
+
+Download PDF
+Download PDF with Cover
+Download XML
+Download Epub
+
+Browse Figures
+
+Versions Notes
+
+## Abstract
+
+Deploying high-accuracy detection models on lightweight edge devices (e.g., drones) is challenging due to hardware constraints. To achieve satisfactory detection results, a common solution is to compress and transmit the images to a cloud server where powerful models can be used. However, the image compression process for transmission may lead to a reduction in detection accuracy. In this paper, we propose a feature compression method tailored for object detection tasks, and it can be easily integrated with existing learned image compression models. In the method, the encoding process consists of two steps. Firstly, we use a feature extractor to obtain the low-level feature, and then use a mask generator to obtain an object mask to select regions containing objects. Secondly, we use a neural network encoder to compress the masked feature. As for decoding, a neural network decoder is used to restore the compressed representation into the feature that can be directly inputted into the object detection model. By conducting complexity analysis and exploring feasibility, we find that compressing the features obtained from the feature extractor directly is more efficient than compressing the input image. The encoder then compresses the masked features into latent representations. At the decoding stage, a decoder will reconstruct the features. Experimental results show that under identical compression rates, our method outperforms other compression methods in detection accuracy. At the same time, compared with some up-to-date neural network image compression methods, the proposed feature compression method has a faster encoding and decoding speed. The key contributions of this paper can be summarized as follows:
+
+  * We explore the feasibility of applying generated masks to low-level features and reduce the model’s time complexity by directly compressing the features. The model’s encoding speed surpasses that of current DNN image compression models.
+
+  * We design a lightweight mask generator that can generate an object mask in one forward pass, and perform compression on the masked feature to save bits while ensuring the accuracy of backend object detection tasks.
+
+  * The proposed framework can easily be integrated with existing neural network compression frameworks, enhancing the compression performance for object detection tasks.
+
+The structure of the remainder of this paper is as follows. Section 2 reviews related work. Section 3 explores the feasibility of mask feature compression. Section 4 provides a detailed description of the proposed method. Section 5 presents and discusses the experimental results. Finally, Section 6 concludes the paper.
+
+The model has a similar structure to detection models, and the difference lies in the fact that the detection model’s neck outputs three different size features. Each feature is intended for detecting objects of large, medium, and small sizes, respectively. In contrast, the mask generator only needs to output an object mask that has the same size as the extracted feature from the feature extractor.
+
+The labels for training the mask generator are obtained from the detection labels. Since the low-level feature’s receptive field is small, the extracted feature still retains a spatial structure similar to the original image and the object’s position in the original image aligns with its position in the feature. Assuming the height and width of the feature to be compressed are h and w, the mask label size should be (h,w) too. As Figure 5 shows, we utilize the bounding box coordinates from the detection label, and set the mask values inside objects to 1, and the rest to 0. The training loss is the MSE loss between the mask label and the generated mask. Details are as follows:
+
+Loss=\frac{1}{h·w}[\beta \sum _{i,j\in obj}{({m}_{ij}-{\widehat{m}}_{ij})}^{2}+\sum _{k,l\in back}{({m}_{kl}-{\widehat{m}}_{kl})}^{2}]
+
+(5)
+
+where h and w are the height and width of the mask, \beta is the weight of the object region loss, m is the mask label, \widehat{m} is the generated mask, obj means the object, and back means the background.
+
+The powerful detector is employed in the decoding stage to perform the final detection. Since the decoding stage is deployed on high-computing cloud servers, high-accuracy large models can be used. In this paper, we adopt YOLOv5l as the powerful detector.
+
+## 6. Conclusions and Future Work
+
+Differing from the traditional image compression methodology that discards high-frequency signals insensitive to human eyes, we propose a masked feature compression method. This method utilizes a mask generator to generate an object mask and remove most background information that is irrelevant to detection tasks during the compression process. Compared to existing methods, our approach achieves superior detection performance across various compression levels. Experimental results indicate it has an outstanding real-time performance and low computational demands. Through an ablation study, we demonstrate that the proposed mask generator significantly speeds up the encoding progress, and the neighborhood convolution markedly improves the compression performance. Based on the above analysis, we can ascertain that our method holds significant potential for application in cloud–edge collaborative scenarios. For lightweight edge devices such as drones and smart cameras, the mask feature compression scheme can be utilized to obtain compressed representations for transmission. Table 1. The mAP, parameters, and FLOPs of different sizes of YOLOv5 models provided by the official. Note: mAP is tested on the COCO dataset [38], and the IoU threshold is 0.5.
+
+Model  | Input Size  | mAP  | Params  | FLOPs
+--- | --- | --- | --- | ---
+(Pixels)  | (%)  | (M)  | (B)
+--- | --- | --- | ---
+YOLOv5n  | 640  | 45.7  | 1.9  | 4.5
+YOLOv5s  | 640  | 56.8  | 7.2  | 16.5
+YOLOv5m  | 640  | 64.1  | 21.2  | 49
+YOLOv5l  | 640  | 67.3  | 46.5  | 109.1
+YOLOv5x  | 640  | 68.9  | 86.7  | 205.7
+
+Table 2. Detection results under different masking ranges. The values below mAP are the range of IoU thresholds.
+
+Table 2. Detection results under different masking ranges. The values below mAP are the range of IoU thresholds.
+
+Kernel Size  | mAP  | mAP  | Precision  | Recall
+--- | --- | --- | --- | ---
+0.5 (%)  | 0.5–0.95 (%)  | (%)  | (%)
+--- | --- | --- | ---
+None  | 34.6  | 20.4  | 52.2  | 34.3
+5  | 36.7  | 20.3  | 53.1  | 36.0
+7  | 38.0  | 21.3  | 51.1  | 38.4
+9  | 38.8  | 21.9  | 55.9  | 37.3
+11  | 41.0  | 24.0  | 55.8  | 39.9
+Unmasked  | 41.6  | 24.7  | 55.1  | 40.6
+
+Table 3. Differences between the image compression model and feature compression model.
+
+Table 3. Differences between the image compression model and feature compression model.
+
+Image Encoder →  | Feature Encoder  | Image Decoder →  | Feature Decoder
+--- | --- | --- | ---
+Conv, 3, 128, K5, S2  | Conv, 256, 224, K5, S2  | Deconv, 192, 128, K5, S2  | Deconv, 192, 224, K5, S2
+GDN  | GDN  | IGDN  | IGDN
+Conv, 128, 128, K5, S2  | Conv, 224, 224, K5, S1  | Deconv, 128, 128, K5, S2  | Deconv, 224, 224, K5, S1
+GDN  | GDN  | IGDN  | IGDN
+Conv, 128, 128, K5, S2  | Conv, 224, 224, K5, S1  | Deconv, 128, 128, K5, S2  | Deconv, 224, 224, K5, S1
+GDN  | GDN  | IGDN  | IGDN
+Conv, 128, 192, K5, S2  | Conv, 224, 192, K5, S1  | Deconv, 128, 3, K5, S2  | Deconv, 224, 256, K5, S1
+
+Table 6. Comparison of encoding speed on one image before and after using the mask generator.
+
+Table 6. Comparison of encoding speed on one image before and after using the mask generator.
+
+Model  | Pre-Process  | Inference  | Mask + Compression  | Total
+--- | --- | --- | --- | ---
+ms  | ms  | ms  | ms
+--- | --- | --- | ---
+Direct using YOLOv5n  | 0.2  | 7.3  | 30.8  | 38.3
+Our Method  | 0.2  | 7.5  | 9.8  | 17.5
+
+
+Dai, C.; Song, T.; Jin, Y.; Ren, Y.; Yang, B.; Song, G. Masked Feature Compression for Object Detection. Mathematics 2024, 12, 1848. https://doi.org/10.3390/math12121848
+
+AMA Style
+
+Dai C, Song T, Jin Y, Ren Y, Yang B, Song G. Masked Feature Compression for Object Detection. Mathematics. 2024; 12(12):1848. https://doi.org/10.3390/math12121848
+
+Chicago/Turabian Style
+
+Dai, Chengjie, Tiantian Song, Yuxuan Jin, Yixiang Ren, Bowei Yang, and Guanghua Song. 2024. "Masked Feature Compression for Object Detection" Mathematics 12, no. 12: 1848. https://doi.org/10.3390/math12121848
+
+APA Style
+
+Dai, C., Song, T., Jin, Y., Ren, Y., Yang, B., & Song, G. (2024). Masked Feature Compression for Object Detection. Mathematics, 12(12), 1848. https://doi.org/10.3390/math12121848
+
+Note that from the first issue of 2016, this journal uses article numbers instead of page numbers. See further details here.--------------------------------------------------------------------------------
+Masked Feature Compression for Object Detection (https://ideas.repec.org/a/gam/jmathe/v12y2024i12p1848-d1414494.html)
+ [wordlim: 200] Published: 2.7 years ago; Crawled: last month; 
+
+# Masked Feature Compression for Object Detection
+
+## Author
+
+Listed:
+
+  * Chengjie Dai
+
+(The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China)
+
+  * Tiantian Song
+
+(The Department of Mathematics, The University of Manchester, Manchester M13 9PL, UK)
+
+  * Yuxuan Jin
+
+(The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China)
+
+  * Yixiang Ren
+
+(The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China)
+
+  * Bowei Yang
+
+(The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China)
+
+  * Guanghua Song
+
+(The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China)
+
+
+## Abstract
+
+Deploying high-accuracy detection models on lightweight edge devices (e.g., drones) is challenging due to hardware constraints. To achieve satisfactory detection results, a common solution is to compress and transmit the images to a cloud server where powerful models can be used. However, the image compression process for transmission may lead to a reduction in detection accuracy. In this paper, we propose a feature compression method tailored for object detection tasks, and it can be easily integrated with existing learned image compression models. In the method, the encoding process consists of two steps. Firstly, we use a feature extractor to obtain the low-level feature, and then use a mask generator to obtain an object mask to select regions containing objects. Secondly, we use a neural network encoder to compress the masked feature. As for decoding, a neural network decoder is used to restore the compressed representation into the feature that can be directly inputted into the object detection model. The experimental results demonstrate that our method surpasses existing compression techniques. Specifically, when compared to one of the leading methods—TCM2023—our approach achieves a 25.3% reduction in compressed file size and a 6.9% increase in mAP0.5.
+
+## Suggested Citation
+
+* Chengjie Dai & Tiantian Song & Yuxuan Jin & Yixiang Ren & Bowei Yang & Guanghua Song, 2024. "Masked Feature Compression for Object Detection," Mathematics, MDPI, vol. 12(12), pages 1-20, June.
+Handle: RePEc:gam:jmathe:v:12:y:2024:i:12:p:1848-:d:1414494
+
+## Download full text from publisher
+
+[Input][Input]File URL: https://www.mdpi.com/2227-7390/12/12/1848/pdf
+Download Restriction: no
+
+* * *
+
+[Input]File URL: https://www.mdpi.com/2227-7390/12/12/1848/
+Download Restriction: no
+
+### Keywords
+
+[Input][Button: image compression]
+
+;
+
+[Input][Button: feature compression]
+
+;
+
+[Input][Button: object detection]
+
+;
+
+[Input][Button: All these keywords]--------------------------------------------------------------------------------
+Masked Feature Compression for Object Detection – DOAJ (https://doaj.org/article/9fc0639650aa4dc98eb96b7096b0732a)
+ [wordlim: 200] Crawled: 5 months ago; 
+
+Mathematics (Jun 2024)
+
+# Masked Feature Compression for Object Detection
+
+  * Chengjie Dai,
+  * Tiantian Song,
+  * Yuxuan Jin,
+  * Yixiang Ren,
+  * Bowei Yang,
+  * Guanghua Song
+
+Affiliations
+
+Chengjie Dai
+    The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+Tiantian Song
+    The Department of Mathematics, The University of Manchester, Manchester M13 9PL, UK
+Yuxuan Jin
+    The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+Yixiang Ren
+    The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+Bowei Yang
+    The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+Guanghua Song
+    The School of Aeronautics and Astronautics, Zhejiang University, Hangzhou 310027, China
+
+DOI
+    https://doi.org/10.3390/math12121848
+Journal volume & issue
+    Vol. 12, no. 12
+p. 1848
+
+## Abstract
+
+Read online
+
+Deploying high-accuracy detection models on lightweight edge devices (e.g., drones) is challenging due to hardware constraints. 

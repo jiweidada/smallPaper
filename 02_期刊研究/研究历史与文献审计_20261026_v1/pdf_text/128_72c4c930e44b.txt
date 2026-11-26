@@ -1,0 +1,99 @@
+A Normalized Gaussian Wasserstein Distance for
+Tiny Object Detection
+Jinwang Wang
+Electronic Information School
+Wuhan University
+jwwangchn@whu.edu.cn
+Chang Xu
+Electronic Information School
+Wuhan University
+xuchangeis@whu.edu.cn
+Wen Yang∗
+Electronic Information School
+Wuhan University
+yangwen@whu.edu.cn
+Lei Yu
+Electronic Information School
+Wuhan University
+ly.wd@whu.edu.cn
+Abstract
+Detecting tiny objects is a very challenging problem since a tiny object only
+contains a few pixels in size. We demonstrate that state-of-the-art detectors do
+not produce satisfactory results on tiny objects due to the lack of appearance
+information. Our key observation is that Intersection over Union (IoU) based
+metrics such as IoU itself and its extensions are very sensitive to the location
+deviation of the tiny objects, and drastically deteriorate the detection performance
+when used in anchor-based detectors. To alleviate this, we propose a new evaluation
+metric using Wasserstein distance for tiny object detection. Speciﬁcally, we ﬁrst
+model the bounding boxes as 2D Gaussian distributions and then propose a new
+metric dubbed Normalized Wasserstein Distance (NWD) to compute the similarity
+between them by their corresponding Gaussian distributions. The proposed NWD
+metric can be easily embedded into the assignment, non-maximum suppression,
+and loss function of any anchor-based detector to replace the commonly used IoU
+metric. We evaluate our metric on a new dataset for tiny object detection (AI-TOD)
+in which the average object size is much smaller than existing object detection
+datasets. Extensive experiments show that, when equipped with NWD metric,
+our approach yields performance that is 6.7 AP points higher than a standard
+ﬁne-tuning baseline, and 6.0 AP points higher than state-of-the-art competitors.
+Codes are available at: https://github.com/jwwangchn/NWD.
+1 Introduction
+Tiny objects are ubiquitous in many real world applications including driving assistance, large-scale
+surveillance, and maritime rescue. Even though object detection has achieved signiﬁcant progress
+due to the development of deep neural networks [21, 15, 27], most of them are devoted to detecting
+objects with normal size. While tiny objects (less than 16× 16 pixels in the AI-TOD dataset [29])
+often exhibit with extremely limited appearance information, which increases difﬁculty in learning
+discriminative features, leading to enormous failure cases when detecting tiny objects [25, 29, 35].
+Recent advances for tiny object detection (TOD) mainly focus on improving the feature discrimina-
+tion [14, 37, 20, 12, 1, 19]. Some efforts have been devoted to normalizing the scale of input images
+to enhance the resolution of small objects and corresponding features [24, 25]. While the Generative
+∗Corresponding author
+Preprint. Under review.
+arXiv:2110.13389v2  [cs.CV]  14 Jun 2022
+
+---PAGE---
+
+(a) Tiny scale object
+ (b) Normal scale object
+Figure 1: The sensitivity analysis of IoU on tiny and normal scale objects. Note that each grid denotes
+a pixel, boxA denotes the ground truth bounding box, boxB,C denote the predicted bounding box
+with 1 pixel and 4 pixels diagonal deviation respectively.
+Adversarial Network (GAN) is proposed to directly generate super-resolved representations for small
+objects [12, 1, 19]. Besides, the Feature Pyramid Network (FPN) is proposed to learn multi-scale
+features to achieve scale-invariant detectors [14, 37, 20]. Indeed, existing approaches have improved
+TOD performance to some extent, but the precision boost is commonly achieved with additional cost.
+In addition to learning discriminative features, the quality of the training sample selection plays
+an important role for anchor-based tiny object detectors [36] where the assignment of positive and
+negative (pos/neg) labels is essential. However, for tiny object, the properties of few pixels will
+increase the difﬁculty of training sample selection. As shown in Fig. 1, we can observe that the
+sensitivity of IoU to objects with different scales is of great variance. Speciﬁcally, for the tiny object
+with 6× 6 pixels, a minor location deviation will lead to notable IoU drop (from 0.53 to 0.06),
+resulting in inaccurate label assignment. However, for the normal object with 36× 36 pixels, the
+IoU changes slightly (from 0.90 to 0.65) with the same location deviation. In addition, Fig. 2 shows
+four IoU-Deviation curves with different object scales, the curve declines faster as the object size
+becomes smaller. It is worth noting that, the sensitivity of IoU results from the particularity that the
+location of bounding box can only change discretely.
+This phenomenon implies that IoU metric is no longer invariant to object scale with discretized
+location deviations and ﬁnally leads to the following two ﬂaws in label assignment. Speciﬁcally, IoU
+thresholds (θp,θn) are used to assign pos/neg training samples in anchor-based detectors, and (0.7,
+0.3) are used in Region Proposal Network (RPN) [7]. Fisrtly, the sensitivity of IoU on tiny object
+makes a minor location deviation ﬂip the anchor label, leading to pos/neg sample features’ similarity
+and the network’s difﬁculty in convergence. Secondly, we ﬁnd that the average number of positive
+samples assigned to each ground-truth (gt) in AI-TOD dataset [29] is less than one using IoU metric
+since the IoU between some gt and any anchor is lower than minimum positive threshold. Therefore,
+there will be insufﬁcient supervision information for training tiny object detectors. Although dynamic
+assignment strategies such as ATSS [36] can adaptively attain IoU thresholds for assigning pos/neg
+labels according to the statistical characteristics of objects, the sensitivity of IoU makes it difﬁcult to
+ﬁnd a good threshold and provide high-qualitypos/neg samples for tiny object detectors.
+Observing that IoU is not a good metric for tiny objects, in this paper, we propose a new metric to
+measure the similarity of bounding boxes by Wasserstein distance to replace standard IoU. Speciﬁcally,
+we ﬁrstly model the bounding boxes as 2-D Gaussian distributions, and then use our proposed
+Normalized Wasserstein Distance (NWD) to measure the similarity of derived Gaussian distributions.
+The major advantage of Wasserstein distance is that it can measure the distribution similarity even if
+there is no overlap or the overlap is negligible. In addition, the NWD is insensitive to objects with
+different scales and thus more suitable for measuring the similarity between tiny objects.
+NWD can be applied to both single-stage and multi-stage anchor-based detectors. Besides, NWD
+can not only replace IoU in label assignment, but also replace IoU in Non-maximum Suppression
+(NMS) and regression loss function. Extensive experiments on a new TOD dataset AI-TOD [ 29]
+demonstrate that our proposed NWD can consistently improve the detection performance for all the
+detectors experimented. The contributions of this paper are summarized as follows.
+2

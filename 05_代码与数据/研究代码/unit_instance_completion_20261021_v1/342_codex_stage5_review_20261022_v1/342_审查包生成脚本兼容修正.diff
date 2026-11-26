@@ -1,0 +1,22 @@
+--- 342_build_review_package.py
++++ 342_build_review_package_v2.py
+@@ -197,7 +197,8 @@
+         '来源链：340有效子集SHA＋339 final300逐位对照＋本轮整文件封存，用户已接受；340历史子集SHA本来不覆盖final300，只有seed1前32条具有历史整文件SHA，不把新封存写成更早的历史证明。证据：'+link(C.S343/'343_result_3b来源预检.json')+'、'+link(C.S343/'343_追加放行与计数口径.json')+'。','',
+         '| development指标 | seed1 | seed2 |','|---|---:|---:|']
+     for title,key in [('G_W>0图','G_W_positive'),('U_W>0图','U_W_positive'),('U_W总GT','U_W_total'),('|U_W|>4图','U_W_gt4_images'),('溢出GT','overflow_GT'),('旧跨类owner','old_cross_class_owners'),('其中owner在G_W','old_cross_class_owners_in_G_W'),('U_W变化图','U_W_changed_images')]:
+-        lines.append(f'| {title.replace("|","\\|")} | {dev["stats"]["1"][key]} | {dev["stats"]["2"][key]} |')
++        label=title.replace('|',chr(92)+'|')
++        lines.append(f'| {label} | {dev["stats"]["1"][key]} | {dev["stats"]["2"][key]} |')
+     lines+=['','两seed同窗1443/3235='+f'{1443/3235*100:.4f}%'+ '。val的U_W>0为310/548、311/548；|U_W|>4为84/548、101/548，溢出412/507个GT，与development分别报告。Wilson区间沿原始验收，不以统计调整配方。证据：'+link(C.S3/'342_阶段3_result.json')+'、'+link(C.S344/'344_result_6470补全与非M0对账.json')+'。','',
+         '## 3. 参数量、CPU单窗资源、缓存耗时与存储','',
+         '参数量与所列CPU计量已验证；完整逐算子FLOPs未验证。使用当前train344真实头，B=1、RGB128²、CPU FP32、torch两线程、两seed各development#1；每例预热2次＋计时10次＋FLOP计量1次，无优化器或global前向。参数先按训练模型记录，计量临时模型关闭requires_grad，权重/state未变。','',
+@@ -215,7 +216,8 @@
+         '| run | head seed | epochs | batch/drop_last | steps | crop曝光 | LR | 配置 |','|---|---:|---:|---|---:|---:|---|---|']
+     for r in plans:
+         x='常规1e-5→1e-4→1e-5；κ 1e-4→1e-3→1e-4' if r['arm']=='G' else '1e-5→1e-4→1e-5'
+-        lines.append(f'| {r["run_id"]} | {r["head_seed"]} | 6 | 16/False | 1218 | 19410 | {x} | {link(C.HERE/f"342_预定配置_{r[\"arm\"]}_seed{r[\"global_seed\"]}.json")} |')
++        config_path=C.HERE/('342_预定配置_{}_seed{}.json'.format(r['arm'],r['global_seed']))
++        lines.append(f'| {r["run_id"]} | {r["head_seed"]} | 6 | 16/False | 1218 | 19410 | {x} | {link(config_path)} |')
+     lines+=['','共同AdamW：betas(.9,.999)、eps1e-8、wd1e-4，bias/norm无decay；前100步线性warmup后cosine、联合clip1、FP32。G仅class_null整条曲线×10、无decay、只接L_det；其余与317一致。四臂同公共初态、同seed逐轮同shuffle，各自独立优化器/状态；正式shuffle序列及完整run恢复尚未执行。无增强/EMA/ROI warmstart/best选轮/额外轮。',
+         '1218点曲线与配置总表：'+link(C.HERE/'342_预定学习率曲线1218点.json')+'、'+link(C.HERE/'342_八run配置清单.json')+'。配置含实际未训练初态state SHA、raw CP SHA和development/val清单SHA。',
+         '正式run入口未执行：train344保留CPU、<=20步、<=32窗断言且__main__直接退出。当前不能把该文件视为1218步启动程序；真实训练获单独授权后需另存正式入口、绑定数据/初态/每轮shuffle/完整恢复并验收，不能通过删除守卫直接启动。','',

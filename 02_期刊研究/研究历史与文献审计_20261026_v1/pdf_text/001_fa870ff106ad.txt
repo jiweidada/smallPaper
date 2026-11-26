@@ -1,0 +1,177 @@
+CLSC DETR: RELIABLE CANDIDATE RANKING VIA CROSS LAYER GEOMETRIC
+SUPPORT FOR UA V SMALL OBJECT DETECTION
+Junyan Lin
+South China Agricultural University
+Guangzhou, China
+ljygarcia@stu.scau.edu.cn
+ABSTRACT
+Unmanned aerial vehicle (UA V) object detection is critical
+for applications such as target search, where accurate detec-
+tion of small objects in complex aerial scenes remains chal-
+lenging. The limited spatial extent, dense distribution, and
+frequent occlusion of small objects make reliable candidate
+ranking particularly difficult. Existing Detection Transformer
+(DETR) based methods improve ranking by estimating local-
+ization quality from individual queries and incorporating it
+into classification scores. However, a single query often lacks
+sufficient geometric evidence for small objects with weak
+boundary cues, resulting in unreliable quality estimation and
+unstable ranking. To address this limitation, we propose
+Cross Layer Local Support and Consistency Calibration for
+DETR, termed CLSC DETR. Specifically, the Cross Layer
+Local Support module establishes correspondences between
+final layer queries and intermediate layer candidates to ag-
+gregate complementary geometric evidence for more reliable
+localization quality estimation, while the Classification and
+Localization Consistency Calibration module adaptively ad-
+justs classification scores according to localization quality
+and classification reliability to improve candidate ranking.
+Experiments show that CLSC DETR improves AP and AP 75
+over the baseline by 1.5% and 2.0% on VisDrone, respec-
+tively, while achieving consistent improvements on UA VDT.
+Index Terms—unmanned aerial vehicles, small object
+detection, Detection Transformer, localization quality
+1. INTRODUCTION
+Recent advances in visual representation learning have driven
+progress across a broad range of vision tasks, including struc-
+tured human generation and customizable virtual dressing [1,
+2]. In aerial perception, unmanned aerial vehicles (UA Vs)
+have been widely adopted owing to their flexible deployment
+and wide area observation capabilities, where reliable small
+object detection is essential for extracting critical target in-
+formation [3]. However, objects in UA V imagery are often
+small, densely distributed, and heavily occluded, providing
+…
+…
+L
+… …
+Proposal Boxes
+…
+Proposal Quality
+IoU
+Top-K, Mean
+Qgeo
+…
+Fig. 1. Structure of the Cross-Layer Local Support Module.
+⊗is the multiplication.
+limited appearance and boundary cues for accurate localiza-
+tion. These characteristics not only increase localization dif-
+ficulty but also make candidate ranking unreliable, since clas-
+sification confidence may not faithfully reflect bounding box
+quality. Therefore, reliable localization quality estimation is
+critical for promoting well localized predictions and improv-
+ing UA V small object detection.
+Existing studies have improved Detection Transformer
+(DETR) [4] mainly through architectural design and feature
+representation. DINO enhances query learning through con-
+trastive denoising training and mixed query selection [5],
+while RT-DETR introduces an efficient hybrid encoder to
+balance detection accuracy and inference efficiency [6]. MI-
+DETR further improves feature utilization through a paral-
+lel multi time inquiry mechanism [7]. For UA V imagery,
+UA V-DETR combines frequency enhancement, multiscale
+feature fusion, and semantic calibration to strengthen small
+object representations [8]. HEDS-DETR and EFSI-DETR
+further preserve fine grained information through high fre-
+quency semantics, geometric priors, and frequency spatial
+interaction [9, 10]. Although these methods improve fea-
+ture representation, candidate ranking still depends largely
+on classification scores, which are not necessarily consistent
+with the localization quality of the predicted boxes.
+Another line of research explicitly considers localization
+arXiv:2608.21457v1  [cs.CV]  20 Aug 2026
+
+---PAGE---
+
+Decoder Layer
+CLC-Module
+Encoder Layer
+Encoder Layer
+Multi-Scale 
+Features
+Flatten & Concat
+CLS-Module
+…
+Encoder Layer
+Prediction
+feature token object query
+Encoder Layer
+Encoder LayerEncoder Layer …
+Decoder Layer
+Fig. 2. Overview of theCLSC-DETR. CLS-Module represents the Cross-Layer Local Support Module; CLC-Module denotes
+the Classification-Localization Consistency Calibration Module.
+quality and classification localization consistency. IoU-Net
+predicts IoU as an estimate of bounding box localization qual-
+ity [11], while Cascade-DETR predicts the expected IoU as-
+sociated with each query and uses it to calibrate classifica-
+tion scores [12]. Cal-DETR improves confidence calibration
+through uncertainty guided logit modulation and logit mix-
+ing [13]. Rank-DETR introduces ranking oriented architec-
+tural designs, objectives, and matching costs to promote high
+quality predictions [14], whereas Align-DETR improves clas-
+sification localization consistency through task alignment and
+cross layer query alignment [15]. Despite these advances,
+localization quality is still estimated primarily from the rep-
+resentation of each individual candidate. For small objects,
+however, a single query contains limited and potentially noisy
+geometric information due to weak boundaries and insuffi-
+cient spatial support. As a result, its localization quality esti-
+mate can fluctuate substantially, causing poorly localized pre-
+dictions to receive high ranking scores while suppressing bet-
+ter localized candidates.
+To address this limitation, we propose CLSC-DETR,
+a Cross Layer Local Support and Consistency Calibration
+framework for UA V small object detection. The key idea
+is to exploit complementary geometric evidence across net-
+work layers rather than relying solely on an individual query.
+Specifically, the Cross Layer Local Support Quality Estima-
+tion module establishes correspondences between final layer
+queries and intermediate layer candidates, and integrates
+their spatial overlap and localization quality to obtain more
+reliable geometric support. Based on the refined quality esti-
+mate, the Classification Localization Consistency Calibration
+module further adjusts the contribution of localization quality
+according to classification reliability, preventing uncertain
+geometric estimates from excessively suppressing semanti-
+cally reliable candidates. Together, the two modules improve
+localization quality estimation and classification localization
+consistency, leading to more reliable candidate ranking. Our
+main contributions are summarized as follows:
+•We propose a Cross Layer Local Support Quality Es-
+timation module that aggregates complementary geo-
+metric evidence from intermediate candidates to im-
+prove localization quality estimation for small objects.
+•We develop a Classification Localization Consistency
+Calibration module that adaptively balances classifica-
+tion confidence and localization quality according to
+classification reliability, enabling more reliable candi-
+date ranking.
+•Extensive experiments on VisDrone and UA VDT demon-
+strate the effectiveness of CLSC DETR. Compared
+with the baseline, our method improves AP and AP 75
+by 1.5% and 2.0% on VisDrone, and by 3.0% and 3.8%
+on UA VDT, respectively.
+2. PROPOSED METHOD
+Overview.As shown in Fig. 2, CLSC-DETR extends MI-
+DETR [7] with Cross-Layer Local Support Quality Estima-
+tion and Classification–Localization Consistency Calibration.
+The former leverages cross-layer support to improve the ro-
+bustness of small-object query quality estimation, while the
+latter aligns classification scores with localization quality to
+enable more reliable candidate ranking.
+2.1. Cross-Layer Local Support Quality Estimation
+In small-object scenarios, localization quality estimation
+based on individual queries is susceptible to feature noise.
+To obtain more stable estimates, we propose the Cross-Layer
+Local Support Quality Estimation module (CLS-Module),
+which enhances final-layer queries by aggregating geometric
+evidence from corresponding candidates across encoder lay-
+ers. As shown in Fig. 1, a shared prediction head is applied
+to the intermediate encoder layersMand the final layerL
+to ensure consistent predictions across layers. For each final-
+layer candidatei, we search a local neighborhood of radiusρ
+around its corresponding position in each intermediate layer
+and collect the candidates into an auxiliary setΩ i. For each
+auxiliary candidate(ℓ, j)∈Ω i, whereℓ∈ Mdenotes the
+intermediate encoder layer index andjdenotes the candi-
+date box index within that layer, its geometric evidence for

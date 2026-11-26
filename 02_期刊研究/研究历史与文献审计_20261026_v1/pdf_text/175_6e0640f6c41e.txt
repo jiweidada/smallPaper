@@ -1,0 +1,180 @@
+FlowDet: Unifying Object Detection and Generative Transport Flows
+Enis Baty
+CVSSP, University of Surrey
+e.baty@surrey.ac.uk
+C. P. Bridges
+SSC, University of Surrey
+c.p.bridges@surrey.ac.uk
+Simon Hadfield
+CVSSP, University of Surrey
+s.hadfield@surrey.ac.uk
+(a) Non-Generative Detectors
+ (b) DiffusionDet
+ (c) FlowDet
+Figure 1. Object detection paradigms: (a) Traditional detectors are limited at inference time, predicting a single set of boxes without the
+ability to dynamically iterate or transport distant boxes to better predictions. (b) DiffusionDet [ 10] re-framed detection as a denoising
+process, enabling generative transport at inference time, at the cost of complex stochastic paths. (c) FlowDet generalises this generative
+formulation to Conditional Flow Matching, providing shorter, straighter transport paths with greater performance using fewer steps.
+Abstract
+We present FlowDet, the first formulation of object detection
+using modern Conditional Flow Matching techniques. This
+work follows from DiffusionDet, which originally framed
+detection as a generative denoising problem in the bound-
+ing box space via diffusion. We revisit and generalise this
+formulation to a broader class of generative transport prob-
+lems, while maintaining the ability to vary the number of
+boxes and inference steps without re-training. In contrast to
+the curved stochastic transport paths induced by diffusion,
+FlowDet learns simpler and straighter paths resulting in
+faster scaling of detection performance as the number of in-
+ference steps grows. We find that this reformulation enables
+us to outperform diffusion based detection systems (as well
+as non-generative baselines) across a wide range of exper-
+iments, including various precision/recall operating points
+using multiple feature backbones and datasets. In particu-
+lar, when evaluating under recall-constrained settings, we
+can highlight the effects of the generative transport without
+over-compensating with large numbers of proposals. This
+provides gains of up to +3.6% AP and +4.2% APrare over
+DiffusionDet on the COCO and LVIS datasets, respectively.
+1. Introduction
+Modern works cast detection as a set prediction problem
+where a given set of proposals or learnt embeddings are
+refined through multi stage heads to an output set of pre-
+dictions. This enables end-to-end training of the detection
+model [6, 55], in contrast to classical two-stage approaches
+[19, 47], significantly improving detection quality. However,
+at inference time, the performance of these detectors are
+fixed to the representational budget embedded at train time.
+Recently, DiffusionDet [ 10] proposed an entirely new
+framing of the detection problem. By casting detection as
+generative transport from a simple prior, to the data distribu-
+tion of target boxes, compute can be adjusted dynamically
+at test time, which has recently gained significant traction
+in other deep learning domains [ 51, 60]. Taking more re-
+finement steps or drawing more samples can improve task
+performance without retraining, at the cost of compute. This
+also provides flexibility for a given model to be used in
+either limited compute scenarios (edge inference, mobile
+devices) or unrestricted for upmost accuracy [24]. Addition-
+ally, the generative transport framing removes the need for
+hand-crafted proposals or separately trained proposal region
+generation. As such, a simple prior distribution to sample
+proposals from can be defined and the model learns the trans-
+formation to a target set of ground truth instances.
+While diffusion has proven to be a strong generative
+framework, many works seek to reduce the computational
+burden at inference time [40, 41, 50, 54]. For example, the
+use of DDIM samplers over the canonical DDPM reduces
+This CVPR Workshop paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+4905
+
+
+---PAGE---
+
+the number of steps by about 10-50× to produce comparable
+output quality at inference time [ 53]. Although significant
+efforts have been made to improve upon diffusion, contem-
+porary literature has shifted to focus on the very formula-
+tion of diffusion to root out transport inefficiency. As such,
+Conditional Flow Matching (CFM) [35] introduces a gener-
+alisation of the diffusion process that further improves the
+compute-accuracy trade off at integration time.
+Conditional Flow Matching is a simulation -free gener-
+ative modelling framework that trains a time -varying ve-
+locity field to move samples from a simple prior to the
+data distribution. While diffusion samplers trace curved,
+schedule-induced trajectories, CFM allows for near -linear
+paths by construction through linear interpolations between
+prior and target samples as input interpolants during training.
+Furthermore, instead of random source–target pairings that
+yield misaligned transport and meandering flows, simple
+data-aligned priors and transport cost-aware path construc-
+tion can improve sample efficiency and accuracy at a fixed
+level of compute. Contrasting diffusion, off-the-shelf Ordi-
+nary Differential Equation (ODE) solvers provide another
+angle for precise accuracy-latency control at inference time
+without schedule tuning.
+This work introduces FlowDet, a CFM-based detector
+generalising the definition of object detection as generative
+transport in bounding box space. During training, we sample
+proposal boxes from a simple normal Gaussian distribution
+and form linear interpolants to ground -truth boxes at ran-
+domly sampled timesteps. These interpolants are then used
+to train the detection head or decoder of our model then to
+predict the constant velocity flow associated with each in-
+terpolant that transports a given bounding box sample from
+the prior distribution to the target (i.e. ground truth) distri-
+bution. At inference time, an arbitrarily sized set of samples
+are drawn from the prior distribution as proposals. These
+prior samples are then integrated through the latent flow
+field embedded within the detection decoder to produce a
+set of clean bounding box and class label predictions for a
+given image as shown in Figure 1.
+By adopting a generative approach, FlowDet becomes
+extremely flexible at inference time. Without re-training or
+fine-tuning, the model can trade-off runtime against preci-
+sion or recall, by adapting the number of inference steps
+and source-boxes respectively. With the same ResNet50 [25]
+backbone we surpass the performance of many strong base-
+lines in detection on the COCO [ 32] dataset. Specifically
+compared to DiffusionDet, we achieve +0.1%AP with identi-
+cal configurations of evaluation boxes and steps and scaling
+further to a +0.4%AP gain with a higher number of steps.
+We summarise our contributions as follows:
+• To the best of our knowledge, this work is the first to
+formally frame detection as a generative transport task
+using Conditional Flow Matching, generalising the box
+denoising formulation proposed by DiffusionDet.
+• We ablate a broad range of possible data driven priors
+and matching mechanisms for coupling sources to targets,
+providing a solid basis for future generative detection ap-
+proaches to build on.
+• We evaluate on standardised benchmarks and backbones,
+demonstrating FlowDet’s inference time flexibility by
+operating at various precision/recall trade-offs without
+model retraining. Specifically we demonstrate trading
+compute for recall and accuracy by varying proposal
+counts and integration steps respectively with a single
+checkpoint, and achieve notably higher transport effi-
+ciency in recall-constrained, few-proposal regimes.
+2. Related Work
+2.1. Object Detection
+Classically, deep object detection approaches formed a
+two-stage process that relied on classifying hand-crafted
+region proposals through Selective Search [ 19, 20, 58] be-
+fore rapidly progressing to Region Proposal Networks [47].
+These two-stage detectors perform well with Region Of In-
+terest (RoI) heads providing strong localisation and robust-
+ness at the cost of greater compute through the two distinct
+proposal and refine stages.
+Single-stage “dense” methods adopted direct prediction
+of boxes from multi-scale feature maps through heuristic an-
+chor grids. These evolved into anchor-free methods treating
+each location as an object centre, achieving simpler, faster
+pipelines with competitive accuracy [14, 34, 38, 46, 56].
+The rise of the transformer architecture [59] has spawned
+many works that treat detection as a set prediction problem
+leading to the development of DETR [6]. Through introduc-
+ing box-to-box interactions, DETR-family models signifi-
+cantly reduce redundancy within the prediction set and ex-
+ploit correlations between related objects. Though initially
+suffering from poor convergence speed and high computa-
+tional requirements, significant efforts improved both the
+architectural limitations, [11, 37, 42, 49, 55, 61, 64, 65] and
+set prediction supervision methods [4, 8, 27, 31, 66].
+However, all prior works that rely on dense prediction de-
+pend on hand-crafted post-processing such as Non-Maximal
+Suppression (NMS). Fixed end-to-end methods are also con-
+strained by rigid training time hyper-parameter choices and
+their behaviour cannot be modulated during deployment.
+Drawing parallels to image generation, DiffusionDet [ 10],
+formulates detection as a denoising diffusion process [ 26]
+that iteratively refines noisy boxes to object proposals. In
+this paper we exploit the same generative formulation for
+dynamic inference. However, we generalise from basic dif-
+fusion denoising to CFM, allowing us to achieve competitive
+results with very few inference steps.
+4906

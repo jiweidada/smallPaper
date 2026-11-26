@@ -1,0 +1,124 @@
+ing from a wide GreedyNMS suppression with the threshold
+ϑ = 0 shows almost a step function, since high scoring true
+positives suppress all touching detections at the cost of also
+suppressing other true positives (low recall). Gradually in-
+creasing ϑ improves the maximum recall but also introduces
+more high scoring false positives, so precision is decreasing.
+This shows nicely the unavoidable trade-off due to having
+a ﬁxed threshold ϑ mentioned in section
+3. The reason for
+the clear trade-off is the diverse occlusion statistics present
+in PETS.
+Tnet performs better than the upper envelope of the
+GreedyNMS, as it essentially recombines output of Gree-
+dyNMS at a range of different thresholds. In comparison
+our Gnet performs slightly better, despite not having access
+to GreedyNMS decisions at all. Compared to the best Gree-
+dyNMS performance, Gnet is able to improve by 4.8 AP .
+Figure
+5 shows performance separated into high and low
+occlusion cases. Again, the Gnet performs slightly better
+than Tnet. Performance in the occlusion range [0, 0.5) looks
+very similar to the performance overall. For the highly oc-
+cluded cases, the performance improvement of Gnet com-
+pared to the best GreedyNMS is bigger with 7.3 AP . This
+shows that the improvement for both Gnet and Tnet is
+mainly due to improvements on highly occluded cases as
+argued in section
+3.
+5.2. COCO: Person detection
+Dataset. The COCO datasets consists of 80k training and
+40k evaluation images. It contains 80 different categories
+in unconstrained environments. We ﬁrst mimic the PETS
+setup and evaluate for persons only, and report multi-class
+results in section
+5.3.
+Since annotations on the COCO test set are not available
+and we want to explicitly show statistics per occlusion level,
+we train our network on the full training set and evaluate us-
+ing two different subsets of the validation set. One subset is
+used to explore architectural choices for our network (mini-
+val, 5k images
+1) and the most promising model is evaluated
+on the rest of the validation set (minitest, 35k images).
+We use the Python implementation of Faster R-CNN
+[21]2 for generating detections. We train a model only on
+the training set, so performance is slightly different than the
+downloadable model, which has been trained on the training
+and minitest sets. We run the detector with default param-
+eters, but lower the detection score threshold and use de-
+tection before the typical non-maximum suppression step.
+There is no further preprocessing.
+Training. We train the Gnet with ADAM for 2 · 106 itera-
+tions, starting with a learning rate of 10−4 and decreasing
+1We use the same as used by Ross Girshick https://github.
+com/rbgirshick/py-faster-rcnn/tree/master/data .
+2https://github.com/rbgirshick/py-faster-rcnn
+100 101
+depth
+34
+35
+36
+37
+38AP @0.50:0.95
+Occlusion range [0.0, 0.5)
+GreedyNMS > 0.5, 0.4
+Gnet
+100 101
+depth
+11
+12
+13
+14
+15
+Occlusion range [0.5, 1.0)
+Figure 6: AP 0.95
+0.5 versus number of blocks ( 2, 4, 8, 16) for
+low and high occlusion respectively on COCO persons
+minival. Average over six runs, error bars show the stan-
+dard deviation.
+All Occlusion
+[0, 0.5)
+Occlusion
+[0.5, 1]
+Method AP0.5 AP0.95
+0.5 AP0.5 AP0.95
+0.5 AP0.5 AP0.95
+0.5
+val
+GreedyNMS>0.5 65.6 35.6 65.2 35.2 35.3 12.1
+Gnet, 8 blocks 67.3 36.9 66.9 36.7 36.7 13.1
+test
+GreedyNMS>0.5 65.0 35.5 61.8 33.8 30.3 11.0
+Gnet, 8 blocks 66.6 36.7 66.8 36.1 33.9 12.4
+Table 1: Comparison between Gnet and GreedyNMS on
+COCO persons minival and minitest. Results for the full
+set and separated into occlusion levels.
+it to 10−5 after 106 iterations. The detection feature di-
+mension is 128, the number of blocks is speciﬁed for each
+experiment.
+Speed. On average we have 67.3 person detection per im-
+age, which the 16 block Gnet can process in 14ms/image on
+a K40m GPU and unoptimised Tensorﬂow code.
+Baselines. We use GreedyNMS as a baseline. To show it
+in its best light we tune the optimal GreedyNMS overlap
+threshold on the test set of each experiment.
+Analysis. Figure
+6 shows AP0.95
+0.5 versus number of blocks
+in Gnet. The optimal GreedyNMS thresholds are 0.5 and
+0.4 for low and high occlusion respectively. Already with
+one block our network performs on par with GreedyNMS,
+with two blocks onwards we see a ∼1 AP point gain. As in
+PETS we see gains both for low and high occlusions. With
+deeper architectures the variance between models for the
+high occlusion case seems to be decreasing, albeit we ex-
+pect to eventually suffer from over-ﬁtting if the architecture
+has too many free parameters.
+We conclude that our architecture is well suited to re-
+place GreedyNMS and is not particularly sensitive to the
+number of blocks used. Table
+1 shows detailed results for
+Gnet with 8 blocks. The results from the validation set
+(minival) transfer well to the test case (minitest), provid-
+4513

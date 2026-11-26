@@ -1,0 +1,19 @@
+本文件记录正式运行前的代码核对，不是实验结果或投稿验收结论。
+
+最小问题是：同一 n 尺度、同一数据、batch 4、seed 0、FP32 和 320 个实际循环 epoch 下，完整组合相对原始基线的验证表现如何。BASE/FULL 两组共同采用原 N4 配方，原始网络与完整网络的整体差异是本次干预。因此结果不应单独归因于 stem、SiLU、某种注意力或聚合路径，也不能表示多种子显著性。
+
+逐项对照冻结源码 engine/solver/det_engine.py、det_solver.py、_solver.py、engine/optim/ema.py、warmup.py、lr_scheduler.py，当前独立驱动 fair_runner.py 保留以下数值行为：
+1. FP32 前向、损失、清梯度、反向、梯度裁剪 0.1、optimizer.step、EMA 更新、随后执行 flatcosine 学习率设置。
+2. 原 LinearWarmup 构造函数会在训练开始前把学习率设为初值的 1/500。原自定义调度随后替代其逐步调度；第一个更新后的 LR 为 0，再按 2,000 步二次预热。lr_gamma=1.0 时预热后没有余弦下降。驱动保留该实际行为，不根据调度器名字改写。
+3. 实际循环 epoch 296 开始前恢复 best_stg1；后续没有刷新全局 AP 最优值时又恢复该 stage-one 状态。恢复包括模型、优化器、EMA 更新计数、warmup 和 last_epoch。实际循环 epoch 和单调更新尝试计数另行记录，不用被恢复的 last_epoch 冒充训练预算。
+4. ModelEMA.decay_fn 捕获构造时的 decay。后续改 self.decay 的赋值原样保留，但不能宣称这些赋值改变了闭包中的 EMA 系数。
+5. 主终点固定为真实循环 epoch 319 的 EMA，在任何回滚之前评估和存档。次终点为 320 行中 AP 最高的一行，平局取最早行，12 项指标全部取该行。
+6. 仍使用原转换标注与 COCO-style bbox 协议，maxDets=[1,10,100]，模型输出 top 300。不能称为官方 VisDrone 评测或独立测试集结果。
+
+共享初始化的语义映射：encoder 和 decoder；backbone.stages 的 downsample；各 HG block.layers 的卷积、归一化和仿射参数。核对两份 hgnetv2 实现可见它们在这些位置承担对应角色，FULL 的激活变化仍属于完整组合的一部分。stem 与 aggregation/gates 不因形状相同而复制。运行预检需严格检查键、形状及共同张量哈希，并保存完整映射。
+
+公平控制与记录的独立驱动改动：显式隔离 sampler/worker RNG；记录首 100 个预检 batch，并在正式训练首 100 batch 再次比对；两组同样省略无关 FLOP profiling、绘图和 TensorBoard 输出；对非有限损失或梯度立即失败并留档；记录每个参数组实际使用的 LR；保存终点/最优 checkpoint、预测和评估数组。未更改冻结网络、损失、变换或评估模块。
+
+网络盘原始数据保留。实际训练读取 /tmp/mpsma_fair_20261103_data 中的副本，7,021 个文件逐个与本地既有数据清单核验 SHA256，包括 6,471 张训练图、548 张验证图和两份标注，没有再次转换图片或标注。运行时依赖来自服务器已有 deim 环境，未新安装包；版本单独记录，不能与先前本地 CPU 重评的环境混用。
+
+尚待运行证据：两组预检通过、实际首 100 batch 相符、两组完整 320 epoch 完成、终点权重与预测/指标哈希匹配。这些证据出现之前不填写新 AP 值，也不宣布已经解决公平比较问题。

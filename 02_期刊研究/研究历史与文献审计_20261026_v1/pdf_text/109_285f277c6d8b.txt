@@ -1,0 +1,71 @@
+Enabling Fully Integer-Only Inference for Lightweight
+Detection Transformers
+Thanh Cong Lea, Michal Szczepanskia, Martyna Porebaa
+aUniversité Paris-Saclay, CEA, List, Palaiseau, F-91120, France
+Abstract
+VisionTransformerdetectorsnowapproachtheaccuracyofCNNsbutremain
+difficult to deploy on NPUs and microcontrollers because key components,
+including deformable attention, feature fusion, and nonlinear activation func-
+tions, arenotnativelycompatiblewithintegerarithmetic. Existingquantized
+detectors either retain operators such as Softmax, GELU, and LayerNorm or
+focus on heavyweight backbones, leaving lightweight detection transformers
+without an end-to-end integer implementation. We address this gap with
+I-LW-DETR, the first fully integer-only lightweight DETR, in which every
+operation in the forward pass, including transformer nonlinearities, is exe-
+cuted in integer arithmetic. I-LW-DETR is built upon three key components:
+a scale-preserving split convolution that assigns independent activation scale
+to each branch of the multi-scale projector; SD-ShiftGELU, a sign-dependent
+GELU approximation that preserves element-wise behavior while avoiding
+the accuracy degradation; and a constrained Shiftmax that maintains stable
+Softmax normalization. Experimental results demonstrate that the proposed
+quantization pipeline consistently produces efficient fully integer-only models
+across different model scales. Across all model scales, the proposed pipeline
+incurs only a moderate accuracy degradation while reducing the model size
+by approximately3.6×and the computational cost by more than one order
+of magnitude. Code will be available at github.com/ltc286648/I-LW-DETR
+Keywords:ViT, Object Detection, DETR, Quantization, Integer.
+Email addresses:Thanh-Cong.LE@cea.fr(Thanh Cong Le),
+michal.szczepanski@cea.fr(Michal Szczepanski),martyna.poreba@cea.fr(Martyna
+Poreba)
+arXiv:2607.24981v1  [cs.CV]  27 Jul 2026
+
+---PAGE---
+
+1. Introduction
+Convolutional object detectors, particularly the YOLO family [1, 2, 3,
+4], remain the dominant choice for real-time vision because of their ex-
+cellent speed-accuracy trade-off. In parallel, transformer-based detectors
+have emerged as an alternative paradigm by formulating object detection
+as an end-to-end set prediction problem. Build upon Vision Transformers
+(ViTs) [5], the DETR family [6] formulates detection as direct set predic-
+tion, eliminating hand-crafted components such as anchor generation and
+non-maximum suppression. Subsequent research further improved deploy-
+ment efficiency, with lightweight variants such as LW-DETR [7] substan-
+tially narrowing the throughput and parameter gap with convolutional detec-
+tors. Despite these advances, key transformer operators including attention,
+multi-scale feature projection and nonlinear activation functions, still rely
+on floating-point arithmetic, limiting efficient deployment on integer-only
+edge accelerators. Consequently, deploying accurate transformer detectors
+on resource-constrained edge hardware remains a major challenge.
+Although quantization is the standard approach for efficient inference, an
+important distinction is often overlooked. Most existing transformer quanti-
+zation methods primarily target linear layers while leaving operations such
+as Softmax, GELU, and LayerNorm in floating-point [8, 9, 10]. In contrast,
+truly integer-only inference requires every operation, including the trans-
+former non-linearities, to be implemented in integer arithmetic. Prior work
+has demonstrated this for transformer encoders in image classification, where
+I-BERT [11] and I-ViT [12] replace floating-point exponentials and divisions
+with shift-based integer approximations. More recently, I-Segmenter [13]
+extended this paradigm to semantic segmentation, becoming the first fully
+integer-only ViT for dense prediction. Achieving fully integer-only inference
+for modern detection transformers is considerably more challenging because
+many architectures rely on deformable attention, multi-scale feature projec-
+tors with heterogeneous activation ranges, and non-linearities whose integer
+approximations degrade sharply under outlier activations. Existing DETR
+quantization methods either rely on partial integer execution [14, 15, 16] or
+achieve fully integer-only inference only on heavyweight detector architec-
+tures [17]. Fully integer-only inference for lightweight deformable DETRs
+therefore remains largely unexplored.
+We address this gap with I-LW-DETR. Rather than applying a generic
+quantization pipeline to an existing detector, we jointly redesign the ar-
+2

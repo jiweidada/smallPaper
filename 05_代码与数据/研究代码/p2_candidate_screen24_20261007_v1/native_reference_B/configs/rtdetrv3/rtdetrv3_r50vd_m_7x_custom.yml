@@ -1,0 +1,61 @@
+__include__: [
+  '../dataset/custom_detection.yml',
+  '../runtime.yml',
+  '../base/dataloader_dfine.yml',
+  '../base/rt_optimizer.yml',
+  '../base/rtdetrv2_r50vd.yml',
+]
+
+print_freq: 20
+output_dir: ./outputs/rtdetrv3_r50vd_m_7x_custom
+
+DEIM:
+  o2m_c: true
+
+PResNet:
+  freeze_at: -1
+  freeze_norm: False
+  pretrained: False
+
+
+HybridEncoder:
+  expansion: 0.5
+
+
+RTDETRTransformerv2:
+  eval_idx: 2 # use 3th decoder layer to eval
+  mgsa_groups: 3
+  mgsa_mask_ratio: 0.1
+  o2m_t: true
+  num_queries_o2m: 450
+  o2m_repeat: 4
+
+
+epoches: 84
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm).*$'
+      lr: 0.00001
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$'
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 81
+  collate_fn:
+    stop_epoch: 81
+  total_batch_size: 4
+
+val_dataloader:
+  total_batch_size: 4

@@ -1,0 +1,42 @@
+292：固定几何oracle质量的残余分配对照（2026-10-21，真实读取前冻结）
+执行脚本293，默认新294目录。先由主控审查并运行synthetic-only；真实缓存仅主控执行。不使用284的共存数调参数/挑窗，不继承任何训练许可。
+
+1. 固定数据与oracle地位
+仍是263的A/B development batch00–07、64曝光、A_density/B_residual原64格窗；不增加halo，不读C_oracle/heldout，不重选。完整GT集合与263/284精确相同。fullP仍是native flatten top300、score>.001、同query可异类，供应条件只看预测中心属于原cell，不能按GT过滤。
+244 NPZ只读原final框、GT、labels，263给P/窗，284给已审的全图Geo0与D0_P；source SHA沿283并追加284的冻结来源。没有模型、像素证据、预测密度、可学对应/空槽。GT oracle m不能作为部署输入，也不能证明自然遗漏处m可学。
+
+2. 固定质量与几何cost
+每窗10类×16×16质量网格，网格点位于等面积格中心；完整GT g在自身类别平面投一单位双线性质量B_g（总和严格1）。位置u=(cx−x0)*16/W−.5、v同理，四权重的索引越界时投到最近边界格并累加；不丢边界质量。相当于中心先投影到可表示格中心矩形，不能声称保留边界外的一阶矩。m_ci=Σ_{g:class=c} B_gi。它是每格mass，不是density；不额外乘/除格面积。
+每个P_W候选供应1；只与自身预测类别的m连接，其他类相当于禁止边；m=0的位置禁止T>0。同类cost
+ C_ij=max(x1_j−x_i,0,x_i−x2_j)/(x2_j−x1_j)
+     +max(y1_j−y_i,0,y_i−y2_j)/(y2_j−y1_j)。
+不clip原框/调lambda，所有臂同C。非有限/非正面积框只允许null；仍保留供应。epsilon=1、kappa=0、null参考质量1，score仅作记录，不在本试验另加权。不能用这个full低阈值几何oracle替代未来高置信/score加权强对照。
+
+3. 三臂与证明
+I：独立质量参考归一化，T^I_ij=m_i exp(−C_ij)/(exp(−kappa)+Σ_k m_k exp(−C_kj))，z^I_j=exp(−kappa)/同分母。存signed residual m−Σ_j T^I_ij；attention残余r^I=max(0,m−ΣT^I)。I本身可能超过行容量，不冒称可行。
+I_cap（主强对照）：a_i=min(1,m_i/Σ_jT^I_ij)，空行a_i=1；T^cap_ij=a_iT^I_ij；z^cap_j=z^I_j+Σ_i(T^I_ij−T^cap_ij)。此时各列ΣT+z=1、行ΣT≤m、z≥0；r^cap=m−min(m,ΣT^I)=r^I。这是一次行缩放加退null，无迭代，不是新算法。
+J：同参考m的熵运输，最小化
+ Σ_ij C_ijT_ij + Σ_ij T_ij(log(T_ij/m_i)−1)
+ +Σ_j[z_j(log z_j−1)+kappa z_j]，
+ s.t. T,z≥0，Σ_iT_ij+z_j=1，Σ_jT_ij≤m_i。
+没有m的普通熵运输不是本臂。去掉m=0行后，凸dual为min_{alpha≥0}
+ F(alpha)=Σ_j log(exp(−kappa)+Σ_i m_i exp(−C_ij−alpha_i))+Σ_i m_i alpha_i。
+取T=m exp(−C−alpha)/D，z=exp(−kappa)/D。Scipy L-BFGS-B解析gradient m−ΣT；初值0，bounds[0,+inf)，ftol=1e−15，gtol=1e−10，maxiter4000，maxls60，不按真实数据调参/换solver。
+独立证书检查非负、列和、行容量、投影梯度、互补、由T/z重算的stationarity、primal-dual gap。固定数值容差ABS=2e−8，按相应量1+max(m)或1+|objective|缩放；alpha活跃描述阈值1e−9仅为证书分区，不是效果门槛。solver失败或证书失败属于实现未完成，不能给方法阴性。
+J的点上r≤r^I作为合同：alpha_i>0时KKT令r_i=0；alpha_i=0时所有分母不大于I分母，因此该行T^J≥T^I。这个结论只限制未归一化残余，不禁止归一化相对权重增加。不得由它推召回不能改善。
+
+4. 读数（无新的效果gate）
+每窗存m、三臂行残余、每条件null、dual与证书。raw signed残余单列；注意I的负值不能直接作attention。主attention为跨全部类别/网格的r/Σr，然后求和类别得到空间attention；不加每格eta。如果Σr=0则NA。
+J有限精度下按r=max(0,m−rows)直接读出，不人为把alpha活跃行强设0。另仅为证书将T做一次行容量缩放、退null，得到可行primal上界；不把该修复改变的残余当主读数。设gap_up=max(0,P_feasible−D_dual)+ABS*(1+|P_feasible|+|D_dual|)，所有类相加，N为供应数，e为证书修复的T绝对差之和。由熵KL/Pinsker得到残余L1误差界sqrt(2*N*Σgap_up)+e；这是给定事前FP objective误差预算的保守界，不冒称定向舍入interval证明。解析I/I_cap采用ABS*(1+质量总和+供应数)的浮点预算。若Σr落入相应界，normalized一律NA并标numerically_unresolved；Σr精确0、m0/null-only、无供应分别标明。保存未经处理primal/rawsigned残余、gap、全部修复量；不把1e−10噪声归一化为效应。这是执行前数值读法，不是效果门槛。
+每完整GT固定同一B_g邻域读class raw ΣB_gr_ci、class normalized ΣB_g attention_ci；另给class-agnostic spatial raw/normalized（先求和类别）。同GT的B_g不随臂改变；GT同格可重叠，GT投影和不是独立对象剩余数。
+按primary Geo0(.5)、其几何covered补集、各自actual_input_sub4、secondary D0_P(.5)分别给逐GT值/差、图内均值、图聚合均值与pooled GT均值。比较必须另用双方normalized都非NA的paired差，不能减去有效窗集合不同的单臂均值。没有>.25等任意效用阈值。I/I_cap attention应相等；J vs I_cap报告逐点raw合同、L1 normalized差、lambda=ΣrJ/ΣrI的共同缩放偏差，不能把总量变小单独当帮助生成遗漏。
+共同缩放只作连续偏差报告，不设“过线”。空GT类、无供应类、空窗、全null均保留。两个窗/类别/两seed重叠不合并成检测收益。每seed按图先平均非NA两窗另报，不能把两个同图窗当两个独立图。
+
+5. 合成与输出
+12组合成：空问题；m0纯null；无条件保m；单条件未过容量J=I；单行过容量；多行行容量/KKT；onepass精确等clip；同cost行分裂质量不变；同query异类供应不折叠；边界/角点scatter单位质量；物理等比例缩放cost不变/无效框null；raw点下降但normalized某坐标增加的反例。
+“分格不变”仅指同cost行按比例拆mass后合并，不能据此宣称实际16→32新网格点的cost/离散化不变。目标是验证mass参考与null的尺度口径，不制造solver贡献。
+资源CPU2/interop1/[13,15]/BelowNormal/可用RAM>8GiB，0模型/CP/forward/gradient/update/heldout。新294目录保存来源哈希、合成、逐batch JSON/NPZ、汇总；全部源前后hash。不改284/旧协议。后续若值得查learnability，应面对同预算独立单位＋null＋clip和高置信/score加权条件，仍须另行事前授权，当前没有训练计划获准。
+旧ROI12成熟EMA实验仅既有框修正、正式accepted0；不提供本次新实例生成的正证，本轮也不重复其训练或声称原图crop已有信息增益。
+
+执行环境说明：使用D:/Anaconda/python.exe -s，隔离用户site。首次小synthetic未加-s在导入时遇用户NumPy2.5.3与SciPy二进制不兼容，未进算法/数据；改用原有-s环境NumPy1.26.4后12组合成全通过。未安装/修改任何包。此为启动环境修正，非方法/判据修订。
+SciPy固定1.13.1；_lbfgsb_py.py SHA011e8f59fcf9c601c14fa1841bf5797bb4bdc2a37c08a6037bd0bf4a1a53fee0，_lbfgsb.cp312-win_amd64.pyd SHA0eca107a397e2dada7ebb1c67efdfe81341a0c6f2f134ee8b06a887f9176ca21，执行前后核验。

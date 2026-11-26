@@ -1,0 +1,80 @@
+RaysUp: Ultra-light Universal Feature
+Upsampling via Geometry-Aware Ray
+Representation
+Yuchuan Ding∗ , Linfei Li∗ , Lin Zhang† , and Ying Shen
+School of Computer Science and Technology, Tongji University, Shanghai, China
+{2534061,cslinfeili,cslinzhang,yingshen}@tongji.edu.cn
+Abstract.Pre-trained Vision Foundation Models (VFMs) have become
+central to modern computer vision due to their powerful semantic rep-
+resentations and strong generalization ability. However, their patchified
+or pooled outputs are inherently low-resolution, limiting their effective-
+ness in tasks requiring fine-grained, pixel-level reasoning. Existing fea-
+ture upsampling approaches either degrade semantic fidelity or rely on
+VFM-specificretrainingandheavyarchitectures,hinderingefficiencyand
+scalability. To address these challenges, we propose RaysUp, an ultra-
+lightweight, task-agnostic, and VFM-agnostic feature upsampling frame-
+work that reconstructs high-resolution feature maps at arbitrary resolu-
+tions. Unlike conventional 2D interpolation or attention-based schemes,
+RaysUp lifts feature reconstruction into a geometry-aware ray domain.
+Specifically, we introduce a Spatially Decoupled Guidance Encoder for
+direction-aware guidance encoding, an Any-Resolution Cross-Attention
+mechanism for resolution-flexible reconstruction, and a novel Ray Posi-
+tional Encoding (RayPE) that injects implicit 3D geometric priors via
+6D Plücker ray coordinates. Finally, A Geometry-Aware Neighborhood
+Attention module further ensures content-adaptive bilateral aggregation
+while preserving geometric consistency. Extensive experiments across di-
+verse dense prediction tasks demonstrate that RaysUp achieves state-of-
+the-art performance while using only 16% of the parameters of AnyUp
+and delivering approximately 7×faster inference. These results highlight
+a substantially improved accuracy–efficiency trade-off and establish Ray-
+sUp as a practical and scalable solution for universal feature upsampling.
+Code is available at https://github.com/MAP-RaysUp/RaysUp.
+Keywords:Feature upsampling·Deep features·Ray representation
+1 Introduction
+Pre-trained Vision Foundation Models (VFMs), such as the DINO family [7,39,
+47], the CLIP series [9,42,58], the SigLIP series [51,61], PE Spatial [5], and
+MAE [22], have emerged as central components in modern computer vision due
+∗ Equal contributions (Co-first authors).
+† Corresponding author.
+arXiv:2606.22749v1  [cs.CV]  22 Jun 2026
+
+---PAGE---
+
+2 Ding et al.
+RGB
+ BilinearLow Resolution RaysUp (Ours) AnyUp JAFAR LoftUp FeatUp
+(a)
+ (b) (c)
+(d)
+Fig. 1:We propose RaysUp, an (a) ultra-lightweight, (b) task-agnostic, and (c) VFM-
+agnostic upsampling framework, capable of upsampling backbone features to arbitrary
+resolutions while preserving (d) high semantic fidelity and geometric consistency.
+totheirlarge-scalepretrainingondiversedatasets,whichendowsthemwithhigh-
+level semanticrepresentationsandstronggeneralization capability.Thesemodels
+are capable of extracting transferable and task-agnostic visual features, making
+them highly suitable as either frozen or fine-tuned backbone networks. Conse-
+quently, they have been extensively adopted across a wide range of downstream
+applications, including depth estimation [8,32,59,60], open-vocabulary semantic
+segmentation [3,24,45,56], 3D semantic field reconstruction [25,26,30,41], and
+the evaluation of generative models [1,57].
+However, due to patchification or aggressive pooling operations in VFMs,
+their output features often have low spatial resolution, limiting their applica-
+bility in tasks that require fine-grained, pixel-level understanding. Traditional
+upsampling methods [16,37], such as bilinear interpolation, are computation-
+ally efficient but often result in the loss of semantic information. More recently,
+learned upsampling methods, such as LiFT [50], FeatUp [20], LoftUp [23], and
+JAFAR [11], have demonstrated task-agnostic generalization. However, they re-
+quire retraining for different VFMs or additional optimization at inference time,
+which restricts their broader applicability. A more recent approach, AnyUp [54],
+introduces an encoder-agnostic upsampling framework that generalizes across
+different VFMs, but its reliance on a heavy network architecture makes it diffi-
+cult to balance generalization capability with inference efficiency.
+To address the aforementioned challenges, we propose RaysUp, an ultra-
+lightweight, task-agnostic, and encoder-agnostic universal feature upsampling
+frameworkthatenablesfeaturemapsextractedfromarbitraryVisionFoundation
+Models to be reconstructed at any target resolution.
+From a methodological perspective, RaysUp builds upon the classical Joint
+Bilateral Upsampling (JBU) [28] paradigm while introducing structural gen-
+eralizations. Specifically, instead of directly employing the raw RGB image as
+guidance, RaysUp adopts a lightweight Spatially Decoupled Guidance Encoder
+to generate guidance features. This encoder captures multi-scale spatial seman-

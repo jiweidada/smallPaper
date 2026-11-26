@@ -1,0 +1,21 @@
+﻿图 5　MSCA-Dilated 双门控
+
+这幅图要表达什么
+说明三条膨胀卷积分支怎样产生空间权重，以及独立的通道权重怎样与空间权重一起作用于原始 F。
+
+可复制的英文绘图标签
+• Input F · 1024 × 20 × 20
+• Context branches · dilation d = 1, 2, 4
+• Per branch: 1 × 1 conv (1024 → 128) → BN → ReLU → grouped 3 × 3 conv (128 → 1024, groups = 128) → BN
+• Concatenate (3072 channels) → 1 × 1 conv (3072 → 1024) → C_ctx
+• Spatial gate A_s = G(C_ctx) · 1024 × 20 × 20
+• Channel gate: GAP(F) → 1 × 1 conv (1024 → 128) → ReLU → 1 × 1 conv (128 → 1024) → sigmoid
+• Channel weights A_c · 1024 × 1 × 1
+• Original feature F (value path)
+• Output Y = F ⊙ A_s ⊙ A_c
+
+重绘时核对
+空间权重来自三路上下文，通道权重来自原始 F 的全局均值，两者一同乘回 F。三路卷积核均为 3 × 3，膨胀率是 1、2、4。
+
+第 44 版英文原图注
+Fig. 5. MSCA-Dilated. The contextual and channel gates both modulate F. The reduction ratio is 8 and the dilation rates are 1, 2 and 4.

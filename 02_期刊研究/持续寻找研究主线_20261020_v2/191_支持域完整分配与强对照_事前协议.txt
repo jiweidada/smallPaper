@@ -1,0 +1,31 @@
+191：固定预算完整所有权分配及强简单控制（执行前冻结）
+
+本轮仅缓存分析，192 由 B 写、root 审后执行。作者不运行、不读取 188 的方法效果、不构建检测模型、不加载 checkpoint、不反传、不训练。默认输出新的 193_C0_support_assignment_exact，禁止覆盖既有目录。182/183/184 的原必要门槛及结论不改。本轮不是 AP、监督有效性、新颖性或训练许可。
+
+一、两个相互独立的总体
+ordinary：固定 127_C0_attention_template_registration/01_cache.pt（SHA f2fb2120ccd670f846a0a70651a3fabbf9bcfb636c94d43d33f8dc34eceac79c）和 160 的真实 own 映射；四图 146/280/418/58 GT，own 146/280/300/58=784 槽，不纳入未匹配的 118 GT。重现 184 的原任意 IoU 最优解与支持上界，并用 IoU 最优 face 内最大支持解决并列解释；184 不被重写。
+true GO：固定 188_C0_true_GO_support_cache/01_cache.pt，SHA 8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9。188 自己的 pred_boxes/logits/ref_points_initial/indices_go 是所有 GO 臂的共同输入。采集信息已由 root 回交：4 forward、0 backward/VJP/update、state/BN/source 不变，GO 槽 172/290/300/70=832，独立 GT 数 146/265/280/58。与 114 不是数值 exact 重放，image1 的 5 个 GO GT 有差异，照实保留；不从 114 或 127 借用 GO refs/owners。读缓存前验证 187 源码 SHA、188 complete、manifest/cache SHA、source_unchanged、state/BN 前后 hash、模式及预算；缓存内 refs 与本次 train native_outputs 全部普通 FDR refs/pre_boxes 逐项一致。
+
+二、约束与目标
+对每图每类，固定原 G0 的 query 集合 Q、每 query 原目标类别、每 GT 多重预算 m_g。每 q 恰好分给一个同类 GT，每 g 恰好接收 m_g 个不同 q；未在 G0 中的 GT/query 不进入。ordinary 的 m_g=1；GO 可 m_g>1。GO 几何所有权不冒充 MAL own 正类槽，ordinary MAL/GT 分母和 GO 几何分母分别报告。
+由真实初始 ref=(cx,cy,w,h)、R=abs(reg_scale)、GT 两角，计算未 clip 的四边 d*：dL=(cx-x1)/(w/R)-R/2，dR=(x2-cx)/(w/R)-R/2，纵轴同理。实际 FP32 native weighting_function 的端点 a,b 构成闭支持。F=all(a<=d*<=b)。有限 softmax 的端点仅按闭包可达，不声称有限 logits 能精确到端点。主域使用 FP32 缓存坐标转 FP64 后上述无 eps 的物理逆式；真实 FP32 bbox2distance 在 clip 前的支持另报，不把其分母 1e-16 当物理解码公式。
+v(q,g)=sum_k[max(a-d*_k,0)+max(d*_k-b,0)]/R，先按规定 FP64 算每边 v，再将这个有限二进制数精确整数化；没有声称消除了前面 FP64 运算舍入。
+G：依次最小化 sum(1-F)、sum(v)、sum(Cfinal)。Cfinal 完全沿当前 native final matcher 的 FP32 focal-class/L1/negative-GIoU 权重 2/5/2，matcher alpha=.25 gamma=2；不是 MAL gamma=1.5。代码直接提取原 matcher 类、仅对缓存调用 matcher，并捕获其给 SciPy 前的实际 cost，不手改运算顺序。相同类别的 class 项在实数公式中为每 q 常量，但 FP32 合成 cost 仍按原值保留，不假称它提供了新的类别自由度。
+强控制 I：max sum(final IoU32)，在其精确最优 face 内 max sum(F)。
+强控制 R：max sum(initial-ref IoU32)，在其精确最优 face 内 max sum(F)。
+强控制 C：min sum(Cfinal)，在其精确最优 face 内 max sum(F)。
+G0：原 ordinary own / 本次原 GO，完整保留。
+各求解臂在上述目标完全相等后再最少改变 G0 owner；再有并列，以固定版本 NetworkX、排序节点/边确定性求解，不声称最后是全局 ID 字典序最优。普通 SciPy -IoU 原控制另存，用于量化 184 的任意并列部分。
+
+三、精确性与见证
+每个有限 float 用 as_integer_ratio() 转为分母 2 的幂的整数，按每级最大分母共同缩放。每行减最小值不改变所有完整分配的排序。该级所有分配的非负整数总值界为 U=sum_q max_g shifted_cost(q,g)。从高至低递推 packed=packed*(U_next+1)+next；上一级差至少 1，所有下级合计不足相应进位，严格保持 lex priority。全部供需、capacity、weight 都是 Python int；不用 epsilon、不用 float SciPy 解大整数、不将 machine-float 总和相等称为 exact tie。
+NetworkX 3.3 network_simplex 解每类整数运输。输出完整 q->g、每级整数分母/分子与范围界、packed cost、最大 bit 长度。另从所选解构造精确整数运输对偶：对每个已分配 q->g，约束 p_h-p_g<=cost(q,h)-cost(q,g)；Bellman-Ford 得到 p 后 u_q=cost(q,g)-p_g。逐边验证 u_q+p_h<=cost(q,h)，并验证 primal cost = sum u + sum_g m_g p_g；无精确证书则实现 failclosed，不能报方法阴性。
+先合成、后缓存内容：测试多级优先级不被巨大下级破坏、2^-80 级别差不被 epsilon 吞掉、同一 GT 接收多 q、固定同类槽/多重预算、非同时接管反例、支持最优 face、完整分配、native 闭支持/非法宽度。小例穷举所有合法完整分配与整数流结果相同。沿用 183 的原生编码审计，复用文件全部 hash 固定且不调用旧 main。
+
+四、数值 scope 与全部输出
+主支持无容差。near=1e-10*max(1,R)，仅报告距端点该带内边；tight/expanded/native32 同预算重新求全部臂（如图完全相同则复用证书），不按结果挑域。如 tight/expanded 导致必要筛查判断改变，标记 precision_review，既不通过也不宣称方法失败。FP32 域另列，不能偷换主域。
+每图/每类/合计输出支持内外、v 精确和/描述值、两个 IoU 精确和、native cost 精确和、改 owner 数、G 对 G0/三控制的实际 owner 差；每 GT 输出 m_g、各臂支持槽数/比例，另列有至少一支持槽及全部槽支持的 GT 数。原零 IoU 配对的支持内外单列，不将零 IoU 等同不可达。ordinary 输出原 184 控制、IoU face、支持最大值之间差量，固定 184 原 gate 另报，不借新 GO 结论改写。
+保存可重算图矩阵、分配与对偶整数见证、代码/依赖/缓存 SHA、源前后 hash、总时间、各 flow 时间/bit 长度、RSS 峰值和剩余 RAM。CPU 2 threads、interop1、affinity [13,15]、BelowNormal、可用 RAM>8GiB、MKL_THREADING_LAYER=SEQUENTIAL；无包安装、模型/梯度/优化器/远端。
+
+五、本次 GO 的唯一必要筛查（不是效果门槛）
+对 G0 和三个强控制分别检查：至少一个图的 G 的 (支持外数,总v) 严格字典序更小，且该图实际 q->GT owner 有变化；四个比较都满足才认为该精确候选未被这些基线完全复制，可继续讨论真正监督验证。相等时仅 native cost 或最后 tie 不算额外作用面。不设幅度、IoU 阈值或两图新门槛；全部支持/IoU/cost 得失照报。优化目标上的 (支持外,v) 优势本身来自优化保证，绝不是有效监督或精度证据。必要筛查不满足，只停止这个精确固定预算完整分配候选，不推断其它 GO 设计/AP 无效。ordinary 单列原 184 gate 和 face 结果，不代替 GO。

@@ -1,0 +1,169 @@
+FSDETR: Frequency-Spatial Feature Enhancement
+for Small Object Detection
+Jianchao Huang, Fengming Zhang, Haibo Zhu and Tao Yan*
+School of Artificial Intelligence and Computer Science, Jiangnan University, Wuxi, China
+{6233112018, 6233110051, 6233152012}@stu.jiangnan.edu.cn, yantao.ustc@gmail.com
+Abstract—Small object detection remains a significant chal-
+lenge due to feature degradation from downsampling, mutual
+occlusion in dense clusters, and complex background interfer-
+ence. To address these issues, this paper proposes FSDETR, a
+frequency–spatial feature enhancement framework built upon
+the RT-DETR baseline. By establishing a collaborative modeling
+mechanism, the method effectively leverages complementary
+structural information. Specifically, a Spatial Hierarchical At-
+tention Block (SHAB) captures both local details and global
+dependencies to strengthen semantic representation. Further-
+more, to mitigate occlusion in dense scenes, the Deformable
+Attention-based Intra-scale Feature Interaction (DA-AIFI) fo-
+cuses on informative regions via dynamic sampling. Finally, the
+Frequency-Spatial Feature Pyramid Network (FSFPN) integrates
+frequency filtering with spatial edge extraction via the Cross-
+domain Frequency-Spatial Block (CFSB) to preserve fine-grained
+details. Experimental results show that with only 14.7M pa-
+rameters, FSDETR achieves 13.9%AP S on VisDrone 2019 and
+48.95%AP tiny
+50 on TinyPerson, showing strong performance on
+small-object benchmarks. The code and models are available at
+https://github.com/YT3DVision/FSDETR.
+Index Terms—Small object detection, Feature pyramid, Fre-
+quency–spatial feature enhancement, RT-DETR
+I. INTRODUCTION
+Small object detection, particularly for targets smaller than
+32×32pixels in UA V imagery, remains a challenging task
+due to structural information loss during deep downsampling,
+mutual occlusion in dense scenes, and interference from
+complex backgrounds. These factors severely weaken the
+discriminative representation of tiny targets and make accurate
+localization more difficult. As shown in Fig. 1, improving
+small-object detection while maintaining model efficiency is
+still a challenging problem in practical applications.
+To address these limitations, this paper proposes FSDETR,
+a frequency-spatial feature enhancement framework built upon
+RT-DETR [1]. As illustrated in Fig. 2, the framework intro-
+duces three targeted improvements. First, the Spatial Hierar-
+chical Attention Block (SHAB) is integrated into the back-
+bone to strengthen long-range structural modeling. Second,
+the Deformable Attention-based Intra-scale Feature Interac-
+tion (DA-AIFI) module is employed to enhance geometric
+alignment for sparse targets. Third, the Frequency-Spatial
+Feature Pyramid Network (FSFPN) and its core unit, the
+Cross-domain Frequency-Spatial Block (CFSB), are designed
+to couple spatial edge extraction with learnable frequency
+filtering, thereby improving fine-grained detail preservation.
+Tao Yan* is the corresponding author.
+10 20 30 40 50 60 70
+Parameters (M)
+6
+7
+8
+9
+10
+11
+12
+13
+14APS (%)
+Comparison on VisDrone2019 (APS)
+RT-DETR-R18 (Baseline)
+RetinaNet
+Faster RCNN-FPN Cascade-RCNN-FPN
+YOLOv8mYOLO10m
+YOLO11m
+YOLO12m
+D-Fine-M
+TPH-YOLOv5
+RT-DETRv2
+FSDETR (Ours)
+Fig. 1:Comparison of different object detection models on Vis-
+Drone2019. FSDETR achieves the highest AP s among models with
+comparable parameter sizes.
+Extensive evaluations on the VisDrone 2019 [2] and
+TinyPerson [3] datasets demonstrate that FSDETR achieves
+13.9%AP S and 48.95%AP tiny
+50 , showing strong performance
+on small-object benchmarks. These results validate the effec-
+tiveness of synergistic frequency-spatial modeling for small
+object detection. The main contributions of this paper are
+summarized as follows:
+•We design FSFPN and CFSB to enhance multi-scale
+aggregation and frequency-spatial feature representation
+for small objects.
+•We integrate SHAB and DA-AIFI to improve structural
+modeling and adaptive feature interaction with limited
+computational overhead.
+•Extensive experiments on the VisDrone 2019 and
+TinyPerson datasets demonstrate that FSDETR achieves
+competitive performance with clear gains on key small-
+object detection metrics.
+II. RELATEDWORK
+Small object detection remains challenging because tiny
+targets usually contain limited discriminative pixels and are
+easily affected by background clutter, occlusion, and resolution
+degradation. Existing studies mainly improve performance
+through two directions. One direction enhances detail preser-
+vation by using multi-scale feature fusion or modified down-
+sampling operations, such as path aggregation strategies and
+SPD-based convolutional designs [4]–[6]. The other direction
+arXiv:2604.14884v1  [cs.CV]  16 Apr 2026
+
+---PAGE---
+
+Fig. 2:The overall architecture of FSDETR. The framework comprises a hierarchical Backbone with SHAB and C2f blocks, followed by
+an Efficient Hybrid Encoder. The encoder employs DA-AIFI for intra-scale interaction and FSFPN with SPDConv and RepC3 blocks for
+cross-scale fusion. Uncertainty-minimal Query Selection initializes object queries for the Decoder & Head. Bottom panels illustrate detailed
+re-parameterized blocks (RepC3 and RepConv).
+introduces task-specific designs for dense or tiny targets to
+improve localization and feature discrimination under complex
+scenes [7], [8]. Although these methods have shown effec-
+tiveness, preserving fine-grained details during deep feature
+abstraction remains a critical difficulty.
+Transformer-based detectors have offered a new paradigm
+for object detection by modeling long-range dependencies and
+reducing hand-crafted components. RT-DETR [1] establishes
+a DETR-style baseline for real-time detection, and subse-
+quent studies such as RT-DETRv2 [9], CCD-DETR [10],
+and FDSI-RTDETR [11] further improve feature interaction
+and representation capability through sparse sampling and
+lightweight designs. Meanwhile, frequency-domain learning
+has shown advantages in capturing patterns and preserving
+high-frequency information. Representative studies such as
+FFC [12] and GFNet [13] show that frequency-based oper-
+ators can complement spatial representations by enhancing
+texture and structural cues. However, most DETR-based and
+frequency-domain methods still mainly rely on spatial-domain
+detection pipelines or are designed for general visual rep-
+resentation learning, and their integration into small object
+detectors remains insufficiently explored. This gap motivates
+the proposed FSDETR, which introduces frequency-spatial
+collaborative modeling into a DETR-based framework.
+III. METHOD
+A. Overall Architecture
+FSDETR follows the end-to-end detection paradigm of RT-
+DETR [1] while introducing targeted improvements in feature
+extraction and fusion for small object detection. As shown
+in Fig. 2, the backbone adopts an improved CSPNet [14]
+with sequential convolutions and C2f modules [15] to produce
+multi-scale features{P 2, P3, P4, P5}. SHAB is inserted into
+deep stages to enhance long-range structural modeling with
+limited overhead.
+The efficient hybrid encoder consists of DA-AIFI and
+FSFPN. DA-AIFI applies deformable attention [16] on high-
+level features to improve spatial alignment by adaptive sparse
+sampling, while FSFPN employs CFSB to enhance high-
+frequency cues such as edges and textures [12]. The enhanced
+features are then fed into the standard query selection module
+and Transformer decoder for prediction [1], [17].
+B. Spatial Hierarchical Attention Block
+To mitigate feature erosion caused by progressive spatial
+downsampling [5] and address the computational redundancy
+in long-range dependency modeling [1], the improved CSPNet
+backbone integrates the Spatial Hierarchical Attention Block
+(SHAB), which is designed by refining the C2f structure [18].
+As illustrated in Fig. 3, SHAB inherits the efficient cross-
+stage partial topology of the C2f module but substitutes its
+conventional bottleneck units with SHSA Blocks. Specifically,
+this design maintains a dual-branch pathway to facilitate
+gradient flow, while the embedded SHSA Blocks (N= 1)
+introduce a targeted self-attention mechanism to enhance deep
+representations with global context.
+The core design of this block is a symmetric channel
+partitioning strategy with a split ratior= 0.5. By applying

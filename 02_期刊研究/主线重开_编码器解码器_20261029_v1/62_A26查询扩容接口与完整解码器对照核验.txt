@@ -1,0 +1,34 @@
+本轮只完成O候选的接口与数值对照核验，仍未确认论文主线。现成作者Dome模型在一份真实图像缓存上已能重放完整三层decoder：真实查询扩容会改变旧查询输出，单向隔离在预设数值容差内保留旧输出。没有读取GT计算任务效应，没有AP结果；这种已知mask性质不是算法创新。
+
+1. 检索策略与检索记录
+优先查验当前工程事实：固定作者源码、现有缓存保存位置、输入投影/TopK、跨查询路径和后处理。新增2条检索式查官方VisDrone DET评价口径，原始请求及返回保存在official_VisDrone_eval_discovery.json。官方README说明忽略区域/others不计入评价，但本轮尚未固定工具包commit或读取完整评价函数，不能声称已复现官方指标。最近论文差异继续沿用A25已披露范围，不凭接口成功排清创新性。
+
+2. 核心文献与当前宿主
+核心矩阵保持82条、候选15个。O宿主为严格装载的作者Dome-S-VisDrone模型，13,240,007参数、1033个state键、3层decoder、4级feature。固定源码2dde3bc1946a3e9fad9abd0612b59fc39bd6b861；权重SHA256=42874302fd97e17c2a23a46a8ec35d2ea4d2ffe479f0d632c1327fafbf910eb7。它与已终止的VSSD新宿主训练分开，未续跑A22。
+
+3. 源码及最近方法对比中的新事实
+原生TransformerDecoder.value_op在当前eval路径对memory不做value projection/scale，只reshape、permute和按四级空间大小拆分；旧A15保存了完整value_0..3，因而可以逆变换恢复输入memory。旧target/reference/query_pos是末层输入，不能直接当作完整三层的初始查询。本轮没有用末层干预替代完整解码器实验。
+原生初始化先计算encoder TopK500，再做PAQI密度筛选。本轮固定TopK500，250从同一池中切片，构成相同候选身份的前缀对照；这是受控查询初始化，不能宣称复现原生PAQI整模型精度。
+原生postprocessor第46行每次把num_top_queries覆盖为raw query数量。所以以后n与m比较必须固定检测输出上限；仅有更多输出框的指标变化不算解码器机制改善。Group DETR/GroupEnsemble/DN等mask先例依然成立，本次接口性质不消除这些先例。
+
+4. 缓存与证据边界
+12份旧缓存逐一匹配A15终止清单SHA256。每份有40,000/10,000/2,500/625个位置、8头×32通道，可恢复FP32[1,53125,256] memory，每份54,400,000字节。12份全部通过逆变换再应用布局操作的逐位相等检查。没有重算图像编码器，也没有新整图forward。
+这个检查针对已归档value，不存在旧uncached memory的独立hash，原路径对应关系仍依赖已核对的源码和旧捕获来源。旧缓存已被多个诊断使用，后续O任务实验只能算探索性；12个文件名前缀也不保证12个独立场景。
+
+5. 候选算法可行性与风险
+O所需的完整三层、固定图像memory、共同候选池和单向隔离已具备可运行接口。仍待证明的是“改变是否造成有害任务结果”，以及不同于已有分组/排序/KV复用的具体增量。隔离可能同时切断有用上下文，保持旧输出也可能保留错误；新增候选还可能增加重复误检。不能根据坐标变化的幅度选择正面解释。
+CPU工程核验不是GPU延时/显存测试，不据此宣称满足端到端实时性能。潜在增量仍须在相同最终候选数下证明任务收益，不能把静态image memory共享、标准单向mask或已知prefix性质称为创新。
+
+6. 本轮实测与最小后续验证
+在执行前固定engineering协议SHA256=49d65138ef66ec7259d3be7b05e42cfd6aa0b13387bfde4126eba05fb94b611d，源脚本SHA256=14f33a519385adf8c61ac0d2b949ee9160f5f7b39d35a3191714388a7ad8e232。只分配3次CPU完整三层decoder重放：BASE250、NATIVE500、ONEWAY500；每组确实经过3层，共9层调用。根model/backbone/encoder/outer forward受禁止钩子保护，无尝试；整图forward0、优化器更新0、CUDA未初始化。
+这是一组新的decoder-only工程实验，使用1份真实图像上下文，不能用“整图计数0”隐藏它。mask只阻止旧250行读取新增250列，其余路径保持一致。固定model state在前后均为82c3ba49d69370a3d0105e47fc0ab5d715a9e7b1ad15feb275b1b497b5b0ccce。
+相对BASE250，NATIVE500旧前缀的cxcywh坐标最大差0.004677533410339355（800输入下约3.742个像素的最大分量变化），分类logit最大差2.0388760566711426。这里不是定位误差，没有与GT比较。ONEWAY500的坐标最大差5.960464477539063e-08、logit最大差1.71661376953125e-05，通过预设1e-6坐标/1e-4logit绝对容差；不是逐位相同。输入hash、全部模型state和源码文件保持原证据范围内一致。
+结果ZIP160366字节，SHA256=6c6820e40d71117c3715f9f574a2847319c9c7d974c48e7b5d1619d1c512f926，15成员。已独立核对冻结源码/协议、6条进入/返回事件、3组原始输出和NumPy差值，未为验证额外调用模型。
+后续可考虑12份旧memory上的四组任务对照：base250、native500、双向组隔离500、单向隔离500。原3份输出符合所有source/state/query hash时可复用，候选新增45次完整decoder重放；目前它只是DRAFT，任务执行分配仍为0。此cohort有1241个有效GT、263个800尺度area<64 tiny GT。必须先核定忽略区域与输出上限，固定配对指标和门槛；任务判据应检查扩容损失是否被新增候选补偿、同预算AP/APsmall和重复误检，不能仅用被mask结构保证的max-IoU性质。
+架构整图累计调用仍2365，参数更新仍528（526正式、2容量）。新增3次完整decoder组件重放单列，不能与历史72次末层suffix混计；本3次额度已关闭，无后续自动任务，A22仍终止。
+
+7. 可核验来源
+固定作者源码：https://github.com/RicePasteM/Dome-DETR/tree/2dde3bc1946a3e9fad9abd0612b59fc39bd6b861
+官方DET评价文档：https://github.com/VisDrone/VisDrone2018-DET-toolkit
+既有最近工作：Group DETR（ICCV2023）https://doi.org/10.1109/ICCV51070.2023.00610 ；GroupEnsemble（arXivv1）https://arxiv.org/abs/2603.01847v1 。本轮没有新增全文阅读或作者代码复现声明。
+本轮原始工程输出、完整调用事件与独立核验见A26目录及63回执。目标保持ACTIVE，O任务效应和创新性均未验证，N仍保留未验证假设。

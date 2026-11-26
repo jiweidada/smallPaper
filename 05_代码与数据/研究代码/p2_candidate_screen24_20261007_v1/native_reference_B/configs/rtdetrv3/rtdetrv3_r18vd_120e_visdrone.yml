@@ -1,0 +1,53 @@
+__include__: [
+  '../dataset/visdrone_detection.yml',
+  '../runtime.yml',
+  '../base/dataloader_dfine.yml',
+  '../base/rt_optimizer.yml',
+  '../base/rtdetrv2_r50vd.yml',
+]
+
+print_freq: 2000
+output_dir: ./outputs/rtdetrv3_r18vd_120e_visdrone
+
+DEIM:
+  o2m_c: True
+
+PResNet:
+  depth: 18
+  freeze_at: -1
+  freeze_norm: False
+  pretrained: True
+
+HybridEncoder:
+  in_channels: [128, 256, 512]
+  hidden_dim: 256
+  expansion: 0.5
+
+RTDETRTransformerv2:
+  num_layers: 3
+  mgsa_groups: 3
+  mgsa_mask_ratio: 0.1
+  o2m_t: True
+  num_queries_o2m: 450
+  o2m_repeat: 4
+
+
+epoches: 120
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*(?:norm|bn)).*$'
+      weight_decay: 0.
+
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 117
+  total_batch_size: 4
+
+val_dataloader:
+  total_batch_size: 4

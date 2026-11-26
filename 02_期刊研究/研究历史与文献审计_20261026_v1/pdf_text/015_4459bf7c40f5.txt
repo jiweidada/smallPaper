@@ -1,0 +1,97 @@
+Published as a conference paper at ICLR 2025
+D-FINE: R EDEFINE REGRESSION TASK IN DETR S AS
+FINE -GRAINED DISTRIBUTION REFINEMENT
+Yansong Peng1, Hebei Li1, Peixi Wu1, Yueyi Zhang1∗, Xiaoyan Sun1, 2∗, Feng Wu1, 2
+1University of Science and Technology of China
+2Institute of Artificial Intelligence, Hefei Comprehensive National Science Center
+{pengyansong, lihebei, wupeixi }@mail.ustc.edu.cn
+{zhyuey, sunxiaoyan, fengwu }@ustc.edu.cn
+Figure 1: Comparisons with other detectors in terms of latency (left), model size (mid), and compu-
+tational cost (right). We measure end-to-end latency using TensorRT FP16 on an NVIDIA T4 GPU.
+ABSTRACT
+We introduce D-FINE, a powerful real-time object detector that achieves out-
+standing localization precision by redefining the bounding box regression task in
+DETR models. D-FINE comprises two key components: Fine-grained Distri-
+bution Refinement (FDR) and Global Optimal Localization Self-Distillation
+(GO-LSD). FDR transforms the regression process from predicting fixed coor-
+dinates to iteratively refining probability distributions, providing a fine-grained
+intermediate representation that significantly enhances localization accuracy. GO-
+LSD is a bidirectional optimization strategy that transfers localization knowledge
+from refined distributions to shallower layers through self-distillation, while also
+simplifying the residual prediction tasks for deeper layers. Additionally, D-FINE
+incorporates lightweight optimizations in computationally intensive modules and
+operations, achieving a better balance between speed and accuracy. Specifically,
+D-FINE-L / X achieves 54.0% / 55.8% AP on the COCO dataset at 124 / 78 FPS
+on an NVIDIA T4 GPU. When pretrained on Objects365, D-FINE-L / X attains
+57.1% / 59.3% AP, surpassing all existing real-time detectors. Furthermore, our
+method significantly enhances the performance of a wide range of DETR models
+by up to 5.3% AP with negligible extra parameters and training costs. Our code
+and models: https://github.com/Peterande/D-FINE.
+1 I NTRODUCTION
+The demand for real-time object detection has been increasing across various applications (Arani
+et al., 2022). Among the most influential real-time detectors are the YOLO series (Redmon et al.,
+2016a; Wang et al., 2023a;b; Glenn., 2023; Wang & Liao, 2024; Wang et al., 2024a; Glenn., 2024),
+widely recognized for their efficiency and robust community ecosystem. As a strong competitor, the
+Detection Transformer (DETR) (Carion et al., 2020; Zhu et al., 2020; Liu et al., 2021; Li et al., 2022;
+Zhang et al., 2022) offers distinct advantages due to its transformer-based architecture, which allows
+∗Corresponding authors
+1
+
+---PAGE---
+
+Published as a conference paper at ICLR 2025
+for global context modeling and direct set prediction without reliance on Non-Maximum Suppres-
+sion (NMS) and anchor boxes. However, they are often hindered by high latency and computational
+demands (Zhu et al., 2020; Liu et al., 2021; Li et al., 2022; Zhang et al., 2022). RT-DETR (Zhao
+et al., 2024) addresses these limitations by developing a real-time variant, offering an end-to-end
+alternative to YOLO detectors. Moreover, LW-DETR (Chen et al., 2024) has shown that DETR can
+achieve higher performance ceilings than YOLO, especially when trained on large-scale datasets
+like Objects365 (Shao et al., 2019).
+Despite the substantial progress made in real-time object detection, there remain potential aspects
+for improvement in detector performance. One key aspect is the formulation of bounding box re-
+gression. Most detectors predict bounding boxes by regressing fixed coordinates, treating edges
+as precise values modeled by Dirac delta distributions (Liu et al., 2016; Ren et al., 2015; Tian
+et al., 2019; Lyu et al., 2022). While this approach has shown significant success in maintaining
+efficiency, using fixed coordinates inherently comes with limitations in modeling localization uncer-
+tainty. Consequently, models are constrained to use L1 loss and IoU loss, which provide insufficient
+guidance for adjusting each edge independently (Girshick, 2015). This makes the optimization pro-
+cess sensitive to small coordinate changes, potentially leading to slow convergence and suboptimal
+performance. Although methods like GFocal (Li et al., 2020; 2021) address uncertainty through
+probability distributions, they remain limited by anchor dependency, coarse localization, and lack of
+iterative refinement. Another aspect lies in maximizing the efficiency of real-time detectors, which
+are constrained by limited computation and parameter budgets to maintain speed. Knowledge distil-
+lation (KD) is a promising solution, transferring knowledge from larger teachers to smaller students
+to improve performance without increasing costs (Hinton et al., 2015). However, traditional KD
+methods like Logit Mimicking and Feature Imitation have proven inefficient for detection tasks and
+can even cause performance drops in state-of-the-art models (Zheng et al., 2022). In contrast, local-
+ization distillation (LD) has shown better results for detection. Nevertheless, integrating LD remains
+challenging due to its substantial training overhead and incompatibility with anchor-free detectors.
+To address these issues, we proposeD-FINE, a novel real-time object detector that redefines bound-
+ing box regression and introduces an effective self-distillation strategy. Our approach tackles the
+problems of difficult optimization in fixed-coordinate regression, the inability to model localiza-
+tion uncertainty, and the need for effective distillation with less training cost. We introduce Fine-
+grained Distribution Refinement (FDR) to transform bounding box regression from predicting
+fixed coordinates to modeling probability distributions, providing a more fine-grained intermediate
+representation. FDR refines these distributions iteratively in a residual manner, allowing for progres-
+sively finer adjustments and improving localization precision. Recognizing that deeper layers pro-
+duce more accurate predictions by capturing richer localization information within their probability
+distributions, we introduce Global Optimal Localization Self-Distillation (GO-LSD) . GO-LSD
+transfers localization knowledge from deeper layers to shallower ones with negligible extra training
+cost. By aligning shallower layers’ predictions with refined outputs from later layers, the model
+learns to produce better early adjustments, accelerating convergence and improving overall perfor-
+mance. Furthermore, we streamline computationally intensive modules and operations in existing
+real-time DETR architectures (Zhao et al., 2024; Chen et al., 2024), making D-FINE faster and
+more lightweight. While such modifications typically result in performance loss, FDR and GO-LSD
+effectively mitigate this degradation, achieving a better balance between speed and accuracy.
+Experimental results on the COCO dataset (Lin et al., 2014a) demonstrate that D-FINE achieves
+state-of-the-art performance in real-time object detection, surpassing existing models in accuracy
+and efficiency. D-FINE-L and D-FINE-X achieve 54.0% and 55.8% AP, respectively on COCO
+val2017, running at 124 FPS and 78 FPS on an NVIDIA T4 GPU. After pretraining on larger
+datasets like Objects365 (Shao et al., 2019), the D-FINE series attains up to 59.3% AP, surpassing
+all existing real-time detectors, showcasing both scalability and robustness. Moreover, our method
+enhances a variety of DETR models by up to 5.3% AP with negligible extra parameters and training
+costs, demonstrating its flexibility and generalizability. In conclusion, D-FINE pushes the perfor-
+mance boundaries of real-time detectors. By addressing key challenges in bounding box regression
+and distillation efficiency through FDR and GO-LSD, we offer a meaningful step forward in object
+detection, inspiring further exploration in the field.
+2

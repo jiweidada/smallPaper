@@ -1,0 +1,174 @@
+Vision Transformer with Deformable Attention
+Zhuofan Xia1* Xuran Pan1* Shiji Song1 Li Erran Li2† Gao Huang1,3‡
+1Department of Automation, BNRist, Tsinghua University
+2AWS AI, Amazon 3Beijing Academy of Artificial Intelligence
+Abstract
+Transformers have recently shown superior perfor-
+mances on various vision tasks. The large, sometimes even
+global, receptive field endows Transformer models with
+higher representation power over their CNN counterparts.
+Nevertheless, simply enlarging receptive field also gives
+rise to several concerns. On the one hand, using dense
+attention e.g., in ViT, leads to excessive memory and com-
+putational cost, and features can be influenced by irrele-
+vant parts which are beyond the region of interests. On the
+other hand, the sparse attention adopted in PVT or Swin
+Transformer is data agnostic and may limit the ability to
+model long range relations. To mitigate these issues, we
+propose a novel deformable self-attention module, where
+the positions of key and value pairs in self-attention are
+selected in a data-dependent way. This flexible scheme
+enables the self-attention module to focus on relevant re-
+gions and capture more informative features. On this basis,
+we present Deformable Attention Transformer , a general
+backbone model with deformable attention for both image
+classification and dense prediction tasks. Extensive experi-
+ments show that our models achieve consistently improved
+results on comprehensive benchmarks. Code is available at
+https://github.com/LeapLabTHU/DAT.
+1. Introduction
+Transformer [29] is originally introduced to solve natu-
+ral language processing tasks. It has recently shown great
+potential in the field of computer vision [11,23,31]. The pi-
+oneer work, Vision Transformer [11] (ViT), stacks multiple
+Transformer blocks to process non-overlapping image patch
+(i.e. visual token) sequences, leading to a convolution-
+free model for image classification. Compared to their
+CNN counterparts [17,18], Transformer-based models have
+larger receptive fields and excel at modeling long-range de-
+pendencies, which are proved to achieve superior perfor-
+*Equal contribution.
+†Work done outside of Amazon.
+‡Corresponding author.
+(a) ViT (b) Swin Transformer
+(c) DCN (d) DAT (ours)
+Query Receptive Field Deformed Point
+Figure 1. Comparison of DAT with other Vision Transformer mod-
+els and DCN in CNN model. The red star and the blue star de-
+note the different queries, and masks with solid line boundaries
+denote the regions to which the queries attend. In a data-agnostic
+way: (a) ViT [11] adopts full attention for all queries. (b) Swin
+Transformer [23] uses partitioned window attention. In a data-
+dependent way: (c) DCN [8] learns different deformed points for
+each query. (d) DAT learns shared deformed points for all queries.
+mance in the regime of a large amount of training data and
+model parameters. However, the superfluous attention in vi-
+sual recognition is a double-edged sword, and has multiple
+drawbacks. Specifically, the excessive number of keys to
+attend per query patch yields high computational cost and
+slow convergence, and increases the risk of overfitting.
+In order to avoid excessive attention computation, ex-
+isting works [6, 10, 23, 31, 37, 40] have leveraged carefully
+designed efficient attention patterns to reduce the computa-
+tion complexity. As two representative approaches among
+4794
+
+
+---PAGE---
+
+them, Swin Transformer [23] adopts window-based local
+attention to restrict attention in local windows, while Pyra-
+mid Vision Transformer (PVT) [31] downsamples the key
+and value feature maps to save computation. Though ef-
+fective, the hand-crafted attention patterns are data-agnostic
+and may not be optimal. It is likely that relevant keys/values
+are dropped, while less important ones are still kept.
+Ideally, one would expect that the candidate key/value
+set for a given query is flexible and has the ability to adapt
+to each individual input, such that the issues in hand-crafted
+sparse attention patterns can be alleviated. In fact, in the
+literature of CNNs, learning a deformable receptive field
+for the convolution filters has been shown effective in se-
+lectively attending to more informative regions on a data-
+dependent basis [8]. The most notable work, Deformable
+Convolution Networks [8], has yielded impressive results
+on many challenging vision tasks. This motivates us to ex-
+plore a deformable attention pattern in Vision Transform-
+ers. However, a naive implementation of this idea leads to
+an unreasonably high memory/computation complexity: the
+overhead introduced by the deformable offsets is quadratic
+w.r.t the number of patches. As a consequence, although
+some recent work [7, 39, 44] have investigated the idea of
+deformable mechanism in Transformers , none of them have
+treated it as a basic building block for constructing a pow-
+erful backbone network like the DCN, due to the high com-
+putational cost. Instead, their deformable mechanism is ei-
+ther adopted in the detection head [44], or used as a pre-
+processing layer to sample patches for the subsequent back-
+bone network [7].
+In this paper, we present a simple and efficient de-
+formable self-attention module. Equipped with it we design
+a powerful backbone named Deformable Attention Trans-
+former (DAT) for various vision tasks. Different from DCN
+that learns different offsets for different pixels in the whole
+feature map, we propose to learn a few groups of sampling
+offsets shared by all queries to shift keys and values to im-
+portant regions (as illustrated in Figure 1(d)), based on the
+observation in [3, 42] that global attention usually results
+in the almost same attention patterns for different queries.
+This design both holds a linear space complexity and intro-
+duces a deformable attention pattern to Transformer back-
+bones. Specifically, for each attention module, reference
+points are first generated as uniform grids, which are the
+same across the input data. Then, an offset network takes
+as input all query features and generates the corresponding
+offsets for all reference points. In this way, the candidate
+keys/values are shifted towards important regions, thus aug-
+menting the original self-attention module with higher flex-
+ibility and efficiency to capture more informative features.
+To summarize, our contributions are as follows: we pro-
+pose the first deformable self-attention backbone for visual
+recognition, where the data-dependent attention pattern en-
+dows higher flexibility and efficiency. Extensive experi-
+ments on ImageNet [9], ADE20K [41] and COCO [22]
+demonstrate that our model outperforms competitive base-
+lines including Swin Transformer consistently, by a margin
+of 0.7 on the top-1 accuracy of image classification, 1.2 on
+the mIoU of semantic segmentation, 1.1 on object detection
+for both box AP and mask AP. The advantages on small and
+large objects are more distinct with a margin of 2.1.
+2. Related Work
+Transformer vision backbone. Since the introduction
+of ViT [11], improvements [6, 10, 23, 24, 31, 37, 40] have
+focused on learning multi-scale features for dense predic-
+tion tasks and efficient attention mechanisms. These at-
+tention mechanisms include windowed attention [10, 23],
+global tokens [6, 19, 27], focal attention [37] and dynamic
+token sizes [32]. More recently, convolution-based ap-
+proaches have been introduced into Vision Transformer
+models, among which exist researches focusing on com-
+plementing transformer models with convolution operations
+to introduce additional inductive biases. CvT [34] adopts
+convolution in the tokenization process and utilizes stride
+convolution to reduce the computation complexity of self-
+attention. ViT with convolutional stem [36] proposes to
+add convolutions at the early stage to achieve stabler train-
+ing. CSwin Transformer [10] adopts a convolution-based
+positional encoding technique and shows improvements on
+downstream tasks. Many of these convolution-based tech-
+niques can potentially be applied on top of DAT for further
+performance improvements.
+Deformable CNN and attention. Deformable convolu-
+tion [8, 43] is a powerful mechanism to attend to flexible
+spatial locations conditioned on input data. Recently it has
+been applied to Vision Transformers [7,39,44]. Deformable
+DETR [44] improves the convergence of DETR [4] by se-
+lecting a small number of keys for each query on the top
+of a CNN backbone. Its deformable attention is not suited
+to a visual backbone for feature extraction as the lack of
+keys restricts representation power. Furthermore, the at-
+tention in Deformable DETR comes from simply learned
+linear projections and keys are not shared among query to-
+kens. DPT [7] and PS-ViT [39] builds deformable modules
+to refine visual tokens. Specifically, DPT proposes a de-
+formable patch embedding to refine patches across stages
+and PS-ViT introduces a spatial sampling module before a
+ViT backbone to improve visual tokens. None of them in-
+corporate deformable attention into vision backbones. In
+contrast, our deformable attention takes a powerful and yet
+simple design to learn a set of global keys shared among
+visual tokens, and can be adopted as a general backbone for
+various vision tasks. Our method can also be viewed as a
+spatial adaptive mechanism, which has been proved effec-
+tive in various works [15, 33].
+4795

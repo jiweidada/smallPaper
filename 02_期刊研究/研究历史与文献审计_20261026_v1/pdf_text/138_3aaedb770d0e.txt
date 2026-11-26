@@ -1,0 +1,235 @@
+An Uncertainty-aware DETR Enhancement Framework for Object
+Detection
+Xingshu Chen∗
+chenxsh53@mail2.sysu.edu.cn
+Sun Yat-sen University
+Sicheng Yu∗
+yusch@mail2.sysu.edu.cn
+AI Thrust, HKUST(GZ)
+Chong Cheng
+ccheng735@connect.hkust-gz.edu.cn
+AI Thrust, HKUST(GZ)
+Hao Wang†
+haowang@hkust-gz.edu.cn
+AI Thrust, HKUST(GZ)
+Ting Tian†
+tiant55@mail.sysu.edu.cn
+Sun Yat-sen University
+ABSTRACT
+This paper investigates the problem of object detection with a focus
+on improving both the localization accuracy of bounding boxes
+and explicitly modeling prediction uncertainty. Conventional de-
+tectors rely on deterministic bounding box regression, ignoring
+uncertainty in predictions and limiting model robustness. In this
+paper, we propose an uncertainty-aware enhancement framework
+for DETR-based object detectors. We model bounding boxes as
+multivariate Gaussian distributions and incorporate the Gromov-
+Wasserstein distance into the loss function to better align the pre-
+dicted and ground-truth distributions. Building on this, we derive
+a Bayes Risk formulation to filter high-risk information and im-
+prove detection reliability. We also propose a simple algorithm
+to quantify localization uncertainty via confidence intervals. Ex-
+periments on the COCO benchmark show that our method can
+be effectively integrated into existing DETR variants, enhancing
+their performance. We further extend our framework to leukocyte
+detection tasks, achieving state-of-the-art results on the LISC and
+WBCDD datasets. These results confirm the scalability of our frame-
+work across both general and domain-specific detection tasks. Code
+page: https://github.com/ParadiseforAndaChen/An-Uncertainty-
+aware-DETR-Enhancement-Framework-for-Object-Detection.
+KEYWORDS
+Object Detection, DETR, Uncertainty, Gromov-Wasserstein Dis-
+tance, Leukocyte Detection
+1 INTRODUCTION
+Object detection aims to tackle the problems of bounding box regres-
+sion and object classification for each object of interest. Classical
+convolution-based detectors [25, 29, 31–34], along with recently
+proposed Transformer-based end-to-end detectors [1, 2, 5, 13, 14,
+23, 38, 40], have significantly advanced the performance of object
+detection.
+Despite these advancements, several challenges limit the per-
+formance and reliability of object detection models. One major
+challenge lies in the formulation of bounding box regression .
+In traditional object detection frameworks, bounding boxes are rep-
+resented by fixed coordinates and dimensions [20, 26, 29]. Model
+training typically relies on L1 loss and IoU-based losses (e.g., GIoU
+[27], DIoU and CIoU [ 39]), which measure geometric similarity
+∗ Equal contribution.
+† Corresponding authors.
+Group GTGroup2 GTGroup1 PredGroup2 Pred
+a
+b
+Group1
+Group2
+GIoU1=
+GIoU2=
+0.267
+GWD1=0.195
+GWD2=0.108
+CIoU1=
+CIoU2=
+-
+0.835
+GWD1=
+0.294
+GWD2=
+0.161
+𝒄𝒙	#	~	𝑵(𝒄𝒙	,𝝈𝒄𝒙#𝟐)	
+𝑐!"𝑐!
+𝑦
+𝒄𝒙#	~	𝜹(𝒙−𝒄𝒙)=
+𝑐!"𝑐!
+𝑦+∞
+Variance=0
+Variance=	𝝈𝒄𝒙#𝟐
+Information
+Gaps
+𝐥𝐢𝐦𝝈𝒄𝒙#𝟐→𝟎𝑵(𝒄𝒙	,𝝈𝒄𝒙#𝟐)
+Proposed
+Traditional
+Figure 1: The left side shows two examples (Ex. a, Ex. b)
+where GIoU and CIoU fail to distinguish completely differ-
+ent ground truth and prediction pairs, while GW distance
+does. On the right, taking center coordinate 𝑐𝑥 as an example,
+traditional methods model bounding boxes as fixed values
+following a Dirac delta distribution, whereas we model them
+as Gaussian distributions with variance.
+based on these fixed representations. However, these geometrically
+approximated objectives cause discontinuous gradients and hinder
+stable convergence, while failing to provide a systematic quantifi-
+cation of uncertainty. Figure 1 provides two examples where GIoU
+and CIoU produce identical values for pairs of completely different
+ground truth and predicted bounding boxes. This suggests that de-
+terministic 2D geometric representations fail to capture sufficient
+information in predictions.
+From a probabilistic perspective, representing bounding boxes
+with fixed coordinates is equivalent to modeling predictions as
+Dirac delta distributions, the limiting case of Gaussian distributions
+when variance approaches zero. This formulation does not account
+for prediction uncertainty. While some prior works [4, 24, 35, 37]
+have modeled bounding boxes as Gaussian distributions, their fixed
+variance still fails to capture the uncertainty in predictions. A new
+approach to model bounding boxes is essential to overcome these
+limitations and address the performance bottleneck in object detec-
+tion models.
+Another challenge lies in quantifying localization uncer-
+tainty. The confidence score reflects the model’s certainty about ob-
+ject classification. However, there is a lack of a reasonable character-
+ization of overall uncertainty in localization. Some works [11, 16, 17]
+have provided uncertainty in the four directions of the predicted
+arXiv:2507.14855v1  [cs.CV]  20 Jul 2025
+
+---PAGE---
+
+bounding box, but they do not account for the overall uncertainty
+in localization. Unlike classification scores, object detection still
+lacks a measure of the overall reliability of localization.
+Given its end-to-end design and growing influence in modern
+object detection, DETR has emerged as a strong baseline. To ad-
+dress the above issues, we propose a novel uncertainty-aware DETR
+enhancement framework. Specifically, we establish a one-to-one
+correspondence between the ground truth and 2D Gaussian distri-
+butions, and model the predictions as a 4D Gaussian distribution
+with a learnable covariance matrix. This formulation effectively
+captures prediction uncertainty, providing more information for
+model training. To measure the discrepancy between distributions
+across different dimensions, we introduce the Gromov-Wasserstein
+(GW) distance [ 6]. By minimizing the GW distance, we ensure
+that the predicted and ground truth distributions become statisti-
+cally closer, thereby improving prediction accuracy and model’s
+robustness. Furthermore, we provide a theoretical upper bound that
+characterizes the convergence of the Gromov-Wasserstein distance
+to zero.
+Leveraging the statistical properties of these distributions, we
+derive the formulation of Bayes Risk for bounding box regression,
+representing the theoretical lower bound of the regression loss
+achievable by the model. This Bayes Risk is then incorporated
+into DETRs to refine the internal modules. By filtering high-risk
+predictions, the model focuses more on reliable outputs, thereby
+improving performance. Finally, we propose a distribution-based
+algorithm to characterize overall localization uncertainty. The algo-
+rithm constructs prediction confidence intervals to provide a solid
+measure of uncertainty for the predicted boxes.
+To evaluate the generalizability of our framework, we conduct
+experiments in both general and domain-specific settings. On the
+COCO benchmark, our method can be seamlessly integrated into
+various DETR variants, resulting in improved detection perfor-
+mance. To assess its applicability to specialized tasks, we extend
+our framework to leukocyte detection—a classic medical imaging
+task. In this context, providing reliable estimates of prediction un-
+certainty is particularly valuable, as it can assist clinicians in making
+more informed diagnostic decisions, thereby carrying significant
+clinical importance. Experiments on the WBCDD and LISC datasets
+demonstrate that our method outperforms state-of-the-art cell de-
+tection models while offering interpretable uncertainty estimates.
+The contributions of this paper are summarized as follows:
+(1) We propose modeling bounding boxes as multivariate Gauss-
+ian distributions with learnable covariance matrices to cap-
+ture uncertainty, and introduce the Gromov-Wasserstein
+distance for distribution alignment.
+(2) We derive Bayesian risk minimization for DETR-based de-
+tectors and introduce a confidence interval algorithm that
+quantifies localization uncertainty, enabling risk-aware de-
+tection.
+(3) Our method integrates seamlessly into existing DETR vari-
+ants, improving detection performance on COCO benchmark
+and achieving state-of-the-art results on LISC and WBCDD
+datasets for leukocyte detection, demonstrating strong gen-
+eralization across both general and specific domains.
+2 RELATED WORK
+Bounding Box Modeling and Metric. Traditional methods treat
+bounding boxes as fixed coordinates, using IoU-based metrics to
+capture the geometric similarity between predictions and ground
+truth. IoU is the most widely used metric; however, it is only ef-
+fective when bounding boxes have overlap. GIoU [ 27] addresses
+non-overlapping cases by introducing a penalty term based on the
+smallest enclosing box. However, when one bounding box com-
+pletely contains another, GIoU degenerates to IoU. To overcome this
+issue, CIoU and DIoU [39] incorporate additional factors such as
+the overlapping area, central point distance, and aspect ratio, cover-
+ing more scenarios. Building on this, SIoU [7] further accounts for
+the angle between bounding boxes. Despite these extensions, such
+modeling ignores prediction uncertainty, and IoU-based metrics
+still face significant limitations.
+Recent works have modeled bounding boxes as probabilistic
+distributions and introduced distribution-based metrics. Wang et al.
+[35] and Yang et al. [37] represent bounding boxes as 2D Gaussian
+distributions. The former introduced the Normalized Wasserstein
+Distance to alleviate the sensitivity of IoU to location deviations
+in tiny objects, while the latter proposed Gaussian Wasserstein
+Distance to address boundary discontinuity and the square-like
+problem in oriented object detection. However, these works fail
+to capture prediction uncertainty. In our approach, we model the
+ground truth as a 2D Gaussian distribution and the prediction as
+4D Gaussian distribution, where the variance measures prediction
+uncertainty. To compare distributions of different dimensions, we
+introduce the Gromov-Wasserstein distance [6] as a metric.
+Localization Uncertainty. Localization uncertainty in object
+detection refers to the model’s ability to estimate the confidence or
+uncertainty associated with predicted bounding box locations. Lak-
+shminarayanan et al. [15] and Harakeh et al. [9] use Monte Carlo
+dropout within a Bayesian framework to account for prediction
+uncertainty, improving model performance. He et al. [12] estimate
+bounding box uncertainty by minimizing the KL-divergence be-
+tween the Gaussian distribution of the predicted bbox and the
+Dirac delta distribution of the ground truth bbox on Faster R-CNN
+[26]. Lee et al. [16] propose Uncertainty-Aware Detection (UAD),
+equipping FCOS [29] with a localization uncertainty estimator that
+reflects box quality along four directions of the predicted bbox.
+However, Monte Carlo dropout is computationally expensive, and
+these methods only estimate uncertainty in four directions, failing
+to capture the overall localization uncertainty of the entire box. Ad-
+ditionally, they are tailored to CNN-based architectures and cannot
+be directly applied to Transformer-based models like DETR.
+DETR for Object Detection. The pioneering work DETR [2]
+introduced an end-to-end transformer-based framework [30] for 2D
+object detection, inspiring numerous follow-up studies. For exam-
+ple, Deformable DETR [40] tackled scalability issues by adopting de-
+formable attention, enabling efficient processing of high-resolution
+images without sacrificing accuracy. Conditional DETR [22] refined
+query initialization to improve detection accuracy. DINO-DETR
+[38] introduced a query denoising scheme to accelerate conver-
+gence. H-DETR [ 14] proposed a hybrid matching strategy that
+combines one-to-one matching with auxiliary one-to-many match-
+ing to enhance training efficiency. Additionally, Relation-DETR [13]
+2

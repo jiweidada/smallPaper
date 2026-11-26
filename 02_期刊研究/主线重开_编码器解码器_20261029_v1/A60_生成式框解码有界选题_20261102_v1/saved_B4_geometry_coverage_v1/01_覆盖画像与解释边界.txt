@@ -1,0 +1,25 @@
+B4保存预测的几何覆盖画像
+仅使用已保存GT与预测，0新增模型推理/更新/COCO重评。各GT独立选择最佳IoU，可共享同一预测，因此是乐观候选覆盖，不是TP/召回/AP或正式TIDE分析。
+
+all：38602个GT
+same_class_IoU_ge_05: 19267 (49.912%)
+any_class_IoU_ge_05_but_same_class_below_05: 1899 (4.919%)
+any_class_IoU_01_to_05: 10502 (27.206%)
+any_class_IoU_below_01: 6934 (17.963%)
+同类框IoU≥0.75: 11356
+
+small：26444个GT
+same_class_IoU_ge_05: 9978 (37.733%)
+any_class_IoU_ge_05_but_same_class_below_05: 1307 (4.943%)
+any_class_IoU_01_to_05: 9028 (34.140%)
+any_class_IoU_below_01: 6131 (23.185%)
+同类框IoU≥0.75: 4083
+
+very_tiny：5361个GT
+same_class_IoU_ge_05: 637 (11.882%)
+any_class_IoU_ge_05_but_same_class_below_05: 109 (2.033%)
+any_class_IoU_01_to_05: 2194 (40.925%)
+any_class_IoU_below_01: 2421 (45.159%)
+同类框IoU≥0.75: 69
+
+解释边界：低覆盖不区分编码器信息、训练成熟度、定位路径、置信度筛选等原因；类别缺口也不等于模型仅有分类错误。不能直接把实例加权覆盖率与跨类别/IoU平均的AP相减作因果分解。当前统计不能证明几何时刻是漏检原因，也不能替代Q对M/B的固定12轮验证。实验与门槛不变。

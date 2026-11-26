@@ -1,0 +1,43 @@
+4 Senthivel and Vu
+to-query interactions, facilitating information sharing, while cross-attention ag-
+gregates features from the encoded input features. Focus-DETR [51] and Sparse
+DETR [36] introduce changes to the encoder token representations and initialize
+the object queries based on these modified tokens. SAM-DETR [47] incorpo-
+rates a query alignment module between the self-attention and cross-attention
+layers to efficiently integrate information into the queries. To tackle redundancy,
+Salience-DETR [14] employs hierarchical query filtering to mitigate redundancy
+in encoding and selection, whereas DOQ-DETR [39] introduces a redundancy re-
+duction loss to diversify the object queries, alleviating redundancy among them.
+SQR-DETR [3] proposes a selective query recollection strategy that cumula-
+tively collects selected object queries to mitigate the potential impact of over-
+supervision in later stage queries. Similarly, DAC-DETR [15] aims to improve
+training efficacy by introducing a Divide-And-Conquer approach, which sepa-
+rates the cross-attention to avoid competing objectives. Each of these methods
+integrate informations within the object queries, adding supplementary signals.
+In contrast to existing methods that aim to integrate new information into the
+object queries, we propose to not update the object queries independently of
+their content.
+2.3 Routing Model
+Mixture of Experts (MoE) [17] approach introduces a set of learnable expert
+models, where a gating mechanism selectively routes each input to a subset of
+experts. The gating mechanism uses a softmax function to predict, per input, the
+probability of each expert being optimal, computing the output from only the
+top-k highest-probability experts [11]. MOE are extensively used from language
+models [7,8,20,28,31,40,49] notably thanks to their capacities to accelerate
+Transformer [42] based architecture. Although Mixture-of-Experts (MoE) layers
+have accelerated Transformers for visual tasks like classification [16,29,37,44],
+their application to object detection has been limited. [18] introduces a Dataset-
+Aware MoE (DAMEX) layer that specializes experts across datasets while shar-
+inginformation,enablingMoEtrainingonamixtureofobjectdetectiondatasets.
+MOE has also been applied to leverage deep ensembling, as in [32], which pro-
+poses a Mixture-of-Calibrated Experts (MoCAE) approach that performs deep
+ensembling over multiple object detection models to enhance the overall perfor-
+mance. In contrast to introducing and leveraging multiple experts replacing the
+FFN module of a decoder transformer stack, our approach introduces a simple
+routingmodelonlyusedtoselectivelybypassorpassthroughcertaintransformer
+layers for a selected pool of object queries.
+3 Effects of Object Query Variation on DETR Performance
+To explore the significance of each query and assess how varying object query
+numbersaffectDETRperformance,weconductaninitialanalysisusingatrained
+Deformable-DETR model. After reviewing DETR’s architecture, we analyze how
+357

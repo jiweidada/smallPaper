@@ -1,0 +1,557 @@
+=== PDF page 1 ===
+Improving Object Detector Training on Synthetic Data by
+Starting With a Strong Baseline Methodology
+Frank A. Ruis a, Alma M. Liezenga a, Friso G. Heslinga a, Luca Ballan a, Thijs A. Eker a, Richard
+J. M. den Hollander a, Martin C. van Leeuwen a, Judith Dijk a, and Wyke Huizinga a
+aTNO, Oude Waalsdorperweg 63, The Hague, The Netherlands
+ABSTRACT
+Collecting and annotating real-world data for the development of object detection models is a time-consuming
+and expensive process. In the military domain in particular, data collection can also be dangerous or infeasible.
+Training models on synthetic data may provide a solution for cases where access to real-world training data
+is restricted. However, bridging the reality gap between synthetic and real data remains a challenge. Existing
+methods usually build on top of baseline Convolutional Neural Network (CNN) models that have been shown
+to perform well when trained on real data, but have limited ability to perform well when trained on synthetic
+data. For example, some architectures allow for fine-tuning with the expectation of large quantities of training
+data and are prone to overfitting on synthetic data. Related work usually ignores various best practices from
+object detection on real data, e.g. by training on synthetic data from a single environment with relatively
+little variation. In this paper we propose a methodology for improving the performance of a pre-trained object
+detector when training on synthetic data. Our approach focuses on extracting the salient information from
+synthetic data without forgetting useful features learned from pre-training on real images. Based on the state
+of the art, we incorporate data augmentation methods and a Transformer backbone. Besides reaching relatively
+strong performance without any specialized synthetic data transfer methods, we show that our methods improve
+the state of the art on synthetic data trained object detection for the RarePlanes and DGTA-VisDrone datasets,
+and reach near-perfect performance on an in-house vehicle detection dataset.
+Keywords: object detection, synthetic data, transformers
+1. INTRODUCTION
+The development of accurate object detection models remains a challenge, especially when dealing with data
+scarcity. The proliferation of synthetic datasets, driven by advancements in graphics technology and simula-
+tion, has opened new avenues for training object detection models. 1–4 Synthetic data offers the advantage of
+scalability, cost-effectiveness, and control over various environmental factors. However, bridging the reality gap,
+the difference between synthetic or simulated and real(-world) data, remains a significant hurdle. A substantial
+body of research has addressed the domain gap, focusing on domain transfer methods such as domain random-
+ization5–7 or domain adaptation. 8–10 While such approaches have yielded promising results, there has been a
+notable imbalance between the attention given to domain adaptation methods and the integration of founda-
+tional training practices. Many existing works tend to emphasize domain adaptation techniques while neglecting
+well-established best practices derived from training on real data. These practices encompass designing a robust
+augmentation pipeline, optimization and regularization of hyperparameters, tailored to the downstream task,
+and ensuring data diversity. All of these practices have proven instrumental in enhancing the generalization
+capability of object detection models. 11, 12
+Another crucial aspect of object detection model design pertains to the choice of neural network architecture.
+CNNs have become the de facto standard backbone for various computer vision tasks, including object detection
+trained on synthetic data. 13–15 However, over the past years research has shed light on a notable bias exhibited
+Please send further correspondence to Frank Ruis or Alma Liezenga
+Frank A. Ruis: E-mail: frank.ruis@tno.nl, Telephone: +31 (0)6 11 28 04 89
+Alma M. Liezenga: E-mail: alma.liezenga@tno.nl, Telephone: +31 (0)6 27 86 46 08
+arXiv:2405.19822v1  [cs.CV]  30 May 2024
+=== PDF page 2 ===
+by CNNs. Empirical observations and theoretical analyses suggest that CNNs behave akin to high-pass filters,
+emphasizing texture-related features over shape-based features. 16 While these properties can be controlled for
+through e.g. augmentations, 16 without tailored interventions they can significantly impact model generalization.
+In contrast, Transformer architectures exhibit a distinct ‘shape bias’ behavior, akin to a low-pass filter. 17, 18 In
+the context of object detection, the texture bias of CNNs may hinder their ability to generalize effectively when
+trained on synthetic data, as synthetic data often struggles to faithfully capture fine-grained textures present
+in real-world scenes. Conversely, the shape bias inherent to Transformer architectures aligns more closely with
+the shared characteristics of synthetic and real data. Synthetic datasets tend to excel in accurately representing
+geometric shapes and structural layouts. Thus, the use of synthetic datasets as training data for a Transformer
+backbone is a potentially powerful combination.
+This research paper aims to establish a strong baseline approach for training object detection models on
+synthetic data, through exploring the potential of leveraging shape bias in Transformer architectures and inte-
+grating traditional best practices for training object detection models, such as including strong data augmentation
+techniques.
+2. RELA TED WORK
+A scan of the state of the art has been conducted to gain a deeper understanding of methods for object detection,
+and the use of synthetic data and data augmentation for improved model performance.
+2.1 Object detection
+Deep Learning (DL) 19 has been a game-changer for object detection, achieving state-of-the-art results on a
+variety of benchmarks and applications, such as autonomous driving, 20 people counting, 21 search and rescue
+operations,22 and military object detection. 23 DL-based object detectors typically employ CNNs to extract
+features from images. Most of these follow a two-stage 24–27 or a single-stage 28–32 object detection approach,
+adapted to the number of steps needed to solve the task. Attention to multi-scale features is often fundamental,
+and has led to developments from Feature Pyramid Networks (FPN) 33 to more elaborate versions such as
+the BiFPN component of EfficientDet. 34 Recent advances show that the adoption of different architectures
+such as the computer vision adaptation of Transformers 35, 36 may result in improvements to the state-of-the-
+art results. An example is ViT-Yolo, 37 which is a hybrid model combining convolution with the self-attention
+mechanism. DETR 38 also exploits an encoder-decoder structure to achieve end-to-end detection. Lastly, the
+Swin Transformer39 has proven to be a reliable backbone for several computer vision tasks. Due to the distinct
+‘shape bias’ behaviour that Transformers exhibit, 17, 18 Transformer-based methods are arguably more robust
+to occlusion, perturbations and domain shifts compared to CNNs, and are more suitable when it comes to
+giving importance to the object’s shape and geometrical features rather than its texture. 17 This ‘shape bias’ is
+likely caused by Transformers having a very high receptive field early in the network, allowing the formation of
+long-range connections early, while CNNs start with a local receptive field that grows gradually each layer. 40
+2.2 Synthetic data
+Synthetic data has been adopted as a valuable resource to address a lack of large quantities of annotated real-
+world training data, saving time in acquisition and manual annotation. Its use has been shown to improve the
+performance of object detection models in a number of different studies. 1–4 In the context of computer vision,
+synthetic data can be defined as images or videos (i) generated from scratch, for example through computer
+graphics or rendering engines, or generative models like GANs or diffusion models, 41 (ii) modified versions of
+existing real data, for example employing DL-based augmentations 42 or style transfer, 43 or (iii) a combination
+of the two, for example inpainting. 44 Besides saving time on data gathering and annotation, synthetic data can
+also offer the advantage of a large degree of precision and control over the environment through which synthetic
+datasets are built. 2 However, synthetic data also comes with its challenges. Bridging the reality gap, as well as
+building datasets with enough variability to represent all possible target scenarios and characteristics sufficiently,
+can be a challenge in creating and using synthetic data. To avoid performance degradation caused by the reality
+gap, recent literature explores data diversity, 45 coherent in-context placement, 46 coverage in viewpoint and
+scale distributions,47 variation in clutter and occlusions,3 unrealistic48 or structured4 domain randomization,5, 49
+photorealism50, 51 or a combination of the last two. 48
+=== PDF page 3 ===
+2.3 Data augmentation
+One of the most effective ways to improve detection performance is the use of data augmentation techniques
+during training. However, we find that related work often retains the default augmentations provided by their
+framework or baseline model of choice, occasionally supplemented by photometric distortions such as color
+jitter and blurring. Certain object detection frameworks such as YOLOv5 52 are optimized for fine-tuning on
+relatively small amounts of task-specific data, and thus have a strong augmentation pipeline, and are continuously
+updated to follow new state-of-the-art approaches. For the Transformer backbone, we find that most common
+implementations such as those in MMDetection53 and Detectron254 have a default set of augmentations optimized
+for large-scale pretraining, usually limited to random flips and some resizing and cropping. This stands in contrast
+with the recent advances in image augmentation, which have proven that model performance may increasing
+significantly when artificially increasing the size and diversity of a dataset, creating new images from existing
+ones.9 On top of well-known ‘traditional’ augmentations (flipping, cropping, rotating, scaling, blurring), one can
+work on specific color space and intensity transformations, photometric distortions, blending, or use methods
+like AutoAugment, 55 MixUp,56 RandAugment,57 CutMix,58 or GAN-based augmentations. 59 These methods
+have shown to improve performance on object detection tasks. 55–59 This is especially important when used in
+conjunction with a Transformer backbone, 12 as the weaker inductive biases of this backbone cause an increased
+reliance on regularization or augmentation, compared to CNNs. Due to the large search space of possible
+augmentations and their hyperparameters, it is computationally infeasible to do a full sweep over all possible
+permutations. RandAugment 57 is an automatic augmentation optimization scheme that is able to reduce the
+search space while automatically optimizing the applied augmentations with respect to validation accuracy.
+3. METHODOLOGY
+This section highlights the methods used in our experiments in terms of backbone architecture and data aug-
+mentation methods, and elaborates on the selected datasets and their quality.
+3.1 Backbone Architecture
+As highlighted in the Introduction, CNNs behave similar to high-pass filters, emphasizing high-frequency texture-
+related features16 while Transformers behave similar to low-pass filters, exhibiting a distinct bias to detect low-
+frequency shape-based features. 17, 18, 40 This is especially relevant in the domain of synthetic data, where it is
+often much easier to faithfully capture the shape of an object than it is to implement photo-realistic textures
+and lighting. We propose to leverage the aforementioned properties of the Transformer architecture. Thus,
+we employ several pre-trained Transformers and compare their performance when trained on synthetic data and
+evaluated on real data, to the performance of baseline convolutional models. The Swin Transformer39 was selected
+to operationalize the Transformer backbone. This popular backbone is characterized by window-based self-
+attention: it performs local attention within a window. Additionally, Swin reaches similar or better performance
+on object detection tasks compared to other, more computationally expensive, Transformers. 39, 60 The Swin
+Transformer does exhibit a significantly smaller shape bias than a full attention vision Transformer, 61 but that
+is considered to be a reasonable trade-off because the full attention computational costs remain prohibitive
+for the dense prediction tasks. For fair comparison with the baseline convolutional model, the size of the Swin
+Transformer was selected to match the parameter count of the baseline convolutional model as closely as possible.
+3.2 Data
+Data quality is crucial in training Deep Learning models. We find that many synthetic object detection datasets
+are limited in terms of variety in the 3D models used, the quality of their textures, and environmental factors
+such as lighting and backgrounds. Besides variation, we find that label quality is also a common concern. A
+common way to generate object detection labels is to draw a bounding box around every part of the target
+object that is visible from the camera viewpoint. While proper implementation should result in perfect ground
+truth labels, a manual inspection of the data revealed that mistakes were still present in the datasets. For
+example, DGTA-VisDrone14 contains objects that are completely obscured by trees or foliage, presumably due
+to raycasts being used for calculating visibility ignoring those surfaces even though they are opaque. We perform
+experiments on the challenging VisDrone dataset 62 with DGTA-VisDrone14 as a synthetic training counterpart,
+=== PDF page 4 ===
+the synthetic-to-real RarePlanes dataset, 13 and a synthetic and real in-house vehicle detection dataset from
+concurrent work.2 The details of each dataset are listed below.
+3.2.1 VisDrone
+The VisDrone dataset is a large-scale visual object detection and tracking benchmark. 63 The dataset was
+captured using drones over various Chinese urban and suburban areas and consists of 263 videos and 10,209
+images. The dataset was recorded over a variety of scenes across 14 cities in China, across various weather
+and lighting conditions. The dataset also contains a wide variety of viewpoints, including oblique angles and
+overhead viewpoints, from a range of low to high altitudes. 63 The images are annotated using 10 fine-grained
+classes, including vehicles such as cars, vans, or busses, separate classes for pedestrians and drivers/cyclists,
+and fine-grained distinctions between bicycles, tricycles, and awning-tricycles. 63 The dataset has been used in
+multiple challenges for evaluating detector performance on small objects. 62 When trained on real data, the
+challenge has reached a performance of mAP 38-39%, and mAP@50 of 62-65%. 62 As a counterpart to this
+real-world dataset, the synthetic DGTA-VisDrone dataset has been developed. 14 This dataset contains 50,000
+images from drone viewpoints, with a great variety in altitude and angle. The dataset was created using the
+open-source framework DeepGTAV, based on the video game GTAV. The annotations of this dataset are limited
+to 8 out of 10 VisDrone classes, excluding the classes tricycles and awning-tricycles. 14 When training on this
+synthetic dataset, performance has thusfar reached a maximum mAP@50 of 10.2%. 14 Figure 1 shows an image
+from the original VisDrone dataset alongside an example from the DGTA-VisDrone set.
+(a) An example image of the DGTA-Visdrone dataset. 14
+ (b) An example image of the VisDrone dataset. 63
+Figure 1: Example images for the synthetic/train dataset (a) and the real-world/validation dataset (b)
+3.2.2 RarePlanes
+The RarePlanes dataset is a collection of WorldView-3 satellite imagery capturing a wide variety of airplanes
+at 0.3m resolution. 13 The dataset includes both real and synthetic images. The real portion of the dataset
+consists of 253 satellite scenes taken over 112 locations with 14,700 annotations. The synthetic portion of the
+dataset consists of 50,000 synthetic satellite images with 630,000 aircraft annotations from a wide variety of
+locations. AI.Reverie’s simulation platform was used to capture the images at the same 0.3m resolution. 13
+The RarePlanes datasets are annotated with 10 attributes rather than classes, such as the presence of canards,
+the propulsion system, and number of engines. 13 Related work has thus focused on classification by role, 13, 64
+specifically for the subset of civilian airplanes classified by their size (small, medium, or large). We train our
+model on this classification task as well. Previous studies have reached a maximum performance of 75% mAP
+and 93% mAP@50 for this same task when training on real data 64 and 35.9% mAP and 59.1% mAP@50 when
+training solely on synthetic data. 13 Figure 2 shows one image from the real alongside one image of the synthetic
+portion of the RarePlanes dataset.
+=== PDF page 5 ===
+(a) An example image for the RarePlanes dataset, synthetic
+portion.13
+(b) An example image of the RarePlanes dataset, real-world
+portion.13
+Figure 2: Example images for the synthetic/train dataset (a) and the real-world/validation dataset (b).
+3.2.3 V ehicle Detection
+The last dataset we evaluated models on is one developed in-house for concurrent work. 2 The dataset was
+designed through iterative variation of relevant axes, such as the number of images per object class, object-
+camera distance, and object pitch, to reach optimal mAP performance when training a vehicle object detector
+on synthetic data. 2 The resulting dataset contains 1,600 synthetic and 333 real-world images of 4 types of
+vehicles. While the data construction method is relatively crude, consisting of just one 3D model per vehicle
+type superimposed on real photographs of various environments, the careful tuning of relevant simulation axes
+make it a very potent synthetic training set. The original publication managed to reach a performance of mAP
+76.7% and mAP@50 of 95.4% when training on synthetic data and evaluating on real data. 2 Figure 3 shows one
+image from the real alongside one image of the synthetic portion of the vehicle detection dataset.
+(a) An example image of a truck from the vehicles dataset,
+synthetic portion. 2
+(b) An example image of a truck from the vehicles dataset,
+real-world portion. 2
+Figure 3: Example images for the synthetic/train dataset (a) and the real-world/validation dataset (b).
+3.3 Augmentations
+Unless stated otherwise, we will apply data mixing augmentation methods MixUp, 65 Mosaic,31 and large scale
+jittering.66 An example of MixUp and Mosaic is provided in Figure 4. We will show that adopting a strong
+augmentation pipeline can significantly increase performance for the Transformer baseline. However, we show
+through the experiment described in section 4.2 that these improvements are not universal, and that the specific
+set of augmentations should always be carefully adjusted to the task at hand. We use RandAugment in our
+experiments to select a good augmentation policy from a set of photometric distortions: brightness, contrast,
+pixelation, jpeg compression, and gaussian blur.
+=== PDF page 6 ===
+(a) An example of the MixUp augmentation.
+ (b) An example of the Mosaic augmentation.
+Figure 4: Examples of the MixUp and Mosaic data augmentation methods, applied to the DGTA-VisDrone
+dataset.
+4. EXPERIMENTS
+We perform experiments on three pairs of datasets of synthetic and real-world images. The baseline comparison
+models and their performance have been taken from the original publications in the case of DGTA-Visdrone 14
+and RarePlanes, 13 or have been trained specifically for this publication if there was no baseline available, as
+was the case for the vehicle detection dataset. 2 For fair comparison, the Swin Transformer 39 counterpart of the
+convolutional benchmark models were selected to have a roughly equal or lower parameter count. Our results
+are reported using either mAP, mAP@50, or both, based on the availability of comparative metrics in related
+work, as well as how representative these metrics are for the results of the specific experiment. In the following
+subsections we will detail the experimental setup for each individual dataset.
+4.1 VisDrone
+For the VisDrone experiment, the (DGTA-)VisDrone dataset described in subsubsection 3.2.1 was used. We
+compare to the ResNeXt-101 and YOLOv5 models from the original publication as benchmarks.14 The ResNeXt-
+101 had been trained with limited data augmentations, while the YOLOv5-X model has a lower parameter count
+but more elaborate data augmentations. For our experiments we employed a Swin-S Transformer due to its
+similarity in size, with 66.1M parameters. The larger Swin-B would be a closer fit, but we did not find pretrained
+Faster-RCNN models utilizing this backbone. All data augmentations described in section 3.3 were applied to
+our dataset for training. To evaluate whether a potential improvement in performance was caused by the data
+augmentations or the Transformer backbone, we trained a second Swin-S Transformer on the dataset without
+applying data augmentations. Finally, we train a DINO model with Swin-L backbone to see the impact of a
+much larger model on detection performance. We report all our results using mAP@50, due to the unavailability
+of mAP for the original publication.
+4.2 RarePlanes
+For the Rareplanes experiment, the RarePlanes dataset described in subsubsection 3.2.2 was used. We compare
+to the benchmark ResNet-50 model from the original publication, 13 focusing on the object detection based on
+role, excluding military classes in accordance with the original publication. 64 We performed the same object
+detection task with our model, which in essence is a classification based on size (small, medium, large) of civilian
+airplanes. This classification objective, combined with the fact that all imagery is taken at the same resolution
+of 0.3m per pixel and no cloud cover or other occlusions are present. This meant that most of the augmentations
+that were indispensable earlier, such as large scale jittering and MixUp, now harm detection accuracy. Therefore,
+we only used RandAugment in our best training run. We report our results using mAP, as this was the metric
+provided in the original publication.
+=== PDF page 7 ===
+4.3 V ehicle Detection
+For the vehicle detection experiment, the vehicles dataset described in subsubsection 3.2.3 was used. There
+are no existing benchmarks since this is a newly published dataset developed in concurrent work. 2 Therefore,
+we first trained a Transformer model which balanced efficiency in terms of parameter count with performance,
+and selected a convolutional model, ResNet-101, that had a similar parameter count as our final model. We
+additionally used a higher-performance backbone and detector architecture in the form of ResNeXt-101 64x4d
+and Cascade R-CNN to see if more compute may close the gap in model performance. All data augmentations
+were applied to the training data for both models. We report our results using both mAP and mAP@50. Due to
+the nature of our dataset, reporting solely the mAP would provide an inaccurate representation of the results,
+because a low mAP but high mAP@50 is observed to be the result of the exclusion of specific parts sticking out
+of the vehicle, such as an antenna, camera, or sometimes even the entire truck cabin. We do not consider the
+detection of these subparts to be a crucial feature of the object detector, and therefore provide both metrics but
+focus on the mAP@50 in our reporting.
+5. RESUL TS
+This section provides the results of the experiments one by one, followed by a discussion of the results and
+suggestions for future research.
+5.1 VisDrone
+Table 1 shows the results of the VisDrone experiment. The results demonstrate improvements to the benchmark
+performance both through applying the Transformer architecture as well as enhancing augmentations. The
+benchmark ResNeXt-101 in particular had resulted in low performance, potentially caused by the lack of data
+augmentations in the orginal setup. The YOLOv5 benchmark already achieved better results, leveraging strong
+augmentation methods and thus preventing overfitting on synthetic data through domain randomization, to some
+extend.14 However, the Transformer architecture, by leveraging a combination of data augmentation to prevent
+overfitting and leaning into the shape bias to make effective use of the consistency in shape from synthetic to real
+data, achieves significantly higher results with a lower parameter count. Our experiment with a combination of
+Transformer backbone and little data augmentations, demonstrated that proper augmentation remains crucial
+for high detection performance. Lastly, the experiment with the high-capacity DINO architecture and Swin-
+L backbone shows that even with suboptimal synthetic training data the model is able to reach impressive
+performance on the real VisDrone data.
+Backbone Architecture Parameters Data augmentation mAP@50
+ResNeXt-101 64x4d∗ Faster R-CNN 127M low 2.4
+CSP-Darknet53∗ YOLOv5-X 86.7M high 10.2
+Swin-S Faster R-CNN 66.1M low 7.8
+Swin-S Faster R-CNN 66.1M high 16.2
+Swin-L DINO 5-scale 218M high 26.1
+Table 1: The results of the VisDrone experiment, including benchmark results
+∗ results taken from Kiefer et al. 14
+5.2 RarePlanes
+Table 2 shows the results of the RarePlanes experiment. The results demonstrate a slight improvement to the
+baseline when using a Transformer backbone. As previously stated, a limited set of data augmentations was used
+for this experiment, thus we only evaluate the use of the Transformer backbone here. The Transformer backbone
+does show some improvement in mAP, but the performance gain is limited. The shape of an airplane is very
+distinctive, potentially working to the advantage of a Transformer backbone. However, the distinction between
+airplane classes is only based on size and therefore the shape bias does not offer as strong of an advantage here,
+leaving limited room for improvement by the Transformer backbone. Furthermore, even though the task seems
+relatively simple, the detection performance has been observed to be lowered predominantly due to the test
+=== PDF page 8 ===
+dataset being tiled. This has resulted in a large number of planes for which just a small part of the wing or
+fuselage is visible. In such cases it is difficult to judge the actual size of the airplane, even for humans, and the
+coordinates of the bounding box corners are ambiguous due to the remainder of the plane not being visible. In
+addition to this, there is no occlusion or cloud cover in the real and the synthetic dataset, which are two other
+factors under which Transformers would be expected to perform relatively well.
+Backbone Architecture Parameters Data augmentation mAP
+ResNet-50∗ Faster R-CNN 41.4M medium 35.9
+Swin-T Faster R-CNN 45.2M medium 40.8
+Table 2: The results of the RarePlanes experiment, including benchmark results
+∗ results taken from Shermeyer et al. 13
+5.3 V ehicles Detection
+Table 3 shows the results of the experiments with the in-house vehicle detection dataset. In this case, a strong
+improvement is demonstrated over the ResNet and ResNeXt architectures, reaching near-perfect object detection
+performance on the real dataset for a model trained solely with synthetic data. The high performance of the
+Transformer model could be the result of the strong emphasis on shape for classifying vehicles. This method
+focused strongly on shape and the images did not include depth or shadow, making them a particularly good fit
+for the Transfomer backbone and potentially harming their usefulness for a convolutional backbone. Even a larger
+convolutional model, the ResNeXt-101 64x4d, was not able to reach a similar performance to the Transformer,
+which was almost half its size in terms of parameter count.
+Backbone Architecture Parameters Data augmentation mAP@50 mAP
+ResNet-101 Faster R-CNN 60.4M high 78.0 55.0
+ResNeXt-101 64x4d Cascade R-CNN 127M high 87.5 66.0
+Swin-S Faster R-CNN 66.1M high 94.8 80.1
+Swin-T∗ Faster R-CNN 45.2M high 95.4 -
+Table 3: The results of the vehicle detection experiment.
+∗ result taken from Eker et al. 2
+6. DISCUSSION
+This study demonstrated the capabilities of the Transformer architecture as well as data augmentation techniques
+to significantly improve object detectors trained on synthetic data. The VisDrone experiment showed how
+the existing benchmark performance could be improved both through data augmentations and a Transformer
+backbone, individually and combined. The performance gain could be explained by the strong shape bias of
+Transformer backbones, versus the texture bias of convolutional backbones. This causes the network to perform
+well in tasks that are heavily focused on the object shape, such as the detection of persons and (different types
+of) vehicles. The RarePlanes experiment showed that, while strong augmentations and choice of backbone are
+important, they need to be well-aligned with the task at hand. Notably, augmentations that were crucial for
+good performance on the VisDrone dataset had a negative effect on the RarePlanes dataset. Lastly, we presented
+object detection on a vehicle detection dataset developed in concurrent work. The Transformer backbone far
+outperformed the convolutional backbone for this task, even when using a convolutional backbone with nearly
+twice as many parameters. The Transformer backbone’s shape bias is expected to have had a a strong impact on
+this result in particular due to the crude data construction method which featured 3D models that were limited
+both in quantity and quality. Nevertheless, the near-perfect performance on the real dataset with a model trained
+solely on synthetic data is impressive.
+In conclusion, our work demonstrates that a Transformer architecture can provide a potent backbone when
+training on synthetic data, potentially prior to domain transfer to achieve optimal results. The Transformer
+backbone’s inherent shape bias makes it useful for object detection tasks that are heavily focused on shape, and
+less for object detection tasks with ambiguous shapes or tasks that are heavily focused on texture. In addition
+=== PDF page 9 ===
+to this, data augmentation methods are useful for object detection focused on shape as well, though they should
+be carefully selected based on the specifics of the dataset. Both these methods contribute to our suggestion to
+improve object detectors trained with synthetic data by starting with a stronger baseline methodology.
+6.1 Limitations
+Several limitations of the research should be taken into consideration. First of all, the dataset pairs of synthetic
+and real data were limited in availability, size, and quality. The VisDrone dataset, though the largest dataset
+presented here, is limited in its synthetic counterpart, which lacks a proper class to class mapping and presents
+significant label noise. The RarePlanes dataset presents a relatively simple task, where the distinction between
+classes is made solely based on size with a consistent resolution and no cases of obstruction of the view or
+occlusion. There is also significant ambiguity in test set labels due to tiling of the images, resulting in many
+bounding boxes that only show a small part of a fuselage or wing. Lastly, the synthetic vehicle detection dataset
+was limited in terms of the quality of the original 3D models used. Besides these limitations in the existing
+datasets, there also exists a lack of high-quality object detection benchmark models adapted to these and other
+datasets. This makes it difficult to make fair comparisons between baseline and proposed methodologies. Given
+the existing benchmark models we have tried to create fair comparisons through using similar parameter count
+and presenting even larger convolutional models when it added value.
+6.2 F uture work
+We identified several potential courses for future research. The creation of high-quality and large synthetic and
+real dataset pairs would be a valuable contribution to this field. Improvement in quality could be made both
+through ensuring proper class-to-class mapping, improving the annotation quality, and improving the richness
+of context through using custom simulations. Additionally, the data construction method for synthetic datasets
+provides for interesting topics of research. There is a clear distinction between datasets that are based on the
+simulation of a single 3D object, such as the vehicle detection dataset, versus datasets that represent an entire
+3D world, such as the DGTA-VisDrone and RarePlanes datasets. Leaning into this distinction and its impact
+on the usefulness of synthetic data for training could also be a topic of further investigation.
+The creation of more and stronger benchmark models for synthetic to real data would be a valuable addition
+to this field. The lack of such models limited the ability to make fair comparisons in this paper, and thus
+hinders the development of good practices for training on synthetic data. In this study, we focus on a type
+of object detection problem for which shape is the most salient factor. However, there are cases imaginable
+where a texture bias would be more relevant, for example when segmenting water, sky, or other surfaces with no
+well-defined shape. For these situations there are methods available that, e.g., propose hybrid architectures, 18
+or add-on modules to inject high-frequency features for Transformers. 67 These methods present interesting
+topics for further study and we strongly recommend comparison between Transformer, convolutional, and hybrid
+architectures to gain understanding of the most potent fits between backbones and object detection tasks. In
+particular, recent progress in applying full attention Transformers to dense prediction tasks 68, 69 may improve
+results even further due to their superior shape bias over local attention Transformers.
+REFERENCES
+[1] Vanherle, B., Moonen, S., Van Reeth, F., and Michiels, N., “Analysis of training object detection models
+with synthetic data,” arXiv preprint arXiv:2211.16066 (2022).
+[2] Eker, T. A., Heslinga, F. G., Ballan, L., den Hollander, R. J., and Schutte, K., “The effect of simulation
+variety on a deep learning-based military vehicle detector,” in [Artificial Intelligence for Security and Defence
+Applications], 12742, 183–196, SPIE (2023).
+[3] Rajpura, P. S., Bojinov, H., and Hegde, R. S., “Object detection using Deep CNNs trained on synthetic
+images,” arXiv preprint arXiv:1706.06782 (2017).
+[4] Prakash, A., Boochoon, S., Brophy, M., Acuna, D., Cameracci, E., State, G., Shapira, O., and Birchfield,
+S., “Structured domain randomization: Bridging the reality gap by context-aware synthetic data,” in [ 2019
+International Conference on Robotics and Automation (ICRA) ], 7249–7255, IEEE (2019).
+=== PDF page 10 ===
+[5] Tobin, J., Fong, R., Ray, A., Schneider, J., Zaremba, W., and Abbeel, P., “Domain randomization for
+transferring deep neural networks from simulation to the real world,” in [ 2017 IEEE/RSJ international
+conference on intelligent robots and systems (IROS) ], 23–30, IEEE (2017).
+[6] Hinterstoisser, S., Pauly, O., Heibel, H., Marek, M., and Bokeloh, M., “An annotation saved is an annotation
+earned: Using fully synthetic training for object instance detection,” (2019).
+[7] Jhang, Y.-C., Palmar, A., Li, B., Dhakad, S., Vishwakarma, S. K., Hogins, J., Crespi, A., Kerr, C., Chock-
+alingam, S., Romero, C., Thaman, A., and Ganguly, S., “Training a performant object detection ML model
+on synthetic data using Unity Perception tools.” https://blogs.unity3d.com/2020/09/17/training-a
+-performant-object-detection-ml-model-on-synthetic-data-using-unity-computer-vision-too
+ls/ (Sep 2020).
+[8] Yang, J., Yan, R., and Hauptmann, A. G., “Cross-domain video concept detection using adaptive svms,”
+in [Proceedings of the 15th ACM international conference on Multimedia ], 188–197 (2007).
+[9] Yang, Y. and Soatto, S., “Proceedings of the ieee/cvf conference on computer vision and pattern recogni-
+tion,” 4085–4095 (2020).
+[10] Wang, Q., Dai, D., Hoyer, L., Van Gool, L., and Fink, O., “Domain adaptive semantic segmentation with
+self-supervised depth estimation,” in [Proceedings of the IEEE/CVF International Conference on Computer
+Vision], (2021).
+[11] He, T., Zhang, Z., Zhang, H., Zhang, Z., Xie, J., and Li, M., “Bag of tricks for image classification with
+convolutional neural networks,” in [ Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition], 558–567 (2019).
+[12] Steiner, A., Kolesnikov, A., , Zhai, X., Wightman, R., Uszkoreit, J., and Beyer, L., “How to train your ViT?
+Data, augmentation, and regularization in Vision Transformers,” arXiv preprint arXiv:2106.10270 (2021).
+[13] Shermeyer, J., Hossler, T., Van Etten, A., Hogan, D., Lewis, R., and Kim, D., “Rareplanes: Synthetic data
+takes flight,” in [ Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision ],
+207–217 (2021).
+[14] Kiefer, B., Ott, D., and Zell, A., “Leveraging synthetic data in object detection on unmanned aerial vehicles,”
+in [2022 26th International Conference on Pattern Recognition (ICPR) ], 3564–3571, IEEE (2022).
+[15] Vanherle, B., Moonen, S., Reeth, F. V., and Michiels, N., “Analysis of training object detection models with
+synthetic data,” in [ 33rd British Machine Vision Conference 2022, BMVC 2022, London, UK, November
+21-24, 2022 ], BMVA Press (2022).
+[16] Geirhos, R., Rubisch, P., Michaelis, C., Bethge, M., Wichmann, F. A., and Brendel, W., “Imagenet-
+trained CNNs are biased towards texture; increasing shape bias improves accuracy and robustness.,” in
+[International Conference on Learning Representations ], (2019).
+[17] Naseer, M. M., Ranasinghe, K., Khan, S. H., Hayat, M., Shahbaz Khan, F., and Yang, M.-H., “Intriguing
+properties of vision transformers,” Advances in Neural Information Processing Systems 34, 23296–23308
+(2021).
+[18] Park, N. and Kim, S., “How do vision transformers work?,” in [ International Conference on Learning
+Representations], (2022).
+[19] LeCun, Y., Bengio, Y., and Hinton, G., “Deep learning,” Nature 521(7553), 436–444 (2015).
+[20] Balasubramaniam, A. and Pasricha, S., “Object detection in autonomous vehicles: Status and open chal-
+lenges,” arXiv preprint arXiv:2201.07706 (2022).
+[21] Krishnachaithanya, N., Singh, G., Sharma, S., Dinesh, R., Sihag, S. R., Solanki, K., Agarwal, A., Rana, M.,
+and Makkar, U., “People counting in public spaces using deep learning-based object detection and tracking
+techniques,” in [2023 International Conference on Computational Intelligence and Sustainable Engineering
+Solutions (CISES) ], 784–788, IEEE (2023).
+[22] Domozi, Z., Stojcsics, D., Benhamida, A., Kozlovszky, M., and Molnar, A., “Real time object detection
+for aerial search and rescue missions for missing persons,” in [ 2020 IEEE 15th International Conference of
+System of Systems Engineering (SoSE) ], 000519–000524, IEEE (2020).
+[23] Kong, L., Wang, J., and Zhao, P., “YOLO-G: A lightweight network model for improving the performance
+of military targets detection,” IEEE Access 10, 55546–55564 (2022).
+=== PDF page 11 ===
+[24] Cai, Z. and Vasconcelos, N., “Cascade R-CNN: Delving into high quality object detection,” in [ Proceedings
+of the IEEE conference on computer vision and pattern recognition ], 6154–6162 (2018).
+[25] Girshick, R., “Fast R-CNN,” in [ Proceedings of the IEEE international conference on computer vision ],
+1440–1448 (2015).
+[26] Ren, S., He, K., Girshick, R., and Sun, J., “Faster R-CNN: Towards real-time object detection with region
+proposal networks,” Advances in neural information processing systems 28 (2015).
+[27] He, K., Gkioxari, G., Doll´ ar, P., and Girshick, R., “Mask R-CNN,” in [Proceedings of the IEEE international
+conference on computer vision ], 2961–2969 (2017).
+[28] Redmon, J., Divvala, S., Girshick, R., and Farhadi, A., “You only look once: Unified, real-time object
+detection,” in [ Proceedings of the IEEE conference on computer vision and pattern recognition ], 779–788
+(2016).
+[29] Redmon, J. and Farhadi, A., “YOLO9000: better, faster, stronger,” in [ Proceedings of the IEEE conference
+on computer vision and pattern recognition ], 7263–7271 (2017).
+[30] Redmon, J. and Farhadi, A., “YOLOv3: An incremental improvement,” arXiv preprint arXiv:1804.02767
+(2018).
+[31] Bochkovskiy, A., Wang, C.-Y., and Liao, H.-Y. M., “YOLOv4: Optimal speed and accuracy of object
+detection,” arXiv preprint arXiv:2004.10934 (2020).
+[32] Wang, C.-Y., Bochkovskiy, A., and Liao, H.-Y. M., “YOLOv7: Trainable bag-of-freebies sets new state-of-
+the-art for real-time object detectors,” in [ Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition], 7464–7475 (2023).
+[33] Lin, T.-Y., Doll´ ar, P., Girshick, R., He, K., Hariharan, B., and Belongie, S., “Feature pyramid networks
+for object detection,” in [ Proceedings of the IEEE conference on computer vision and pattern recognition ],
+2117–2125 (2017).
+[34] Tan, M., Pang, R., and Le, Q. V., “EfficientDet: Scalable and efficient object detection,” in [ Proceedings of
+the IEEE/CVF conference on computer vision and pattern recognition ], 10781–10790 (2020).
+[35] Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M.,
+Minderer, M., Heigold, G., Gelly, S., et al., “An image is worth 16x16 words: Transformers for image
+recognition at scale,” arXiv preprint arXiv:2010.11929 (2020).
+[36] Wolf, T., Debut, L., Sanh, V., Chaumond, J., Delangue, C., Moi, A., Cistac, P., Rault, T., Louf, R.,
+Funtowicz, M., et al., “Transformers: State-of-the-art natural language processing,” in [ Proceedings of the
+2020 conference on empirical methods in natural language processing: system demonstrations], 38–45 (2020).
+[37] Zhang, Z., Lu, X., Cao, G., Yang, Y., Jiao, L., and Liu, F., “ViT-YOLO: Transformer-based YOLO for
+object detection,” in [ Proceedings of the IEEE/CVF international conference on computer vision ], 2799–
+2808 (2021).
+[38] Carion, N., Massa, F., Synnaeve, G., Usunier, N., Kirillov, A., and Zagoruyko, S., “End-to-end object
+detection with transformers,” in [ European conference on computer vision ], 213–229, Springer (2020).
+[39] Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., and Guo, B., “Swin transformer: Hierarchical
+vision transformer using shifted windows,” in [ Proceedings of the IEEE/CVF International Conference on
+Computer Vision ], 10012–10022 (2021).
+[40] Raghu, M., Unterthiner, T., Kornblith, S., Zhang, C., and Dosovitskiy, A., “Do vision transformers see like
+convolutional neural networks?,” (2022).
+[41] Azizi, S., Kornblith, S., Saharia, C., Norouzi, M., and Fleet, D. J., “Synthetic data from diffusion models
+improves imagenet classification,” arXiv preprint arXiv:2304.08466 (2023).
+[42] Trabucco, B., Doherty, K., Gurinas, M., and Salakhutdinov, R., “Effective data augmentation with diffusion
+models,” arXiv preprint arXiv:2302.07944 (2023).
+[43] Ho, D., Rao, K., Xu, Z., Jang, E., Khansari, M., and Bai, Y., “Retinagan: An object-aware approach to
+sim-to-real transfer,” (2020).
+[44] He, S., Zou, Y., Li, B., Peng, F., Lu, X., Guo, H., Tan, X., and Chen, Y., “An image inpainting-based data
+augmentation method for improved sclerosed glomerular identification performance with the segmentation
+model efficientnetb3-unet,” Scientific Reports 14(1), 1033 (2024).
+=== PDF page 12 ===
+[45] Wang, Q., Gao, J., Lin, W., and Yuan, Y., “Learning from synthetic data for crowd counting in the wild,”
+in [Proceedings of the IEEE/CVF conference on computer vision and pattern recognition], 8198–8207 (2019).
+[46] Georgakis, G., Mousavian, A., Berg, A. C., and Kosecka, J., “Synthesizing training data for object detection
+in indoor scenes,” arXiv preprint arXiv:1702.07836 (2017).
+[47] Dwibedi, D., Misra, I., and Hebert, M., “Cut, paste and learn: Surprisingly easy synthesis for instance
+detection,” in [Proceedings of the IEEE international conference on computer vision ], 1301–1310 (2017).
+[48] Tremblay, J., To, T., Sundaralingam, B., Xiang, Y., Fox, D., and Birchfield, S., “Deep object pose estimation
+for semantic robotic grasping of household objects,” arXiv preprint arXiv:1809.10790 (2018).
+[49] Borrego, J., Dehban, A., Figueiredo, R., Moreno, P., Bernardino, A., and Santos-Victor, J., “Applying
+domain randomization to synthetic data for object category detection,” arXiv preprint arXiv:1807.09834
+(2018).
+[50] Movshovitz-Attias, Y., Kanade, T., and Sheikh, Y., “How useful is photo-realistic rendering for visual
+learning?,” in [Computer Vision–ECCV 2016 Workshops: Amsterdam, The Netherlands, October 8-10 and
+15-16, 2016, Proceedings, Part III 14 ], 202–217, Springer (2016).
+[51] Wang, X., Xie, L., Dong, C., and Shan, Y., “Real-ESRGAN: Training real-world blind super-resolution
+with pure synthetic data,” in [ Proceedings of the IEEE/CVF international conference on computer vision ],
+1905–1914 (2021).
+[52] Jocher, G., Chaurasia, A., Stoken, A., Borovec, J., NanoCode012, Kwon, Y., TaoXie, Fang, J., imyhxy,
+Michael, K., Lorna, V, A., Montes, D., Nadar, J., Laughing, tkianai, yxNONG, Skalski, P., Wang, Z.,
+Hogan, A., Fati, C., Mammana, L., AlexWang1900, Patel, D., Yiwei, D., You, F., Hajek, J., Diaconu, L.,
+and Minh, M. T., “ultralytics/yolov5: v6.1 - TensorRT, TensorFlow Edge TPU and OpenVINO Export and
+Inference,” (Feb. 2022).
+[53] Chen, K., Wang, J., Pang, J., Cao, Y., Xiong, Y., Li, X., Sun, S., Feng, W., Liu, Z., Xu, J., Zhang, Z.,
+Cheng, D., Zhu, C., Cheng, T., Zhao, Q., Li, B., Lu, X., Zhu, R., Wu, Y., Dai, J., Wang, J., Shi, J.,
+Ouyang, W., Loy, C. C., and Lin, D., “MMDetection: Open mmlab detection toolbox and benchmark,”
+arXiv preprint arXiv:1906.07155 (2019).
+[54] Wu, Y., Kirillov, A., Massa, F., Lo, W.-Y., and Girshick, R., “Detectron2.” https://github.com/faceb
+ookresearch/detectron2 (2019).
+[55] Cubuk, E. D., Zoph, B., Mane, D., Vasudevan, V., and Le, Q. V., “Autoaugment: Learning augmenta-
+tion strategies from data,” in [ Proceedings of the IEEE/CVF conference on computer vision and pattern
+recognition], 113–123 (2019).
+[56] Zhang, H., Cisse, M., Dauphin, Y. N., and Lopez-Paz, D., “mixup: Beyond empirical risk minimization,”
+arXiv preprint arXiv:1710.09412 (2017).
+[57] Cubuk, E. D., Zoph, B., Shlens, J., and Le, Q. V., “Randaugment: Practical automated data augmentation
+with a reduced search space,” in [ Proceedings of the IEEE/CVF conference on computer vision and pattern
+recognition workshops], 702–703 (2020).
+[58] Yun, S., Han, D., Oh, S. J., Chun, S., Choe, J., and Yoo, Y., “Cutmix: Regularization strategy to train
+strong classifiers with localizable features,” in [ Proceedings of the IEEE/CVF international conference on
+computer vision ], 6023–6032 (2019).
+[59] Frid-Adar, M., Klang, E., Amitai, M., Goldberger, J., and Greenspan, H., “Synthetic data augmentation
+using gan for improved liver lesion classification,” in [2018 IEEE 15th international symposium on biomedical
+imaging (ISBI 2018) ], 289–293, IEEE (2018).
+[60] Han, K., Wang, Y., Chen, H., Chen, X., Guo, J., Liu, Z., Tang, Y., Xiao, A., Xu, C., Xu, Y., et al.,
+“A survey on vision transformer,” IEEE transactions on pattern analysis and machine intelligence 45(1),
+87–110 (2022).
+[61] Morrison, K., Gilby, B., Lipchak, C., Mattioli, A., and Kovashka, A., “Exploring corruption robustness:
+inductive biases in vision transformers and mlp-mixers,” arXiv preprint arXiv:2106.13122 (2021).
+[62] Cao, Y., He, Z., Wang, L., Wang, W., Yuan, Y., Zhang, D., Zhang, J., Zhu, P., Van Gool, L., Han, J., Hoi,
+S., Hu, Q., and Liu, M., “Visdrone-det2021: The vision meets drone object detection challenge results,” in
+[Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) Workshops ], 2847–
+2854 (October 2021).
+=== PDF page 13 ===
+[63] Zhu, P., Wen, L., Bian, X., Ling, H., and Hu, Q., “Vision meets drones: A challenge,” arXiv preprint
+arXiv:1804.07437 (2018).
+[64] Downes, J., Gleave, W., and Nakada, D., “Rareplanes soar higher: Self-supervised pretraining for resource
+constrained and synthetic datasets,” in [ Proceedings of the IEEE/CVF Winter Conference on Applications
+of Computer Vision ], 370–378 (2023).
+[65] Zhang, H., Cisse, M., Dauphin, Y. N., and Lopez-Paz, D., “mixup: Beyond empirical risk minimization,”
+in [International Conference on Learning Representations ], (2018).
+[66] Ghiasi, G., Cui, Y., Srinivas, A., Qian, R., Lin, T.-Y., Cubuk, E. D., Le, Q. V., and Zoph, B., “Simple copy-
+paste is a strong data augmentation method for instance segmentation,” in [ Proceedings of the IEEE/CVF
+conference on computer vision and pattern recognition ], 2918–2928 (2021).
+[67] Yao, J., Wang, X., Yang, S., and Wang, B., “Vitmatte: Boosting image matting with pretrained plain vision
+transformers,” arXiv preprint arXiv:2305.15272 (2023).
+[68] Chen, Z., Duan, Y., Wang, W., He, J., Lu, T., Dai, J., and Qiao, Y., “Vision transformer adapter for dense
+predictions,” arXiv preprint arXiv:2205.08534 (2022).
+[69] Li, Y., Mao, H., Girshick, R., and He, K., “Exploring plain vision transformer backbones for object detec-
+tion,” in [European Conference on Computer Vision ], 280–296, Springer (2022).

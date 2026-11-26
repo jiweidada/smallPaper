@@ -1,0 +1,56 @@
+Published as a conference paper at ICLR 2025
+2 R ELATED WORK
+Real-Time / End-to-End Object Detectors. The YOLO series has led the way in real-time ob-
+ject detection, evolving through innovations in architecture, data augmentation, and training tech-
+niques (Redmon et al., 2016a; Wang et al., 2023a;b; Glenn., 2023; Wang & Liao, 2024; Glenn.,
+2024). While efficient, YOLOs typically rely on Non-Maximum Suppression (NMS), which intro-
+duces latency and instability between speed and accuracy. DETR (Carion et al., 2020) revolutionizes
+object detection by removing the need for hand-crafted components like NMS and anchors. Tradi-
+tional DETRs (Zhu et al., 2020; Meng et al., 2021; Zhang et al., 2022; Wang et al., 2022; Liu et al.,
+2021; Li et al., 2022; Chen et al., 2022a;c) have achieved excelling performance but at the cost
+of high computational demands, making them unsuitable for real-time applications. Recently, RT-
+DETR (Zhao et al., 2024) and LW-DETR (Chen et al., 2024) have successfully adapted DETR for
+real-time use. Concurrently, YOLOv10 (Wang et al., 2024a) also eliminates the need for NMS,
+marking a significant shift towards end-to-end detection within the YOLO series.
+Distribution-Based Object Detection. Traditional bounding box regression methods (Redmon
+et al., 2016b; Liu et al., 2016; Ren et al., 2015) rely on Dirac delta distributions, treating bound-
+ing box edges as precise and fixed, which makes modeling localization uncertainty challenging. To
+address this, recent models have employed Gaussian or discrete distributions to represent bounding
+boxes (Choi et al., 2019; Li et al., 2020; Qiu et al., 2020; Li et al., 2021), enhancing the modeling
+of uncertainty. However, these methods all rely on anchor-based frameworks, which limits their
+compatibility with modern anchor-free detectors like YOLOX (Ge et al., 2021) and DETR (Carion
+et al., 2020). Furthermore, their distribution representations are often formulated in a coarse-grained
+manner and lack effective refinement, hindering their ability to achieve more accurate predictions.
+Knowledge Distillation. Knowledge distillation (KD) (Hinton et al., 2015) is a powerful model
+compression technique. Traditional KD typically focuses on transferring knowledge through
+Logit Mimicking (Zagoruyko & Komodakis, 2017; Mirzadeh et al., 2020; Son et al., 2021). Fit-
+Nets (Romero et al., 2015) initially propose Feature Imitation, which has inspired a series of subse-
+quent works that further expand upon this idea (Chen et al., 2017; Dai et al., 2021; Guo et al., 2021;
+Li et al., 2017; Wang et al., 2019). Most approaches for DETR (Chang et al., 2023; Wang et al.,
+2024b) incorporate hybrid distillations of both logit and various intermediate representations. Re-
+cently, localization distillation (LD) (Zheng et al., 2022) demonstrates that transferring localization
+knowledge is more effective for detection tasks. Self-distillation (Zhang et al., 2019; 2021) is a spe-
+cial case of KD which enables earlier layers to learn from the model’s own refined outputs, requiring
+far fewer additional training costs since there’s no need to separately train a teacher model.
+3 P RELIMINARIES
+Bounding box regression in object detection has traditionally relied on modeling Dirac delta distri-
+butions, either using centroid-based {x, y, w, h} or edge-distance {c, d} forms, where the distances
+d = {t, b, l, r} are measured from the anchor point c = {xc, yc}. However, the Dirac delta assump-
+tion, which treats bounding box edges as precise and fixed, makes it difficult to model localization
+uncertainty, especially in ambiguous cases. This rigid representation may limit optimization and
+potentially lead to localization errors with small prediction shifts.
+To address these problems, GFocal (Li et al., 2020; 2021) regresses the distances from anchor points
+to the four edges using discretized probability distributions, offering a more flexible modeling of the
+bounding box. In practice, bounding box distances d = {t, b, l, r} is modeled as:
+d = dmax
+NX
+n=0
+n
+N P(n), (1)
+where dmax is a scalar that limits the maximum distance from the anchor center, and P(n) denotes
+the probability of each candidate distance of four edges. While GFocal introduces a step forward
+in handling ambiguity and uncertainty through probability distributions, specific challenges in its
+regression approach persist: (1) Anchor Dependency: Regression is tied to the anchor box center,
+limiting prediction diversity and compatibility with anchor-free frameworks. (2)No Iterative Refine-
+ment: Predictions are made in one shot without iterative refinements, reducing regression robustness.
+3

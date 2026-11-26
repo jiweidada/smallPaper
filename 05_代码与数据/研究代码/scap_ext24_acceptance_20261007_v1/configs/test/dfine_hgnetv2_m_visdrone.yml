@@ -1,0 +1,120 @@
+__include__: [
+  '../dataset/visdrone_detection.yml',
+  '../runtime.yml',
+  '../base/dataloader_dfine.yml',
+  '../base/optimizer.yml',
+  '../base/dfine_hgnetv2.yml',
+]
+
+print_freq: 2000
+checkpoint_freq: 200
+output_dir: ./outputs/dfine_hgnetv2_m_litedfine_visdrone
+
+DEIM:
+  backbone: HGNetv2
+  decoder: LiteDFINETransformer
+
+HGNetv2:
+  name: 'B2'
+  return_idx: [1, 2, 3]
+  freeze_at: -1
+  freeze_norm: False
+  use_lab: True
+  pretrained: True
+
+LiteDFINETransformer:
+  feat_channels: [256, 256, 256]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 256
+  num_levels: 3
+
+  num_layers: 4
+  eval_idx: 0
+  num_queries: 300
+
+  num_denoising: 300
+  label_noise_ratio: 0.5
+  box_noise_scale: 1.0
+
+  # NEW
+  reg_max: 16
+  reg_scale: 4
+
+  # Auxiliary decoder layers dimension scaling
+  # "eg. If num_layers: 6 eval_idx: -4,
+  # then layer 3, 4, 5 are auxiliary decoder layers."
+  layer_scale: 1  # 2
+
+  num_points: [3, 6, 3] # [4, 4, 4] [3, 6, 3]
+  cross_attn_method: default # default, discrete
+  query_select_method: default # default, agnostic
+
+  dim_feedforward: 1024
+
+HybridEncoder:
+  in_channels: [384, 768, 1536]
+  hidden_dim: 256
+  depth_mult: 0.67
+
+DEIMCriterion:
+  reg_max: 16
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.00002
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.00002
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0002
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+# Add, default for step lr scheduler
+lrsheduler: flatcosine
+lr_gamma: 1
+warmup_iter: 500
+flat_epoch: 4000000
+no_aug_epoch: 0
+
+# 参数含义是：
+
+# - enabled: 是否开启
+# - threshold: AP 至少提升多少才算“有进步”
+# - patience: 连续多少个评估周期没达到 threshold 就降 LR
+# - factor: 每次触发后，LR 乘这个系数
+# - min_scale: 最低只能降到原计划 LR 的多少倍
+# - cooldown: 触发后冷却几个 epoch，冷却期内不继续触发
+# - start_epoch: 从第几个 epoch 开始监控
+
+metric_lr_reducer:
+  enabled: true
+  threshold: 0.001
+  patience: 3
+  factor: 0.8
+  min_scale: 0.01
+  cooldown: 5
+  start_epoch: 60
+
+# Increase to search for the optimal ema
+epoches: 132 # 120 + 4n
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 120
+  collate_fn:
+    stop_epoch: 120
+    ema_restart_decay: 0.9999
+    base_size_repeat: 6
+  total_batch_size: 4
+
+val_dataloader:
+  total_batch_size: 8

@@ -1,0 +1,85 @@
+ConRTF: Edge-Constrained Boundary
+Distribution Refinement for Realtime
+TransFormer Table Structure Recognition
+Eliott Thomas1,2[0009-0008-5266-8797]⋆ , Tri-Cong
+Pham1[0000-0002-5507-6454]⋆ , Mickaël Coustaty1[0000-0002-0123-439X],
+Aurélie Joseph2[0000-0002-5499-6355], Gaspar Deloin2[0009-0007-2449-5385],
+Vincent Poulain d’Andecy2[0009-0008-5515-3561], Jean-Marc
+Ogier1[0000-0002-5666-475X], and Antoine Doucet1,3[0000-0001-6160-3356]
+1 L3i, La Rochelle University, France
+{eliott.thomas, cong.pham, mickael.coustaty, jean-marc.ogier,
+antoine.doucet}@univ-lr.fr
+2 Yooz, La Rochelle, France
+{aurelie.joseph, gaspar.deloin, vincent.poulaindandecy}@getyooz.com
+3 Faculty of Computer and Information Science, University of Ljubljana, Slovenia
+Abstract.Table Structure Recognition (TSR) aims to recover the row
+and column layout of tables from document images, a key step in docu-
+ment understanding pipelines. Accurate TSR depends on precise bound-
+ary localization: small errors in row or column boundaries can propa-
+gate into incorrect cell assignments and structural inconsistencies. Yet
+detection-based approaches treat table elements as generic objects, ig-
+noring a fundamental property of table layout: rows and columns play
+structurally distinct roles and their boundaries carry unequal impor-
+tance. We propose an Edge-constrained Fine-grained Localization loss
+(EFL) that formalizes this structural asymmetry by encoding table-
+specific geometric priors into the training objective: row-like elements are
+supervised with emphasis on their horizontal boundaries, while column-
+like elements prioritize vertical boundaries. Implemented within a real-
+time detector with distribution-based boundary refinement (D-FINE),
+EFL operates during training only and guides boundary refinement to-
+ward structurally meaningful adjustments with no change to the infer-
+ence pipeline. The proposed approach, ConRTF, is also data-efficient,
+maintaining robust accuracy with as few as 2k–3k annotated tables. Ex-
+periments on PubTables-1M and two private datasets show consistent
+improvements over the optimized baseline and several real-time detec-
+tors including RT-DETRv2 and YOLOv10-11, with gains of up to +1.6
+GriTS points at equal inference speed.
+Keywords:Table Structure Recognition·Boundary-centric Modeling·
+Fine-grained Localization·Constraint-aware Learning·Realtime Trans-
+former.
+⋆Equal contribution.
+arXiv:2607.00734v1  [cs.CV]  1 Jul 2026
+
+---PAGE---
+
+2 E. Thomas et al.
+Row-like element(rows, headers, sections)
+λh
+λh
+λl λl
+defining edges
+extent
+Column-like element(columns)
+λh λh
+λl
+λl
+defining edges
+extent
+Fig.1: EFL edge weighting. Structurally defining boundaries (thick, colored)
+receive weightλh (high), while extent boundaries (dashed, gray) receiveλl (low),
+withλ l < λ h. The asymmetry encodes the geometric prior that horizontal edges
+matter more for rows and vertical edges matter more for columns.
+1 Introduction
+Tables organize information across scientific articles, financial reports, forms,
+and business documents. Table Structure Recognition (TSR) recovers this layout
+from document images and is central to document understanding [5,29].
+TSR [18,21,22,25] remains challenging because of its sensitivity to localiza-
+tion errors. Unlike generic object detection, small inaccuracies in row or column
+boundaries propagate into structural inconsistencies. Structure-aware metrics
+such as TEDS [34] and GriTS [20] penalize even minor boundary misalignments,
+so accurate TSR demands precise boundary localization rather than coarse
+object-level detection. Recent approaches leverage Transformer-based architec-
+tures and multi-stage pipelines [3,6,10,32] but their depth and post-processing
+hinder real-time deployment. Many also treat table elements via point-based or
+generic detection [19,26], where boundary uncertainty and table-specific geome-
+try are only implicitly handled. Boundary-aware modeling for joint localization
+and efficiency remains underexplored. We revisit TSR from a boundary-centric
+perspective. We model table elements as row-like and column-like objects with
+distribution-based boundary representations. This matches the elongated ge-
+ometry of rows, columns, headers, and section separators. Distribution-based
+boundaries enable fine-grained refinement within a compact real-time architec-
+ture. We introduce an Edge-constrained Fine-grained Localization loss (EFL)
+that aligns refinement with table layout semantics: horizontal boundaries are
+emphasized for row-like elements, vertical ones for column-like elements (Fig-
+ure 1). EFL guides refinement toward structurally meaningful adjustments at
+no inference cost.

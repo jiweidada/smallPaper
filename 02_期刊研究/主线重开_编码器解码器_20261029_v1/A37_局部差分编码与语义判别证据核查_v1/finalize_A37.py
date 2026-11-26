@@ -1,0 +1,208 @@
+from pathlib import Path
+from datetime import datetime, timezone
+import hashlib, json, shutil, sys
+
+sys.stdout.reconfigure(encoding='utf-8')
+D=Path(__file__).resolve().parent; B=D.parent
+L=B.parent/'文献_相关原始论文_20261004'
+REPORT=B/'84_A37局部差分与前景语义最近工作核查.txt'
+RECEIPT=B/'85_A37原文源码及诊断边界核验回执.json'
+CAN=['01_候选判别表.json','13_架构检索增补记录.json','14_架构核心文献矩阵.json',
+     '15_当前状态与结果校验.json','16_最近工作源码核查.json']
+NOW=datetime.now(timezone.utc).isoformat()
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x,exclusive=False):
+    with Path(p).open('x' if exclusive else 'w',encoding='utf-8') as output:
+        json.dump(x,output,ensure_ascii=False,indent=2); output.write('\n')
+assert not REPORT.exists() and not RECEIPT.exists()
+prior=read(B/'83_A36原生分类头与独立指标核验回执.json')
+for p,h in prior['files_sha256'].items(): assert sha(p)==h,p
+assert len(prior['files_sha256'])==82
+audit=read(D/'source_operator_audit.json'); sample=read(D/'semantic_probe_sample_FROZEN.json')
+draft=read(D/'paired_semantic_probe_DRAFT.json')
+assert audit['source_blobs']==25 and audit['new_model_calls']==0 and audit['new_probe_fits']==0
+assert draft['allocated_model_calls']==draft['allocated_probe_fits']==draft['allocated_detector_training_updates']==0
+for r in sample['cases']:
+    assert sha(r['image_path'])==r['image_sha256']
+    assert sha(r['annotation_path'])==r['annotation_sha256']
+assert len(sample['cases'])==112
+log=Path(r'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\前期调研_码率受限航拍小目标_20261028_v1\远端验证_20261029_v1\ssh_operation_receipts.jsonl')
+ids={'A37_remote_readonly_inventory_01','A37_remote_readonly_inventory_02','A37_remote_assets_inventory_03','A37_download_existing_dome_loader_04'}
+receipts=[]
+for line in log.open(encoding='utf-8'):
+    try: row=json.loads(line)
+    except ValueError: continue
+    if row.get('id') in ids and 'action' in row: receipts.append(row)
+assert len(receipts)==4 and {r['id'] for r in receipts}==ids
+for row in receipts:
+    if row['action']=='exec': assert row['exit_code']==0
+    else: assert row['status']=='DOWNLOADED'
+write(D/'ssh_selected_receipts.json',dict(rows=receipts,scope='Only four A37 read-only inventory/download actions; no launches.'),True)
+
+question='同一预测框下，融合后的细尺度memory是否比最终query更容易区分漏检小目标与匹配难背景；控制探针容量后差距是否保留？'
+phase=dict(phase='A37',recorded_utc=NOW,
+    classification='progress_new_closest_work_and_selected_entry_source_audit_with_outcome_blind_sample',
+    status='SOURCE_BOUNDARY_NARROWED_SEMANTIC_GAP_UNTESTED_NO_VALIDATED_MAINLINE',
+    goal_status='active',mainline_validated=False,complete_mainline=False,
+    report=str(REPORT),receipt=str(RECEIPT),
+    new_core_papers=2,new_full_PDFs=2,new_primary_papers_with_partial_text_only=1,
+    verified_selected_author_blobs=25,search_groups=7,search_query_count=21,core_matrix_rows=114,
+    new_whole_detector_forwards=0,new_GPU_model_calls=0,new_optimizer_updates=0,
+    new_training_jobs=0,new_native_head_calls=0,new_complete_decoder_calls=0,new_partial_decoder_calls=0,
+    new_diagnostic_probe_fits=0,full_model_forwards=3168,actual_cumulative_detector_optimizer_updates=528,
+    formal_detector_training_updates=526,historical_capacity_updates=2,cumulative_complete_decoder_only_calls=61,
+    previous_A36_native_linear_calls=12,A36_head_cap_remains_closed=True,A35_prefix_cap_remains_closed=True,
+    sample_train_images=64,sample_probe_heldout_images=48,new_heldout_model_outcomes_observed=False,
+    sample_inputs_rehashed=224,previous_A36_evidence_files_verified=82,
+    paired_semantic_probe_status='DRAFT_NO_ALLOCATION',new_algorithm_approved=None,research_gap_confirmed=False,
+    native_host_is_compact_ViT=False,native_host='Dome-S HGNetv2-B0CNN+hybridencoder+native250..500querydecoder',
+    automatic_followups=False,next_model_call_allocation=0,next_probe_fit_allocation=0,next_training_allocation=0,
+    A22_restarted=False,compression_branch_reopened=False,phase_shift_branch_reopened=False,
+    next='先核定细尺度memory和最终query挂点、解析插值/匹配/AUC控制，再固定有上限的成对语义探针协议。不得把未检验的可访问性差距、局部差分或低分恢复直接作为论文创新；UnmaskingTiny完整方法未闭合。')
+
+text='''A37：局部差分、前景恢复与查询语义读取的最近工作核查
+
+结论与当前主线
+当前没有已确认的小论文主线。本轮把候选问题收窄为：同一个预测区域中，融合后的细尺度memory是否保有能区分小目标/难背景的证据，而最终query在同等读出条件下较难利用这些证据？这是待验证问题，不是已测到的信息丢失机制。
+压缩/恢复不回到优先方向；不重启A22或旧DEIM。尚不选定新编码器、模块组合或论文题名。
+
+一、检索策略与记录
+本轮为定向、非系统性调研，单助手执行，不能视作完整检索或全球无人研究证明。查询分三层：PiDiViT原始方法与作者代码；DETR小目标目标/背景判别、query语义与局部读取；新检出的直接近邻全文和公开实现。保存7组21条检索、3组5次网页打开的原始工具记录；PDF/代码/公开接口获取另有独立回执。
+命中页只是发现线索。方法判断优先原始论文、出版商页面和作者仓库；综述、ResearchGate、聚合页不承担方法证据。部分严格短语查询命中大量无关动作识别/开放词汇工作，未据此扩充核心矩阵。
+本轮取得PiDiViT主文与补充PDF，校验SHA256；固定作者提交并复核24个所选Git blob。另固定UnmaskingTiny作者仓库，仅有1个README blob。后者出版商正文访问与OpenReview公开全文/接口均未取得可读全文，不声称已经完整阅读。详细查询、失败及下载记录在A37目录。
+
+二、核心文献矩阵与阅读范围
+1. PiDiViT，ICCV2025：阅读主文方法3.1–3.3、实验设置、选定Tables4–5与差分强度讨论；补充Tables1–2及相邻文字。原文针对少样本/单样本/开放词汇检测；未完整阅读所有结果或复现模型。作者报告了差分卷积与多尺度区域特征融合的收益，不能外推成VisDrone或小模型ViT的收益。
+2. Unmasking the Tiny，Image and Vision Computing172(2026),106026，DOI10.1016/j.imavis.2026.106026：仅出版商索引的摘要、highlights、引言及部分方法/设置/局限段落。作者研究YOLOX小目标前景分数受抑制，使用STSM与分类语义引导的FRM，并报告VisDrone/UAVDT验证；完整算子、损失与训练细节尚未读到。公开默认分支固定提交只有README，不能当作已有可运行代码或已取得权重。
+3. DEIMv2 STA：沿用A32对完整方法与所选适配器源码的核查。并行图像细节CNN与选定ViT层特征融合；未复现训练。
+4. EdgeCrafter ECDet：沿用A32方法与选定S配置/ViT/融合源码。重叠卷积stem、末层特征均值及尺度金字塔；公开COCO权重不等于已核验的VisDrone权重或24GB训练方案。
+5. SPAR-Det：沿用A32所选方法、补充与VisDrone入口源码。区域路由已存在；论文所述统计门控与检查到的默认选定源码路径存在差异，结论限于静态入口。
+6. QueryDet：沿用所选原文方法阅读。粗查询定位后读取高分辨率特征已有先例，不能把这一思路本身当作新方法。
+全局矩阵新增前两项后为114条。以上均为助手阅读记录，无人工已读背书；Git/hash校验只证明文件身份与完整性。
+
+三、与最接近工作的逐项对比
+PiDiViT位置：冻结DINOv2-L -> 候选框扩展和ROIAlign -> 原型/特征嵌入 -> 三层空间传播与区域分类/框细化。它不是在整个ViT主干内部替换一个新编码器。所选源码先执行五核尺度加权，再执行普通卷积/中心差分的二分支注意力，差分强度0.875，最终按区域权重汇聚分类特征。直接搬这些算子去航拍检测不构成独立问题贡献。
+PiDiViT监督：所选训练代码把真值框栅格化成矩形区域目标，不能误称需要实例像素掩码；但作者背景原型制作流程另用COCO stuff-only数据，严格复现该流程也不能说仅需VisDrone检测框。所选原型投影代码将[N,C,S]特征沿S归一化，不能直接等同逐空间点C维向量的标准余弦相似度；这是静态轴检查，未测其数值效果。
+UnmaskingTiny与当前问题最接近之处：已经把“前景得分弱而分类语义仍可利用”作为问题并聚合邻域语义。故泛泛的“恢复低分小目标”“加强前景背景区分”均已有直接先例。当前待检问题比较的是同框细尺度memory与解码后query；Dome也没有直接等同YOLOX独立objectness分支的已证失效。仅凭这些差别，仍不能确认算法新颖性，完整FRM方法还需闭合。
+STA/ECDet覆盖的是细节接入和尺度生成；SPAR覆盖区域条件路由；QueryDet覆盖粗到细读取。我们的可检验差别应落在具体阶段、同一实例的证据差距及其受控修复，而不是列出另一组融合、注意力或路由模块。
+
+四、文献证据、观察、推断与研究空白
+【原文结论】上述工作已覆盖差分区域增强、细节融合、前景恢复和条件读取的重要组成部分。UnmaskingTiny尤其限制了“低分目标尚未被研究”的说法。
+【已有观察】A35的12张复用验证图有一批漏检小目标存在位置重叠合格的原始框，但得分低；原始框重叠并不证明其语义可恢复。A36去掉最终LQE修正，small AP仅变化+0.0355个百分点，配对区间跨0，未通过推进门槛，不能继续据此做质量重评分。
+【我们的推断】值得定位目标/背景判别证据在哪个阶段可被读取，而不宜继续用LQE或早期query名额解释当前现象。
+【待验证空白】在同一预测框、匹配难背景、独立拟合/评估划分和容量控制下，细尺度memory与最终query是否存在可重复的判别可访问性差距？本轮没有证据确认该差距，也没有完成全球最近工作排重。特别是UnmaskingTiny全文不完整，不能把尚未看到相关分析写成对方没有做过。
+即便线性探针出现差距，也只能称指定读出条件下的可访问性差距，不能称信息论意义上的丢失、注意力造成的因果损伤或新ViT的固有缺陷。Dome-S当前宿主为CNN加混合编码器，并非紧凑ViT。
+
+五、可能增量、可行性与主要风险
+若细尺度优势在容量控制后仍存在，可进一步研究查询条件的细尺度判别证据读取，并将普通ROI均值、局部差分、query自身增强和已有前景语义聚合作为强对照。新的贡献应是经证据支持的约束或耦合及其效果，不要求发明全新数学原语；目前还没有通过证据门槛的具体模块。
+若query非线性读出即可追平，则先研究读出容量/监督；不能把MLP头包装成新编码器。若两者均弱，需要再查原始主干和可见像素，不能直接归因于下采样。若query更强，应承认上下文聚合有用，不能强行做局部差分补偿。
+资源上，现有Dome冻结推理与低维CPU探针适合当前单卡约24GB条件；新ECDet/DEIMv2的VisDrone任务适配、收敛及端到端训练显存仍未验证。作者多卡训练配方不能当作本机可复现承诺。
+主要风险是最接近方法重合、探针容量混淆、前景可分却类别不对、真值框裁剪带来的特权、拥挤邻居被误当背景、以及小样本/模型选择偏差。目前值得进行一次有上限的机制诊断，尚不值得围绕某个未证模块启动长训练或写创新结论。
+
+六、最小验证草案与本轮边界
+已在模型结果未知时固定样本：官方训练集选64个文件名前缀组各1张拟合探针；验证集另选48组各1张，仅做评估，排除此前复用的12组验证前缀。排序由固定种子的SHA256决定，未以标签或预测分数选择图片。
+本机原始数据为train6471、val548、test-dev1610；其中官方train/val有24个同名前缀。训练探针的样本排除了全部官方val前缀，所选两组前缀不重合。但前缀不等于已验证航次身份；本次评估也不称为整个旧项目从未查看过的最终盲测。
+草案比较同一预测框上的最终query、细尺度memory ROI均值；局部内外差分为次要已知算子对照。用训练集统计量标准化、固定正则的低维探针，加入query容量及几何/原生分数控制，并检查前景可分是否伴随正确类别信息。正样本与背景必须使用相同预测区域规则；背景排除所有真实目标类别和忽略区域；正样本查询一对一分配。
+主结果应固定为细尺度均值相对query的配对判别差距，不能在均值/差分/分组之间挑最好的结果。按图像重采样只反映给定探针训练后的评估不确定性，不替代训练随机性验证，也不是检测AP。
+尚需在执行前核定准确挂点、插值/匹配/指标解析例、指标与停止门槛及输入哈希。可能的后续预算为112图各1次冻结推理加1次重复，共113次，探针拟合上限7次、检测器优化0次；这只是草案，当前分配均为0。本轮没有新模型调用、探针拟合或优化器更新。
+
+七、可核验参考文献及链接
+[1] Zhou H.,Liu Y.,Mo C.,Li W.,Peng B.,Liu L. When Pixel Difference Patterns Meet ViT: PiDiViT for Few-Shot Object Detection. ICCV2025.
+https://openaccess.thecvf.com/content/ICCV2025/papers/Zhou_When_Pixel_Difference_Patterns_Meet_ViT_PiDiViT_for_Few-Shot_Object_ICCV_2025_paper.pdf
+https://github.com/Seaz9/PiDiViT/tree/c59a130ed357cef0a2ef859a25455a597bd37294
+[2] Zhang T.,Wang H.,Zhang Y.,Guo X. Unmasking the Tiny: Foreground probing for small object detection. Image and Vision Computing172(2026),106026.
+https://doi.org/10.1016/j.imavis.2026.106026
+https://github.com/AngstCJ/Unmasking-the-Tiny-Foreground-Probing-for-Small-Object-Detection/tree/e9d531f227ddd577052077f3cfcc577d212a585f
+同标题匿名投稿发现线索：https://openreview.net/forum?id=IETH5HYvvY 。未取得全文，不能与最终期刊版逐项等同。
+[3] Real-Time Object Detection Meets DINOv3. DEIMv2,arXiv2509.20787v5.
+https://arxiv.org/abs/2509.20787v5
+[4] EdgeCrafter: Compact ViTs for Edge Dense Prediction via Task-Specialized Distillation. arXiv2603.18739v5.
+https://arxiv.org/abs/2603.18739v5
+[5] Kwon et al. SPAR-Det: Segmentation-guided and Prior-Aided Routing for Small Object Detection. WACV2026.
+https://openaccess.thecvf.com/content/WACV2026/papers/Kwon_SPAR-Det_Segmentation-guided_and_Prior-Aided_Routing_for_Small_Object_Detection_WACV_2026_paper.pdf
+[6] Yang et al. QueryDet: Cascaded Sparse Query for Accelerating High-Resolution Small Object Detection. CVPR2022.
+https://openaccess.thecvf.com/content/CVPR2022/html/Yang_QueryDet_Cascaded_Sparse_Query_for_Accelerating_High-Resolution_Small_Object_Detection_CVPR_2022_paper.html
+
+核验范围：新增25个作者Git blob重新计算Git SHA1与SHA256；两份取得的PDF及提取文本hash一致；样本112图及112标注重新核验；A36的82项证据在更新总表前核验。保留前版总表快照与重映射清单。它们证明材料完整性与可追溯性，不证明创新性、因果机制或泛化。
+'''
+with REPORT.open('x',encoding='utf-8') as output: output.write(text)
+
+matrix=read(B/CAN[2]); ids_now={r['id'] for r in matrix['rows']}
+new_rows=[
+ dict(id='PiDiViT_ICCV2025_A37',title='When Pixel Difference Patterns Meet ViT: PiDiViT for Few-Shot Object Detection',
+    authors=['Hongliang Zhou','Yongxiang Liu','Canyu Mo','Weijie Li','Bowen Peng','Li Liu'],
+    url='https://openaccess.thecvf.com/content/ICCV2025/papers/Zhou_When_Pixel_Difference_Patterns_Meet_ViT_PiDiViT_for_Few-Shot_Object_ICCV_2025_paper.pdf',
+    tier='Primary final proceedings method and selected author source',read_scope=audit['PiDiViT']['method_scope'],
+    author_method=audit['PiDiViT']['location']+' '+audit['PiDiViT']['operators'],
+    our_consequence='Local differential plus multiscale ROI enhancement is prior art; no standalone new-encoder claim.',
+    unresolved='Full training/checkpoint reproduction,24GB capacity and UAV closed-set effect not verified; projection normalization-axis caveat.',
+    read_by='assistant',human_read_attested=False,local_pdf=str(L/'A37_PiDiViT_ICCV2025.pdf'),
+    pdf_sha256=sha(L/'A37_PiDiViT_ICCV2025.pdf'),source_commit=audit['PiDiViT']['commit'],access_record=str(D/'source_operator_audit.json')),
+ dict(id='UnmaskingTiny_IVC2026_A37',title='Unmasking the Tiny: Foreground probing for small object detection',
+    authors=['Tong Zhang','Hainuo Wang','Yi Zhang','Xiaojie Guo'],
+    url='https://doi.org/10.1016/j.imavis.2026.106026',doi='10.1016/j.imavis.2026.106026',
+    tier='Primary publisher indexed text only; no full method',read_scope=audit['UnmaskingTiny']['read_scope'],
+    author_method=audit['UnmaskingTiny']['method_claim'],our_consequence=audit['UnmaskingTiny']['consequence'],
+    unresolved='FullFRM/STSM/loss not read; source/weights unavailable in pinned default tree; same-title anonymous submission not version-equated.',
+    read_by='assistant',human_read_attested=False,local_pdf=None,pdf_sha256=None,
+    source_commit=audit['UnmaskingTiny']['commit'],access_record=str(D/'source_operator_audit.json'))]
+assert not ids_now & {r['id'] for r in new_rows}
+assert not any('unmasking the tiny' in r['title'].lower() or 'pidivit' in r['title'].lower() for r in matrix['rows'])
+matrix['rows'].extend(new_rows); assert len(matrix['rows'])==114
+write(D/'new_core_records.json',dict(rows=new_rows),True)
+
+backup=D/'canonical_before_A37'; backup.mkdir(exist_ok=False)
+for name in CAN: shutil.copy2(B/name,backup/name)
+remapped={}
+for p,h in prior['files_sha256'].items():
+    q=Path(p); q=backup/q.name if q.parent==B and q.name in CAN else q
+    assert sha(q)==h; remapped[str(q)]=h
+board=read(B/CAN[0]); assert len(board['candidates'])==17
+board['candidates'].append(dict(id='R_FINE_MEMORY_QUERY_SEMANTIC_GAP',
+    status='MECHANISM_QUESTION_UNTESTED_CLOSEST_FOREGROUND_PROBING_WORK_IDENTIFIED',question=question,
+    nearest=['PiDiViT','Unmasking the Tiny','DEIMv2STA','ECDet','SPAR-Det','QueryDet'],
+    increment_approved=False,causal_evidence=False,evidence=str(D/'source_operator_audit.json'),
+    next='Close tap/metric fixtures and bounded protocol; do not call foreground score recovery or PDC fusion novel.'))
+board.update(status='SEARCHING_NO_VALIDATED_MAINLINE_A37',mainline_validated=False,
+    latest_update_utc=NOW,latest_report=str(REPORT),A37_evidence=phase,
+    current_priority_candidate='R_FINE_MEMORY_QUERY_SEMANTIC_GAP',current_priority_question=question,
+    next_exploratory_question=question,bounded_diagnostic_protocol=None,
+    next_decision_protocol=dict(phase='afterA37',status='SAMPLE_FIXED_PROBE_DRAFT_NO_ALLOCATION',file=str(D/'paired_semantic_probe_DRAFT.json')))
+write(B/CAN[0],board)
+search=read(B/CAN[1]); search.update(supplement_utc=NOW,A37_local_difference_and_semantic_readout=dict(
+    phase=phase,search_log=str(D/'web_search_records_raw.json'),source_audit=str(D/'source_operator_audit.json'),
+    comparison=str(D/'closest_work_comparison.json'),unmasking_fulltext_unavailable=True))
+write(B/CAN[1],search)
+matrix.update(updated_utc=NOW,latest_report=str(REPORT),
+    latest_empirical_boundary='A37 source/sample only,no new model outcomes. Fine-memory/query semantic gap untested;UnmaskingTiny is a direct prior with partial reading only.')
+write(B/CAN[2],matrix)
+state=read(B/CAN[3]); state.update(recorded_utc=NOW,goal_status='active',mainline_validated=False,
+    previous_goal_turn=state['current_goal_turn'],current_goal_turn=phase,latest_authoritative_phase=phase,
+    latest_report=str(REPORT),current_priority_question=question,A37_evidence=phase,
+    previous_intervening_status_turn=read(D/'continuation_revalidation.json'))
+write(B/CAN[3],state)
+source=read(B/CAN[4]); source.update(updated_utc=NOW,A37_local_difference_and_semantic_readout=dict(
+    phase=phase,source_audit=str(D/'source_operator_audit.json'),comparison=str(D/'closest_work_comparison.json'),
+    sample_manifest=str(D/'semantic_probe_sample_FROZEN.json'),probe_draft=str(D/'paired_semantic_probe_DRAFT.json'),
+    new_algorithm_approved=None))
+write(B/CAN[4],source)
+verification=dict(status='PASS_INTEGRITY_AND_SCOPE_ONLY',author_blobs_rehashed=25,
+    sampled_image_annotation_files_rehashed=224,prior_A36_evidence_remapped_files=82,
+    matrix_unique_ids=len({r['id'] for r in matrix['rows']}),matrix_rows=len(matrix['rows']),
+    candidate_count=len(board['candidates']),new_model_calls=0,new_probe_fits=0,
+    not_verified=['Novelty','Full closest UnmaskingTiny method','Semantic accessibility gap','Causal mechanism','New encoder training feasibility','Algorithm improvement','Generalization'])
+assert verification['matrix_unique_ids']==114 and verification['candidate_count']==18
+write(D/'publication_verification.json',verification,True)
+library=[]
+for stem in ['A37_PiDiViT_ICCV2025','A37_PiDiViT_ICCV2025_supplement']:
+    library.extend([L/(stem+'.pdf'),L/(stem+'.source.json'),L/'_text'/(stem+'.txt')])
+files=[p for p in D.rglob('*') if p.is_file() and '__pycache__' not in p.parts]+library+[REPORT]+[B/n for n in CAN]
+receipt=dict(phase); receipt.update(verification=verification,previous_A36_evidence_remapped_sha256=remapped,
+    files_sha256={str(p):sha(p) for p in sorted(set(files))})
+write(RECEIPT,receipt,True)
+for p,h in receipt['files_sha256'].items(): assert sha(p)==h,p
+for p,h in remapped.items(): assert sha(p)==h,p
+print(json.dumps(dict(status='A37_PUBLISHED_NO_VALIDATED_MAINLINE',evidence_files=len(receipt['files_sha256']),
+    previous_A36_files_verified=82,new_author_blobs=25,core_matrix_rows=114,candidates=18,
+    model_forwards=3168,detector_optimizer_updates=528,new_probe_fits=0,next_allocation=0),ensure_ascii=False))

@@ -1,0 +1,117 @@
+call. When objects are close-by, GreedyNMS is doomed to
+sacriﬁce precision or recall independent of its parameter.
+It is desirable to learn NMS to overcome these limita-
+tions. An NMS approach based on neural network could
+learn to adapt to the data distribution, overcome the trade-
+off of GreedyNMS, and importantly could be incorporated
+into a detector. In this paper we propose the ﬁrst “pure NMS
+network” which is able to do the task of non-maximum sup-
+pression without image content or access to decisions of
+another algorithm. Our network renders the need for ﬁnal
+GreedyNMS post-processing superﬂuous.
+In section
+3 we start by discussing with the underlying
+issue: why is NMS needed at all? We discuss the task of
+detection and how it relates to the speciﬁcs of detectors and
+NMS. We identify two necessary ingredients that current
+detectors are lacking and design an NMS network that con-
+tains these ingredients (section
+4); the result is conceptually
+different than both GreedyNMS and current detectors. In
+section
+5, we report promising results that show that this
+network is indeed capable of replacing GreedyNMS. We re-
+port both single- (PETS pedestrians) and multi-class results
+(COCO dataset), both showing improvements over Gree-
+dyNMS.
+We believe this work opens the door to true end-to-end
+detectors.
+2. Related work
+Clustering detections. The de facto standard algorithm,
+GreedyNMS, has survived several generations of detectors,
+from Viola&Jones [
+32], over the deformable parts model
+(DPM) [ 7], to the current state-of-the-art R-CNN family
+[10, 9, 21]. Several other clustering algorithms have been
+explored for the task of NMS without showing consistent
+gains: mean-shift clustering [
+6, 35], agglomerative cluster-
+ing [ 2], afﬁnity propagation clustering [ 17], and heuristic
+variants [25]. Principled clustering formulations with glob-
+ally optimal solutions have been proposed in [ 27, 23], al-
+though they have yet to surpass the performance of Gree-
+dyNMS.
+Linking detections to pixels. Hough voting establishes
+correspondences between detections and the image evi-
+dence supporting them, which can avoid overusing image
+content for several detections [
+15, 1, 14, 34]. Overall per-
+formance of hough voting detectors remains comparatively
+low. [
+37, 5] combine detections with semantic labelling,
+while [ 36] rephrase detection as a labelling problem. Ex-
+plaining detections in terms of image content is a sound for-
+mulation but these works rely on image segmentation and
+labelling, while our system operates purely on detections
+without additional sources of information.
+Co-occurrence. One line of work proposes to detect pairs
+of objects instead of each individual objects in order to han-
+dle strong occlusion [
+24, 29, 19]. It faces an even more
+complex NMS problem, since single and double detections
+need to be handled. [
+22] bases suppression decisions on es-
+timated crowd density. Our method does neither use image
+information nor is it hand-crafted to speciﬁcally detect pairs
+of objects.
+Auto-context. Some methods improve object detection by
+jointly rescoring detections locally [
+30, 4] or globally [ 31]
+using image information. These approaches tend to produce
+fewer spread-out double detections and improve overall de-
+tection quality, but still require NMS. We also approach the
+problem of NMS as a rescoring task, but we completely
+eliminate any post-processing.
+Neural networks on graphs. A set of detections can be
+seen as a graph where overlapping windows are represented
+as edges in a graph of detections. [
+18] operates on graphs,
+but requires a pre-processing that deﬁnes a node ordering,
+which is ill-deﬁned in our case.
+End-to-end learning for detectors. Few works have ex-
+plored true end-to-end learning that includes NMS. One
+idea is to include GreedyNMS at training time [
+33, 12],
+making the classiﬁer aware of the NMS procedure at test
+time. This is conceptually more satisfying, but does not
+make the NMS learnable. Another interesting idea is to di-
+rectly generate a sparse set of detections, so NMS is un-
+necessary, which is done in [
+26] by training an LSTM that
+generates detections on overlapping patches of the image.
+At the boundaries of neighbouring patches, objects might
+be predicted from both patches, so post-processing is still
+required. [
+13] design a convnet that combines decisions
+of GreedyNMS with different overlap thresholds, allow-
+ing the network to choose the GreedyNMS operating point
+locally. None of these works actually completely remove
+GreedyNMS from the ﬁnal decision process that outputs a
+sparse set of detections. Our network is capable of perform-
+ing NMS without being given a set of suppression alterna-
+tives to chose from and without having another ﬁnal sup-
+pression step.
+3. Detection and non-maximum suppression
+In this section we review non-maximum suppression
+(NMS) and why it is necessary. In particular, we point out
+why current detectors are conceptually incapable of produc-
+ing exactly one detection per object and propose two neces-
+sary ingredients for a detector to do so.
+Present-day detectors do not return all detections that
+have been scored, but instead use NMS as a post-processing
+step to remove redundant detections. In order to have true
+end-to-end learned detectors, we are interested in detectors
+without any post-processing. To understand why NMS is
+necessary, it is useful to look at the task of detection and
+how it is evaluated.
+4508

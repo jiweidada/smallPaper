@@ -1,0 +1,18 @@
+298：只修求解精度，不修方法/数据/统计口径（2026-10-21）
+
+故障事实
+293的12组合成通过，实际294在A_batch01/image3/A_density/cell1/category3（mass10，conditions14）封闭退出。row excess=4.2513256027e−8，projected gradient=4.3718091702e−8，略高于原ABS*(1+max m)；stationarity约2.3e−15，feasible gap=6.498637e−8，小于原gap budget1.22943e−6。L-BFGS-B按相对目标值停止不保证所需梯度/KKT精度。保留294/FAILED及已完成batch00，不将其当候选阴性。本修订不读该批残余效应，先用同病合成检验。
+
+完全保留
+292的m/C/epsilon1/kappa0、16²双线性单位质量、全部原窗/P/GT/名单、I/I_cap/J定义、主残余（不activeface clamp）、原ABS=2e−8/ACTIVE=1e−9及原证书、误差界与normalized NA读法、效用/聚合口径全不变。复制293为299，默认新300目录；不覆盖292/293/294。293原SHA41af2daccced08552bdffffeb7b7d074882666a29d82056eb1b59787eda3741c、292原SHAe661f2936fab96a14aff6fab2485efe3096d60d1d84ec951c52229994071cf26作为继承锁。
+
+固定数值收尾（所有非空凸问题一致执行）
+仍先执行原L-BFGS-B，原success必须true。随后只对相同dual F(alpha)作高精度polishing，不加正则项、不改目标。
+g=m−rows，H=diag(rows)−T T^T。投影梯度与互补的内部停止容差POLISH_TOL=1e−12（比原证书严格），按原量1+max(m)、1+|F|缩放。最后仍调用原certify逐项检查，不能由新的停止条件绕过它。
+最多24次active-set Newton。free={alpha>0或g<0}；对H_free解p=−g。若bound上的分量方向向负，移出该free集并重解（最多维度次）。不加Hessian jitter；奇异/非下降方向转入固定坐标后备。步长初值min(1,全部p<0的alpha/−p)，最多40次二分回溯；alpha更新投影至非负正交域。接受条件：F_new≤F_old+1e−4 g·step+64*machine_eps*(1+|F_old|)，且scaled KKT merit严格下降或已达到内部精度。这个FP预算只用于数值线搜索，不能放宽最终原证书。
+若24次后尚不足，或Newton方向/线搜索不可用，最多256轮固定索引升序的坐标精确最小化。对坐标i，其余不变，row_i(a)=Σ_j[m_i exp(−C_ij−a)/(A_j+m_i exp(−C_ij−a))]，A_j=1+Σ_{k≠i}m_k exp(−C_kj−alpha_k)。若row_i(0)≤m_i则设alpha_i=0；否则从hi=max(1,当前alpha_i)起最多64次翻倍找包围，再固定80次二分解row_i(a)=m_i。每坐标取中点，回到同一个凸dual；无数据依赖调次序/调容差。每轮复核目标未超事前FP预算增长。
+超上述次数/包围失败/非有限/最终原证书失败，仍作为实现失败停止，不改变方法结论。输出初始与最终KKT merit、Newton/坐标轮数、回溯数、目标差及原完整证书，明确只是同一唯一primal解的数值精化。
+
+合成与执行范围
+保留原12组合成，另加入同病精度合成：4行m=.25、5个条件、全C=0，其已知alpha*=log4；微扰一个alpha使目标变化落在浮点相对尺度而原KKT证书失败，polish须恢复原证书并接近解析解。另以不对称三行例单独强制坐标后备验证，并检查边界alpha=0。
+合成可由B运行，真实16批由根审diff/冻结SHA后执行；不加载失败实际矩阵、不读任何新真实效果，不重用294目录。CPU2/interop1/[13,15]/BelowNormal/空闲RAM>8GiB、python -s，零模型/CP/forward/梯度/训练/heldout。未授权新训练；这是工程精度故障，不是候选方法的证伪。

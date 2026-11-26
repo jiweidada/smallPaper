@@ -1,0 +1,51 @@
+6 Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS
+where p denotes the binary classification score, u signifies the IoU between the predicted
+bounding box and the ground truth, and α serves as a hyper-parameter to balance these
+factors. We denote the ranking of each candidate as r ∈ {0,1,2,3, k − 1}. We set k > 1 for
+intermediate predictions and expect the change of matching happens within a candidate bag.
+As for the last decoder layer, we set k = 1 for one-to-one association.
+Align-DETR shares some similarities withH-DETR [14] but diverges in both motivation
+and implementation: (a) While H-DETR utilizes many-to-one matching primarily to expe-
+dite convergence, we employ it to ensure consistent optimization across layers;(b) H-DETR
+treats all positive samples equally, whereas we introduce an adaptive target mechanism, as
+detailed in Section 3.3.
+Align Loss. To promote more consistent and efficient optimization, we outline two guid-
+ing principles to inform the loss design of DETR. Firstly, the target of the classification loss
+should be adaptive and position-guided, echoing findings in prior literature [26]. Secondly,
+there should be a smooth transition from positive samples to negative samples.
+In accordance with these principles, we propose a straightforward yet effective loss func-
+tion for DETR, defined as follows:
+Lalign = −tc · (1 − p)γ · logp − (1 − tc) · pγ · log(1 − p), (3)
+wherein the hard label y in Eq. 1 is substituted with a soft target tc. As shown in Eq. 3,
+adjusting tc from 1 to 0 makes a smooth transition from a positive target to a negative target.
+This property makes it perfectly compatible to achieve a transition between positive sample
+and negative sample. We definetc as follows :
+tc = e−r/τ · q, (4)
+where e−r/t τ is an exponential down-weighting term controlled by a hyper-parameter τ.
+By associating the tc with the joint quality, Align Loss can guide the learning of classifica-
+tion with regression precision simultaneously and thus build a strong connection between
+these two tasks [5, 49]. In the literature, [26] employs a position-supervised classification
+loss to establish a unified optimization framework, which bears similarities to our approach.
+However, our method approaches the problem from a distinct perspective, emphasizing the
+alignment of the two tasks. Thus, we utilize the classification confidence in tc, which our
+experiments in Section 4 have validated as crucial. Another noteworthy distinction lies in
+our identification of misalignment in the classification target across layers due to the unstable
+matching phenomenon. This issue is addressed in our method through a gradual positive-to-
+negative transition.
+Given that the Align Loss functions as a "soft" variant of focal loss [24], seamlessly
+integrating with any DETR-variant compatible with focal loss is feasible. To leverage this
+capability, we propose an asymmetric classification loss by applying Align Loss on selected
+candidates and focal loss on background samples:
+Lcls =
+Npos
+∑
+i
+Lalign(pi, yi) +
+Nneg
+∑
+j
+L f ocal(p j,0), (5)
+where Npos and Nneg denote the number of total positive samples and negative samples,
+respectively.
+In the context of regression tasks, though not obviously influenced by the misalignment
+issue aforementioned, we opt to implement a regression loss consistent with Align Loss.

@@ -1,0 +1,108 @@
+Academic Editor: Yangquan Chen
+Received: 25 January 2025
+Revised: 20 February 2025
+Accepted: 25 February 2025
+Published: 4 March 2025
+Citation: Zheng, W.; Xiong, B.; Chen,
+J.; Ou, Q.; Yu, L. A Texture
+Reconstructive Downsampling for
+Multi-Scale Object Detection in UAV
+Remote-Sensing Images. Sensors 2025,
+25, 1569. http://doi.org/10.3390/
+s25051569
+Copyright: © 2025 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license
+(https://creativecommons.org/
+licenses/by/4.0/).
+Article
+A Texture Reconstructive Downsampling for Multi-Scale Object
+Detection in UA V Remote-Sensing Images
+Wenhao Zheng 1,2, Bangshu Xiong 1,2,*, Jiujiu Chen 1,2, Qiaofeng Ou 1,2 and Lei Yu 1,2
+1 The School of Information Engineering, Nanchang Hangkong University, Nanchang 330063, China;
+2204081100011@stu.nchu.edu.cn (W.Z.); chenjiujiu@nchu.edu.cn (J.C.); ou.qiaofeng@nchu.edu.cn (Q.O.);
+yulei@nchu.edu.cn (L.Y.)
+2 The Key Laboratory of Jiangxi Province for Image Processing and Pattern Recognition,
+Nanchang 330063, China
+* Correspondence: xiongbs@nchu.edu.cn
+Abstract: Unmanned aerial vehicle (UAV) remote-sensing images present unique chal-
+lenges to the object-detection task due to uneven object densities, low resolution, and
+drastic scale variations. Downsampling is an important component of deep networks that
+expands the receptive field, reduces computational overhead, and aggregates features.
+However, object detectors using multi-layer downsampling result in varying degrees of
+texture feature loss for various scales in remote-sensing images, degrading the performance
+of multi-scale object detection. To alleviate this problem, we propose a lightweight texture
+reconstructive downsampling module called TRD. TRD models part of the texture features
+lost as residual information during downsampling. After modeling, cascading downsam-
+pling and upsampling operators provide residual feedback to guide the reconstruction
+of the desired feature map for each downsampling stage. TRD structurally optimizes
+the feature-extraction capability of downsampling to provide sufficiently discriminative
+features for subsequent vision tasks. We replace the downsampling module of the existing
+backbone network with the TRD module and conduct a large number of experiments and
+ablation studies on a variety of remote-sensing image datasets. Specifically, the proposed
+TRD module improves 3.1% AP over the baseline on the NWPU VHR-10 dataset. On the
+VisDrone-DET dataset, the TRD improves 3.2% AP over the baseline with little additional
+cost, especially the APS, APM, and APL by 3.1%, 8.8%, and 13.9%, respectively. The re-
+sults show that TRD enriches the feature information after downsampling and effectively
+improves the multi-scale object-detection accuracy of UAV remote-sensing images.
+Keywords: UAV; object detection; remote sensing; downsampling; back-projection
+1. Introduction
+Object detection is a fundamental task in computer vision, primarily involving label
+classification and bounding box localization of objects in images or videos. Detection
+of unmanned aerial vehicle (UAV) images has been a popular task recently. With the
+continuous development of deep-learning neural networks and the emergence of large-
+scale aerial image datasets, the detection of UAV images has already made a significant
+impact in the fields of traffic monitoring [1], urban security [2], and emergency rescue [3],
+generating considerable low-altitude economic benefits. Real-time, high-precision detection
+of UAV images can provide sustainable power for these applications.
+In recent years, ResNet [4], as the representative deep-network structure, has made
+breakthroughs in computer-vision tasks. Several well-known deep-learning networks, such
+Sensors 2025, 25, 1569 https://doi.org/10.3390/s25051569
+
+---PAGE---
+
+Sensors 2025, 25, 1569 2 of 20
+as Faster R-CNN [5], Mask R-CNN [6], SSD [7], and YOLO [8–14], have provided effective
+solutions for object detection in most natural scenes. However, directly deploying these gen-
+eralized networks to object detection is going to significantly degrade model performance
+in UAV remote-sensing images [15]. This is attributed to the unique characteristics of UAV
+remote-sensing images. Firstly, the significant variation in object scale due to the UAV’s
+altitude and viewing angle presents a major challenge. Objects close to the UAV appear
+large, while distant objects are significantly smaller, leading to extreme scale disparities.
+Furthermore, object density varies considerably, with frequent instances of object adjacency
+or occlusion. Secondly, the diverse periods captured by the UAV result in severe illumi-
+nation variations, further compromising image quality. Consequently, directly applying
+mainstream object detectors to UAV remote-sensing data poses significant hurdles.
+Currently, mainstream object detectors usually utilize a progressively smaller fea-
+ture pyramid as a backbone network to extract a large number of visual features, thus
+reducing the computational load of the network to process large-scale feature maps. Back-
+bone streamlines feature representations through downsampling-layer (DSL) operations
+to expand the neural sensory field of deeper networks, thereby enabling the construc-
+tion of deeper networks, such as ResNet [ 4], VGG [16], and RegNet [ 17]. DSL typically
+adopts a convolution operation with a stride of 2. This operation has been proven to
+be effective in streamlining local feature information. However, it also inevitably leads
+to the loss of valuable information. As shown in Figure 1, compared to the method in
+this paper, simple strided convolution (SC) is more likely to produce blurring of features
+such as object boundaries and textures. It leads to difficulties in obtaining effective object
+discriminative features.
+TRD
+SC
+Figure 1. Visualization of the role of strided convolution (SC) with TRD in an RGB image. The output
+visualization is the result of maximizing the downsampling feature map along the channel direction.
+TRD’s activation pattern is more subtle and extensive. It shows that it preserves object gradients
+better than traditional downsampling during resolution reduction.
+The above problem is particularly obvious in object detection of UAV images. Images
+captured by UAVs contain a large number of multi-scale, dense targets, which necessitate
+richer and more detailed semantic information for accurate image understanding. However,
+conventional downsampling methods lead to information loss, and feature blurring [18],
+especially explicit shallow features (boundaries, textures, etc.). As shown in (b) and (c) of
+Figure 2, simple downsampling struggles to generate feature responses to high-frequency
+regions, implying that a significant number of detailed high-frequency features are lost. DSL
+employing SC only in (c) of Figure 2 may result in the loss of crucial semantic information,
+thus reducing the detector’s performance. Although the subsequent feature fusion layer
+improves feature utilization to some extent, recovering the largely lost features through
+subsequent layers is difficult to achieve. It becomes a significant bottleneck limiting object-
+detection accuracy.

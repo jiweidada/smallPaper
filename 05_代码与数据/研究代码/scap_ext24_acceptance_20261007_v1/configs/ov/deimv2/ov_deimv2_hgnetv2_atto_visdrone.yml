@@ -1,0 +1,25 @@
+__include__: [
+  '../../deimv2/deimv2_hgnetv2_atto_coco.yml',
+  '../../dataset/visdrone_detection.yml',
+  './_base_ov_deimv2.yml',
+]
+
+output_dir: ./outputs/ov/deimv2/ov_deimv2_hgnetv2_atto_visdrone
+
+OVDEIM:
+  encoder: LiteEncoder
+  img_dim: 64
+
+OVDEIMV2Transformer:
+  feat_channels: [64, 64]
+  feat_strides: [16, 32]
+  hidden_dim: 64
+  num_levels: 2
+  num_points: [4, 2]
+  num_layers: 3
+  num_queries: 100
+  dim_feedforward: 160
+
+DEIMCriterion:
+  matcher:
+    matcher_change_epoch: 450

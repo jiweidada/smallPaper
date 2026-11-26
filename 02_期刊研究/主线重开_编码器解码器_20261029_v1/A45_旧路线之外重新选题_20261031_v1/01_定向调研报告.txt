@@ -1,0 +1,194 @@
+A45　旧路线之外重新选题：两批六个问题的定向筛查
+研究日：2026-10-31（America/Los_Angeles）
+范围：无人机航拍图像的小目标检测；单卡约24GB、未来训练可接受数天。
+交付：选题调研。本轮未执行模型、训练、拟合、重评、profiling或远端操作。
+
+结论先行
+这次没有形成新的可推荐主线，也没有安排下一组训练。完成的是两批、每批三个问题的有限筛查，不代表无人机小目标检测没有研究价值。
+“问题有人做过”不等于不能继续。本轮未推荐，是因为尚不能同时给出具体失败、与直接已有答案不同的改动理由，以及可承担的判别方案。没有要求先证明所有方法无效，也没有将查不到的证据当作负结果。
+旧台账73个研究单元并非73次完整阴性实验；其中有未验证、受限和保留正结果。A42定位专用读取、A43实例query蒸馏的当前版本已停止；A44推荐已撤回。这些状态不改写。
+
+1. 检索策略与记录
+采用 academic-research-suite 的研究问题与来源核验清单，由单助手执行非系统综述的定向筛查。先查失败来源，再追溯原论文、作者仓库和数据说明；综述/博客/聚合清单只作定位线索。
+首批：RGB-T真实对应关系、UAV跨场景迁移、航拍事件相机。三项均未满足推荐条件后，第二批检查漏标监督、旋转编码、稀有类别学习。第二批结束后关闭本轮检索，不继续堆候选。
+未设期刊等级筛选，不把“2026年”或“新encoder/decoder”当作选题成立依据。检索日期、47条查询、主要来源与准确阅读范围见同目录02_检索记录与来源.json。没有进行PRISMA筛选、引用网络穷尽或双人独立筛选，不报告虚构召回率。
+公开PDF存在403/429时，改读arXiv HTML或作者说明；未获取的全文仍标为未读。未访问的代码、未下载的数据、未知的显存和时长均不写为已验证。
+
+2. 六个问题的现象证据、最近答案与本轮去留
+下列“原文”均为转述；差值为本文根据同表数字计算，单位为绝对百分点。跨方法差值不自动构成因果效应，作者解释与我的判断分别标注。
+
+B1-A：真实RGB-T对应关系
+问题：航拍RGB与红外局部错位、或某目标缺乏另一模态证据时，融合是否反而损害小目标检测？
+原文证据：DroneVehicle分别提供两模态标注，实例数并不相等[S16]；DVTOD的困难场景可切换标注参考模态，一对图只共享一套标签[S17]。这能确认观测/标注条件复杂，不能直接证明融合比单模态差。
+最近答案：OAFA用共同子空间估计偏移、再做检测导向的可变形对齐[S01]；DAMS-DETR已有主导模态query选择及独立模态采样[S02]；DPDETR已分离类别、可见光位置和红外位置[S03]；DOD-SA还针对单模态标注学习分离输出[S04]。因此，“新双分支/自适应融合/分离定位”均不能直接作为本项目增量。
+待补疑点：自然场景中“不存在对应目标”和“标注遗漏”怎样区分？强制配对究竟损害多少tiny目标？DOD-SA所用DroneVehicle处理后保持一一对应，且其未匹配IR标签会先复制到RGB，但这些设计本身不是伤害证据[S04]。
+我的判断：保留未解决的核验疑问，不选为主线。当前缺真实无对应对象的可核评价口径和明确小目标损失，不能把“加入null匹配”写成已经成立的新方法。
+查重：D011整图/裁块是混合受限结果；D017观测约束消息未验证；D025尺度门控未验证；A44已撤回。跨传感器的物理对应条件有实质不同，但普通门控、重采样、细尺度读取仍是旧方法族，不据此重启。
+数据/基线：DroneVehicle+DPDETR/DOD-SA可作直接相关材料；RGBT-Tiny确为60–100米UAV采集、提供paired ID，超过81%目标小于16×16[S05]。OBB/HBB、配对筛选和模态坐标必须分开；RGBT-Tiny下载申请与代码环境未完成核查，不保证立即可训。
+
+B1-B：跨场景迁移
+问题：闭集航拍迁移中，小目标是否存在普通目标域适配无法解决的负迁移？
+原文证据：Bridge按Clear训练、Dark/Foggy/Extreme-Dark测试重新组织DroneVehicle；Table 4中Faster R-CNN的Extreme-Dark mAP为8.1；DINOv2基线26.5、加Bridge29.8，差+3.3[S07]。这是不同设置下的检测性能，不是原问题所需的“适配造成负迁移”的证据。
+最近答案：Bridge用冻结VFM和可学习低秩表示处理泛化。论文将收益解释为减弱混杂影响；本报告不把这种作者解释当作已经识别的因果机制。
+我的判断：不选。已确认照明域困难，但所读结果缺小目标分层及同目标数据下的负迁移对照，尚不能支持本轮最初问题。提出另一个域门控或亮度增强不足以形成增量。
+查重：D041先验缓存曾有协议问题，并非可信方法阴性；D048保护Mosaic保留正结果；D049取消ZoomOut结果受限；D050复杂布局未过预检；D057尺寸分数标定未过。域迁移条件不同，不代表上述所有路线失败或可以换名重开。
+数据/基线：Diverse Weather DroneVehicle+论文Faster R-CNN/VFM组合可追溯；具体划分资产、大小分层与24GB成本未验证，不以扩充“大模型清单”作为下一步。
+
+B1-C：航拍事件证据
+问题：事件数据能否在特定航拍小目标失败条件下，提供普通RGB-T融合尚未利用的补偿？
+原文证据：Tri-Modal Fusion Transformers确实检测UAV拍摄的车辆；同MiT-B1框架Table 1/5报告三模态mAP84.24、RGB+Thermal83.42，差+0.82[S08]。这不是tiny AP，也不能归因为某一种运动条件。
+最近答案：该工作已做门控、双向token交换、融合位置和模态消融；CSSA等普通融合还是必要参照。作者仓库与论文的样本/框总数另有差异说明，复现须锁定数据版本[S21]。
+我的判断：不选。真正的航拍数据已找到，但“再设计门控或换融合深度”已有直接答案；尚无更具体、区别明确的事件失效机制和可承担增量。
+查重：D063通用时序修正和D064首次定位延迟预检未过，不能推成视频/事件方向均无效。这里新增传感器条件有区别，泛化的时序平滑没有区别。
+边界：EV-UAV使用三脚架相机拍摄无人机本体，是反无人机任务，不能拿它的小像素数字替代航拍地面目标证据[S15]。
+数据/基线：TriModalDet(MiT-B0/B1+Faster R-CNN)有作者仓库，新增热红外与事件输入适配；单卡24GB峰值、时长、独立序列划分和tiny分母未验证。
+
+B2-A：漏标导致错误背景监督
+问题：航拍图像的小目标更容易漏标时，模型是否将真实前景当负例学习，而一般伪标签法仍有可分辨的剩余问题？
+原文证据：VisDrone官方承认标注缺陷，并用ignore处理部分低分辨率/拥挤区域；没有给出全库漏标率[S19]。RSST的DOTA 1%保留标注设置中，Rotated FCOS为41.18 mAP、其方法56.64，差+15.46[S09]。DOTA数字不能转写为VisDrone的自然漏标损失。
+最近答案：SparseDet已有伪正例挖掘及一致性学习[S10]；RSST已有类别感知伪标签和高置信负例降权。简单“教师补框、忽略不可靠负例、按类别调阈值”不是新问题的充分增量。
+待验证假设：真实漏标可能依赖尺度/遮挡，并非随机删标签；这种缺失机制可能改变普通负例保护的效果。未证实VisDrone存在多大的此类偏差。
+我的判断：暂不立题，不把数据修正本身当算法主线。当前缺UAV实际条件的量化证据，也缺可识别、区别于现有降权方法的估计设计；不能仅用人工删标签制造一个“新痛点”。
+查重：D062是量化观测集合框，预检未过，不是缺失标注检验；D073是监督容量诊断，不是漏标学习；A43是完整现有标注下的query蒸馏。三者不能作为否定漏标研究的证据，也不能把A43换成“漏标蒸馏”直接复用。
+数据/基线：可用VisDrone原始ignore口径研究受控缺失，但那只能验证人为设置；若没有自然标注证据，不得声称解决真实漏标。此次不删标签、不拟合新风险函数。
+
+B2-B：旋转编码的收益与限制
+问题：保持旋转性质的编码器，是否在真实UAV小目标上有普通旋转增强之外的可解释收益？
+原文证据：MessDet的Table 2中，两种下采样下MessDet为78.51/78.15，差+0.36；RTMDet为77.10/77.34，差−0.24；参数量也变化[S11]。不能把该差值当作单一性质的纯效应，更不是UAV tiny分层结论。
+最近答案：ReDet、FRED以及MessDet均已做旋转表示；“严格下采样、修正采样中心、增加旋转一致性”不是空白。
+我的判断：当前增量不推进。首选的下采样/相位改动与旧H/I路线相撞；只把旧平移/采样叙事换成旋转不构成重开依据。未否定整个旋转方向。
+新数据资产：CODrone是真实UAV多高度/多视角OBB基准，Table V中LSKNet-S AP50=46.92、AP75=21.15[S14]。同一张表的正文排名叙述有矛盾，报告采用表中数字；两种IoU阈值的差不等于角度误差因果量。
+关键限制：该数据的difficulty还包含小目标；需核对训练与评估如何处理difficulty后，才可把总AP用于小目标立题。未读取数据本体/评估实现；新数据集并不自动带来新算法。
+可承担性：作者报告30轮、单3090、切块训练；不能保证本机最新环境能直接复现。若没有超出既有旋转表示的具体改动，不因可训练就开训。
+
+B2-C：同图头尾类别失衡
+问题：一张航拍图中大量常见类别与少量稀有类别共存时，普通图像级重采样为什么可能失效？
+原文证据：DSHNet在VisDrone验证集同表中，FRCNN-R50普通采样AP21.7，SimCal20.0（−1.7），DSHNet24.6（+2.9）；UAVDT中同基线bus AP由3.4到14.7[S12]。这是可信的UAV实例失衡证据，并不把所有稀有类对象都等同小目标。
+最近答案：DSHNet已提出实例级偏置采样与头尾双头，并涵盖一阶段和两阶段实现；AD-Det又有小目标增强与动态类别平衡copy-paste[S13]。
+我的判断：问题成立，当前没有独立的新算法增量。换YOLO26、改成query配额、另加类别权重不够；不能把2021年的已回答问题当作新主线。
+查重：D041类别尺度先验存在协议限制；D067两对错类主导假设未成立，不证明所有分类问题已解决；D048–D050已触及实例曝光/增强。对象级学习失衡与后处理标定有区别，但必须说出超越已有实例采样的操作差异。
+可承担性：原论文确报单1080Ti 11GB、batch2训练；有作者仓库[S22]。这是可行性参照，不是新颖性或本机复现成功证明。
+
+3. 核心文献矩阵与阅读范围
+完整题名、链接、版本、阅读范围及未核验项集中在02文件，不重复把摘要写成全文。
+S01 OAFA，CVPR 2024：摘要/引言首段和补充算法片段；PDF直开403。无全文通读。
+S02 DAMS-DETR，2403.00326v1：引言、跨注意力公式、数据与实现、Table 1–4、限制节；未读后续版本全文。
+S03 DPDETR，2408.06123v2：摘要及引言的任务/位置分离说明；未完成方法全文核查。
+S04 DOD-SA，2508.10445v2：PLA公式10–13、数据处理、定性对比；未通读完整训练各阶段。
+S05 RGBT-Tiny，2406.14482v2：采集与标注、场景/尺度、失败讨论的节选；未把IoU与SAFit表混用。
+S06 DyFCLT，CVPR 2026：官方摘要和补充材料的基线/损失节选；主文PDF直开403。只用于确认已有频带交互答案，不采纳二手解读的性能数字。
+S07 Bridge，2604.26820v1：摘要、任务定义、数据/实现及Table 4；作者因果论证未独立核实。
+S08 Tri-Modal，2604.16630v1：摘要、§5.1–5.5及Table 1–6；未核对所有61次实验。
+S09 RSST，2509.16970v1：摘要、AHR、实验设置、Table 1–4；并非LLM调用/代码复现。
+S10 SparseDet，ICCV 2023：原PDF搜索提取的Table 1、§4.1–4.2片段；不是全文通读。
+S11 MessDet，2507.09896v1：方法节选、Table 2/4/5及实现/补充下采样条件；未复核所有数学证明。
+S12 DSHNet，2011.03822v1/WACV 2021：§3采样/双头、§4设置与Table 2/3；未复现源码。
+S13 AD-Det，Remote Sensing 2025：原文摘要、引言与方法概述检索片段；全文429，未通读。
+S14 CODrone，2504.20032：采集/标签、数据统计及Table V，Table VI仅部分行；未核数据与difficulty代码。
+S15 EV-UAV，ICCV 2025：摘要及采集/标注原文片段；仅用于排除反无人机任务。
+
+4. 有文献依据的剩余疑点，及不能宣称的“研究空白”
+可以写：所读一一配对协议尚不能回答自然无对应tiny目标的效果；随机稀疏标注结果尚不能回答UAV自然漏标偏差；总AP尚不能回答新航拍视角的小目标分层效果。
+不能写：这些问题从无人研究；单模态一定优于融合；已有方法都不能解决；DETR因全局注意力必然不适合tiny；只需换新encoder即可提升。
+这些是有限阅读下的证据缺项，不是已获证实的算法空白。没有将“论文没报告某张表”升级成创新。
+
+5. 算法增量审查、竞争解释与风险
+未批准候选创新点。以下是被筛下的AI设想，保留理由以防再次推荐：
+a. 无对应对象采用null配对：可能只是标签差异，或普通单模态/后融合已足够；需要真实可见性/对应证据，不能由数量差直接归因。现阶段不实现。
+b. 按漏标倾向保护负例：可能只是普通SparseDet/RSST的阈值收益，或人为缺失分布设定收益；没有可识别倾向与独立真实证据前不称新风险估计器。
+c. 加强旋转编码：已有ReDet/FRED/MessDet；不能靠采样相位纠正、旋转一致性或更高容量重命名创新。
+d. 稀有类query重分配/双头：既有DSHNet已经覆盖双路径，query配额还与本项目旧路线接近；不能只换宿主。
+主要风险：输入任务漂移；按模态/图像随机划分造成评价不对等；把OBB AP50与COCO APs混用；新基准difficulty改变小目标分母；缺失标签与不可见对象不可分；把代码链接当成跑通保证。
+上述替代解释只要求最小判别观测，不要求在廉价试验之前完成完整因果证明。
+
+6. 最小验证路线与停止条件
+本轮已做的验证：核对原文任务、数据定义、同表比较与差值；对照旧编号和实际裁决；保存来源范围。无模型推理或新AP重评。
+因六项均未产生可推荐增量，不冻结“原版/模块1/模块2”三组，更不安排先跑12轮碰碰运气。训练分配为0。
+若以后复议其中一项，最小进入条件只需三件：一个可核的具体失败；一条区别于最近直接答案的改动理由；同数据/同预算能判别的对照。无须证明所有先例失败。
+最低判别对照必须包括：成熟原版、最接近的简单答案、所提改动；并确保比较目标相同。RGB-T另需可靠单模态参照；稀有类必须有实例级采样；旋转必须有普通旋转增强和既有旋转表示。不得先堆模块再拼动机。
+评价要同时保留总性能与目标条件分层、GT分母、原生ignore/difficulty、固定终点和预算；不能把低AP75、类别稀少或特征变化当增益。单seed短测只能决定是否继续，不能证明稳定/期刊价值。
+可承担性只认原文硬件参照；本机24GB峰值、小时数均未知。候选若需额外标注、新采集、未发布代码或明显超出单卡数天预算而无替代，就本轮退出。这里没有实际安排复议或训练。
+
+7. 后续边界
+本轮筛查到此关闭。当前优先候选为空，论文主线寻找仍未完成；不把“筛查结束”写成“找到主线”。
+重新选题时沿用此次排除证据，只查真正不同的失败及操作差异；不重复投放A44、已停的几何/采样/读取/配额/蒸馏小变体。历史的未验证、协议问题与阴性结果继续分别记账。
+本报告不否定学科价值，不承诺投稿层级。若以后有具体新证据，可以重审本轮暂缓项；没有新证据时不换名字重启。
+
+8. 可核验参考文献与资源（编号与正文一致）
+S01　Chen Chen et al. — Weakly Misalignment-free Adaptive Feature Alignment for UAVs-based Multimodal Object Detection. CVPR 2024.
+https://openaccess.thecvf.com/content/CVPR2024/html/Chen_Weakly_Misalignment-free_Adaptive_Feature_Alignment_for_UAVs-based_Multimodal_Object_Detection_CVPR_2024_paper.html
+
+S02　Junjie Guo et al. — DAMS-DETR: Dynamic Adaptive Multispectral Detection Transformer with Competitive Query Selection and Adaptive Feature Fusion. arXiv:2403.00326v1, 2024.
+https://arxiv.org/html/2403.00326v1
+
+S03　Junjie Guo et al. — DPDETR: Decoupled Position Detection Transformer for Infrared-Visible Object Detection. arXiv:2408.06123v2, 2025 revision.
+https://arxiv.org/html/2408.06123v2
+
+S04　Hang Jin et al. — DOD-SA: Infrared-Visible Decoupled Object Detection with Single-Modality Annotations. arXiv:2508.10445v2, 2026 revision.
+https://arxiv.org/html/2508.10445v2
+
+S05　Xinyi Ying et al. — Visible-Thermal Tiny Object Detection: A Benchmark Dataset and Baselines. arXiv:2406.14482v2, 2025 revision.
+https://arxiv.org/abs/2406.14482v2
+
+S06　Chaolang Li et al. — DyFCLT: Dynamic Frequency-Decoupled Cross-Modal Learning Transformer for Multimodal Tiny Object Detection. CVPR 2026.
+https://openaccess.thecvf.com/content/CVPR2026/html/Li_DyFCLT_Dynamic_Frequency-Decoupled_Cross-Modal_Learning_Transformer_for_Multimodal_Tiny_Object_CVPR_2026_paper.html
+
+S07　Mingbo Hong et al. — Bridge: Basis-Driven Causal Inference Marries VFMs for Domain Generalization. arXiv:2604.26820v1, 2026.
+https://arxiv.org/html/2604.26820v1
+
+S08　Craig Iaboni; Pramod Abichandani — Tri-Modal Fusion Transformers for UAV-based Object Detection. arXiv:2604.16630v1, 2026.
+https://arxiv.org/html/2604.16630v1
+
+S09　Wei Liao et al. — LLM-Assisted Semantic Guidance for Sparsely Annotated Remote Sensing Object Detection. ICCV 2025; arXiv:2509.16970v1.
+https://arxiv.org/html/2509.16970v1
+
+S10　SparseDet: Improving Sparsely Annotated Object Detection with Pseudo-positive Mining. ICCV 2023.
+https://openaccess.thecvf.com/content/ICCV2023/papers/Suri_SparseDet_Improving_Sparsely_Annotated_Object_Detection_with_Pseudo-positive_Mining_ICCV_2023_paper.pdf
+
+S11　Xiuyu Wu et al. — Measuring the Impact of Rotation Equivariance on Aerial Object Detection. ICCV 2025; arXiv:2507.09896v1.
+https://arxiv.org/html/2507.09896v1
+
+S12　Weiping Yu; Taojiannan Yang; Chen Chen — Towards Resolving the Challenge of Long-tail Distribution in UAV Images for Object Detection. WACV 2021; arXiv:2011.03822v1.
+https://arxiv.org/html/2011.03822v1
+
+S13　AD-Det: Boosting Object Detection in UAV Images with Focused Small Objects and Balanced Tail Classes. Remote Sensing 17(9),1556,2025.
+https://www.mdpi.com/2072-4292/17/9/1556
+
+S14　More Clear, More Flexible, More Precise: A Comprehensive Oriented Object Detection benchmark for UAV. arXiv:2504.20032.
+https://arxiv.org/html/2504.20032
+
+S15　Nuo Chen et al. — Event-based Tiny Object Detection: A Benchmark Dataset and Baseline. ICCV 2025; arXiv:2506.23575.
+https://arxiv.org/abs/2506.23575
+
+S16　VisDrone authors — DroneVehicle official repository and dataset description. author repository; accessed2026-10-31.
+https://github.com/VisDrone/DroneVehicle
+
+S17　VDT-2048 authors — DVTOD: Misaligned Visible-Thermal Object Detection, a Drone-based Benchmark and Baseline. author repository; paper link IEEE10522939.
+https://github.com/VDT-2048/DVTOD
+
+S18　Vehicle-AHU authors — DRTV30K official dataset repository. author repository; accessed2026-10-31.
+https://github.com/Vehicle-AHU/DRTV30K
+
+S19　VisDrone organizers — VisDrone FAQ. official dataset FAQ; accessed2026-10-31.
+https://aiskyeye.com/faq/
+
+S20　XinyiYing authors — RGBT-Tiny official repository. author repository; accessed2026-10-31.
+https://github.com/XinyiYing/RGBT-Tiny
+
+S21　radlab-sketch authors — TriModalDet official repository. author repository; accessed2026-10-31.
+https://github.com/radlab-sketch/trimodal-uav-det
+
+S22　we1pingyu authors — DSHNet official repository. author repository; accessed2026-10-31.
+https://github.com/we1pingyu/DSHNet
+
+S23　Chanho Lee et al. — FRED: Towards a Full Rotation-Equivariance in Aerial Image Object Detection. AAAI 2024; DOI10.1609/aaai.v38i4.28069.
+https://ojs.aaai.org/index.php/AAAI/article/view/28069
+
+S24　ReDet: A Rotation-equivariant Detector for Aerial Object Detection. CVPR 2021; arXiv:2103.07733.
+https://arxiv.org/abs/2103.07733
+
+S25　RSST authors — RSST source repository. author repository; accessed2026-10-31.
+https://github.com/wuxiuzhilianni/RSST
+
+上述阅读范围见第3节和02文件；未宣称任何未读论文的全文结论。S16–S22/S25为资源说明，不替代方法原论文。
+

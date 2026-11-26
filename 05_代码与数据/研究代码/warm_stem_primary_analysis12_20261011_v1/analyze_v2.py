@@ -1,0 +1,107 @@
+"""Compare saved Warm12 to the existing same-seed BASE12, no model/evaluator."""
+from pathlib import Path
+import argparse,hashlib,importlib.util,json,sys
+import numpy as np
+ROOT=Path(__file__).resolve().parents[3];HERE=Path(__file__).resolve().parent
+read=lambda p:json.loads(Path(p).read_bytes())
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,o):
+ with Path(p).open('x',encoding='utf8') as f:json.dump(o,f,ensure_ascii=False,indent=2,allow_nan=False)
+def module(n,p):
+ s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+def npz(p):
+ with np.load(p,allow_pickle=False) as z:return {k:z[k].copy() for k in z.files}
+def analyze(seed):
+ assert seed in (1,2)
+ spec=read(HERE/'protocol_v2.json')
+ assert sha(__file__)==spec['analysis_sha256']
+ for n,h in spec['dependencies_sha256'].items():assert sha(ROOT/n)==h,n
+ tools=module('warm12_saved_stage_tools',ROOT/'英文小论文/code/stem_init_stage_analysis_20261011_v2/compare_saved_stages.py')
+ p,geometry,onset,rank,readers=tools.prepared()
+ joint=module('warm12_joint_partition',ROOT/'英文小论文/code/stem_joint_error_analysis_20261011_v2/analyze.py')
+ base=tools.cached_baseline(seed,p,readers['full'])
+ folder=ROOT/f'outputs/warm_stem_primary_collection12_20261011_v1/seed{seed}_warm_stem_v1'
+ verification=read(folder/'primary_verification_v1.json')
+ assert verification['status']=='PASS_WARM_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS'
+ assert verification['verification_script_sha256']==spec['dependencies_sha256']['英文小论文/code/warm_stem_primary_collection12_20261011_v1/verify_primary_v2.py']
+ assert verification['all_collected_files_verified'] and verification['actual_stage_images']==548
+ assert not verification['saved_EMA_independent_replay_verified'] and not verification['formal_terminal_reader_passed']
+ packet=Path(verification['downloaded_packet']);manifest=read(packet/'primary_manifest.json')
+ assert sha(packet/'primary_manifest.json')==verification['primary_manifest_sha256']
+ for n,i in manifest['files'].items():
+  assert (packet/n).stat().st_size==i['bytes'] and sha(packet/n)==i['sha256'],n
+ identity=verification['identity'];assert identity['arm']=='warm_stem' and identity['seed']==seed
+ for n in ('common_init_sha256','baseline_checkpoint_sha256','baseline_first100_sha256','val_annotation_sha256','evaluator_binding'):
+  assert identity[n]==base['summary']['identity'][n],n
+ summary,flags,_=readers['control'].native_endpoint(packet/'run/endpoint_epoch12',base['annotation'])
+ readers['control'].stages(packet/'run',identity,base['annotation'])
+ assert summary['identity']==identity and summary['native_stats']==verification['native_stats']
+ destination=ROOT/f'outputs/warm_stem_primary_analysis12_20261011_v1/seed{seed}';destination.parent.mkdir(exist_ok=True);destination.mkdir(exist_ok=False)
+ warm=geometry.collect(base['annotation'],lambda iid:npz(packet/f'run/stages_epoch12/image_{iid:06d}.npz'),flags)
+ rank.analyze(packet,'warm_stem',tools.HERE/'ranking_protocol.json',destination/'warm_ranking',
+              base['packet']/'native/engine/deim/postprocessor.py',base['packet']/'reference/val_annotations.json')
+ rr=read(destination/'warm_ranking/report.json');wr=npz(destination/'warm_ranking/per_GT.npz')
+ assert rr['identity']==identity and not rr['score_mismatch_images'] and rr['native_TP_proxy_conflicts']==0
+ baseline=base['values'];br=npz(ROOT/p['baseline_caches'][str(seed)]['rank']/'per_GT.npz')
+ for n in ('annotation_id','image_id','category_id','original_area'):
+  assert np.array_equal(warm[n],baseline[n]) and np.array_equal(warm[n],wr[n]) and np.array_equal(warm[n],br[n]),n
+ sf=tools.sorted_flags(flags);assert np.array_equal(warm['native_TP'],sf['hits'])
+ masks=tools.groups(base['annotation'],warm)
+ assert not np.any(warm['original_area']==1024) and masks['COCO_small'].sum()==26586
+ assert np.array_equal(masks['input_under4'],wr['input_shortside']<4)
+ for name in ('input_under4','input_4_to_under8','input_8_to_under16','input_ge16'):
+  masks['COCO_small_'+name]=masks['COCO_small']&masks[name]
+ categories={int(c['id']):c['name'] for c in base['annotation']['categories']}
+ for cid,name in categories.items():
+  masks['COCO_small_class_'+str(cid)+'_'+name]=masks['COCO_small']&(warm['category_id']==cid)
+ outcomes={}
+ for t,ti in ((.5,0),(.75,5)):
+  bl,bp=joint.partition(baseline,br,t);wl,wp=joint.partition(warm,wr,t)
+  bs=baseline['max_iou']>=t;ws=warm['max_iou']>=t
+  changed=bs!=ws;any_changed=changed.any(1);first=changed.argmax(1)
+  outcomes[str(t)]={}
+  for name,mask in masks.items():
+   gain=mask&~baseline['native_TP'][:,ti]&warm['native_TP'][:,ti]
+   loss=mask&baseline['native_TP'][:,ti]&~warm['native_TP'][:,ti]
+   matrix=np.zeros((len(joint.LABELS),len(joint.LABELS)),dtype=np.int64)
+   np.add.at(matrix,(bl[mask],wl[mask]),1);assert int(matrix.sum())==int(mask.sum())
+   outcomes[str(t)][name]=dict(GT=int(mask.sum()),baseline=joint.summarize(mask,bl,bp,br,t),warm=joint.summarize(mask,wl,wp,wr,t),
+    BASE_to_warm_joint_cell_counts=matrix.tolist(),native_all_area_TP_gained=int(gain.sum()),native_all_area_TP_lost=int(loss.sum()),native_all_area_TP_net=int(gain.sum()-loss.sum()),
+    supported_GT_by_boundary={n:dict(baseline=int((mask&bs[:,i]).sum()),warm=int((mask&ws[:,i]).sum()),delta=int((mask&ws[:,i]).sum()-(mask&bs[:,i]).sum())) for i,n in enumerate(geometry.STAGES)},
+    gained_TP_first_observed_geometric_support_change={n:int((gain&any_changed&(first==i)).sum()) for i,n in enumerate(geometry.STAGES)},
+    lost_TP_first_observed_geometric_support_change={n:int((loss&any_changed&(first==i)).sum()) for i,n in enumerate(geometry.STAGES)},
+    gained_TP_unchanged_three_boundary_support=int((gain&~any_changed).sum()),lost_TP_unchanged_three_boundary_support=int((loss&~any_changed).sum()),
+    gained_TP_BASE_outcomes={n:int((gain&(bl==i)).sum()) for i,n in enumerate(joint.LABELS)},
+    lost_TP_warm_outcomes={n:int((loss&(wl==i)).sum()) for i,n in enumerate(joint.LABELS)})
+ # Exact APs attribution to equal-weight class metrics, not a causal decomposition.
+ class_AP=[]
+ for b,c in zip(base['summary']['categories_percent'],summary['categories_percent']):
+  assert b['class_id']==c['class_id']
+  class_AP.append(dict(class_id=c['class_id'],name=c['name'],BASE_APs=b['APs'],warm_APs=c['APs'],
+                       delta_APs_points=c['APs']-b['APs'],contribution_to_total_APs_points=(c['APs']-b['APs'])/10))
+ AP=summary['native_stats'][0]*100;APs=summary['native_stats'][3]*100
+ BASEAP=base['summary']['native_stats'][0]*100;BASEAPs=base['summary']['native_stats'][3]*100
+ assert abs(sum(c['contribution_to_total_APs_points'] for c in class_AP)-(APs-BASEAPs))<1e-9
+ np.savez_compressed(destination/'warm_stage_per_GT.npz',**warm)
+ report=dict(status='SAME_GT_WARM_VS_CACHED_BASE_PRIMARY12_DESCRIPTION_SINGLE_SEED_REPLAY_PENDING',seed=seed,identity=identity,
+  all548_images=True,all38759_GT=True,all10_categories=True,completed_epochs=12,evaluated_weights='EMA',
+  BASE12=dict(AP=BASEAP,APs=BASEAPs),warm12=dict(AP=AP,APs=APs),delta_points=dict(AP=AP-BASEAP,APs=APs-BASEAPs),
+  native_gate_passed=APs>BASEAPs and AP>=BASEAP,outcomes=outcomes,labels=list(joint.LABELS),class_APs_arithmetic=class_AP,
+  ranking_ambiguous_images=rr['ambiguous_images'],score_mismatch_images=rr['score_mismatch_images'],
+  native_TP_proxy_conflicts=rr['native_TP_proxy_conflicts'],native_score_list_max_abs_error=rr['native_score_list_max_abs_error'],
+  evidence=dict(primary_verification_sha256=sha(folder/'primary_verification_v1.json'),
+   primary_manifest_sha256=verification['primary_manifest_sha256'],stage_manifest_sha256=sha(packet/'run/stages_epoch12/manifest.json'),
+   endpoint_manifest_sha256=sha(packet/'run/endpoint_epoch12/manifest.json'),baseline_source_report_sha256=base['source_report_sha256'],
+   baseline_stage_cache_manifest_sha256=base['cache_stage_manifest_sha256'],baseline_rank_cache_manifest_sha256=base['cache_rank_manifest_sha256']),
+  analysis_sha256=sha(__file__),protocol_sha256=sha(HERE/'protocol_v2.json'),
+  saved_EMA_independent_replay_verified=False,formal_terminal_reader_passed=False,other_seed_endpoint_pending=True,
+  causal_root_proven=False,novelty_proven=False,
+  new_model_forwards=0,new_BASE_forwards=0,new_evaluator_calls=0,new_Hungarian_or_native_matching_calls=0,new_optimizer_updates=0,new_training_epochs=0,
+  scope='Descriptive GT-identity comparison, not shared cross-run query/box identity or causal/AP decomposition. First boundary has selected300 regressed references, so location selection versus regression remains unresolved. Small-cohort TP uses all-area native flags; class APs comes from exact native small-area precision arithmetic. All ties/ambiguity retained. Independent saved-EMA and other seed remain required.')
+ assert 'torch' not in sys.modules and not any(n.startswith('pycocoeval') for n in sys.modules)
+ write(destination/'report.json',report)
+ write(destination/'manifest.json',dict(files={x.relative_to(destination).as_posix():sha(x) for x in destination.rglob('*') if x.is_file()}))
+ print(json.dumps(dict(status=report['status'],seed=seed,delta=report['delta_points'],
+  small={t:{k:outcomes[t]['COCO_small'][k] for k in ('native_all_area_TP_net','supported_GT_by_boundary','lost_TP_warm_outcomes')} for t in ('0.5','0.75')})))
+if __name__=='__main__':
+ a=argparse.ArgumentParser();a.add_argument('--seed',type=int,choices=(1,2),required=True);analyze(a.parse_args().seed)

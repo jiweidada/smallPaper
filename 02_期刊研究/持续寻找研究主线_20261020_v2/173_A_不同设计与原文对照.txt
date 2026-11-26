@@ -1,0 +1,163 @@
+173：A 的独立设计——保留几何归属的跨类槽分类重分配
+2026-10-21，academic-research-suite / deep-research，研究设计审查。
+仅只读已有代码、结果、论文及公开原文；只新增本文件。未执行模型、统计脚本、反传、训练、远端或监测。本文件不是已运行结果，也不是主线成立声明。
+
+一、独立判断
+
+我建议下一条不同设计研究“一个几何 query 与多个类别槽的监督容量”，不继续改 FDR 支持、边缘分布、attention 地址或 top300 交换损失。当前分类训练把每个普通 query 赋给至多一个 GT 类别，而推理实际把 query×class 当作独立候选槽。两者不一致是代码事实；这种不一致是否在本数据上产生可利用损失，仍是待检验问题，不能直接称 bug。
+
+具体候选：保持原框监督归属不变，每个已匹配 GT 仍只获得一个分类正例；只有在同一预测框同时符合两个异类 GT 的几何条件时，允许不同类别的分类正例使用同一个 query。它改变分类匹配的容量约束，不增加 query、分类头、GT、总正例数或推理后处理。不是所有重叠框都加正例，也不是给所有次高类别免除负例。
+
+追加原文核对改变了创新判断：OD-DETR（IJCAI2024）已经明确提出同一query对两个异类GT作IoU软多标签分类、回归只留一个GT。因此“多类槽+单一框目标”已被覆盖，不能作为本候选贡献。这里只保留更窄的“每GT一个分类owner的守恒转移及可行边约束”，且必须面对普通classwise matching。若后者给出相同归属，本候选直接折叠为简单对照，不为它另造名称。
+
+当前最多值得做一次零前向、带真实 query/GT 身份的缓存判别；尚不足以申请训练。我不会把 D2 的 3333/3361 当成“同时跨类多 TP”数量。若核查证明次高类几乎只是在纠正错误 argmax，停止本版本，不再把它改写为普通分类校准来维持同一主线。
+
+二、真实资产与原始路径：已知量和关键缺口
+
+1. D2 的已核事实（BASE12 EMA，不是 C0/BASE24/C96）：548 val、38759 GT。
+   原 flatten top300 的 N AP 为 6.128496 / 7.908137；每 query argmax 后补位 R AP 为 5.190986 / 6.738981，R−N 为 −0.937510 / −1.169156 pp。
+   被删除 secondary-class 条目的真实 COCO IoU.5 TP 为 3333 / 3361；新增 query TP 为 432 / 545；新增 GT 为 419 / 502，丢失 GT 为 3087 / 3021；这些不同量不能互相代替。
+   来源：英文小论文/主线循环验证_20261020_v1/23_缓存后处理结果与解释.txt；postprocessing_probe_cpu_reference/seed1_results.json、seed2_results.json、01_protocol.json；实现 postprocessing_probe_cpu_reference.py。
+   本人实际读取上述摘要、seed1 JSON开头、协议与完整脚本。两个seed数值在既有回交中一致，不声称本次重新算过。
+
+2. D2 当前输出不能直接回答本候选最重要的事实。
+   evaluate() 只输出 subset_fresh_matching 聚合与 GT hits 聚合；image_rows 只存每图输出/unique query 数等。predictions 只带 _deleted_N_label 和 _new_R_query，未把 query_id 持久化；COCO dtMatches 逐检测映射没有保存。native own Hungarian 也没有在该结果中保存。
+   因此未知：(a)同一 query 的 primary 与 secondary 是否分别对两个异类 GT 同时为真 TP；(b)是否仅 secondary 正确，以及该 secondary 是否就是 native own 类别；(c)两条真 TP 对应的 GT 是否是不同实例、类别对与重叠度。不能从3333/3361反推。
+   原 NPZ 路径可由 source_identity 回执逐一核对：
+   outputs/native_selection_collection12_20261011_v2/seed{1,2}_original_stem/extracted/diagnostic/stages_epoch12/image_{iid:06d}.npz。
+   原标注：outputs/small_object_encoder_decoder12_20261010_v5/terminal_collection/seed1/extracted/reference/val_annotations.json，原SHA为0329595b1f5aa8153732407a1d906de0dd5db7b7e8e005b8941ff19e90e774bd。
+   D2协议为score>.001、原FP32坐标换算、COCO每类maxDets1/10/100、保留annotation ID=0 sentinel；不是官方VisDrone ignore-region重新评估，也不是原GPU逐位复现。新判别必须复用该原口径，不能边修ID或ignore边解释D2。
+
+3. 与现有阴性不矛盾的范围。
+   D1 的12642普通几何配对中，单图单query多GT回归为0。这说明已有union几何不是所假设的多GT回归冲突；本设计刻意不制造多个回归目标。它也不证明推理的异类槽不能同时被评价为TP。
+   当前C0四图缓存127含902 GT、453个sub4、完整末层pred_logits[300,10]与boxes，可另算本方案在当前模型中的作用面；不是两个seed，也不是独立验证。原文件：持续寻找研究主线_20261020_v2/127_C0_attention_template_registration/01_cache.pt；身份与已有结果在同目录00_inputs_and_protocol_sha256.json、03_results.json、02_image_0至3.json。
+   root静态审159确认四个输入GT为146/280/418/58，普通own匹配数为146/280/300/58，共784；MAL分母仍是902。M只重新分配原own已含的784个GT，不加入第三图尚未匹配的118个GT。正例数守恒不等于“所有902个GT均获得正例”。必须原样分别报告N≤300的三个输入与N=418的输入，不剔除后者。若另做全部902GT分类分配，那是改变GT覆盖与正例数的另一个版本，不得混入M。
+   匹配须用eval末层自己的native matcher，不能借用114 train union。
+   157/147/150阴性不受影响；不重跑其版本，不据本候选修改其门槛。
+
+三、代码事实与可实施干预
+
+实际只读代码：英文小论文/code/dn_pre_frozen_diagnostic_20261020_v1/native/engine/deim/。
+deim_criterion.py:274–306 的 loss_labels_mal 用一个 target_classes[B,Q]，再one_hot成[B,Q,C]。每个query至多一个类别是正例；matched真类软目标为sg(IoU)^1.5，其他类目标0、负权重sg(sigmoid)^1.5。正例并不必然上推，方向仍由p−target决定。
+deim_criterion.py:585取普通末层matcher；624附近仅boxes/local走indices_go。_get_go_indices在500附近汇总末层/aux/pre/encoder匹配，按同一(query,GT)出现次数排序，每query只留下一个GT。它的几何GT可以不同于末层own GT。分类正例不能从union直接推断；本文件后续o(q)仅指末层own分类参考GT，绝不等同实际indices_go几何GT。
+dfine_decoder.py:659每层各有一个Linear(hidden_dim,num_classes)分类头；框是每query共享的4维输出。postprocessor的实际语义已在157/167核实为sigmoid flatten跨类top300，同query多类可同时输出。
+C0 recipe：英文小论文/相位机制论文_20261018/data/source_snapshot/common.yml：matcher class/bbox/giou=2/5/2，matcher alpha=.25、gamma=2；MAL gamma=1.5、mal_alpha未设；num_queries=300，classes=10，末层分类头256→10。
+
+精确候选M（首版仅普通末层MAL；aux/pre/encoder/DN分类、所有几何/FGL/DDF与推理保持原实现）：
+
+记原末层Hungarian为A0，J为其已匹配GT集合，a(g)为GT g的原query，o(q)为query的末层own分类参考GT（未匹配时为空）；u_qg=IoU(sg(b_q),g)，c_g为GT类。J只含min(N_GT,300)个GT，不改变原Hungarian在N_GT>300时的GT选择。
+允许边为
+  E = {(a(g),g):g∈J}
+      ∪ {(q,g):g∈J, o(q)非空, c_o(q)≠c_g,
+                   u_q,o(q)≥0.5 且 u_qg≥0.5}。
+全部原边保留。额外边要求同一预测框同时符合原末层分类参考GT与异类GT的IoU条件；不能仅凭类别相近、bbox相交或secondary分数高加边。阈值固定0.5，不在首检后再降阈值救规模。它不是对真实indices_go回归GT的安全保证；当前127只含末层输出时，不能从另一train输入的union补出这个保证。
+
+在E上最小化原native matcher的完整已冻结代价C_qg，求X∈{0,1}：
+  minimize Σ_(q,g) C_qg X_qg
+  subject to Σ_q X_qg=1                          (每g∈J),
+             Σ_(g:c_g=c) X_qg≤1                (每q,c),
+             X_qg=0                             ((q,g)不属于E)。
+不再要求Σ_g X_qg≤1；同query可以承担不同类槽。问题按类分解为普通线性指派，solver本身没有创新。A0始终可行，因此不会因几何门槛删掉原已匹配GT。原未匹配GT不在此版本中补入，避免把容量增益与新增正例混淆。精确等cost时优先保留A0，再按query/GT原ID确定平局；不要用随意epsilon扰动扭曲代价。
+
+从X构造显式多标签tensor，不再经target_classes单标签数组：
+  Z_qc = Σ_(g:c_g=c) X_qg ∈ {0,1},
+  Y_qc = Σ_(g:c_g=c) X_qg sg(u_qg)^1.5,
+  W_qc = Z_qc + (1−Z_qc) sg(sigmoid(z_qc))^1.5,
+  L_M = [Σ_qc W_qc BCEWithLogits(z_qc,Y_qc)] / N_GT。
+原分母N_GT、原损失权重1不改。Σ_qc Z_qc=|J|严格保正例个数，在本四图是784而非902；按原batch聚合分母902，不改成784。它不保证ΣY、损失、梯度范数或优化难度守恒，须如实报告。X、E、IoU、cost停止梯度；MAL梯度仍到原分类头、LQE及共享特征，不能宣称只改最后Linear。
+框/L1/GIoU/local始终使用原indices_go及原num_boxes_go；不把X交给回归，不对两个GT求“平均框”。这样所检验的是分类输出槽容量，非多GT框回归。
+实现位置：隔离副本新增build_class_slot_targets(outputs,targets,A0)，普通末层loss=='mal'的调用使用新Z/Y；原loss_labels_mal、历史源码不原地改。所有前向张量形状不变，部署不增加分支或NMS。
+
+四、这个问题为何可能失败，以及它与普通多标签/o2m的差别
+
+可失败的研究问题：在拥挤航拍图中，是否存在足够多“同一几何query可同时承载不同实例的不同类别槽”的实际情况，以至于按query的分类排他性造成可利用的监督损失？
+可能的直接否定：绝大部分secondary TP只是top1类别错误，secondary正好是A0的唯一真类；这时原MAL已给它正目标，无需跨类共享。又或真实双TP存在，却极少在当前C0出现；则不能把BASE12的低质量分类状态推广为主线。
+即便M非空，两个GT的共同框在IoU.5上兼容也可能在.75及以上不可兼容；训练后框沿原indices_go目标移动可能破坏另一类别，该目标甚至可以不同于o(q)。因此报告十阈值曲线及两GT边距，不能只取.5形成质量收益主张。本次缓存判别不证明几何与新增分类梯度相容。
+不将VisDrone person/people与pedestrian自动视为父子标签。已亲读数据集作者原文 Detection and Tracking Meet Drones Challenge，arxiv2001.06303v3 §4.1及脚注6：站立/行走归pedestrian，其余姿态归person。它们是该标注方案的不同类别，不是同一实例同时赋两类的理由。允许共享必须对应不同GT ID；实际重叠/骑手-车辆情况要由记录核实，不能凭词义填补。
+https://arxiv.org/pdf/2001.06303
+
+M与普通aux IoU positives的可检验区别是：M把一个GT的分类owner从一个槽转移到另一个槽，旧owner退出正例集合，GT仍只有一个分类正例；aux方案保留原owner，再把附近query的同类槽置正。M未增加训练的正例个数，仅把query级排他约束改为类槽级排他约束。若不报告旧owner的代价与同类重复风险，只展示新slot上推，就没有证明这一差别有价值。
+
+五、最近原文覆盖：实际阅读范围，不以关键词判相同或首次
+
+1. OD-DETR，IJCAI2024，是比METR/Q-MCMF更近的直接先例。亲读官方PDF §3.2、Eq2–4、Fig3–4对应文字（PDF p3–4，论文页1445–1446）：
+https://www.ijcai.org/proceedings/2024/0160.pdf
+它合并online和EMA的匹配，为同query的两个异类GT分别设IoU软分类目标，分类成为many-to-many；回归只取online的一个GT，并对同GT不同query按cost区分回归权重。
+覆盖：密集场景同一预测框包含异类对象、单类别标签不足、同query多类IoU目标、分类与回归分配不同。M不得以这些为创新。
+剩余：M不合并第二teacher匹配，而在固定J内转移唯一分类owner，撤销旧owner的正目标、总数固定；OD所读Eq3/图3保留原匹配并增加教师关系。没有teacher只是成本区别，唯一owner约束才是需对照的变量；IoU门槛本身也不是贡献。
+
+2. D²Q-DETR，arxiv2303.00542v1。亲读作者原文HTML §2.4–2.5、Eq2–3：
+https://arxiv.org/html/2303.00542v1
+其匹配后检查convex-hull IoU，低于0.5的query分类标签变background，回归仍按原匹配目标。覆盖“只重写分类标签、不改回归”和几何阈值。它没有本候选的跨类多标签或唯一owner转移；但M不能再以解耦分类/回归标签分配作为新意。
+
+3. MS-DETR，CVPR2024。亲读本地原文提取的§3.1–3.3，PDF p3–5（论文页17029–17031），尤其one-to-many MatchScore=αs_c+(1−α)IoU、topK+阈值、并入O2O query，以及primary decoder上额外class/box预测器与内部query监督。
+本地：文献_相关原始论文_20261004/_text/早期分类复核_20261006_MS_DETR_CVPR2024.txt。
+覆盖：直接监督原decoder query、同GT多query正例、共享/分开分类与回归预测、混合O2O/O2M。这些都不能单独立新。
+剩余：M保持每GT一个分类owner、原几何损失实现不变，允许一个q多个不同类owner；不是原文§3.2的同GT多正例集合。必须和aux IoU positive真比较，不能以“不加头”充当贡献。
+
+4. METR，Neural Networks2024；本次亲读的是arxiv2304.03580v1原PDF §3.2–3.3、Eq1–7、Fig3文字；期刊版并未成功打开，不能声称两个版本逐式相同。
+https://arxiv.org/pdf/2304.03580
+官方仓库及期刊书目信息：https://github.com/isjinghao/METR
+原文先给每个实体query指定一个类别，再把query分为互不重叠的类组Q_Ω，GT只和同类组做一对一匹配。Eq6–7使用binary matchability及框代价。
+覆盖：按类求指派、分类问题转成类条件二元匹配。
+剩余：M的同一个共享box/query可以同时出现在多个类的槽集合，分类owner与几何owner分开；METR所读§3.3仍是每实体query只属于一个预定类组。M不引入语言embedding或图像类别预测模块。这个差别是精确容量/监督对象差异，尚不是收益证据。
+
+5. Q-MCMF，AAAI2026。亲读arxiv2603.01524v1 §3.1–3.3 Eq1–7（HTML全文方法和PDF文本），不是仅凭摘要。
+https://arxiv.org/html/2603.01524v1
+https://arxiv.org/pdf/2603.01524
+Eq2–3构造流图并按IoU剪边；所有边容量1，Eq4仍限制query/GT各容量1，并在允许弃GT时最大化有效匹配数；§3.3 Eq5回归/分类均使用新匹配。
+覆盖：几何约束的可行边、放松原Hungarian某些约束、改变匹配图。不能把上述一般思想叫M的创新。
+剩余：M原边保留、GT正例数固定，仅分类slot容量放松，原回归匹配不变；Q-MCMF所读会议版容许删GT且query容量仍1。
+其官方Q-MCMF++仓库README已称扩展flexible multi-topology与prototype replay；本次只读该扩展README，没有完整期刊正文，因而全文覆盖仍未排除。
+https://github.com/fanrena/Q-MCMFpp
+
+6. 补充本地已读：DEIM CVPR2025 §3.2–3.3（Dense O2O增加GT、保O2O结构；MAL以IoU^γ为目标）；PaQ-DETR CVPR2026 p3–5 §3.3（按质量动态设每GT positives数量）；CLSC-DETR arxiv2608.21457v1 §2.1–2.2（跨层IoU×quality支持及classification reliability保护）。本候选不以多正例、质量门槛、跨层支持或类别保护立新。
+本地PaQ：_text/密集查询分类责任近邻_20261007_v1_101_PaQ_DETR_CVPR2026_Publisher_p3-5.txt；DEIM：_text/14_DEIM_CVPR2025_improved-matching.txt；CLSC：_text/01_CLSC_DETR_2026_UAV_candidate_ranking__arXiv-2608.21457.txt。
+
+本次Web搜索成功，不沿用“网络全部不可用”结论。查询包括DETR multi-label matching、class-wise Hungarian、classification regression separate label assignment、OD-DETR、D²Q-DETR、METR、Q-MCMF。它是有界最近近邻检索，不是穷尽新颖性证明。新增原文未下载到论文库（本任务只允许新增173）；本文件保留准确链接与read_scope，供root后续归档。
+
+文献审查后的明确判断：M还有可写成公式的变量差别，但“有不同公式”不等于实质方法贡献。尤其M本质上是带保留原边、异类双IoU可行域的classwise matching；相对普通classwise的剩余只有这个边集设计。若其作用不能与普通对照分开，不建议为M申请训练。原有宏观动机已被OD-DETR覆盖，不能靠更换MAL或数据集重新包装。
+
+六、最强简单对照与一次最低成本检查（交由root审后执行，当前未执行）
+
+固定比较组：
+O 原末层MAL/A0。
+M 上述保正例数的跨类槽匹配。
+U 普通classwise matching：固定相同J、原C_qg和相同MAL，把E直接改为全部Q×J，分别对每类做Hungarian，允许同query不同类重用；不添teacher、头或框损失。其正例数同样784，几何损失同样保持原实现。它是M最强且更简单的直接对照。M与U若同解，M没有独立方法增量；若不同，只能证明可行边限制起作用，不证明限制更好。
+P aux IoU positives：同一E上的异类候选槽按该类最高IoU置为额外软正例，原owner保留；仅分类，不加框损失。另记录按GT均分后的P_eq，使每GT正例权重和为1。不能只比不配平的P。
+I 负例豁免：同E的额外slot只去掉原negative项，不上推，也不撤销旧owner。它检验收益能否由常见ignore mask复制。
+OD近邻控制：若后续获批训练，需另设“同query原标签+第二匹配标签追加”的多目标MAL，原owner保留、回归仍原样；它隔离OD-DETR核心分类机制。现有单模型缓存不含同输入EMA教师输出，不得伪称P就是完整OD-DETR复现；本次不为补此控制新增前向。
+作为分析自检，在同E重新施加query容量1、同cost，其最优值不应比原A0更好；A0本就是原更大完整边集的最优解。此量用于核算法，不算有效方法baseline或效果门槛。
+
+一次检查分两项固定输出，均只用缓存，不拟合分类器、不执行logit虚拟更新、不作模型前向/反传：
+
+A. D2身份解剖。
+逐seed在全部548图复放N评价，给每条预测保留(image_id,query_id,class_id,原flat_id,原score)，恢复十阈值dtMatches与ignore。首先精确复现原N聚合、deleted TP=3333/3361及其他既有数；不匹配就报告复放失败，不能换评估口径解释候选。
+对每个被删secondary TP分为互斥桶：
+ A1 same-q primary也为非ignored TP，且两个matched GT ID不同、类别不同；
+ A2 primary不是TP，但同query至少另一个secondary也为TP；
+ B same-q仅该secondary为TP；
+ C 原边界、ignored/sentinel或身份无法核对。
+不得用maxGT-IoU代替以上真实按类贪心TP，保留每类maxDets截断与同类重复去除。报告类对矩阵、GT间IoU、每图分布；A1/A2才是当前框已支持多GT的直接证据，B并非。
+若原BASE12 matcher源码及recipe能按原回执定位，则对全final输出重算原own匹配，在A/B中分列secondary是否等于ownGT类、是否等于ownGT ID、ownGT几何IoU。不能拿C0 recipe或geometry union代替BASE12自己的配置。缺确切recipe时标own_status=unavailable，A/B评价分解仍可完成，但不能声称已证MAL矛盾。
+
+B. 当前C0四图的监督结构判别。
+复用127原final logits/boxes及GT，以现已核实C0 matcher求A0，构E并求M；同一输入生成U/P/P_eq/I。四个输入全部保留，分别列146/280/418/58个GT及146/280/300/58个own；列第三图118个未匹配GT身份并确认它们未被加入M或U，不能只报告可匹配的样本子集。
+输出所有变化的GT与query-class slot身份、原/新owner、两类GT/预测框IoU、原score、C变化、Z/Y变化、MAL局部解析logit导数。原MAL导数=p^1.5*p（负例）或p−u^1.5（正例），均沿原分母；这个解析量不等于共享参数可学习性。未做更新时评价结果当然不变，不能伪造“新方法AP”。
+报告M是否真的产生多类共用q，以及J内每GT唯一正例、总数784/分母902；分别报告N≤300和N>300输入。报告M与U的完整owner映射差异、被E禁止但U采用的边、这些边的双IoU及原/新owner变化；报告与P_eq/I在撤销旧owner上的监督差异，不预称它已经压低真实重复检测。M的代价下降由可行域放宽产生，不作为性能证据。
+真实框的十阈值兼容率、原top300资格、native own类别只作机制分解，不根据有利项换主cohort。当前GT为增强输入，缺正式评估ignore元数据时只报已声明的图内贪心覆盖，不称官方AP。
+
+事前去留（是本候选投入筛查，非证明AP的必要定理）：
+  i. D2两个seed的A1+A2各至少占deleted-secondary TP的10%，并各分布在至少20张图；否则原动机主要不是多GT共享几何，停止本版本。
+  ii. 当前C0的M相对A0至少改变10个GT的分类owner，且至少2/4图实际出现一个query被分给两个异类GT。否则不把旧BASE12状态外推到当前训练主线。
+  iii. 若M与U的完整分类owner映射相同，M退化为普通classwise对照；不为此候选申请训练。若M变化完全被I或P_eq的完整解析导数向量复制，也停止M；方向同号但数值不同不是数学等价。反之不等价只是目标定义的区别，不自动满足创新条件，不把此项写成有价值的新方法证明。
+三个口径在新结果前给出，不因失败降0.5、改10%、选特定类对或增加普通全池边挽救。门槛是资源优先级选择而非统计显著性，也不能把未达到推成所有跨类共享无效。
+若均通过，结论仅为“当前数据存在该现象，M确实改变了普通classwise方案的分配”；随后须审查被禁止的U边是否对应所提出的共同框不兼容机制，才决定M相对U/OD近邻是否有足够方法增量、值得申请小额正式训练对照。不能只以统计不相等或过三条阈值认定值得训练。这不是要求先证明AP：不要求自由logit或oracle涨AP，也不将本缓存证据称训练收益。训练仍须用户批准并保留U/P_eq/I及明确的OD近邻控制。
+
+七、对167的短评与最终意见
+
+独立budget动作头确实把集合准入与报告score分开，但新增动作头的交互价值仍要看交换残差，且其输入没有新观察信息。我的候选改变监督容量与分类正例归属，完全不依赖158/159交换oracle结果，适合在该线失败时继续独立判别。
+主要风险有两个：真实双类同框事件可能不足；即使足够，该动机已经有OD-DETR，M也可能只是普通classwise加IoU门槛。前者由A/B身份分解回答，后者由完整约束/强对照审查判断，不能用更多资格表掩盖贡献不足。若只有secondary纠错，应另立类别判别研究问题，不能把本设计偷偷改成相近类别label smoothing。
+本次结论：交付一条具体、可实施且能失败的不同变量候选，同时报告足以显著压缩其创新空间的直接原文。M当前不够成为训练申请主线。D2只是触发事实，173规定的关键多GT身份事实仍未知；若root认为剩余边集规则不足构成实质增量，可以直接暂存M、只保留D2身份核查为资产问题，不必为了完成候选而跑它。用户的持续寻找目标继续，不因本候选降级而结束。
+
+AI-assisted research disclosure：本审查由当前Codex代理阅读源码、既有结果与原文后提出；未把亲读范围扩成全文复现，未执行外部模型评审或实验。

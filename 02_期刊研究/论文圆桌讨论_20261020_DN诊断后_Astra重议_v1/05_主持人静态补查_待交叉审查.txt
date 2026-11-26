@@ -1,0 +1,28 @@
+主持人只读补查（2026-10-20 America/Los_Angeles）
+没有执行新训练、模型前后向或服务器操作。以下用于圆桌纠错，不替代实验。
+
+S1 DN补齐路径已读实际冻结源码。
+denoising.py 用每批max_gt_num补齐，类别padding_idx=num_classes、框零；组内没有按每张图有效性屏蔽key的代码。pad_gt_mask用于有效噪声和正DN索引，但未作为key_padding_mask传出。
+dfine_decoder.py:621使用nn.Embedding(..., padding_idx=num_classes)，因此不能凭记忆说padding类别嵌入是任意可学习的普通类别嵌入。
+dfine_decoder.py:244–248自注意力仅传attn_mask，无key_padding_mask；484先执行第一decoder层，488才产生pre_bboxes。路径在pre回归之前。
+flash_attention.py中当attn_mask非None时不启用flash_attn_func，回退nn.MultiheadAttention，并原样传mask；没有自动推断padding有效性的代码。
+这些是静态路径存在的证据，不是实际影响大小/检测收益证据。
+
+S2 “无监督补齐槽”必须改称“无正几何对应的补齐槽”。
+criterion.py:274–306的MAL对全部pred_logits构造目标，只有indices_dn对应位置为正，其余为全零背景目标，没有padding忽略mask。DN与DN_pre路径均调用MAL。因此补齐槽仍有背景分类监督，不能称完全无监督。
+只改attention key屏蔽会保留padding query自己的背景损失与共享参数梯度。若讨论该候选，至少要分清前向key依赖和额外背景监督两条路径，不能把两者互相冒充。
+
+S3 最近原始先例：DINO（arXiv2203.03605v4）PDF第21页Appendix D.1，明确描述按同批最大对象数padding造成效率问题，并用动态DN组数控制成本。这已是公开原文，不能把“批最大GT导致padding”当新发现。
+官方IDEA-Research/DINO/models/dino/dn_components.py（main快照已归档）同样构造padding_label/padding_bbox、组间mask和普通→DN屏蔽，prepare_for_cdn没有每图有效padding-key mask；这不是证明后续所有实现均如此。
+原文 https://arxiv.org/html/2203.03605 ，代码 https://github.com/IDEA-Research/DINO/blob/main/models/dino/dn_components.py 。
+本地PDF、提取全文及代码原件位于 文献_相关原始论文_20261004/DN诊断后补查_20261020_v1/，来源SHA见source_manifest.json。只实际核查相关方法/附录与代码，不声称全文复现。
+
+S4 泛化梯度裁剪已有很近的新近邻。
+AGGC，arXiv2601.11864v1（2026-01-17预印本，不宣称已同行评审），摘要及§3明确提出全局范数使高波动模块压缩稳定模块的spill-over，并按功能组、历史EMA与上下界裁剪。原文 https://arxiv.org/html/2601.11864 。
+这对“模块梯度主导全局裁剪→按组修复”的泛称构成直接先例。其LLM场景与DN专门路径并非自动等同；有无剩余检测机制需逐项论证。
+
+S5 对冻结结果的解释限定。
+DN末层梯度范数平方/总梯度范数平方只是比率，不是唯一的方差或因果贡献；总梯度还含交叉项。
+Adam对整个历史梯度的统一常数缩放在一定条件下近似抵消，不意味着只有裁剪系数方差才可能起作用；与方向、历史、任务的相关性也需考虑。
+现有F1使用真实同一历史Adam状态的单步干预，恰是所定义的局部反事实。它不是长期删DN训练反事实；不能因长期v可能适应就把已算出的局部差值叫伪效应，也不能据该局部差值断言长期有效。
+新提出的25%、32批等阈值/预算未被用户或项目采纳，只是专家建议，不覆盖旧冻结判据，也不授权执行。

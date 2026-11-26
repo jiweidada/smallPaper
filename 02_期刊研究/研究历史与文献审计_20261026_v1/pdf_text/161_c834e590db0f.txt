@@ -1,0 +1,114 @@
+ 
+ 
+ 
+ 
+Sensors 2025, 25, 7681 https://doi.org/10.3390/s25247681 
+Article 
+STAIR-DETR: A Synergistic Transformer Integrating Statistical 
+Attention and Multi-Scale Dynamics for UAV Small  
+Object Detection 
+Linna Hu 1,*, Penghao Xue 2, Bin Guo 3, Yiwen Chen 1 and Weixian Zha 1 and Jiya Tian 4 
+1 School of Network and Communication Engin eering, Jinling Institute of Technology,  
+Nanjing 211169, China; 2416901107@stu.jit.edu.cn (Y.C.); 2507010001@stu.jit.edu.cn (W.Z.) 
+2 School of Software Engineering, Jinling Institute of Technology, Nanjing 211169, China; 
+2407010018@stu.jit.edu.cn 
+3 College of Computer and Information Engin eering, Xinjiang Agricultural University,  
+Urumqi 830052, China; gb@xjau.edu.cn 
+4 School of Information Engineering, Xinjiang Institute of Technology, Aksu 843100, China; 
+2020032@xjit.edu.cn 
+* Correspondence: hulnnj@jit.edu.cn 
+Abstract 
+Detecting small objects in unmanned aerial vehicle (UAV) imagery remains a challenging 
+task due to the limited target scale, clu ttered backgrounds, severe occlusion, and motion 
+blur commonly observed in dynamic aerial environments. This study presents STAIR-
+DETR, a real-time synergistic detection fr amework derived from RT-DETR, featuring 
+comprehensive enhancements in feature extraction, resolution transformation, and detec-
+tion head design. A Statistical Feature A ttention (SFA) module is incorporated into the 
+neck to replace the original AIFI, enabling token-level statistical modeling that strength-
+ens ﬁne-grained feature representation while e ﬀectively suppressing background inter-
+ference. The backbone is reinforced with a Diverse Semantic Enhancement Block (DSEB), 
+which employs multi-branch pathways and dynamic convolution to enrich semantic ex-
+pressiveness without sacri ﬁcing spatial precision. To mitigate information loss during 
+scale transformation, an Adaptive Scale Transformation Operator (ASTO) is proposed by 
+integrating Context-Guided Downsampling (CGD) and Dynamic Sampling (DySample), 
+achieving context-aware compression and content-adaptive reconstruction across resolu-
+tions. In addition, a high-resolution P2 detection head is introduced to leverage shallow-
+layer features for accurate classi ﬁcation and localization of ex tremely small targets. Ex-
+tensive experiments conducted on the VisD rone2019 dataset demonstrate that STAIR-
+DETR attains 41.7% mAP@50 and 23.4% mAP@50:95, outperforming contemporary state-
+of-the-art (SOTA) detectors while maintaining real-time inference eﬃciency. These results 
+conﬁrm the e ﬀectiveness and robustness of STAIR-DETR for precise small object detec-
+tion in complex UAV-based imaging scenarios. 
+Keywords: multi-scale semantic integration; real-time object recognition; small object  
+detection; UAV imagery 
+ 
+  
+Academic Editors: Sungkeun Yoo, 
+Taewon Seo and Taegyun Kim 
+Received: 30 October 2025 
+Revised: 11 December 2025 
+Accepted: 16 December 2025 
+Published: 18 December 2025 
+Copyright: © 2025 by the authors. 
+Licensee MDPI, Basel, Switzerland. 
+This article is an open access article 
+distributed under the terms and con-
+ditions of the Creative Commons At-
+tribution (CC BY) license (https://cre-
+ativecommons.org/licenses/by/4.0/). 
+
+---PAGE---
+
+Sensors 2025, 25, 7681 2 of 25 
+ 
+https://doi.org/10.3390/s25247681 
+1. Introduction 
+Due to their maneuverability, low operational cost, and deployment eﬃciency, UAVs 
+have been widely adopted in domains like traﬃc monitoring, emergency response, preci-
+sion agriculture, forest inspection, urban management, and military surveillance [1,2]. As 
+the low-altitude domain experiences expansion, UAVs are assuming increasingly critical 
+roles in national infrastructure and urban management, thereby raising new demands for 
+real-time visual perception in complex environments [3]. Nevertheless, the growing de-
+mand for real-time detection of small and dy namic targets introduces new challenges in 
+processing aerial imagery captured during rapid low-altitude ﬂights, in which extremely 
+small targets (e.g., pedestrians, bicycles, early crop disease spots, or intruders in forests) 
+must be detected with high accuracy and eﬃciency [4]. 
+In standard UAV aerial settings, ﬂight altitudes spanning from several dozen to hun-
+dreds of meters, combined with restricted sensor resolution, mean that objects in captured 
+images usually occupy only a few pixels (often < 32 × 32), making them blurry, sparse, and 
+highly susceptible to background interference . Furthermore, challenges such as motion 
+blur, perspective distortion from camera po se variations, and lighting or atmospheric 
+noise further complicate detection. UAVs also operate in complex backgrounds (e.g., ur-
+ban textures, forest canopies, building shadows, water re ﬂections), resulting in low con-
+trast and increased false detections [5]. Therefore, it becomes essential to design detection 
+algorithms that eﬀectively preserve ﬁne-grained object details while capturing global con-
+text, striking a compromise between performance in real time and accuracy. 
+Various approaches have been proposed to settle these issues. Early methods based 
+on handcrafted features (e.g., Viola–Jones, HOG+SVM) oﬀered real-time capability in con-
+strained scenarios but lacked robustness to scale variation and background complexity 
+[6,7]. Two-stage detection frameworks rooted in deep learning—like R-CNN [8] and its 
+Faster R-CNN [9]—which enhance detection accuracy by integrating feature learning with 
+region proposal mechanisms; however, their multi-step inference pipeline led to substan-
+tial computational overhead, restricting thei r applicability in real-time UAV tasks. One-
+stage detectors accelerated inference by refo rmulating detection as regression; however, 
+their reliance on ﬁxed anchors and grid structures ofte n results in poor performance on 
+small and sparse targets. Multi-scale feature aggregation techniques, such as FPN [10], 
+PANet [11], and BiFPN [12], have alleviated issues of scale inconsistency by integrating 
+hierarchical features, yet their fusion strate gies remain hand-crafted and lack dynamic 
+adaptability in complex scenes, particularly for small target detection in UAV imagery. 
+More recently, Transformer-based architectures have shown promise in visual detec-
+tion. DETR [13] intr oduced global self-a ttention to eliminate the need for anchor boxes 
+and NMS [14], enabling an end-to-end detection paradigm. Despite its theoretical ele-
+gance, DETR exhibits limitations including high computational cost, slow convergence, 
+and inadequate modeling of ﬁne-grained features. Follow-up models such as Deformable 
+DETR [15] adopted sparse a ttention to alleviate these issues but still struggled with ex-
+tremely small object detectio n. RT-DETR [16] incorporates  decoupled intra- and cross-
+scale interactions and IoU-guided query selection, thereby achieving real-time perfor-
+mance with improved accuracy. However, it still exhibits critical limitations: the shallow 
+AIFI module demonstrates limited responsiveness to small object features; ﬁxed upsam-
+pling and downsampling operations lead to loss of spatial details; and the decoder exclu-
+sively leverages P3–P5 features, rendering them inadequate for accurate regression of ob-
+jects smaller than 16 × 16 pixels. 
+In order to get beyond the constraints in dicated above, this work presents STAIR-
+DETR., a multi-scale optimized variant of RT-DETR, o ﬀering the following principal in-
+novations: 

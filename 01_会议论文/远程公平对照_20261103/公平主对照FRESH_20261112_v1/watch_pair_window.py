@@ -1,0 +1,175 @@
+"""Bounded read-only observations of the exact two running jobs; never launch/retry them."""
+from pathlib import Path
+import argparse
+import concurrent.futures
+import datetime as dt
+import hashlib
+import json
+import math
+import os
+import psutil
+import shutil
+import time
+from ssh_control import connect,run_script
+
+HERE=Path(__file__).resolve().parent
+GOAL_DIR=HERE/'monitor_goal_20261112'
+EXPECTED=json.loads((HERE/'live_pair_first_updates.json').read_text(encoding='utf-8'))
+EXPECTED_REMOTE={r['port']:r for r in EXPECTED['remote']}
+BASE_PORTS = (30715, 30344, 30009)
+FULL_PORT = 30048
+EXPECTED_CLIENT={r['arm']:r for r in EXPECTED['local_backup_clients']}
+LAUNCH=json.loads((HERE/'backup_clients_launched_attempt2.json').read_text(encoding='utf-8'))
+SCRIPT=(HERE/'observe_remote_run.py').read_text(encoding='utf-8')
+
+def utc():return dt.datetime.now(dt.timezone.utc).isoformat()
+def write(path,data):
+    temp=path.with_name(path.name+'.partial')
+    temp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    os.replace(temp,path)
+def local_client(entry):
+    root=Path(entry['local_control']);pid=entry['pid'];arm=entry['arm']
+    out={'arm':arm,'pid':pid,'live':False}
+    try:
+        proc=psutil.Process(pid)
+        out.update(command_matches=proc.cmdline()==entry['command'],created_timestamp=proc.create_time())
+        out['live']=out['command_matches'] and abs(out['created_timestamp']-EXPECTED_CLIENT[arm]['created_timestamp'])<0.001
+    except (psutil.NoSuchProcess,psutil.AccessDenied):pass
+    p=root/'backups/monitor_status.json'
+    out['status']=json.loads(p.read_text(encoding='utf-8')) if p.is_file() else None
+    stderr_path = Path(entry.get('stderr_path', root / 'monitor.attempt2.stderr.log'))
+    out['stderr_tail'] = stderr_path.read_text(encoding='utf-8')[-2500:]
+    out['stderr_last_write_utc'] = dt.datetime.fromtimestamp(stderr_path.stat().st_mtime, dt.timezone.utc).isoformat()
+    return out
+
+def accepted_backup_round(status):
+    if status.get('status') in ('PROBE_VERIFIED', 'EPOCH_BACKUP_VERIFIED', 'COMPLETED_AND_BACKED_UP'):
+        return status['epoch'] + 1
+    if status.get('status') in ('MONITOR_READY', 'RECONNECTING', 'PINNED_SFTP_CONNECTED'):
+        # The cursor advances only after the preceding epoch's acceptance is stored locally.
+        return max(0, status['next_backup_epoch'])
+    return None
+
+def unresolved_backup_stderr(client):
+    if not client['stderr_tail']:
+        return False
+    status = client.get('status') or {}
+    if status.get('status') not in ('PINNED_SFTP_CONNECTED', 'PROBE_VERIFIED',
+                                   'EPOCH_BACKUP_VERIFIED', 'COMPLETED_AND_BACKED_UP'):
+        return True
+    return dt.datetime.fromisoformat(client['stderr_last_write_utc']) > dt.datetime.fromisoformat(status['observed_utc'])
+
+def remote(port):
+    try:
+        expected=EXPECTED_REMOTE.get(port) or EXPECTED_REMOTE[30715 if port in BASE_PORTS else port]
+        prefix='observed_run_root = '+repr(expected['remote_root'])+'\n' if 'remote_root' in expected else ''
+        client=connect(port)
+        try:r=run_script(client,prefix+SCRIPT,timeout=45)
+        finally:client.close()
+        if r['exit_code']!=0:return {'port':port,'observation_error':r}
+        d=json.loads(r['stdout'])
+        supervisor=d['records']['supervisor.json'] or {}
+        receipt=d['records']['run/receipt.json'] or {}
+        issues=[]
+        if d['arm'] != expected['records']['supervisor.json']['arm']:
+            issues.append('REMOTE_RUN_ARM_CHANGED')
+        if d['boot_id']!=expected['boot_id']:issues.append('REMOTE_BOOT_ID_CHANGED')
+        for key in ['supervisor_pid','supervisor_start_ticks','pid','start_ticks','protocol_sha256','runner_sha256']:
+            if supervisor.get(key)!=expected['records']['supervisor.json'][key]:issues.append('SUPERVISOR_IDENTITY_OR_BINDING_CHANGED:'+key)
+        live=bool(d['processes']) and all(p.get('live',False) for p in d['processes'].values())
+        terminal=supervisor.get('status') in ['COMPLETED','STOPPED','HARD_TIMEOUT']
+        if not live and not terminal:issues.append('EXPECTED_PROCESS_MISSING_WITHOUT_TERMINAL_RECEIPT')
+        if receipt.get('status')=='FAILED' or supervisor.get('status') in ['STOPPED','HARD_TIMEOUT']:issues.append('RUN_REPORTED_TERMINAL_FAILURE')
+        if 'last_loss' in receipt and not math.isfinite(receipt['last_loss']):issues.append('NONFINITE_LOSS_REPORTED')
+        return {'port':port,'observation':d,'processes_live_now':live,'terminal':terminal,'issues':issues}
+    except Exception as e:return {'port':port,'observation_error':{'type':type(e).__name__,'message':str(e)}}
+
+def main():
+    global EXPECTED_REMOTE, EXPECTED_CLIENT, LAUNCH
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--label',required=True);p.add_argument('--base-round',required=True,type=int);p.add_argument('--full-round',required=True,type=int)
+    p.add_argument('--max-seconds',type=int,default=1800);p.add_argument('--interval',type=int,default=30)
+    p.add_argument('--base-port', type=int, choices=BASE_PORTS, default=30715)
+    p.add_argument('--base-only', action='store_true', help='Observe BASE while FULL is already archived.')
+    p.add_argument('--keep-watching-with-one-live-arm', action='store_true',
+                   help='Keep observing a verified live run while the other run needs attention.')
+    p.add_argument('--bindings', type=Path, help='Use independently verified continuation process bindings.')
+    a=p.parse_args();assert a.label.replace('_','').isalnum() and 1<=a.base_round<=320 and 1<=a.full_round<=320
+    assert 30<=a.max_seconds<=3600 and 15<=a.interval<=60
+    if a.bindings is not None:
+        bindings=json.loads(a.bindings.read_text(encoding='utf-8'))
+        for row in bindings['remote']:
+            EXPECTED_REMOTE[row['port']]=row
+        for row in bindings['local_backup_clients']:
+            EXPECTED_CLIENT[row['arm']]=row
+        clients={row['arm']:row for row in LAUNCH}
+        clients.update({row['arm']:row for row in bindings['local_backup_clients']})
+        LAUNCH=list(clients.values())
+    folder=GOAL_DIR/a.label;folder.mkdir(parents=True,exist_ok=False)
+    identity={'pid':os.getpid(),'created_timestamp':psutil.Process().create_time(),'started_utc':utc(),
+              'arguments':{**vars(a),'bindings':str(a.bindings) if a.bindings else None},
+              'read_only':True,'training_actions':0}
+    write(folder/'observer_identity.json',identity)
+    ports = [a.base_port] if a.base_only else [a.base_port, FULL_PORT]
+    started=time.monotonic();last_signature=None;last_attempts={};errors=dict.fromkeys(ports, 0);stalled_since={}
+    while True:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:observed=list(pool.map(remote,ports))
+        clients=[local_client(x) for x in LAUNCH if not a.base_only or x['arm'] == 'BASE_FRESH']
+        summary=[];issues=[];done=True
+        for item in observed:
+            port=item['port'];arm='BASE_FRESH' if port==a.base_port else 'FULL_FRESH'
+            if 'observation_error' in item:
+                errors[port]+=1;done=False
+                summary.append({'arm':arm,'port':port,'state':'OBSERVATION_UNAVAILABLE_NOT_TERMINAL','consecutive_failures':errors[port],'error':item['observation_error']})
+                if errors[port]>=3:issues.append('REPEATED_OBSERVATION_FAILURE:'+arm)
+                continue
+            errors[port]=0;d=item['observation'];r=d['records']['run/receipt.json'] or {};sup=d['records']['supervisor.json'] or {}
+            completed=r.get('completed_epochs',0);attempts=r.get('optimizer_step_attempts',0)
+            if port in last_attempts and attempts<last_attempts[port]:issues.append('MONOTONIC_COUNTER_DECREASED:'+arm)
+            if attempts!=last_attempts.get(port):stalled_since[port]=time.monotonic()
+            last_attempts[port]=attempts
+            if item['issues']:issues.extend(arm+':'+x for x in item['issues'])
+            client=next(c for c in clients if c['arm']==arm);status=client.get('status') or {}
+            accepted_round = accepted_backup_round(status)
+            if not client['live'] and status.get('status')!='COMPLETED_AND_BACKED_UP':issues.append('LOCAL_BACKUP_CLIENT_NOT_LIVE:'+arm)
+            if unresolved_backup_stderr(client):issues.append('LOCAL_BACKUP_CLIENT_STDERR:'+arm)
+            if status.get('status')=='MONITOR_FAILED_NO_FURTHER_ACKS':issues.append('LOCAL_BACKUP_CLIENT_FAILED:'+arm)
+            run_state = r.get('status', sup.get('status'))
+            if 'EXPECTED_PROCESS_MISSING_WITHOUT_TERMINAL_RECEIPT' in item['issues']:
+                run_state = 'EXPECTED_PROCESS_MISSING_WITHOUT_TERMINAL_RECEIPT'
+            summary.append({'arm':arm,'port':port,'state':run_state,'phase':r.get('phase'),
+                            'completed_rounds':completed,'current_round':r.get('actual_loop_epoch',-1)+1,'batch':r.get('batch'),
+                            'attempts':attempts,'processes_live_now':item['processes_live_now'],'gpu':d['gpu'],
+                            'backup_accepted_round':accepted_round,'backup_client_live_now':client['live'],
+                            'backup_client_status':status.get('status')})
+            target=a.base_round if port==a.base_port else a.full_round
+            if completed < target or accepted_round is None or accepted_round < target:
+                done = False
+            if item['processes_live_now'] and time.monotonic()-stalled_since.get(port,time.monotonic())>900:
+                issues.append('NO_COUNTER_CHANGE_FOR15MIN_ADVISORY:'+arm)
+        free=shutil.disk_usage('D:/').free
+        if free<32*2**30:issues.append('LOCAL_D_DRIVE_BELOW32GIB_RESERVE')
+        result={'observed_local_utc':utc(),'elapsed_monotonic_seconds':time.monotonic()-started,
+                'classification':'verified_wait' if any(x.get('processes_live_now') for x in observed) else 'observation_attention',
+                'summary':summary,'issues':issues,'D_free_bytes':free,'raw_remote_observations':observed,'local_backup_clients':clients,
+                'target_reached':done,'training_actions':0,'model_forwards':0,'evaluator_runs':0}
+        verified_live_run = any(item.get('processes_live_now') and not item.get('issues') for item in observed)
+        if issues and not (a.keep_watching_with_one_live_arm and verified_live_run):
+            result['status'] = 'NEEDS_ATTENTION_NO_AUTOMATIC_TRAINING_ACTION'
+        elif done and not issues:result['status']='OBSERVED_TARGET_ROUNDS_AND_BACKUPS'
+        elif time.monotonic()-started>=a.max_seconds:result['status']='BOUNDED_WINDOW_ELAPSED_JOBS_NOT_DECLARED_TERMINAL'
+        elif issues:result['status']='WATCHING_LIVE_ARM_WITH_ATTENTION'
+        else:result['status']='WATCHING_CONFIRMED_LIVE_JOBS'
+        continuing = result['status'] in ('WATCHING_CONFIRMED_LIVE_JOBS', 'WATCHING_LIVE_ARM_WITH_ATTENTION')
+        write(folder/'latest.json',result)
+        signature=json.dumps(summary,sort_keys=True)+json.dumps(issues)
+        if signature!=last_signature or not continuing:
+            event={k:result[k] for k in ['observed_local_utc','status','summary','issues','classification','target_reached']}
+            with (folder/'events.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(event,ensure_ascii=False)+'\n')
+            print(json.dumps(event,ensure_ascii=False),flush=True);last_signature=signature
+        if not continuing:
+            write(folder/'observer_terminal.json',{'status':result['status'],'ended_utc':utc(),'observer':identity,'latest_sha256':hashlib.sha256((folder/'latest.json').read_bytes()).hexdigest(),'underlying_job_terminal_claim':False})
+            return
+        time.sleep(a.interval)
+
+if __name__=='__main__':main()

@@ -1,0 +1,14 @@
+2026-11-01｜A48原版B12完成，本轮目标继续active，主线仍未确认。
+B原版：12轮/9708次正式更新，10159次全模型前向（训练9708+三次验证411+延迟测量40）。
+固定第12轮EMA：AP 24.092920，APs 14.297909，small AP75 11.515182，ARs 27.960638。
+口径：548val、38602评估GT、maxDets300、class0区域过滤、原图框面积；COCO-style，非官方VisDrone成绩。
+B训练进程1392已正常退出0；监督器1305继续，M训练进程1927/start_ticks18996958已启动并存活。
+已下载完整B结果包312786148字节，SHA124c8cb888328bc7ee6811377494037a5197da8438c0f98b036c945594863178。
+38个文件逐项字节数/SHA及解包CRC核验通过，包括第4/8/12轮权重、预测、GT、精度召回数组与日志；未删除远端原件。
+本地CPU检查：raw/EMA与公共初始化键/shape/dtype一致，学习状态确实改变；四个BN出口计数均9708且affine非零改变；482份AdamW参数状态step均9708。
+这些是文件/模型状态完整性核验，未重新执行GPU预测，不声称独立复现AP；新增模型前向/优化为0。
+M初始化与B相同；前两轮顺序、前8个实际输入批、前向前CPU/CUDA RNG与全部目标流SHA一致。四个加权BN出口实际调用分别808/1617次，与第一步lambda0回退普通BN一致。
+最新M快照：{"status": "TRAINING", "arm": "M", "epoch": 3, "microbatch": 401, "microbatches_per_epoch": 809, "completed_epochs": 2, "optimizer_updates": 2019, "full_model_forwards": 2019, "loss": 27.226924896240234, "grad_norm": 37.123451232910156, "peak_allocated_bytes": 13784992256, "elapsed_seconds": 593.1175423320092, "mixture": 0.5, "pid": 1927}
+Q尚未开始。M/Q仍按既定12轮终点执行；没有新候选AP差值，不提前判有效，也不更换lambda/位置/seed。
+主要门槛保持：Q-B APs>=0.5pp，Q-M APs>=0.3pp，Q-B AP>=-0.2pp；未过停止本配方并继续换实质不同方向。
+最新可更新进度入口CURRENT_A48.json；引用值须回到对应不可变原始SSH观察，下一轮须重新查询。

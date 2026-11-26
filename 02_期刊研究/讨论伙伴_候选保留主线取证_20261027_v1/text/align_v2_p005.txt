@@ -1,0 +1,35 @@
+Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS 5
+26, 45, 54]. There are two concerns for the current optimization method: (i) the alignment
+between classification and regression is essential for the optimization of DETR, which is not
+considered in current design and (ii) the matching mechanism of DETR is unstable across
+layers. To mitigate the concerns, we propose a unified solution, namely Align-DETR.
+We illustrate our framework in Fig. 2 and introduce the detailed implementations in the
+following sections. Overall, our key insight is to design a dynamic and accurate training tar-
+get for DETR. For the first concern, we build a strong connection between the classification
+and regression by adopting a regression-aware classification loss. To mitigate the second
+issue , we adopt many-to-one matching along with a ranking & weighting strategy. In this
+way, both of the two misalignment issues can be solved jointly.
+Figure 2: The architecture overview of the proposed approach Align-DETR . Align-DETR
+adopts many-to-one matching where each GT is assigned multiple queries. These queries
+are sorted according to their quality . Then, we compute an alignment score for each query
+according to their rank, classification confidence and IoU with the GT. The alignment score
+is used in the loss computation for both classification and regression.
+3.3 Align-DETR
+Driven by the aforementioned concerns, our objective is to enhance the optimization of
+DETR by addressing the misalignment issue. Initially, we present our matching strategy,
+followed by the introduction of our proposed loss function, denoted as the Align Loss. This
+sequential approach is aimed at systematically mitigating misalignment and thereby improv-
+ing the overall efficacy of DETR optimization.
+Mixed Matching and Ranking Strategy . DETR [1] and most of its variants [29, 54]
+adopt Hungarian Matching to learn a unique association between GT and predictions. How-
+ever, this approach assigns only one positive sample for each GT annotation, rendering it
+susceptible to the instability inherent in matching, as noted in previous works [26, 45]. To
+address this challenge, we propose a gradual transition from positive to negative samples
+which involves implementing a mixed-matching and ranking strategy.
+Given predictions P and ground truth G, each comprising N instances, we employ a mod-
+ified version of Hungarian Matching to assign k predictions to each ground truth, resulting
+in a total of kN matched samples, termed candidates. These candidates are subsequently
+arranged based on their distances from the GT. We propose defining a quality metric q as
+inspired previous studies [5, 53], which represents the geometric average of classification
+accuracy (p) and regression precision (u):
+q = pα · u(1−α), (2)

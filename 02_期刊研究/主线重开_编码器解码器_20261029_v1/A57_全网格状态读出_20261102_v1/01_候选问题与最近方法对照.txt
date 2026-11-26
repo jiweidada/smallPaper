@@ -1,0 +1,63 @@
+A57：全网格状态的空间 query 读出——有限接入候选
+2026-11-02；academic-research-suite 定向调研与代码验证，单助手。总目标active，主线未验证。不是系统综述或全文复现。
+
+当前问题与进入理由
+原文代码事实：MambaSOD的MQI先做全序列refinement，再把每尺度context平均池化/插值到sqrt(Nq)网格，与query等长后做CrossMamba。源码中query生成读出C，context决定状态推进。
+推断：query数量和memory空间长度的绑定值得检验，但前面的refinement可能已传播细节，不能据池化就断言有小目标漏检瓶颈。也不能把BIMBA的VideoQA收益当成UAV检测证据。
+待验证问题：在相同完整context状态、相同空间位置的条件下，保留query条件的状态读出，是否比普通context编码后采样有额外检测价值？这足以支持一次有限工程接入；AP和发表价值仍未成立。
+
+三组清楚区分
+B：固定作者源码版MambaSOD的MQI路径——refinement、对齐到query网格、query-C读出。使用统一兼容修复，不称已复现论文指标。
+M：普通完整网格的输入条件SSM输出，再按共享reference中心双线性采样。C来自context，作为强简单对照；不是只用不适配query的固定槽位造弱对照。
+Q：同一context状态推进，由query生成C，在相同reference位置直接读出状态。保持context网格，读取不推进时间、不写入状态；实现只插入四个双线性角点读事件，不显式存整个空间隐藏状态场。
+M、Q使用相同可学习reference中心。它们继承源码的图像无关reference embedding；本版本没有增加逐层框更新或声称使用图像条件移动锚点。
+所有组共用parameter拓扑、初始化、backbone、尺度层、MQSI、FFN与输出头；Q没有增加参数、目标标签或query数量。不增加P2支路、裁图、附加损失或再评分。
+正式12轮配方尚未冻结；容量检查不启动训练队列。若以后进入训练，重新从公共初始状态开始，不用容量临时更新权重。
+
+最近工作矩阵〔原文/代码观察〕
+S57-01 MambaSOD，Unmanned Systems，作者列为2026，DOI10.1142/S2301385028500343。作者主页、README、固定源码model.py/Cross_mamba.py及具名支持片段已读；出版社主文未取得，全文未读。它已经有query-C与线性SSM交互，不能把这些当新颖性。Q的待验证差异是完整context上的几何稀疏读出；C机制本身不是贡献。
+作者记录：https://wbwang2020.github.io/Publications.html
+固定代码：https://github.com/LeoHoW6/MambaSOD-Drone-view-small-object-detection-via-a-Mamba-based-query-feature-interaction-framework/tree/dc5ca8b18d917a32205bb7e63c8d1882c30f91d9
+
+S57-02 BIMBA，CVPR2025。读§4.2–4.2.3和Table1相关行；未读完整源码或复现实验。它已保留完整视觉序列并插入/抽取query，也已有双向扫描和均匀交错位置。Q采用空间reference位置和context-only推进；“先不压缩再抽取query”“双向”“交错”都不是空白。
+https://arxiv.org/html/2503.09590v1
+
+S57-03 QMambaBSR，CVPR2025。读§3.1–3.2公式1–4及其解释，未通读全文。base帧已经可条件化current帧的B/Delta来查询信息。跨输入条件化SSM不是新意；本项目的稀疏检测query-C与完整空间context不是其burst配准任务，但任务不同不等于新颖性自动成立。
+https://arxiv.org/html/2408.08665v2
+
+S57-04 3DET-Mamba，OpenReview主文选读§3.4/Algorithm2与查询消融片段；未核实最终发表状态，未通读全文或代码。已有query/scene双流的SSM及相乘交互；Q不以“首次SSM检测decoder”立题。
+https://openreview.net/pdf?id=RVVPxVuwae
+
+S57-05 Mamba Neural Operator: Who Wins? Transformers vs. State-Space Models for PDEs。读v2的§III-D CrossS6定义11–12；未核实其全部数学命题或全文实验。两个输入混合B/C/Delta已有先例。此处只用于方法边界，不引用其离散化等价论断为本项目理论依据。
+https://arxiv.org/html/2410.02113v2
+
+研究空白的允许表述
+当前所读方法未直接给出“同一完整空间context、同一采样位置，query条件状态读出相比context输出后采样”的无人机小目标检测判别。本报告把它列为有限阅读下的待验证差异，不声称无人做过或最近工作均失败。
+仅零时间观察的代数、普通插值、query生成C或更换数据/host，都不能单独作论文创新。若M已足够，Q没有继续投入依据；若原版/原作者代码不能形成有效且可承担的基线，也不把工程失败写成算法阴性。
+
+旧路线核对
+D008/A56对比残差已按具体配方停止；Q不使用差分/去均值，也不调它们的增益救线。
+D025是分层归一化接口未训练；A57不将softmax或尺度权重改名。A44尺度分配推荐仍撤回。
+N关注非因果共享状态的实例干扰，A22基线数值终止，不能推为训练阴性；A57不重启A22，不复用其失败进程或权重。
+P/A29是网格变化的状态系数校准，已降级；A57没有rho/重新离散化或长度缩放公式。
+A42定位专用读取、A43实例query蒸馏、A51跨分辨率交换、A54尺度场的12轮裁决保留。迁移其中模块到MambaSOD不算实质差异。
+A1关于普遍细节抹除的广义解释没有获支持，A57不据简单池化代数推翻它。
+
+已做验证与阅读范围
+CPU：原v1在第4次进入算子时因argsort关键字绑定失败，保留源码、冻结manifest和故障。v2只把dim改为关键字，完整重做17次算子调用、2次反向；累计21次进入，0次组件/检测器优化器更新。该修正超出原18次内部预检上限3次，已在v2manifest显式记录；未改数学操作、阈值、数据或12轮训练上限。
+三个合成网格含反向、边界及1行情况，打包读出与显式状态结果一致；query置换、增加重复读取不改变已有读取；常量C时M/Q一致。CPU梯度最大差约4.34e-19。它们证明实现性质，不是UAV损失证据。
+CUDA：4次合成算子前向、2次反向、3次原生scan调用，0次SGD。原生FP32输出最大差7.45e-9，梯度最大差1.19e-7。160×160 context、2400query、inner512/state16的单方向例子可运行；Q峰值含公共输入约0.448GiB。一次计时含形状/分配影响，不是部署或吞吐量基准。
+原版主文未取得、代码缺失部分ablation/loader且有文件命名与demo语法问题；兼容副本单独保存。默认非ablation路径用当前scan ABI表达同样递推，未安装/改写旧环境。Vim-v2和CrossMamba完整模型数值与资源仍须真实容量检查。
+官方Vim Tiny预训练权重115013118字节在本地下载、核对LFS SHA后上传。413个pretrained tensor映射通过；14×14位置编码扩到40×40，保留中间CLS位置。三组2011个state tensor初值一致；实际7270万参数，和README的7490万不同，未视为已经对上论文配置。
+
+最小资源判别与风险
+容量协议固定B/M/Q，各2个真实microbatch1（第一seed样本及902-GT压力样本），6次整模型前向、6次临时更新上限，全部丢弃。6个decoder层采用相同checkpoint；BF16前向、FP32原criterion、无loss clamp/skip，峰值allocated≤22GiB。结果和真实进程状态以capacity文件为准。
+一条压力样本的热后耗时只能粗估三组12轮训练，72小时为项目投入预算；不能据此承诺原300轮配方数天收敛。若超出预算或基线未学会，退出当前配方，不自动改组数、缩模型、换点数、续轮次或调阈值救线。
+若资源通过，下一步只冻结一份原版/强简单对照/候选的同seed、同数据、同初始化、同评价12轮协议；固定终点判断。当前还没有AP结果、新主线或发表承诺。
+
+证据入口
+00_检索记录_已捕获原始响应.json
+preflight_inputs_FROZEN_v1.json / preflight_inputs_FROZEN_v2.json
+CPU_operator_failure.json / CPU_operator_result_v2.json / CUDA_operator_result.json
+host_compat_source_receipt.json / native_constructor_inputs_FROZEN_v2.json
+native_initialization_result_v2_observed.json / capacity_scope_FROZEN_v1.json

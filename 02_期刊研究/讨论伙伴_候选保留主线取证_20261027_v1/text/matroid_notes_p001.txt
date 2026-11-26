@@ -1,0 +1,35 @@
+Massachusetts Institute of Technology Handout 9
+18.433: Combinatorial Optimization March 20th, 2009
+Michel X. Goemans
+4. Lecture notes on matroid optimization
+4.1 Deﬁnition of a Matroid
+Matroids are combinatorial structures that generalize the notion of linear independence in
+matrices. There are many equivalent deﬁnitions of matroids, we will use one that focus on
+its independent sets. A matroid M is deﬁned on a ﬁnite ground set E (or E(M) if we want
+to emphasize the matroid M) and a collection of subsets of E are said to be independent.
+The family of independent sets is denoted by I or I(M), and we typically refer to a matroid
+M by listing its ground set and its family of independent sets: M = (E, I). For M to be a
+matroid, I must satisfy two main axioms:
+(I1) if X ⊆Y and Y ∈ I then X ∈ I ,
+(I2) if X ∈ I and Y ∈ I and |Y |> |X| then ∃e ∈Y \X : X ∪ {e} ∈ I .
+In words, the second axiom says that ifX is independent and there exists a larger independent
+setY thenX can be extended to a larger independent by adding an element ofY \X. Axiom
+(I2) implies that everymaximal (inclusion-wise) independent set is maximum; in other words,
+all maximal independent sets have the same cardinality. A maximal independent set is called
+a base of the matroid.
+Examples.
+• One trivial example of a matroid M = (E, I) is a uniform matroid in which
+I = {X ⊆E : |X| ≤ k},
+for a given k. It is usually denoted as Uk,n where |E| = n. A base is any set of
+cardinalityk (unless k >|E| in which case the only base is |E|).
+A free matroid is one in which all sets are independent; it is Un,n.
+• Another is apartition matroid in whichE is partitioned into (disjoint) setsE1,E 2, · · ·,E l
+and
+I = {X ⊆E : |X ∩Ei| ≤ ki for all i = 1, · · ·,l },
+for some given parameters k1, · · ·,k l. As an exercise, let us check that (I2) is satisﬁed.
+If X,Y ∈ I and |Y |> |X|, there must exist i such that |Y ∩Ei|> |X ∩Ei| and this
+means that adding any element e in Ei ∩ (Y \X) to X will maintain independence.
+Observe that M would not be a matroid if the sets Ei were not disjoint. For example,
+if E1 = {1, 2} and E2 = {2, 3} with k1 = 1 and k2 = 1 then both Y = {1, 3} and
+X = {2} have at most one element of each Ei, but one can’t ﬁnd an element of Y to
+add to X.

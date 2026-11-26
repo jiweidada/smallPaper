@@ -1,0 +1,27 @@
+2026-10-21 America/Los_Angeles，真实完成89事前协议→90代码→91原始结果。原source attention83版本仍停止，不修改其门槛。
+
+仍85固定4图，902GT、原sub4曝光453，300 query和640固定、原loss/matcher/attention不变。GT仅提供每个供体本次保留的数量，不提供框或类别给选点。全部选真实无重复encoder token，源保留额不足会记录并全局补位；分数沿原query_select_method。O=原global，F=min(n_s,75)保底，D=N<=300按n_s、N>300最大余数法分300，U=四源各75。最终选集若与原相同保持原顺序，实际索引与成员更换全部存91/00_selections.json。
+两个BASE24 online，CPU8次batch4，约7.39秒，原臂boxes/logits与77缓存恰好0误差，CP和模型/BN不变；零反传/optimizer/训练/heldout/远端/监测，未写checkpoint。
+
+覆盖数，不是AP：
+model1                   O原始      F75保底     D需求      U均分
+原sub4真类.5               22          21         24          19
+原sub4真类.75               2           2          2           3
+全GT真类.5                270         269        267         258
+全GT真类.75               143         143        141         141
+全GT几何.5                302         302        293         288
+全GT几何.75               147         147        144         144
+model2
+原sub4真类.5               25          25         28          22
+原sub4真类.75               4           4          5           3
+全GT真类.5                282         281        274         273
+全GT真类.75               159         159        154         158
+全GT几何.5                309         309        298         300
+全GT几何.75               165         166        160         165
+
+89判据：D两模型原sub4真类.5都严格胜O/F/U，并且全GT真类.5不低于O。前项确实满足，后项267<270、274<282，故两个模型均失败。停止这项精确需求配额选点，不改变总体不降要求挽救。保留小目标+2/+3和全GT−3/−8两面，不能说完全没信号，也不能把局部tiny优势当可训练新方法已经成立。
+
+来源计数不保证被选低分候选有信息；本结果也不能由冻结分布外选点直接推出训练最终AP。GT需求在推理不可得，尚无已立训练方案。DQ-DETR/D3Q/AQF-Net等已做计数/密度指导query，当前只提供强baseline/反例数据，不能把此公式本身作为实质创新。
+
+下一条不同机制的建议来自原生B：不再硬限制decoder，先审计原生union对encoder boxes的监督回写。D-FINE原文和官方criterion本来就设计了跨层target gating/union及enc_aux纳入，因此不是代码bug或新现象。若想形成新问题，必须有混合供体中特定净伤害；最强simple控制是仅encoder boxes用其自身cached_indices_enc和num_boxes，原decoder union/DN/forward全保留。不能同时全局禁union或移除enc贡献混淆路径。
+最低成本先从91的原始selected_indices、85真实source maps和现有final预测算跨源正确几何边作为必要上界；分类top300另报，不将其当几何上界。该上界只是作用面检查，不是新设显著性门槛。如果没有作用面，不再追加本四图的完整union前向，继续找不同方案。当前总目标仍未完成，四位专家继续，不新增训练。

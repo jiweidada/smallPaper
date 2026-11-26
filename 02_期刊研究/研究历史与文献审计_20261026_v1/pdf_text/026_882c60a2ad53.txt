@@ -1,0 +1,189 @@
+CROWn: A Unified Framework for Anti-Aliased Downsampling and
+Phase-Calibrated Fusion in 3D Medical Segmentation
+Xingru Huang 1,2,3* Shuanghua Ye 1,2* Zhao Huang 5 Wenwen Tang 7† Huiyu Zhou 6
+Zhiwen Zheng 1,2,3† Jin Liu 1,2,3† Xiaoshuai Zhang 4†
+1 Hangzhou Dianzi University, Hangzhou 310018, China
+2 Weidian Corporation, Beijing 100015, China
+3 Zhejiang Provincial Key Laboratory of Low Altitude Ubiquitous Networking Technology,
+Hangzhou Dianzi University, Hangzhou 310018, China
+4 Faculty of Information Science and Engineering, Ocean University of China, Qingdao 266404, China
+5 School of Natural and Computing Sciences, University of Aberdeen, Aberdeen AB24 3UE, Great Britain
+6 School of Computing and Mathematical Sciences, University of Leicester, Leicester LE1 7RH, UK
+7 Johns Hopkins University, Baltimore, MD 21218, USA
+Abstract
+Precise 3D medical image segmentation is a clinical cor-
+nerstone for diagnosis, therapy planning, and longitudinal
+monitoring. However, routine acquisition with anisotropic
+voxel spacing and heterogeneous reconstruction induces
+downsampling aliasing and cross-scale misalignment that
+blur boundaries, fragment topology, and undermine reli-
+ability. Existing U-shaped CNN or Transformer designs
+neither control alias injection at decimation nor explic-
+itly align high-resolution evidence before decoder fusion,
+leading to unstable interfaces under device and protocol
+variability. We introduce the Coset-fibRated micrO-local
+co-attention Network (CROWn), a general segmentation
+framework that couples sampling theory with represen-
+tation learning to jointly suppress aliasing and calibrate
+cross-scale fusion. CROWn comprises two complemen-
+tary components. The Microlocal Polyphase Co-Attentive
+Decimator (µPCAD) performs axis-aware polyphase anal-
+ysis with pooled–subband co-attention and explicit anti-
+alias low-pass, routing boundary-relevant high-frequency
+evidence while attenuating spurious phase components dur-
+ing downsampling. The Octaphase Coset Fibration (OCF)
+anti-aliases high-resolution skips, restructures them via
+3D space-to-depth into cosets, and applies phase atten-
+tion with edge-gated modulation to deliver compact, phase-
+aligned, boundary-aware features to the decoder. Exten-
+sive evaluations across 15 publicly available datasets span-
+ning CT, MRI, and OCT demonstrate CROWn’s state-of-
+the-art performance against 17 recent leading methods, im-
+proves overlap and topological consistency, consistently re-
+duces boundary errors, while maintaining controlled train-
+*Equal contribution
+†Corresponding author
+ing and inference cost. The code is publicly available at
+https://github.com/IMOP-lab/CROWn.
+1. Introduction
+Reliable volumetric delineation is a prerequisite for quanti-
+tative imaging workflows such as tumor volumetry, organ-
+at-risk contouring, and longitudinal disease burden track-
+ing in CT, MRI, and OCT [18]. However, routine acquisi-
+tion and multi-site aggregation introduce physical and pro-
+tocol variability that directly perturbs the statistics of the
+input volume and the stability of downstream segmentors
+[9]. Anisotropic voxel spacing and modality incur partial-
+volume effects and slice-thickness aliasing. Furthermore,
+heterogeneous reconstruction kernels, denoising pipelines,
+and intensity scaling shift both spatial statistics and fre-
+quency occupancy [58]. These factors degrade edge gra-
+dients, distort boundaries, and produce plane-to-plane in-
+consistencies that standard isotropic kernels and patch tok-
+enization do not explicitly correct [58]. As a result, mod-
+els trained in a single regime often entangle device-specific
+cues with anatomy to limit cross-domain generalization [9].
+A formulation that treats sampling, aliasing, and boundary
+evidence as coupled problems, becomes necessary for trust-
+worthy 3D segmentation under realistic acquisition.
+Despite rapid progress from ConvNets to volumetric
+Transformers, three mechanism-level gaps persist [12].
+(i) Downsampling aliasing and edge attenuation. Strided
+convolutions and pooling compress spectra without anti-
+aliasing to suppress thin structures and amplify staircase ar-
+tifacts; spacing-agnostic isotropic filters misalign tri-axial
+evidence under anisotropy [58]. (ii) Scale and pathway
+misalignment. Decoders often fuse high-resolution skips
+that propagate aliased high-frequency components, while
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+8514
+
+
+---PAGE---
+
+low-resolution semantics lack boundary-aware inductive
+bias. Moreover, skip concatenation yields poorly calibrated
+multi-scale integration [63]. (iii) Scanner and protocol in-
+duced domain shift. For example, learned features fre-
+quently encode protocol-correlated patterns [9]. Global at-
+tention can aggregate context yet remains weak on blurred
+interfaces [12]. In addition, frequency domain may attenu-
+ate noise at the expense of clinically salient edges [3]. These
+issues motivate a design that jointly controls aliasing dur-
+ing decimation and structures the fusion of high-resolution
+evidence so that boundary localization and structural coher-
+ence are preserved across sampling regimes and devices.
+Hence, we introduce Coset-fibRated micrO-local co-
+attention Network (CROWn), a framework that inte-
+grates sampling theory with representation learning via
+two complementary components. Microlocal Polyphase
+Co-Attentive Decimator (µPCAD) performs axis-aware
+polyphase analysis and co-attention during downsampling.
+It extracts local extrema and background context, decom-
+poses features into multi-orientation subbands, and com-
+putes cross-source attention that treats pooled branches as
+queries and keys, and wavelet subbands as values. The fu-
+sion is recalibrated and then decimated with an explicit anti-
+aliasing blur, yielding low-resolution embeddings that re-
+tain boundary-relevant high-frequency structure while sup-
+pressing spurious components. Octaphase Coset Fibration
+(OCF) restructures skip connections before decoder fusion.
+High-resolution features are anti-aliased and transformed
+via 3D space-to-depth into eight interleaved cosets. Phase
+attention then refines these cosets while an edge-gated term
+derived from 3D Sobel responses modulates the features
+[44, 59]. Furthermore, depthwise-separable aggregation
+produces compact, phase-aligned skips that are semanti-
+cally closer to the decoder scale and less prone to transmit
+aliasing.µPCAD and OCF couple microlocal co-attention
+for alias-aware decimation with coset-fibrated, edge-guided
+skip calibration, addressing the failure modes of volumetric
+segmentation under anisotropy and device heterogeneity.
+Evaluations across diverse benchmarks show consis-
+tent accuracy and boundary quality under heterogeneous
+sampling. CROWn uses 23.78 M Params and 199.58 G
+FLOPs. Ablation studies corroborate the effectiveness of
+theµPCAD and OCF designed, and deploying both mod-
+ules across stages yields the most stable boundary localiza-
+tion. The main contributions are summarized as follows:
+• Proposing CROWn for 3D medical image segmenta-
+tion, linking polyphase sampling and microlocal analysis
+with multi-scale feature learning to address aliasing and
+boundary degradation.
+• DesigningµPCAD, a decimator that integrates pooling-
+derived queries/keys with wavelet subband values to
+perform alias-aware, boundary-preserving downsampling
+with explicit anti-aliasing.
+• Developing OCF to restructure high-resolution skips
+via octaphase coset decomposition, phase attention, and
+edge-gated modulation to deliver compact, phase-aligned,
+boundary-aware skip features.
+• Extensive experiments across 15 benchmarks covering
+CT, MRI, and OCT validate the effectiveness ofµPCAD
+and OCF, along with model complexity reporting.
+2. Related Work
+In 3D medical image segmentation, CNNs established the
+voxel-wise paradigm, pioneered by 3D U-Net [6] and V-Net
+[34] and extended by RAUNet [36], ResUNet [53], Seg-
+ResNet [35], MultiResUNet [17], HighRes3DNet [23], and
+uC 3DU-Net [16], while nnU-Net [18] provided a strong,
+adaptable baseline. Yet pure CNNs are constrained by lo-
+cal receptive fields and anisotropic sampling. To address
+long-range dependencies, Transformer-based [46] designs
+have surged: ViT [8] and Swin Transformer [28] enable
+hierarchical self-attention, and hybrid architecture such as
+TransUNet [4], TransBTS [47], UNETR [12], SwinUNETR
+[11], UNETR++ [43], SegFormer3D [40], UNesT [57],
+Slim UNETR [37], D-Former [49], TransHRNet [54], PH-
+Trans [26], LW-CTrans [20], WaveFormer [1], MAT3D [45]
+and nnWNet [62] surpass classic CNNs on multi-organ and
+tumor benchmarks. In parallel, ConvNeXt [29] reexam-
+ines convolution, leveraging large kernels and modern nor-
+malization and activation, to match or exceed Transformers
+with better compute and memory efficiency; ConvNeXt-
+based 3D UX-Net [22] and MedNeXt [42] excel on high-
+resolution CT and MRI. Most recently, state-space models
+(SSM) capture long dependencies with linear complexity:
+Mamba [10] and its vision variants power architectures [27]
+such as U-Mamba [32], Swin-UMamba [24], SegMamba
+[50], and SegMamba v2 [52], improved robustness to small
+lesions and slender anatomical structures.
+Despite rapid progress, no prevailing approach
+jointly delivers global context, fine-grained detail, and
+deployment-level efficiency under anisotropic sampling.
+Our method addresses this gap and yields consistent gains
+on multi-organ and tumor segmentation.
+3. The Proposed CROWn
+3.1. Overall Framework
+To address the inherent challenges in volumetric segmenta-
+tion e.g., feature corruption from strided operations and in-
+formation loss under voxel anisotropy, CROWn is proposed,
+includingµPCAD and OCF as shown in Figure 1.µPCAD,
+by explicitly fusing spatial pooling with wavelet polyphase
+subbands via co-attention, performs alias-aware decima-
+tion while preserving high-frequency boundary details.
+OCF, marrying octaphase space-to-depth decomposition
+with edge-gated phase attention, calibrates skip connections
+8515

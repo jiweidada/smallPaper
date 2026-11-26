@@ -1,0 +1,107 @@
+Material Passport
+Origin Skill: academic-research-suite / deep-research
+Date: 2026-10-29；America/Los_Angeles
+Mode: 定向方法与源码审查、预定标注几何审计
+Status: 问题发生条件有数据支持；算法新意和阶段性失败机制尚未验证
+
+一、对上一轮候选的实质修正
+
+新发现的TinyFormer比仅比较ECDet/DEIMv2更接近“ViT粗token导致航拍小目标细节损失”。应纳入最近工作和诊断基础，不能用换个细节分支名称绕过它。
+跨层注意力复用也已有Skip-Attention；其近似器本身就包含局部深度卷积。单纯提出“复用全局信息+局部卷积补偿”不构成已查明的新意。
+因此，本轮不把两个泛化模块方向推进为论文创新，不开展模块拼接训练。
+
+二、最近工作与阅读范围
+
+TinyFormer: Preserving Tiny Objects in YOLO-DETR Hybrid Real-time Detectors（2026预印本）
+https://arxiv.org/html/2605.25046v1
+https://github.com/mmpmmpmmpjosh/TinyFormer
+【原文】SSA用独立浅层卷积分支提供空间细节；PBM用多尺度捷径融合。正文报告VisDrone结果，并指出超高分辨率下的成本限制。
+【已读】§3.1、§3.2、§4.3—4.4、结论限制段；部分表格；非全篇及全附录通读。
+【源码观测】官方dinov3_adapter.py包含3尺度/4尺度SSA，浅层特征与ViT特征在stride8处融合，4尺度版本另保留stride4输入。不能把它简单描述成只有低分辨率ViT插值。
+https://github.com/mmpmmpmmpjosh/TinyFormer/blob/9075d9fdf5ce989ca3c7e830a780dfc7fbbe4ec1/engine/backbone/dinov3_adapter.py
+【版本】官方GitHub树API与commit页一致指向9075d9fdf5ce989ca3c7e830a780dfc7fbbe4ec1。
+
+Skip-Attention: Improving Vision Transformers by Paying Less Attention（ICLR 2024；所读arXiv v2为2023）
+https://proceedings.iclr.cc/paper_files/paper/2024/hash/7f29a4373ba492af5f81466a3570c11d-Abstract-Conference.html
+https://arxiv.org/html/2301.02240v2
+【原文】跨层复用MSA输出，使用FC—深度卷积—FC—ECA近似整块注意力；保留MLP计算。研究分类、DINO自监督、分割、去噪等任务。
+【已读】§3.1—3.3、所见实现附录片段；未完成所有附录的阅读。2024会议版本的方法差异没有逐字核对，不把旧预印本等同于最终全部细节。
+【裁决】“跨层注意力相关性高”“复用注意力再做局部卷积”不能独立成为新颖性主张。
+
+SparseViT: Revisiting Activation Sparsity for Efficient High-Resolution Vision Transformer（CVPR 2023）
+https://openaccess.thecvf.com/content/CVPR2023/html/Chen_SparseViT_Revisiting_Activation_Sparsity_for_Efficient_High-Resolution_Vision_Transformer_CVPR_2023_paper.html
+【阅读范围】正式摘要和检索可见的消融片段，非全文。窗口级激活稀疏、分层稀疏率和共享评分已有先例；未据此确认其在本候选场景中的表现。
+
+ESOD: Efficient Small Object Detection on High-Resolution Images（TIP；DOI 10.1109/TIP.2024.3501853）
+https://arxiv.org/abs/2407.16424
+https://github.com/alibaba/esod
+【阅读范围】作者摘要与官方仓库相关说明，非完整方法阅读。复用骨干进行特征级目标寻找和切片，面向高分辨率小目标并支持CNN/ViT；不能把“背景少算、前景细算”当成空白。
+
+Slim-DETR检索到第三方解读，但本轮没有核验到对应一手论文，因此不将其技术描述和数字纳入证据结论。
+
+三、ECDet、DEIMv2和TinyFormer源码差异
+
+ECDet：官方ecvit.py有卷积渐进patch embedding，Attention调用PyTorch SDPA；ViTAdapter对返回层做均值，再插值生成尺度。其decoder同样在循环前准备value。
+https://github.com/Intellindust-AI-Lab/EdgeCrafter/blob/main/ecdetseg/engine/edgecrafter/ecvit.py
+https://github.com/Intellindust-AI-Lab/EdgeCrafter/blob/main/ecdetseg/engine/edgecrafter/decoder.py
+阅读范围：上述类、forward及相关配置；未审计全部仓库。main尚未固定到commit，不用于正式运行版本声明。
+
+DEIMv2：STA在ViT旁增加空间先验；decoder已共享准备的value和query位置表示。详见00报告的源码位置。
+
+TinyFormer-S：vit_tiny.py可见12层、192维、3头、16像素patch，使用SDPA；其VisDrone配置使用方形Resize 640和4层decoder，原训练配方132轮。
+https://github.com/mmpmmpmmpjosh/TinyFormer/blob/9075d9fdf5ce989ca3c7e830a780dfc7fbbe4ec1/engine/backbone/vit_tiny.py
+https://github.com/mmpmmpmmpjosh/TinyFormer/blob/9075d9fdf5ce989ca3c7e830a780dfc7fbbe4ec1/configs/tinyformer/visdrone/tinyformer_dinov3_s_coco_pbm_visdrone.yml
+【限制】这些是网页源码审读结论，不是已经运行的模型检查。SDPA实际是否采用Flash内核、峰值显存和延迟均需实测，不能机械宣称显存必然按token数平方增长。
+
+四、已完成的本地标注审计
+
+先保存04_标注几何审计预定方案.json，再运行audit_annotation_geometry.py；方案SHA见completed.json。原6471份标注全部按既有源文件清单核验SHA；尺寸元数据也与原清单中的SHA一致。
+有效目标343204，规则与已完成基线相同：score1、category1..10、原图坐标裁边、去除非正面积。3行裁边后无效，其中1行是正样本。
+本次新增检测前向0、训练更新0、远端作业0，仅作CPU标签统计，耗时30.95秒。没有访问官方val/test图像。
+
+尺寸定义：d=sqrt(输入坐标bbox面积)。小目标为d<32，极小档为d<8；d<8不代表宽和高都小于8。
+同格定义：使用原点固定的4/8/16像素网格，按GT中心计数。不能将“中心同格”写成模型必然混合了两个实例。
+
+全部训练目标，640等比例letterbox：
+- d<8：114132/343204，33.25%。
+- d<32：310753/343204，90.54%。
+- 宽和高都<8：73887/343204，21.53%。
+- 小目标中，与其他小目标中心共处16格：143256/310753，46.10%。
+- 同一指标在8格为23.10%，4格为8.54%。
+
+全部训练目标，640方形拉伸：
+- d<8：80220/343204，23.37%。
+- d<32：292739/343204，85.30%。
+- 小目标中中心共处16格：40.04%；8格17.81%；4格5.59%。
+
+960两种几何也按预定方案全部计算，完整分组、逐图结果见annotation_geometry_audit_v1/completed.json与per_image.csv；没有挑出最好的一种变换作为结论。
+【推断】极小尺度和局部密集确实常见，足以支持开展分阶段诊断。
+【不能推断】这不能证明ViT信息丢失、decoder有害、已存在可部署收益或新方法会提升AP。不同分辨率下“小目标”成员也会改变，不能把分母变化当成同一批目标的改善。
+【比较要求】TinyFormer的方形拉伸和现有YOLO26s的letterbox必须明确区分；不能仅因都写640就把差异归功于encoder/decoder。
+
+五、当前优先问题与潜在增量的条件
+
+优先问题：在已有SSA/PBM细节补偿的紧凑ViT检测器中，密集小目标的剩余失败，主要体现为编码候选不足、Top-K未选中，还是解码过程中定位/类别的变化？
+
+子问题1：固定输入变换和尺寸后，密集极小目标是否在全部编码候选中已有足够几何覆盖？
+子问题2：覆盖从全候选到Top-K减少多少，简单预算因素能解释多少？BUTR是此处必须对照的已有工作。
+子问题3：已被初始query覆盖的目标，是否在后续解码阶段出现集中于邻近小目标的定位混淆？阶段性覆盖变化不自动具有因果解释。
+
+【候选算法位置，尚未批准】只有上述问题定位后才决定改变编码表示、query读取或局部实例更新。已有细节CNN、P2分支、固定共享、SKIPAT近似和普通预算调整均为对照，不自动组合为新模块。
+
+【研究空白的准确表述】已读工作提供了细节补偿、注意力近似和空间稀疏等方法；目前证据没有回答本次具体基线中剩余失败发生在哪一步。它是“待验证问题”，不是已证实的普遍文献空白。仅换数据集或复现SSA/SkipAT不足以支持投稿。
+
+六、可行性与主要风险
+
+官方README列出了TinyFormer-S-PBM的VisDrone已训练权重和Google Drive镜像，可优先取得作者权重后做有限推理诊断，从而避免先重训完整132轮。链接已核验在官方README出现，权重文件本身尚未下载核验。
+源码树commit已定位，但本地完整源码获取尚未完成：GitHub直连多次TLS失败；浏览器文本重建的两个文件未通过Git blob SHA，因此不当作可执行官方源码，不放宽校验。
+这不是自动审批拒绝，不需要用户重新授权；可继续使用已取得的一手网页证据开展调研。正式实验必须先通过源文件与权重的资产门槛。
+
+24GB和紧凑S模型使推理诊断值得准备，但尚无新模型在服务器上的容量实测。作者权重训练过VisDrone train，因此对现有train诊断图的结果只可作样本内机制线索；算法有效性和外推仍要在重新划分训练的模型及未用于开发的数据上验证。
+
+七、本轮裁决与下一步
+
+A候选保留为优先诊断问题；基础参照增加TinyFormer-S-PBM。
+B候选的“简单decoder memory共享”部分已排除；更复杂复用暂降优先级，先证明实际剩余计算和小目标特异问题。
+不再追加压缩/恢复实验；不启动新模块训练。下一步只准备并审核06协议中的有限阶段追踪，资产未通过前不运行模型。
+主线目标仍未完成：需要阶段证据、与最近工作的实质差异及可承担的验证路径，不能用本报告或标注统计代替。

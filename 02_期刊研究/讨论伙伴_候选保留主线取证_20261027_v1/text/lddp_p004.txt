@@ -1,0 +1,115 @@
+C is computed as IC (C) =− log P (C) where P (C) is the
+probability of occurrence of an instance with label C among
+all images. Posterior probability of selecting background
+boxes, Pα(B|X), follows the same determinantal point pro-
+cess formulation as in Eq. (2). The difference between these
+two posterior probabilities lies in how we measure quality
+of proposals Φ.
+2.1.2 Model Description
+In general, the classiﬁcation score over K + 1 categories as
+well as overlap with the bounding box target can be used
+to deﬁne the quality score Φi for proposal i. The classiﬁca-
+tion scores are computed in the fully-connected layer before
+“softmax” layer in the Faster R-CNN architecture, and lo-
+cation of each bounding box is given by the inner product
+layer feeding into the “bounding box regressor”. The ex-
+act deﬁnition of Φi for different proposals in the two terms
+of log-likelihood function Eq. (1) varies according to the
+general goal of increasing scores of high-quality boxes in
+their ground-truth label and increasing scores of background
+boxes in the background category.
+One should note that Y is an ideal extractive summary
+of input which is the list of proposals in each mini-batch,
+X (e.g. m = 128 ) [ 10]. Thus, we apply a maximum a
+posteriori (MAP) DPP inference, Alg. 2, in each iteration of
+the training algorithm to determine the set of representative
+boxes Y from the set of m proposals. If ground truth boxes
+exist among the proposals in each mini-batch, they will be
+automatically selected as the set Y through MAP . However,
+if they don’t exist among the proposals, MAP will select the
+best summarizing ones. To make sure that selected boxes,
+Y , are accurate and close to ground-truth boxes, we only
+select from a “subset” of proposals in the mini-batch with
+high overlap with their bounding box targets. Also, we
+deﬁne the quality of boxes only based on their overlap with
+their bounding box target in this step of applying MAP , as
+summarized in Alg.
+1. Thus, by selecting Y as the set of
+best representations of ground-truth boxes in X, maximizing
+P (Y|X) results in maximizing selection of ground-truth
+boxes, which corresponds to maximizing the probability of
+training data.
+On the other hand, to specify the set of more probable
+background proposals as B, given the set of proposals in
+each mini-batch X, we deﬁne B as the set of all proposals in
+X− Y except those that have high overlap with ground-truth
+and their associated predicted label matches their ground-
+truth label. As mentioned before, the goal here is to minimize
+the probability of selecting “background proposals” as the
+representative boxes in each image.
+To complete the DPP model description, we deﬁne the
+quality scores of the proposals as follows.
+For the ﬁrst term log Pα(Y|X), we deﬁne the quality of
+boxes as:
+Φi =
+{
+IoUi,gti× exp{W T
+gtfi}, if i∈ Y
+IoUi,gti× ∑
+c̸=0 exp{W T
+c fi} if i̸∈ Y (3)
+where W T
+c fi is the output of the inner product layer before
+the softmax loss layer, Wc is the weight vector learned for
+category c and fi is the fc7 feature learned for proposal i.
+Moreover, Wgt denotes the weight vector for the correspond-
+ing ground-truth label of proposal i, and c = 0 shows the
+background category. Note that the goal is to increase the
+score of boxes in Y in their ground-truth label and the score
+of other boxes in the back-ground category. Derivatives of
+log-likelihood function with respect to W T
+c fi in Eq. (5), (6)
+clariﬁes all above deﬁnitions.
+The second term log Pα(B|X) is designed for minimiz-
+ing the probability of selection of background boxes which
+results in a boost in the scores of such proposals in their back-
+ground category. We thus deﬁne the quality of proposals for
+this term as:
+Φi =
+{
+IoUi,gti× ∑
+c̸=0 exp{W T
+c fi}, if i∈ B
+IoUi,gti× exp{W T
+gtfi} if i̸∈ B (4)
+The effect of involving IoUi,gti in quality scores during train-
+ing appears in computing the gradient, Eq. (5),(6), where a
+larger gradient would be passed for boxes with higher over-
+lap with their bbox target. It means more accurate boxes
+will move toward being selected (achieve higher softmax
+prediction scores) faster than others.
+To avoid degrading the relatively accurate bounding boxes
+which are not selected in Y , in Eq. (1), during the learning
+process, we exclude from X all the boxes that have high
+overlap with boxes in Y and their label matches their ground-
+truth category (in both Pα(Y i|X i), Pα(Bi|X i)).
+2.1.3 LDDP Back-Propagation
+We modify the negative log-likelihood function in Eq. (1)
+such that the two terms get balanced according to the number
+of selected proposals in Y, B . This DPP loss function, de-
+pends on the inputs of both softmax loss and bounding box
+regressor in the deep network. Since the ensemble matrix
+L, Eq. (2), and the consequent log-likelihood function in
+Eq. (1) are functions of the parameters of deep network, we
+incorporate the gradient of our DPP loss layer into the back-
+propagation scheme of the detection network. We assume
+the location coordinates of proposals are ﬁxed and only con-
+sider the outputs of the fully-connected layer before softmax
+loss as the parameters of our loss layer.
+Based on deﬁnitions of Φi in Eq. (3) and model presented
+in Eq. (2), the gradient of p1 = log Pα(Y|X) with respect
+to bc
+i = W T
+c fi
+, the output of the inner product layer, would
+7152

@@ -1,0 +1,38 @@
+本轮没有确认新主线。已完成两类实质推进：把半精度风险推进到完整原生criterion接口的合成复现；新增核查编码器位置建模与推理查询扩容的最近方法，建立独立的O候选问题。N共享状态假设保留未验证，O也尚无真实图像效应或创新通过结论。
+
+1. 检索策略与记录
+围绕RoPE/稀疏位置编码/线性高分辨率编码器，以及query数量变化、分组、自注意力、增量解码和KV复用定向追踪。本轮18条检索式、6次网页直访与3个站内find，精确请求和原始结果保存于web_search_records.json。另保存论文链接GitHub仓库的元数据、提交、分支及确切树对象，Crossref和出版社公开XML入口，逐份下载9个源码/说明blob，归档3份公开PDF。
+仅依主来源形成方法结论；搜索摘要不视为全文。LA-DETR仅有IEEE摘要，直访418，留在筛查记录，不据此排清算子。VRWKV页面直访403，出版社索引预览可读；XML只有书目且openaccess0，未取得全文。正式卷期为2027-01-15，Crossref创建于2026-08-18不等于在线发表时间；当前预览可访问，准确online日期仍未核验。
+
+2. 核心文献矩阵与阅读范围
+矩阵78增至82条：DSPE-ViT、VRWKV-DETR、Group DETR、GroupEnsemble。DSPE读完整Method3.1–3.4、实施4.2和部分复现讨论，核图PDF第5/6页；完整读公开DSPE三个模块与README，其他说明只选读，未复现整模型。VRWKV只读出版社摘要/导言/片段。
+Group DETR采用ICCV2023正式PDF，读摘要及3.1算法/训练/推理相关段，核对Figure2/Algorithm1；未读完整分析/实验/代码。GroupEnsemble采用arXiv2603.01847v1，读摘要/导言、部分III-A和完整III-B–D，核对PDF第4/5页的组构造、屏蔽和聚合；未读完整实验或作者代码，不宣称已同行评议。
+
+3. 与最近工作的逐项对比
+DSPE-ViT已有密度条件位置建模与PE维度门控，不能把该宽泛方向当作空白。论文也明确说明PE置零不改变Q/K/V维度和FLOPs，不能错误批评它用置零直接省掉密集矩阵运算。当前公开参考代码却采用单个固定窗口表、窗口范数/全局均值缩放、将相对偏置归约投影为token向量再相加；论文最终算法采用中位数划分、两个偏置表和attention-logit内融合。代码推理硬阈值被注释，默认温度也不同。它能作为参考组件阅读，不能与完整论文实现或精度结果等同；没有发现完整骨干/训练配置/权重。9个文件均固定23b92e34198df838c8ed63259e6457e58100edf2并通过Git blob校验。
+VRWKV出版社预览已提出线性RWKV高分辨率多尺度建模及同一训练decoder在推理300→1500查询扩容；不能声称首次把RWKV或更多查询用于密集小目标。完整方法与online时间边界保留。
+Group DETR已有组内独立自注意力和一组一对一监督，推理保留一组。GroupEnsemble已将训练好的多组查询全部用于推理，组间双向屏蔽并做BSAS/不确定性聚合。因此，“多组查询＋attention mask”在推理阶段同样不是新意。原生DN训练mask也已有单向可见性模式。DETRNN/EASE/Dual-R等继续约束排序、竞争或路由的宽泛创新声明。
+
+4. 文献支持但尚未证实的问题
+新增O候选：同一图像的真实候选查询扩容时，新增查询经自注意力改变原候选，是否造成没有被新增覆盖补偿的微小目标检测损失？可否在相同最终候选数下保留覆盖收益并稳定检测？普通自注意力存在依赖，不等于这种依赖有害；本轮没有真实模型效应测量。
+这一问题不同于补齐行实现风险，也不同于原D候选的定位不确定性关系问题。它从已有推理扩容方法引出，不能把“没有查到完全同名文章”当创新证明。组隔离、单向mask、排序和KV缓存均已有基础，具体算法差异仍需核查。
+
+5. 候选增量、可行性与风险
+O的暂拟方向是适用于普通已训练检测器的分阶段候选扩容，约束原查询受新查询影响的路径，并在明确递增预算场景下考虑查询状态复用。这是算法机制候选，不是已确认创新。现有Dome作者权重与源码可以作为首个冻结诊断宿主；尚未核对完整prefix/cache接口和新协议容量，不能声称新方法已能运行。图像memory早已共享，不能重新计作创新或速度收益。
+风险是隔离有益上下文、固定错误旧预测、重复检测增加，或最终仅剩标准mask/KV复用的组合。若在相同最终候选数下没有任务收益，就不靠多给query、重调阈值或追加NMS救结果。DSPE论文报告的16GB可训练不代替本机资源实测；其参考包与论文的差异也不构成我们的论文创新。
+
+6. 本轮验证与最小后续路线
+CPU合成验证共5次原生criterion.forward、27次原生matcher.forward，完整检测器前向0、优化器更新0、真实图像0，CUDA未初始化。前3组使用原生接口处理普通/aux/pre/encoder分支：FP16出现具名loss_ddf_aux_0/1=NaN；仅将数学上应为零的DDF求和改用FP32累加后，该组合损失和梯度有限，FP32对照有限。随后2组增加GT[10,902]、DN1804、非相同student/teacher以及DEFE密度/回归分支：原生FP16在loss_ddf_dn_2复现NaN，零项累加修正后全部raw loss与20个合成叶张量梯度有限。原函数返回值会用nan_to_num把这些NaN置零，因此只看最终总loss会漏掉风险。
+这些是CPU合成反例和对照，不是原2105批失败状态的重放，也不是GPU AMP全覆盖验证。当前宿主实际criterion类别为VFL/boxes/local，不是MAL。另一个两行候选合成例子证实原matcher可以在batch_queries_num=1时选中补齐的第2行；截断到有效集合后选第1行。尚无真实发生频率、梯度影响或AP证据，不能据此称新架构问题已成立。
+原A22冻结源码未改、任务未续跑、没有新训练或新评估。历史累计完整调用2365、更新528（其中526正式、2容量）不变，原分配已关闭，剩余额度不自动转用。
+O后续先查接口和素材，拟比较base-only n、普通m、双向组隔离m和单向隔离m；图像编码、查询初值、输出上限与最终候选数相同。公共前缀IoU/分数变化只作机制指标，须检查新增候选有无补偿原检测损失；主要任务证据仍应是同口径AP/APsmall与重复误检。通过硬约束恢复旧输出的max-IoU下界本身不是检测改进。具体样本、门槛、容差和预算尚未冻结，DRAFT明确执行分配0，不是已执行协议。
+
+7. 可核验参考与链接
+DSPE-ViT: a lightweight vision transformer with dynamic sparse positional encoding for dense small object detection in UAV imagery. Cai,L.;Li,S. Frontiers in Neurorobotics20(2026),1849093. https://doi.org/10.3389/fnbot.2026.1849093
+论文链接参考仓库：https://github.com/LiyaCai-001/DSPE-ViT-1/tree/23b92e34198df838c8ed63259e6457e58100edf2
+VRWKV-DETR: Boosting high-resolution small object detection with linear attention and dense queries. Zhang,Y.;Wang,X.;Liu,J.;Zhang,W. ESWA333(2027),134086；本轮只读预览。 https://doi.org/10.1016/j.eswa.2026.134086
+Group DETR: Fast DETR Training with Group-Wise One-to-Many Assignment. Chen,Q.et al. ICCV2023. https://doi.org/10.1109/ICCV51070.2023.00610
+GroupEnsemble: Efficient Uncertainty Estimation for DETR-based Object Detection. Yang,Y.et al. arXiv2603.01847v1(2026). https://arxiv.org/abs/2603.01847v1
+DETRNN与BUTR的既有阅读范围继续见核心矩阵：https://arxiv.org/abs/2610.05191 ，https://arxiv.org/abs/2610.33430v1 。不把它们的结论当作本模型实验。
+
+61回执保存源文件哈希、合成数值、阅读范围及版本；3份PDF按项目规则进入中央文献目录，VRWKV仅存访问限制/元数据记录。目标保持ACTIVE。当前有15个候选记录、82条核心文献，仍没有确认可成文的主线。

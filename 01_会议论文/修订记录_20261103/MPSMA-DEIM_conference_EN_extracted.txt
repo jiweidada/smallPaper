@@ -1,0 +1,121 @@
+B000: MPSMA-DEIM: Multi-branch Progressive Stem and Multi-scale Context-aware Attention for UAV Small Object Detection
+B001: Peng Sheng*, Jiwei Fang, Wenhao Jiang, Jun Hu, Zixing Wang
+B002: School of Artificial Intelligence and Big Data, Hefei University, Hefei 230601, Anhui, China
+B003: *Corresponding author: CppJava@163.com
+B004: Abstract
+B005: Small objects in UAV imagery easily lose fine-grained information during early downsampling, while complex backgrounds make multi-scale context difficult to exploit. This paper proposes MPSMA-DEIM, a detector built on the DEIM-D-FINE baseline. A Multi-branch Progressive Stem (MPS) is constructed in the shallow layer: it extracts details, mid-scale structures and high-frequency cues through three parallel branches, fuses them progressively at a common resolution, and refines the result with a lightweight spatial attention. A Multi-scale Context-aware Attention (MSCA) is hierarchically deployed in the middle and deep stages, where a parameter-free pooling attention and a dilated-convolution attention enlarge the receptive field without downsampling. The activation function of the backbone is further replaced with SiLU. On the VisDrone2019 validation set, five ablation configurations over MPS, MSCA and SiLU are trained under an identical recipe. The complete model raises AP from 0.1895 to 0.2270 (19.8% relative), AP50 from 0.3351 to 0.3941, AP75 from 0.1844 to 0.2231, APs from 0.1251 to 0.1518 and AR@100 from 0.3401 to 0.3809, with all metrics moving in the same direction. Applied at a larger scale, the s-variant reaches AP 0.2876 with 13.99 M parameters and 29.63 GFLOPs, and runs at 44.3 FPS end-to-end at 640x640 input. The reported precision is stable: the last 20 epochs vary by only 0.0003 in AP.
+B006: Keywords: UAV imagery; small object detection; multi-branch progressive stem; multi-scale context-aware attention; DEIM-D-FINE
+B007: 1. Introduction
+B008: Unmanned aerial vehicles (UAVs) have been widely applied in environmental monitoring, public security and low-altitude inspection because of their flexible deployment, strong mobility and wide coverage [1]. Object detection is a fundamental capability of UAV visual perception [2-3]. Compared with natural images, UAV aerial imagery is characterized by large scale variation, strong background clutter, frequent occlusion and densely distributed small objects [4], which makes it difficult for a detector to simultaneously satisfy localization accuracy, computational cost and deployment constraints [5].
+B009: Existing work addresses these difficulties mainly through lightweight architectures, multi-scale fusion and global modelling. Ou et al. proposed Drone-TOOD, which trades off between a lightweight backbone and task alignment [6]; Liang et al. improved aerial small object detection with a Swin Transformer and local context enhancement [7]. DEIM accelerates the convergence of DETR-style training through an improved matching scheme [8], while D-FINE refines bounding-box localization with fine-grained distribution refinement [9]. Domestic studies have also enhanced small-object representation through visual mechanisms, multi-scale fusion or improved YOLOv7 [10-11]. However, aggressive downsampling can still weaken the texture and edges of small objects in the early stage of the network, and fixed-scale feature modelling cannot simultaneously capture high-resolution local details and low-resolution semantic context. How to jointly achieve shallow detail preservation and hierarchical context modelling therefore remains an open problem.
+B010: This paper proposes MPSMA-DEIM on the DEIM-D-FINE baseline. First, a Multi-branch Progressive Stem (MPS) is designed, which preserves shallow fine-grained information through parallel multi-branch extraction and progressive cross-scale fusion. Second, a Multi-scale Context-aware Attention (MSCA) is constructed, which configures lightweight attention and dilated convolution according to feature resolution and semantic level. In addition, the activation function of the backbone is replaced by SiLU. Finally, five controlled ablation configurations, a comparison with mainstream detectors, and complexity and latency analyses quantify the contribution of each component on VisDrone2019.
+B011: 2. Related Work
+B012: CNN-based detectors have long dominated UAV object detection. Two-stage detectors such as Faster R-CNN achieve high precision but are difficult to deploy on airborne platforms [5]; single-stage detectors such as the YOLO family [16-18] provide a better accuracy-latency trade-off but still lose shallow detail under aggressive downsampling. More recently, DETR-style detectors have removed the need for non-maximum suppression. DEIM [8] improves the matching strategy to accelerate convergence, and D-FINE [9] reformulates box regression as fine-grained distribution refinement, achieving a strong accuracy-efficiency balance. This work builds directly on DEIM-D-FINE and focuses on its shallow stem and its feature aggregation blocks.
+B013: Attention mechanisms are widely used to strengthen small-object features. SE and ESE [12] perform channel recalibration at low cost, and SimAM [13] introduces a parameter-free energy function that assigns spatial weights without additional learnable parameters. Multi-scale aggregation with dilated convolution enlarges the receptive field while preserving spatial resolution. Instead of applying a single attention form uniformly, this paper deploys different attention types across stages according to resolution, and combines them with a redesigned shallow stem.
+B014: 3. Proposed Method
+B015: 3.1 Overall Architecture
+B016: MPSMA-DEIM is built on DEIM-D-FINE [8-9], which consists of an HGNetv2 backbone, a feature fusion encoder and a cascaded refinement decoder. Two problems are addressed for the UAV scenario: the rapid downsampling of the conventional stem weakens shallow detail, and fixed-scale feature modelling cannot fully exploit context at different levels. MPS and MSCA are therefore introduced into the backbone, as shown in Fig. 1. The detection head and the training framework of DEIM-D-FINE are kept unchanged.
+B017:  [IMAGE rId9]
+B018: Fig. 1  Overall architecture of MPSMA-DEIM
+B019: 3.2 Multi-branch Progressive Stem
+B020: Shallow fine-grained features are essential for recognizing and localizing small objects, but they are easily lost in the early downsampling stage. MPS therefore constructs three parallel paths at the input resolution, as shown in Fig. 2. The detail branch consists of two consecutive 3x3 convolutions with stride 1 and extracts fine-grained texture. The main branch concatenates a 3x3 convolution with stride 2 and a 3x3 convolution with stride 1; it performs the downsampling and extracts mid-scale structures. The high-frequency branch first subtracts a 3x3 mean-filtered version of the input to obtain the high-frequency component, and then strengthens the edge response with a 1x1 convolution followed by a depthwise 3x3 convolution. Progressive cross-scale fusion is then applied: the detail branch is downsampled by 2x2 average pooling to the resolution of the main branch, the high-frequency branch is aligned by bilinear interpolation, and the three paths are concatenated at a common resolution. The fused feature is refined by a lightweight spatial attention composed of a 1x1 convolution for channel reduction, a 7x7 convolution and a sigmoid activation, which is applied in a residual manner to strengthen the response of target regions. A final 3x3 convolution with stride 2 produces the 4x downsampled output.
+B021:  [IMAGE rId10]
+B022: Fig. 2  Structure of the Multi-branch Progressive Stem (MPS)
+B023: 3.3 Multi-scale Context-aware Attention
+B024: MSCA configures different attention forms according to the network stage, as shown in Fig. 3. For the high-resolution features in the front stages, the low-cost ESE attention [12] and the parameter-free SimAM attention [13] are used to preserve local spatial information. In the middle and deep stages, where the resolution is lower, MSCA-Lite and MSCA-Dilated are deployed in sequence. This hierarchical configuration aligns the attention form with the feature resolution and semantic level.
+B025:  [IMAGE rId11]
+B026: Fig. 3  Framework of the Multi-scale Context-aware Attention (MSCA)
+B027: MSCA-Lite performs lightweight enhancement for lower-resolution features in the middle and deep stages, as shown in Fig. 4. Multi-scale context is aggregated by average pooling and upsampling:
+B028: Fms = (F + Up(AvgPool2(F)) + Up(AvgPool4(F))) / 3
+B029: After aggregation, the attention weight follows a SimAM-style energy function computed from the mean μ and variance σ² over the spatial dimensions:
+B030: A = sigmoid((Fms − μ)2 / (4(σ2 + λ)) + 0.5),      Out = F · A
+B031: This module introduces no additional learnable parameters and therefore adds no parameters to the model, while still providing an effective attention mechanism for small-object detection.
+B032:  [IMAGE rId12]
+B033: Fig. 4  Structure of MSCA-Lite
+B034: MSCA-Dilated captures multi-scale context with dilated convolutions of different dilation rates while preserving the spatial resolution, as shown in Fig. 5. Each parallel branch first reduces the channel dimension with a 1x1 convolution and a ReLU activation, and then applies a depthwise 3x3 dilated convolution with dilation rate d_i. The spatial attention branch is computed as:
+B035: As = sigmoid((C − μ)2 / (4(σ2 + λ)) + 0.5),      C = Conv1×1(Concat(F1, ..., Fn))
+B036: The channel attention branch uses global average pooling followed by a multi-layer perceptron:
+B037: Ac = sigmoid(W2 · ReLU(W1 · GAP(F)))
+B038: The final output combines the two attention mechanisms:
+B039: Out = F · ( As · Ac )
+B040: The effective kernel size of each branch is computed as
+B041: keff = k + (k − 1)(di − 1)
+B042: where k is the kernel size and d the dilation rate. For k = 3 the effective kernel sizes are 3, 5 and 9 for dilation rates of 1, 2 and 4 respectively. The design therefore completes multi-scale feature aggregation without introducing additional downsampling.
+B043:  [IMAGE rId13]
+B044: Fig. 5  Structure of MSCA-Dilated
+B045: 3.4 Backbone Activation
+B046: To improve the non-linear representation at different resolutions, the activation function of the backbone is changed from ReLU to SiLU. It should be noted that this replacement applies to the whole HGNetv2 backbone rather than only to the newly introduced modules; the detection head and the training framework of DEIM-D-FINE remain unchanged. SiLU is not claimed as an independent structural contribution, and its effect is quantified in the ablation study.
+B047: 4. Experiments
+B048: 4.1 Dataset and Implementation Details
+B049: Experiments are conducted on the VisDrone2019 detection benchmark [15]. Its detection subset contains 10 object categories and is split into 6,471 training images, 548 validation images and 1,610 test-dev images. All models are trained on the training split and evaluated on the validation split. The dataset is characterized by small object scale, high density, frequent occlusion and complex background, as illustrated in Fig. 6.
+B050:  [IMAGE rId14]
+B051: Fig. 6  Samples of the VisDrone2019 dataset
+B052: All experiments are carried out on a single NVIDIA RTX 4080 GPU with an AMD 9700X CPU, 48 GB DDR5 memory and Windows 11 64-bit; the software environment is Python 3.10.16, PyTorch 2.5.1 and CUDA 12.1. All models are trained from scratch without loading pretrained backbone weights. The input size is 640x640 for both training and validation, the batch size is 4 and the total number of epochs is 320. To ensure that every ablation configuration shares exactly the same training budget, the five ablation runs are all performed on the n scale (HGNetv2-B0) with a backbone learning rate of 4e-4 and 8e-4 for the remaining parts; the scale-extension experiment uses a backbone learning rate of 2e-4 and 4e-4 for the remaining parts. AdamW is used with a weight decay of 1e-4 and betas of 0.9 and 0.999. Data augmentation includes Mosaic (probability 0.5), random photometric distortion, random horizontal flipping and random cropping; strong augmentation is disabled for the last 24 epochs. Detection performance follows the official MS COCO evaluation protocol [14], reporting AP, AP50, AP75, APs, APm and APl. Model complexity is measured at 640x640 input in terms of parameters (Params) and floating point operations (FLOPs).
+B053: Note on the comparison table: the rows marked with reference [19] are quoted from a public VisDrone2019 benchmark, which evaluates on test-dev (1,610 images) with pretrained weights. The results reported in this paper are obtained by training from scratch and evaluating on the 548-image validation split. The two protocols are therefore not identical and the comparison is indicative rather than strictly controlled.
+B054: 4.2 Ablation Study
+B055: To quantify the individual effect of MPS, MSCA and SiLU and their combination, five configurations are trained with identical data split, model scale, optimizer hyper-parameters and number of epochs. The results are listed in Table 1.
+B056: Table 1  Ablation results of different module combinations
+B057 TABLE:
+ID | MPS | MSCA | SiLU | AP | AP50 | AP75 | APs | AR@100
+1 | - | - | - | 0.1895 | 0.3351 | 0.1844 | 0.1251 | 0.3401
+2 | Y | - | - | 0.2182 | 0.3808 | 0.2134 | 0.1439 | 0.3670
+3 | - | Y | - | 0.2078 | 0.3606 | 0.2048 | 0.1293 | 0.3552
+4 | - | - | Y | 0.2117 | 0.3702 | 0.2054 | 0.1333 | 0.3572
+5 | Y | Y | Y | 0.2270 | 0.3941 | 0.2231 | 0.1518 | 0.3809
+B058: The baseline reaches AP 0.1895, AP50 0.3351 and AP75 0.1844. Adding MPS, MSCA or SiLU alone raises AP to 0.2182, 0.2078 and 0.2117 respectively, corresponding to absolute gains of 0.0287, 0.0183 and 0.0222. MPS contributes the most, indicating that shallow multi-branch modelling with cross-scale fusion is effective in alleviating early detail loss. The APs of the three single-module configurations are 0.1439, 0.1293 and 0.1333, all higher than the baseline value of 0.1251, showing that each module improves small-object representation.
+B059: When all three factors are enabled, AP, AP50, AP75 and APs reach 0.2270, 0.3941, 0.2231 and 0.1518, corresponding to absolute gains of 0.0375, 0.0590, 0.0387 and 0.0267 over the baseline, or 19.8%, 17.6%, 21.0% and 21.3% in relative terms; AR@100 increases from 0.3401 to 0.3809 and APm from 0.2651 to 0.3171. All five metrics move in the same direction, and the complete configuration performs best among the five settings, which indicates that shallow detail preservation, hierarchical context modelling and the backbone activation replacement are complementary. It should be noted that only these five configurations are reported; all pairwise combinations of the three factors are not enumerated.
+B060: 4.3 Comparison with Other Detectors
+B061: The proposed model is compared with YOLO8s, YOLO10s, YOLO11s, D-Fine-S and DEIM-D-Fine-S on the VisDrone2019 validation set; the results are listed in Table 2, where the YOLO and D-Fine rows are quoted from reference [19] and all MPSMA-DEIM results are measured under the unified training setting of this paper.
+B062: Table 2  Detection accuracy on the VisDrone2019 validation set
+B063 TABLE:
+Model | Source | AP | AP50 | APs | APm | APl
+YOLO8s | Ref.[19] | 0.173 | 0.307 | 0.078 | 0.269 | 0.372
+YOLO10s | Ref.[19] | 0.179 | 0.323 | 0.086 | 0.278 | 0.361
+YOLO11s | Ref.[19] | 0.176 | 0.313 | 0.080 | 0.272 | 0.364
+D-Fine-S | Ref.[19] | 0.227 | 0.394 | 0.128 | 0.331 | 0.468
+DEIM-D-Fine-S | Ref.[19] | 0.219 | 0.384 | 0.122 | 0.321 | 0.397
+MPSMA-DEIM (n) | Ours | 0.2270 | 0.3941 | 0.1518 | 0.3171 | 0.3794
+MPSMA-DEIM (s) | Ours | 0.2876 | 0.4744 | 0.2123 | 0.3803 | 0.4837
+B064: The n-scale MPSMA-DEIM reaches AP 0.2270 and AP50 0.3941 with only 7.54 M parameters. Compared with D-Fine-S (AP 0.227) and DEIM-D-Fine-S (AP 0.219), which contain 10.18 M parameters, it achieves a comparable accuracy level with substantially fewer parameters, while APs increases from 0.122-0.128 to 0.1518, indicating that the gain of the proposed structure is concentrated on small objects. Applying the same structure at the s scale further raises AP to 0.2876. As noted above, reference [19] evaluates on test-dev with pretrained weights whereas this paper trains from scratch and evaluates on the 548-image validation split, so Table 2 does not constitute a strictly controlled comparison.
+B065: 4.4 Complexity and Inference Efficiency
+B066: The complexity of the s-variant is compared with the baseline in Table 3. GFLOPs and Params are measured on the deployment model with a batch size of 1 at 640x640 input.
+B067: Table 3  Model complexity at 640x640 input
+B068 TABLE:
+Model | GFLOPs | Params/M
+DEIM-D-FINE-S | 24.86 | 10.18
+MPSMA-DEIM (s) | 29.63 | 13.99
+B069: The s-scale MPSMA-DEIM contains 13.99 M parameters and requires 29.63 GFLOPs, which corresponds to an increase of 3.81 M (37.4%) and 4.77 GFLOPs (19.2%) over DEIM-D-FINE-S. The parameter increase mainly comes from the bottleneck-style dilated convolution branches in MSCA, whereas the growth in computational cost remains moderate.
+B070: Inference latency is measured on an NVIDIA RTX 3090 under a unified protocol: 640x640 input, batch size 1, 50 warm-up iterations and 200 timed iterations. The results are listed in Table 4.
+B071: Table 4  Inference latency (RTX 3090, 640x640, batch size 1)
+B072 TABLE:
+Model | Network/ms | End-to-end/ms | FPS | Post-proc./ms
+DEIM-D-FINE-S | 18.15 | 19.01 | 52.6 | 0.86
+MPSMA-DEIM (s) | 22.20 | 22.57 | 44.3 | 0.38
+B073: The end-to-end latency of the s-scale MPSMA-DEIM is 22.57 ms (44.3 FPS), about 18.7% higher than the 19.01 ms of the baseline, which is consistent with the increase in computational cost and still satisfies the real-time requirement of UAV detection. Since DETR-style detectors do not require non-maximum suppression, the post-processing overhead of the two models is 0.86 ms and 0.38 ms respectively, both below 5% of the total latency.
+B074: 4.5 Visualization and Training Stability
+B075: Fig. 7 shows a visual comparison on VisDrone2019. In a dense night-time pedestrian scene the baseline misses low-contrast small pedestrians while the improved model detects more of them; in a dense vehicle scene the improved model detects occluded vehicles more completely. This is consistent with the quantitative change in APs and provides an intuitive complement to the role of MPS and MSCA.
+B076:  [IMAGE rId15]
+B077: Fig. 7  Visual comparison of detection results
+B078: To examine training stability, the validation accuracy of the last 20 epochs of the s-scale model is analysed. The mean AP is 0.2871 with a standard deviation of only 0.0003; the difference between the best epoch (302) and the last epoch (319) is 0.0006, and 58 epochs fall within 0.002 of the best value. The configuration therefore enters a stable plateau in the late stage of training, and the reported accuracy is not the result of a single-epoch fluctuation.
+B079: 5. Conclusion
+B080: This paper proposed MPSMA-DEIM for UAV small object detection on the DEIM-D-FINE baseline. A Multi-branch Progressive Stem preserves shallow fine-grained information, a hierarchically deployed Multi-scale Context-aware Attention strengthens semantic representation in the middle and deep stages, and the backbone activation is replaced by SiLU. On the VisDrone2019 validation set, five controlled ablation runs show that the complete model reaches AP 0.2270, AP50 0.3941, AP75 0.2231 and APs 0.1518, improving the baseline by 0.0375, 0.0590, 0.0387 and 0.0267 respectively, with all metrics moving in the same direction; AR@100 increases from 0.3401 to 0.3809. Applied at the s scale, AP reaches 0.2876 with 13.99 M parameters and 29.63 GFLOPs, and the end-to-end inference speed is 44.3 FPS. The last 20 epochs vary by only 0.0003 in AP, indicating a stable training plateau. Limitations remain: the ablation is performed at the n scale and all combinations are not repeated at the s scale; the comparison models other than the in-house baseline are quoted from the literature and their training protocols differ; and the experiments are conducted on a single dataset. Future work will add cross-scale ablations, same-condition comparisons and cross-dataset validation.
+B081: References
+B082: [1] CAZZATO D, CIMARELLI C, SANCHEZ-LOPEZ J L, et al. A survey of computer vision methods for 2D object detection from unmanned aerial vehicles[J]. Journal of Imaging, 2020, 6(8): 78.
+B083: [2] LECUN Y, BENGIO Y, HINTON G E. Deep learning[J]. Nature, 2015, 521(7553): 436-444.
+B084: [3] TANG G, NI J, ZHAO Y, et al. A survey of object detection for UAVs based on deep learning[J]. Remote Sensing, 2024, 16(1): 149.
+B085: [4] RAMACHANDRAN A, SANGAIAH A K. A review on object detection in unmanned aerial vehicle surveillance[J]. International Journal of Cognitive Computing in Engineering, 2021, 2: 215-228.
+B086: [5] ZHANG X, WANG C, JIN J, et al. Object detection of VisDrone by stronger feature extraction FasterRCNN[J]. Journal of Electronic Imaging, 2023, 32(1): 013018.
+B087: [6] OU K, DONG C, LIU X, et al. Drone-TOOD: A lightweight task-aligned object detection algorithm for vehicle detection in UAV images[J]. IEEE Access, 2024, 12: 41999-42016.
+B088: [7] LIANG W, TAN J, HE H, et al. Detection of small objects from UAV imagery via an improved Swin transformer[C]//IEEE. 2024 IEEE International Geoscience and Remote Sensing Symposium Proceedings. Athens: IEEE, 2024: 9134-9138.
+B089: [8] HUANG S, LU Z, CUN X, et al. DEIM: DETR with improved matching for fast convergence[C]//IEEE. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. Nashville: IEEE, 2025: 15162-15171.
+B090: [9] PENG Y, LI H, WU P, et al. D-FINE: Redefine regression task of DETRs as fine-grained distribution refinement[C]//International Conference on Learning Representations. 2025.
+B091: [10] WU D B, LIU X N, LIU Z Y, et al. Small object detection algorithm integrating visual mechanism and multi-scale features[J]. Telecommunication Engineering, 2024, 64(2): 200-206.
+B092: [11] ZHAO Q, CHA H, MOU W Q, et al. An improved YOLOv7-based multi-target optical detection method for UAV[J]. Telecommunication Engineering, 2024, 64(8): 1213-1218.
+B093: [12] XU S, WANG X, LV W, et al. PP-YOLOE: An evolved version of YOLO[EB/OL]. (2022-03-30)[2026-09-27]. arXiv:2203.16250.
+B094: [13] YANG L, ZHANG R Y, LI L, et al. SimAM: A simple, parameter-free attention module for convolutional neural networks[C]//MEILA M, ZHANG T. Proceedings of the 38th International Conference on Machine Learning. Madison: PMLR, 2021: 11863-11874.
+B095: [14] LIN T Y, MAIRE M, BELONGIE S, et al. Microsoft COCO: Common objects in context[C]//FLEET D, PAJDLA T, SCHIELE B, et al. Computer Vision-ECCV 2014. Cham: Springer, 2014: 740-755.
+B096: [15] DU D, ZHU P, WEN L, et al. VisDrone-DET2019: The vision meets drone object detection in image challenge results[C]//IEEE. Proceedings of the IEEE/CVF International Conference on Computer Vision Workshops. Seoul: IEEE, 2019: 213-226.
+B097: [16] JOCHER G, QIU J. Ultralytics YOLOv8[CP/OL]. (2023-01-10)[2026-09-27]. https://github.com/ultralytics/ultralytics.
+B098: [17] WANG A, CHEN H, LIU L, et al. YOLOv10: Real-time end-to-end object detection[C]//Advances in Neural Information Processing Systems 37. Vancouver: NeurIPS Foundation, 2024: 107984-108011.
+B099: [18] JOCHER G, QIU J. Ultralytics YOLO11, version 11.0.0[CP/OL]. (2024-09-30)[2026-09-27]. https://github.com/ultralytics/ultralytics.
+B100: [19] ZHAO X. VisDrone2019 testset benchmark[EB/OL]. [2026-09-27]. https://github.com/z1069614715/objectdetection_script/tree/master/visdrone2019-benchmark.

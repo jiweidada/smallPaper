@@ -1,0 +1,195 @@
+=== PDF page 4 ===
+429 Page 4 of 15 International Journal of Computer Vision (2026) 134 :429
+camera installed on the side of a building. The dataset con-
+tains images collected in two periods, 2019-2020 and 2023,
+for a total of 28 time intervals (each between 1 min and 1 day)
+covering different times of day, seasons, weather and back-
+ground conditions. In total, Constellation comprises 13 ,314
+human-annotated images with bounding box annotations for
+pedestrians and vehicles. The dataset is divided into ﬁve high-
+level conditions: (i) overcast, (ii) sunny, (iii) night, (iv) sunny
+with sharp shadows, and (v) heavy fog. The heavy fog images
+in the dataset correspond to a rare day with wildﬁre smoke.
+An overview of the dataset grouped by weather condition,
+with the suggested train/test splits used for evaluation, is pro-
+vided in Table 1.
+Image Acquisition and Preprocessing
+An overview of the dataset is shown in Fig. 1.T h er a w
+frames are captured from the side of a building with a view-
+ing angle slightly less than perpendicular to the street plane.
+We apply a perspective transformation so that the street plane
+is viewed at 90
+◦, giving a true bird’s-eye view. This transfor-
+mation takes 0 .203 ms on a Jetson Orin Nano and 0 .035 ms
+on an A100 GPU, and is therefore negligible in practice. The
+original images are captured at a resolution of 1920 × 1080
+and subsequently transformed to obtain a top-down view and
+cropped to square images. Following the input size scaling
+rules for YOLO models and to enable low processing times
+without relying on sliced inference techniques (Akyon et al.,
+2022), the input image size is chosen as 832 × 832, with the
+intersection centered in the frame.
+The dataset contains data collected at all times of day
+(Fig. 1a–d), which results in a large variability in lighting
+conditions as sharp shadows are cast by buildings over the
+intersection depending on the time of day. These shadows
+result in large brightness changes that object detection mod-
+els must handle (for example, the scenes shown in Fig. 1a
+and g). The background is highly variable due to changes in
+shadows and lighting, frequent changes in the scene back-
+ground, birds ﬂying over the intersection, parked cars, and
+waiting pedestrians. The foreground is also difﬁcult to esti-
+mate given the small size of the shadows and their similarity
+to pedestrians wearing dark colors. The frames cover all sea-
+sons of the year and weather conditions that include (i) sunny,
+(ii) overcast, and (iii) rain.
+Annotations
+For all frames, axis-aligned bounding boxes are provided
+for pedestrian and vehicle classes. All annotations were per-
+formed in three rounds: ﬁrst, an initial annotator labeled the
+frames; second, a different annotator reviewed these labels;
+and ﬁnally, all frames were reviewed by a third annotator.
+Constellation features many challenging frames with large
+crowds where separating individuals is difﬁcult; some exam-
+ples of such scenes are shown in Fig. 3, where annotation
+requires careful reasoning by human annotators.
+Table 1 Training and testing dataset sizes, grouped by different weather
+conditions
+Weather Split # of Images
+Overcast Train 1205
+Test 602
+Sunny Train 7355
+Test 1282
+Night Train 1600
+Test 450
+Sun/Sharp Shadows Train 70
+Test 150
+Heavy Fog Train –
+Test 600
+Train/Test Splits
+The dataset comprises 13 ,314 annotated frames, divided
+into 10,230 training images and 3 ,084 test images collected
+across 28 time intervals. Eighteen of these time intervals are
+obtained from videos captured in 2019 and 2020: ﬁve con-
+tain 300 frames, and the remaining 13 contain 450 frames,
+for a total of 7 ,350 annotated frames. The dataset also con-
+tains 5,964 annotated frames from 10 different scenes during
+2023, increasing the variability in subject, lighting, weather,
+time of year, and background conditions. We show successive
+samples of frames from the dataset in Fig. 2.
+Training Set The training set consists of 10 ,230 frames
+divided into 19 subsets collected on different days with differ-
+ent weather and time-of-day conditions. Fifteen of the subsets
+are from 2019 and 2020 (corresponding to 6 ,160 frames),
+and four are from 2023 (corresponding to 4,070 frames). All
+frames were collected from an intersection in Manhattan.
+Test Set The test set consists of 3,084 frames divided into
+9 subsets collected on different days with different weather
+and time-of-day conditions. This test set contains 12 ,399
+vehicle and 14,229 pedestrian bounding boxes. Three of the
+subsets are from 2019 and 2020 (corresponding to 1 ,201
+frames), and six are from 2023; ﬁve of the 2023 subsets fea-
+ture the intersection before repavement. Each subset contains
+between 70 and 2,000 frames. No time interval appears in
+both the train and test sets.
+Performance Drift We provide a separate performance
+drift dataset with the acquisition year marked for studies
+involving the transfer of knowledge from older frames to
+newer frames. For this, we collected 4,731 images from 2020
+and 4,716 frames from 2023, covering footage from 26 weeks
+per year, taken at the same time of day.
+Weather-Speciﬁc Test Scenarios We tested our best-
+performing model on a set of specialized test sets that only
+include frames corresponding to speciﬁc extreme conditions,
+including (i) heavy rain, (ii) heavy fog, and (iii) heavy snow.
+123
+=== PDF page 12 ===
+429 Page 12 of 15 International Journal of Computer Vision (2026) 134 :429
+Table 11 Per-class average precision and mean average precision for the ﬁnal training with the pseudo-labeled data (BoxMask) used for pretraining
+Pretraining Type Pedestrian AP@0.5 V ehicle AP@0.5 mAP@0.5
+BoxMask + Constellation 90.1 98.4 94.3
+Table 12 Per-class average
+precision and mean average
+precision for two models trained
+using datasets from two
+different time intervals: (i) only
+data from 2020, and (ii) only
+data from 2023, analyzing their
+performance on each other
+Training Dataset Test Split Pedestrian AP@0.5 V ehicle AP@0.5 Mean AP@0.5
+All 94.3 90.0 92.1
+2020 2020 97.29 6 .49 6 .8
+2023 93.1 86.3 89.7
+All 94.69 5 .09 4 .8
+2023 2020 88.3 89.0 88.7
+2023 97.49 9 .29 8 .3
+Bold values indicate the highest value for each reported metric within the corresponding comparison
+larger YOLOv8x model achieves 111.55 ms and 2325.67
+ms, respectively. This performance differential is even more
+pronounced on the iPhone, where YOLOv8x takes more than
+10 s for inference, while YOLOv8n remains usable at 372.60
+ms. In particular, the Jetson platform demonstrates supe-
+rior capability for deploying complex models, with inference
+times approximately 4 × faster than the Raspberry Pi 5 for
+equivalent models. These results suggest that nano-scale
+models provide a practical solution for privacy-preserving
+intersection monitoring on edge devices, particularly when
+coupled with specialized hardware accelerators like those on
+the Jetson platform.
+4.7 Semi-Supervised Object Detection
+To improve the performance of the models, we deployed the
+Constellation-trained YOLOv8x model in inference mode
+for real-time data tracking and bounding box collection as
+an augmentation approach. Using a tracking-by-detection
+paradigm (Bewley et al.,2016) helps smooth predictions over
+time and reduce false positives and false negatives. Another
+signiﬁcant challenge when using such a model for auto-
+matic data collection is dealing with objects that have not
+been detected. To reduce this false negative rate in the data
+collected in this manner, we masked all areas of the image
+beyond the bounding box bounds with a median image cal-
+culated over the last 120 s of the video stream.
+The unlabeled data for semi-supervision was collected
+over 4 days, with one frame being saved every 20 s. We
+refer to this dataset as BoxMask. We used this dataset for
+a 125-epoch pretraining step, followed by 125-epoch train-
+ing on human-annotated Constellation images. The results
+are presented in Table 11. We ﬁnd that this dataset achieves
+a similar performance to VisDrone, suggesting a pretraining
+stage with more diverse pseudo-labeled data could be used
+as a replacement for standard pretraining datasets.
+4.8 Performance Drift
+We explored the effect of removing portions of the training
+data based on the year of acquisition to look at how changes
+in street-level conditions affect models over time. We ran two
+experiments (i) using the data from 2020 only, (ii) using the
+data from 2023 only. To get enough data to form comparably
+sized training and testing splits, we created two new datasets
+using historical footage, covering at least 50 separate captures
+throughout the year and used 25% of the data for testing, mak-
+ing sure that no frame from the same week appears in both the
+training and testing sets. YOLOv8x models are trained with
+our hyperparameter and augmentation recipe for 125 epochs
+on both datasets and each model is tested on both splits. We
+summarize the experiments in Table 12. We ﬁnd that mod-
+els trained only on 2020 data achieve 96.8 mAP@0.5 on the
+2020 split but drop to 89.7 mAP@0.5 on the 2023 split, while
+models trained only on 2023 data show the opposite pattern.
+This asymmetry underscores the need for continuous data
+refresh in long-term deployments.
+We thus postulate that, for deploying object detection
+models, regularly updated data collection and reﬁnement
+need to be a standard procedure. Future research could focus
+on minimizing the performance difference between the splits
+(i) and (ii) through novel training or augmentation strategies.
+5 Conclusion
+We introduced the Constellation dataset, consisting of 13K
+images of trafﬁc intersection scenes acquired by a high-
+elevation camera deployed in a large metropolis. The dataset
+is designed for training and evaluating AI models targeted for
+large-scale smart city deployment, where cameras and other
+sensors are co-located with embedded computing devices
+with limited compute and memory. Our analysis of state-
+of-the-art object detection models in this dataset highlights
+the persistent difﬁculty of detecting small pedestrians at
+123

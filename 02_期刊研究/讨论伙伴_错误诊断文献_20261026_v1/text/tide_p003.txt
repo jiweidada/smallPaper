@@ -1,0 +1,43 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 3
+models (1). Yet, perhaps the most critical issue is that the COCO eval toolkit computes
+errors progressively which we show drastically misrepresents the contribution of each
+error (2), potentially leading to incorrect conclusions (see Sec. 2.3). Finally, the toolkit
+requires manual annotations that exist for COCO but not necessarily for other datasets
+(3).
+As concurrent work, [4] attempts to ﬁnd an upper bound forAP on these datasets
+and in the process addresses certain issues with the COCO toolkit. However, this work
+still bases their error reporting on the same progressive scheme that the COCO toolkit
+uses, which leads them to the dubious conclusion that background error is signiﬁcantly
+more important all other types (see Fig. 2). As will be described in detail later, to draw
+reliable conclusions, it is essential that our toolkit work towards isolating the contribution
+of each error type (2).
+Contributions In our work, we address all 5 goals and provide a compact, yet detailed
+summary of the errors in object detection and instance segmentation. Each error type
+can be represented as a single meaningful number (1), making it compact enough to
+ﬁt in ablation tables (see Tab. 2), incorporates all detections (4), and doesn’t require
+any extra annotations (3). We also weight our errors based on their effect on overall
+performance while carefully avoiding the confounding factors present inmAP (2). And
+while we prioritize ease of interpretation, our approach is modular enough that the same
+set of errors can be used for more ﬁne-grained analysis (5). The end result is a compact,
+meaningful, and expressive set of errors that is applicable across models, datasets, and
+even tasks.
+We demonstrate the value of our approach by comparing several recent CNN-based
+object detectors and instance segmenters across several datasets. We explain how to
+incorporate the summary into ablation studies to quantitatively justify design choices. We
+also provide an example of how to use the summary of errors to guide more ﬁne-grained
+analysis in order to identify speciﬁc strengths or weaknesses of a model.
+We hope that this toolkit can form the basis of analysis for future work, lead model
+designers to better understand weaknesses in their current approach, and allow future
+authors to quantitatively and compactly justify their design choices. To this end, full
+toolkit code is released at https://dbolya.github.io/tide/ and opened to the
+community for future development.
+2 The Tools
+Object detection and instance segmentation primarily use one metric to judge per-
+formance: mean Average Precision (mAP ). While mAP succinctly summarizes the
+performance of a model in one number, disentangling errors in object detection and in-
+stance segmentation frommAP is difﬁcult: a false positive can be a duplicate detection,
+misclassiﬁcation, mislocalization, confusion with background, or even both a misclassi-
+ﬁcation and mislocalization. Likewise, a false negative could be a completely missed
+ground truth, or the potentially correct prediction could have just been misclassiﬁed or
+mislocalized. These error types can have hugely varying effects on mAP , making it
+tricky to diagnose problems with a model off ofmAP alone.

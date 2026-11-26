@@ -1,0 +1,106 @@
+Authoret al.: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS
+FIGURE 2: Visualization of masked self-attention heatmaps
+for the top 20 one-to-many queries and 10 true positive
+tokens. True positive queries (A, B, C, D) do not interact with
+others and are directly guided by the true positive tokens,
+while the remaining queries are treated as duplicates and
+suppressed by higher-confidence queries.
+is decayed by a factor of 0.1 at the 11th and 20th epochs,
+respectively. We adopt a Varifocal loss [25] for training.
+We follow the same one-to-many matcher used in previous
+works [7], [12], [29] settingα= 0.3,τ= 0.4, andK= 6,
+to ensure fair comparison.
+Following standard DETR settings, MDS-DETR also
+adopts a classification lossL cls and regression lossesL gIoU
+andL l1 , based on gIoU and L1, respectively. For classi-
+fication, we use Varifocal loss [25] with commonly used
+hyperparameters:α= 0.75andγ= 2. Specifically,
+MDS-DETR is trained with both one-to-many and one-to-
+one matching losses. In the one-to-one supervision, the loss
+weights forL cls,L gIoU , andL l1 are set to 1:5:2, which also
+applies to the two-stage encoder proposals. In the one-to-
+many supervision, the loss ratio is set to 0.5:5:2, reducing
+the weight on classification loss. This adjustment is intended
+to keep the model focused on one-to-one prediction by down-
+weighting the influence of one-to-many class probabilities.
+B. COMP ARISON WITH STATE-OF-THE-ART DETRS
+As shown in Table 1, MDS-DETR demonstrates consis-
+tent improvements across overall metrics under the 12-
+epoch schedule with 300 queries. Under the same 12-epoch
+schedule with 900 queries, MDS-DETR outperforms exist-
+ing state-of-the-art methods. Compared to the DETR vari-
+ants with the same one-to-many matching strategies, MDS-
+DETR achieves improvements of +1.1, +1.1, and +0.4 mAP
+over MS-DETR, DAC-DETR, and MR.DETR, respectively.
+When combined with hybrid matching [2], Hybrid-MDS-
+DETR also yields a marginal performance gain. Further-
+more, under the 24-epoch training schedule, MDS-DETR
+outperforms MR.DETR and Relation-DETR, both combined
+with DINO, by a margin of +0.6 mAP and +0.2 mAP. We
+emphasize that all of our results are achieved without training
+any auxiliary decoders or additional queries. For instance,
+Relation-DETR and MR.DETR require 1,500 and 1,800 aux-
+iliary queries during training, respectively, and additionally
+adopt around 200 contrastive denoising queries.
+We report extended results using the Swin-L [33]
+backbone in Table 2. MDS-DETR outperforms Relation-
+0.4 0.6 0.8 1.0
+IoU
+0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+Normalized R
+(a) Headwise relative position bias
+1 5 10 15
+# tokens
+mAP
+49.4
+49.7 49.8
+49.6 (b) Ablation on tokens
+FIGURE 3: (a) Visualization of the relative position bias as
+a function of the IoU between query pairs. These diverse
+patterns imply that the model learns a mixture of suppression
+strategies across attention heads, combining soft and hard
+thresholding behavior depending on the context. (b) Effect
+of the number of true positive tokens
+DINO [6] by +0.3 mAP and +1.4 AP S using the Swin-
+L backbone. While MDS-DETR performs on par with
+MR.DINO [7] in overall mAP, we observe that the perfor-
+mance gap varies significantly depending on object size. No-
+tably, MDS-DETR outperforms the others with a significant
+margin on small objects, surpassing MR.DINO by +1.4 AP
+and other metrics remain comparable. Considering that small
+object detection is generally regarded as more challenging,
+we argue that our model exhibits better generalizability.
+MDS-DETR requires no additional components or hyper-
+parameters, whereas Relation-DINO and MR.DINO rely on
+auxiliary decoders (as detailed in Table 1) and introduce extra
+hyperparameters from IA-BCE loss [28] and DINO [9].
+C. QUALITATIVE ANAL YSIS OF MASKED DUPLICATE
+SUPPRESSOR
+Figure 2 illustrates how MDS effectively maps one-to-many
+queries into one-to-one predictions. We visualize the normal-
+ized attention map from MDS for the top 20 one-to-many
+queries, where the last 10 keys correspond to true positive
+tokens. As intended, true positive queries primarily attend to
+the true positive tokens rather than to other queries within
+the attention scope. The remaining queries are suppressed by
+attending to higher-confidence queries that share the same
+context. Despite substantial overlaps between objects in the
+scene, the detection results show that our model performs
+reliable prediction without oversuppression. Unlike the one-
+to-many instruction token used in [7], our true positive token
+operates in a more active and tractable manner, exhibiting a
+differentiated interaction pattern between true positives and
+duplicates.
+In Figure 3a, we plot the normalized average relative
+position biasR ij as a function of the IoU between query
+pairs for various attention heads. The increasing bias with in-
+creasing box overlap suggests that the model learns to assign
+stronger suppression signals to closely overlapping queries.
+Moreover, the diversity in slope behaviors across attention
+heads indicates that MDS adaptively handles varying levels
+6 VOLUME 4, 2016

@@ -1,0 +1,171 @@
+Scale Match for Tiny Person Detection
+Xuehui Y u Y uqi Gong Nan Jiang Qixiang Y e Zhenjun Han ∗
+University of Chinese Academy of Sciences, Beijing, China
+{yuxuehui17,gongyuqi18,jiangnan18}@mails.ucas.ac.cn {qxye,hanzhj}@ucas.ac.cn
+Abstract
+Visual object detection has achieved unprecedented ad-
+vance with the rise of deep convolutional neural networks.
+However , detecting tiny objects (for example tiny per-
+sons less than 20 pixels) in large-scale images remains
+not well investigated. The extremely small objects raise
+a grand challenge about feature representation while the
+massive and complex backgrounds aggregate the risk of
+false alarms. In this paper , we introduce a new benchmark,
+referred to as TinyPerson, opening up a promising direction
+for tiny object detection in a long distance and with mas-
+sive backgrounds. We experimentally ﬁnd that the scale mis-
+match between the dataset for network pre-training and the
+dataset for detector learning could deteriorate the feature
+representation and the detectors. Accordingly, we propose
+a simple yet effective Scale Match approach to align the
+object scales between the two datasets for favorable tiny-
+object representation. Experiments show the signiﬁcant
+performance gain of our proposed approach over state-of-
+the-art detectors, and the challenging aspects of TinyPerson
+related to real-world scenarios. The TinyPerson benchmark
+and the code for our approach will be publicly available 1.
+1. Introduction
+Person/pedestrian detection is an important topic in the
+computer vision community [5] [4] [8] [27] [18] [26], with
+wide applications including surveillance, driving assistance,
+mobile robotics, and maritime quick rescue. With the rise
+of deep convolutional neural networks, pedestrian detection
+has achieved an unprecedented progress. Nevertheless, de-
+tecting tiny persons remains far from well explored.
+The reason about the delay of the tiny-person detection
+research is lack of signiﬁcant benchmarks. The scenarios of
+existing person/pedestrian benchmarks [2][6][24][5][4][8]
+e.g., CityPersons [27], are mainly in a near or middle dis-
+tance. They are not applicable to the scenarios where per-
+sons are in a large area and in a very long distance, e.g.,
+∗corresponding author
+1https://github.com/ucas-vg/TinyBenchmark
+CityPersons
+TinyPerson
+WIDER Face
+COCO
+Figure 1. Comparison of TinyPerson with other datasets. Top: Im-
+age examples from TinyPerson show the great challenges (Please
+zoom in for details). Bottom: Statistics about absolute size and
+relative size of objects.
+marine search and rescue on a helicopter platform.
+Different from objects in proper scales, the tiny objects
+are much more challenging due to the extreme small object
+size and low signal noise ratio, as shown in Figure 1. Af-
+ter the video encoding/decoding procedure, the image blur
+causes the tiny objects mixed with the backgrounds, which
+makes it require great human efforts when preparing the
+benchmark. The low signal noise ratio can seriously de-
+teriorate the feature representation and thereby challenges
+the state-of-the-art object detectors.
+1257
+
+
+---PAGE---
+
+To detect the tiny persons, we propose a simple yet ef-
+fective approach, named Scale Match. The intuition of our
+approach is to align the object scales of the dataset for pre-
+training and the one for detector training. The nature behind
+Scale Match is that it can better investigate and utilize the
+information in tiny scale, and make the convolutional neural
+networks (CNNs) more sophisticated for tiny object repre-
+sentation. The main contributions of our work include:
+1. We introduce TinyPerson, under the background of
+maritime quick rescue, and raise a grand challenge about
+tiny object detection in the wild. To our best knowledge,
+this is the ﬁrst benchmark for person detection in a long
+distance and with massive backgrounds. The train/val. an-
+notations will be made publicly and an online benchmark
+will be setup for algorithm evaluation.
+2. We comprehensively analyze the challenges about
+tiny persons and propose the Scale Match approach, with
+the purpose of aligning the feature distribution between the
+dataset for network pre-training and the dataset for detector
+learning.
+3. The proposed Scale Match approach improves the de-
+tection performance over the state-of-the-art detector (FPN)
+with a signiﬁcant margin ( 5%).
+2. Related Work
+Dataset for person detection: Pedestrian detection has al-
+ways been a hot issue in computer vision. Larger capacity,
+richer scenes and better annotated pedestrian datasets,such
+as INRIA [2], ETH [6], TudBrussels [24], Daimler [5],
+Caltech-USA [4], KITTI [8] and CityPersons [27] represent
+the pursuit of more robust algorithms and better datasets.
+The data in some datasets were collected in city scenes and
+sampled from annotated frames of video sequences. De-
+spite the pedestrians in those datasets are in a relatively high
+resolution and the size of the pedestrians is large, this situa-
+tion is not suitable for tiny object detection.
+TinyPerson represents the person in a quite low reso-
+lution, mainly less than 20 pixles, in maritime and beach
+scenes. Such diversity enables models trained on TinyPer-
+son to well generalize to more scenes, e.g., Long-distance
+human target detection and then rescue.
+Several small target datasets including WiderFace [25]
+and TinyNet [19] have been reported. TinyNet involves re-
+mote sensing target detection in a long distance. However,
+the dataset is not publicly available. WiderFace mainly fo-
+cused on face detection, as shown in Figure 1. The faces
+hold a similar distribution of absolute size with the TinyPer-
+son, but have a higher resolution and larger relative sizes, as
+shown in Figure 1.
+CNN-based person detection: In recent years, with the de-
+velopment of Convolutional neural networks (CNNs), the
+performance of classiﬁcation, detection and segmentation
+on some classical datasets, such as ImageNet [3], Pascal
+[7], MS COCO [16], has far exceeded that of traditional
+machine learning algorithms.Region convolutional neural
+network (R-CNN) [10] has become the popular detection
+architecture. OverFeat adopted a Conv-Net as a sliding
+window detector on an image pyramid. R-CNN adopted
+a region proposal-based method based on selective search
+and then used a Conv-Net to classify the scale normalized
+proposals. Spatial pyramid pooling (SPP) [11] adopted R-
+CNN on feature maps extracted on a single image scale,
+which demonstrated that such region-based detectors could
+be applied much more efﬁciently. Fast R-CNN [9] and
+Faster R-CNN [21] made a uniﬁed object detector in a mul-
+titask manner. Dai et al. [1] proposed R-FCN, which uses
+position-sensitive RoI pooling to get a faster and better de-
+tector.
+While the region-based methods are complex and time-
+consuming, single-stage detectors, such as YOLO [20] and
+SSD [17], are proposed to accelerate the processing speed
+but with a performance drop, especially in tiny objects.
+Tiny object detection: Along with the rapid development
+of CNNs, researchers search frameworks for tiny object de-
+tection speciﬁcally. Lin et al. [14] proposed feature pyra-
+mid networks that use the top-down architecture with lat-
+eral connections as an elegant multi-scale feature warping
+method. Zhang et al. [28] proposed a scale-equitable face
+detection framework to handle different scales of faces well.
+Then J Li et al. [13] proposed DSFD for face detection,
+which is SOTA open-source face detector. Hu et al. [12]
+showed that the context is crucial and deﬁnes the templates
+that make use of massively large receptive ﬁelds. Zhao et
+al. [30] proposed a pyramid scene-parsing network that em-
+ploys the context reasonable. Shrivastava et al. [22] pro-
+posed an online hard example mining method that can im-
+prove the performance of small objects signiﬁcantly.
+3. Tiny Person Benchmark
+In this paper, the size of object is deﬁned as the square
+root of the object’s bounding box area. We use Gij =
+(xij, yij, wij, hij) to describe the j-th object’s bounding
+box of i-th image Ii in dataset, where (xij, yij) denotes the
+coordinate of the left-top point, and wij, hij are the width
+and height of the bounding box. Wi, Hi denote the width
+and height of Ii, respectively. Then the absolute size and
+relative size of a object are calculated as:
+AS(Gij) =
+√
+wij ∗ hij. (1)
+RS(Gij) =
+√
+wij ∗ hij
+Wi ∗ Hi
+. (2)
+For the size of objects we mentioned in the following,
+we use the objects’ absolute size by default.
+1258

@@ -1,0 +1,19 @@
+2026-10-21。仅记录实际阅读范围，不将搜索未命中当新颖性证明。
+
+1. DSNT，Numerical Coordinate Regression with Convolutional Neural Networks。
+原文 https://arxiv.org/html/1801.07372v2 ，本轮独立读§4–5相关方法段。归一化非负热图与固定X/Y坐标矩阵内积得到连续坐标，可直接受坐标损失；无须GT热图监督。当前四点softmax期望是其2×2局部支持的特殊读出形式。查询条件打分、输出残差和取值地址是实现差别，不是新坐标期望原理。
+
+2. SAM-DETR，CVPR2022。
+原文 https://openaccess.thecvf.com/content/CVPR2022/papers/Zhang_Accelerating_DETR_Convergence_via_Semantic-Aligned_Matching_CVPR_2022_paper.pdf ，直接open失败；通过同CVF原文的搜索索引实际读§3.2和§3.2.1式2–3/图3文字，不声称完整PDF成功归档。reference box先RoIAlign出7×7特征，再Resample生成query内容与位置，接后续cross-attention。当前末框局部P2读取只改最终中心，不重建每层query；这是真实作用位置差别，局部取样本身已有。
+
+3. Efficient On-Device Training via Gradient Filtering，CVPR2023。
+原文 https://openaccess.thecvf.com/content/CVPR2023/papers/Yang_Efficient_On-Device_Training_via_Gradient_Filtering_CVPR_2023_paper.pdf ，本轮通过CVF索引独立读§3.3及式2、§3.4部分：将activation输出梯度按r×r块取均值，结合空间求和的输入/卷积核简化反传。当前restore参数的cx/cy固定相位方向投影不是这个低通近似算法；但后向固定滤波本身不是新原理，任务特定固定投影尚需实际对应性证据。
+
+4. StarRoute-DBNet / PhaseRoute，Remote Sensing2026，18(11),1731，DOI10.3390/rs18111731。
+原文 https://www.mdpi.com/2072-4292/18/11/1731 ，本轮官方索引读§3.3含式29–34：相位descriptor经1×1生成温度缩放logits，可加Gumbel，top2 mask后softmax，四相位加权合成再3×3投影。phase明确是空间采样偏移。动态phase gate/softmax feature fusion已有直接先例；这里没有读到中心损失按Haar参数分量路由，不能因此宣布整个文献无同法。
+
+5. 查到更多已有本项目P2资产，不得当本轮新方法。
+code/p2_subspace_diagnostic12_20261011_v1/protocol.json明确旧forward干预dc16_norm与svd16_norm：只改已训restore权重，等rank16及权重Frobenius范数，不匹配特征能量/近似误差。
+outputs/p2_subspace_geometry_class12_20261011_v1/report.json本轮只读：seed2 fixed12 parent，548val/26586 COCOsmall。SVD小目标final几何存在性IoU.5 16077→16338(+261)，.75 6102→6241(+139)，nativeTP净+217/+114；DC对应几何−2647/−2459，nativeTP−2520/−2300。不是C96，不是重训，不是本轮运行，也非APs分解或跨seed证明。它应作为learned-subspace强控制的已有依据；不能把普通低秩/SVD压缩换名当新线。
+
+当前两候选的关键未决：最终框小残差有真实几何作用面，但局部采样/坐标期望已有；坐标损失—共享相位参数方向路由尚未实测，不能借用残差oracle作为监督路由证据。目标继续，先不新增训练。

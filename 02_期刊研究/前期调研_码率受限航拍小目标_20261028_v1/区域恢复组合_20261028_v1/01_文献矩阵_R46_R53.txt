@@ -1,0 +1,83 @@
+区域联合恢复候选：补充文献矩阵R46–R53
+日期：2026-10-28；不宣称全文已读、排重穷尽或已有新实验结果。
+
+[R46] AdaptiveISP: Learning an Adaptive Image Signal Processor for Object Detection
+Yujin Wang; Tianyi Xu; Fan Zhang; Tianfan Xue; Jinwei Gu. NeurIPS 2024. 2024. 
+arXiv:2410.22939v1
+
+原始来源：https://proceedings.neurips.cc/paper_files/paper/2024/hash/cc596a803bedc7a03a87e98c77a22efe-Abstract-Conference.html
+实际阅读：Official arXiv HTML §1–3.3 and §4 setup/Table1 selected; official conference abstract/project. Local PDF retrieval failed. Not full paper or appendix.
+【原文】固定YOLOv3；actor-critic按当前图像状态选择ISP模块和参数，奖励为检测误差下降并含成本/重复使用惩罚。
+【推断/对比】已覆盖检测反馈、冻结检测器和动态处理流程；本候选拟固定一份恢复残差，学习区域集合的检测收益及成对交互，而非生成处理工具序列。
+边界：两种方法都可能隐式学习相互作用，不能声称已有RL不考虑交互；不是UAV JPEG结果
+
+[R47] Fully Convolutional Network with Multi-Step Reinforcement Learning for Image Processing
+Ryosuke Furuta; Naoto Inoue; Toshihiko Yamasaki. AAAI 2019. 2019. 
+Locally archived arXiv:1811.04323v2 (2018 revision); not the AAAI publisher PDF
+
+原始来源：https://ojs.aaai.org/index.php/AAAI/article/view/4240
+实际阅读：Local arXiv PDF pp2–4 methods/reward-map-convolution and denoising objective; p3 visually checked. Official author README. Not full 11 pages or TMM extension.
+【原文】像素代理共享FCN；邻域未来价值经可学习卷积进入回报；已读去噪奖励是逐像素平方误差下降，动作含不处理。
+【推断/对比】局部决策、邻域相互影响、保持原像素均是已有思想。候选差异必须是显式单/双区域检测干预标签与联合残差选择，不能仅把PixelRL换成检测奖励。
+边界：未审完整TMM扩展；作者实现使用Chainer，不能宣称已可无成本复现
+
+[R48] Towards Flexible Blind JPEG Artifacts Removal
+Jiaxi Jiang; Kai Zhang; Radu Timofte. ICCV 2021. 2021. 4997–5006
+
+
+原始来源：https://openaccess.thecvf.com/content/ICCV2021/html/Jiang_Towards_Flexible_Blind_JPEG_Artifacts_Removal_ICCV_2021_paper.html
+实际阅读：Original ICCV PDF pp3–4; p3 architecture visually checked. Author README, release v1.0 and two raw source files read statically. No weights downloaded/loaded separately, no model import or execution.
+【原文】像素域JPEG恢复；预测QF并经条件化解码器调节去伪影与细节保留；全图QF可手动改变。
+【推断/对比】作为冻结恢复器和全局QF/恢复强度强对照；不把质量感知恢复或残差本身当创新。
+边界：公开color权重为single-JPEG训练；VisDrone源图并非未压缩，新增JPEG可构成重压缩域；见到作者release入口不等于已取得或核验权重；main源文件未完全Git固定，未来必须冻结commit与权重SHA
+
+[R49] RFDF: recognition feature-driven fusion method via deep reinforcement learning for dual-modal video
+Linna Ji; Fengbao Yang; Xiaoming Guo. Measurement, in press journal pre-proof. 2026. 
+
+DOI：10.1016/j.measurement.2026.123424
+原始来源：https://www.sciencedirect.com/science/article/pii/S0263224126031349
+实际阅读：Primary publisher indexed abstract/highlights/introduction/problem/experiment/conclusion previews. Direct page403; no full PDF.
+【原文】超像素/语义聚合划分识别相关区域，多代理actor-critic选择红外/可见视频融合策略、规则和参数。
+【推断/对比】区域性任务驱动融合已有近邻。不能声称首个区域选择；目前预览不足以排除其完整机制与候选的细节重合。
+边界：非JPEG单图恢复；完整方法未核，列为重要新颖性风险而非确证差异
+
+[R50] HazyDet: Open-Source Benchmark for Drone-View Object Detection with Depth-Cues in Hazy Scenes
+Changfeng Feng; Zhenyuan Chen; Xiang Li; Chunping Wang; Jian Yang; Ming-Ming Cheng; Yimian Dai; Qiang Fu. arXiv version; no journal-venue claim. 2024. 
+arXiv:2409.19833v2, revised 2025-05-26
+
+原始来源：https://arxiv.org/abs/2409.19833
+实际阅读：Official abstract/HTML §§2–4.2, §5.1 and author repository selected. No full PDF read; not full experiments.
+【原文】DeCoDet深度条件核；v2已有渐进式synthetic-to-real微调和scale-invariant pseudo-depth refurbishment。
+【推断/对比】噪声深度监督、尺度不变性和合成到真实微调已有明确答案，不据抽象缺口重新开一条卡。
+边界：不同版本方法变化，不能把v2全部归到v1；没有提取新的UAV小目标受控失败
+
+[R51] Quantization Robustness to Input Degradations for Object Detection
+Toghrul Karimov; Hassan Imani; Allan Kazakov. arXiv preprint. 2025. 
+arXiv:2508.19600v3, revised 2026-05-01
+
+原始来源：https://arxiv.org/abs/2508.19600
+实际阅读：Official abstract/metadata only; HTML entry retrieved but body not read. No full-method or code audit.
+【原文】COCO上比较不同数值精度与输入损坏，退化感知PTQ校准未获得广泛稳定收益。
+【推断/对比】联合输入退化/模型量化及退化校准不是未研究问题；不为本项目添加无真实要求的INT8约束。
+边界：非UAV；只有摘要，不能声称已掌握完整负结果协议
+
+[R52] Ultra: Unsupervised Cross-Task Optimization for Reliable Restoration Segmentation Collaboration under Adverse Weather
+Shiqin Wang; Zhiqian Li; Haoyuan Du; Junming Chen; Jiayuan Li; Tianrun Xu; Haoyang Chen. arXiv preprint. 2026. 
+arXiv:2608.16589v1, 2026-08-17
+
+原始来源：https://arxiv.org/abs/2608.16589
+实际阅读：Official HTML introduction/§3.1–3.2 Eq1–10 and algorithm selected. Local PDF retrieval failed. Not full experiments; detection-extension numbers not used.
+【原文】双向任务特征调制与梯度协商；有/无特征干预状态各模拟一步梯度下降，再用能量差控制跨任务注入。
+【推断/对比】反事实干预、收益过滤和抑制幻觉均非新概念。候选针对物理图像残差的区域集合，拟监督显式成对收益，区别于训练中的任务级方向协商；该差异仍待实证检验。
+边界：主任务为无监督分割，不能代替有监督UAV JPEG证据；本文没有独立核验其因果识别或优化保证
+
+[R53] The Shapley Taylor Interaction Index
+Mukund Sundararajan; Kedar Dhamdhere; Ashish Agarwal. ICML 2020, PMLR119. 2020. 9259–9268
+
+
+原始来源：https://proceedings.mlr.press/v119/sundararajan20a.html
+实际阅读：Official abstract/metadata only. No proof/full method audit.
+【原文】把特征归因推广为特征子集的交互归因。
+【推断/对比】集合交互与二阶展开属于成熟思想。候选的空集锚点有限差分不等同于Shapley-Taylor指数，不称新理论。
+边界：不作为本候选算法已经有效的证据
+

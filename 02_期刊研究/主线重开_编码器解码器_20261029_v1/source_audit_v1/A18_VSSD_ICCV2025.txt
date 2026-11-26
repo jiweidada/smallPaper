@@ -1,0 +1,702 @@
+                        This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+                                      Except for this watermark, it is identical to the accepted version;
+                                the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+                 VSSD: Vision Mamba with Non-Causal State Space Duality
+
+                         Yuheng Shi1 Mingjia Li3 Minjing Dong2 Chang Xu1
+                1
+                  University of Sydney, 2 City University of Hong Kong , 3 Tianjin University
+   yuhengshi99@gmail.com, mingjiali@tju.edu.cn, minjdong@cityu.edu.hk, c.xu@sydney.edu.au
+
+
+
+                         Abstract                                     sequences, which limits its broader application.
+                                                                         Recently, State Space Models (SSMs) [15–17, 45], ex-
+Vision transformers have significantly advanced the field             emplified by Mamba [14], have garnered considerable at-
+of computer vision, offering robust modeling capabilities             tention from researchers. The S6 block, in particular, of-
+and global receptive field. However, their high computa-              fers a global receptive field and exhibits linear complex-
+tional demands limit their applicability in processing long           ity with respect to sequence length, presenting an effi-
+sequences. To tackle this issue, State Space Models (SSMs)            cient alternative. Pioneering vision mamba models such as
+have gained prominence in vision tasks as they offer lin-             Vim [67] and VMamba [34] have been developed to apply
+ear computational complexity. Recently, State Space Du-               SSMs to vision tasks. Afterward, many variants were pro-
+ality (SSD), an improved variant of SSMs, was introduced              posed [27, 43, 47, 59], which flatten 2D feature maps into
+in Mamba2 to enhance model performance and efficiency.                1D sequences using different scanning routes, model them
+However, the inherent causal nature of SSD/SSMs restricts             with the S6 block, and subsequently integrate the results
+their applications in non-causal vision tasks. To address             in multiple scanning routes. These multi-scan approaches
+this limitation, we introduce Visual State Space Duality              improve the performance of SSMs in vision tasks, achiev-
+(VSSD) model, which has a non-causal format of SSD.                   ing results competitive with those of both CNN-based and
+Specifically, we propose to discard the magnitude of inter-           ViT-based methods. More recently, Mamba2 [6] has intro-
+actions between the hidden state and tokens while preserv-            duced further enhancements to the S6 block, proposing the
+ing their relative weights, which relieves the dependencies           concept of State Space Duality (SSD). Mamba2 treats the
+of token contribution on previous tokens. Together with               state space transition matrix as a scalar and expands the state
+the involvement of multi-scan strategies, we show that the            space dimension, thereby enhancing model performance as
+scanning results can be integrated to achieve non-causality,          well as training and inference efficiency.
+which not only improves the performance of SSD in vision
+tasks but also enhances its efficiency. We conduct extensive              SSD/SSMs inherently possess causal properties, mean-
+experiments on various benchmarks including image clas-               ing that the prediction for a given token depends solely on
+sification, detection, and segmentation, where VSSD sur-              the preceding tokens in the input sequence. However, a
+passes existing SOTA SSM-based models. Code is available              major concern arises when applying SSD/SSMs to vision
+at https://github.com/YuHengsss/VSSD.                                 tasks, as image data is naturally non-causal. While another
+                                                                      concern is flattening 2D feature maps into 1D sequences
+                                                                      disrupts the inherent structural relationships among patches.
+1. Introduction                                                       We provide an illustration in Fig. 1a to facilitate a more in-
+                                                                      tuitive understanding of these two concerns. In this exam-
+In recent years, vision transformers [8, 9, 18, 21, 35, 36, 48,       ple, the central token within the flattened 1D sequences is
+51], pioneered by the Vision Transformer (ViT) [9], have              restricted to accessing only previous tokens, unable to in-
+achieved tremendous success in the field of computer vi-              tegrate information from subsequent tokens. Additionally,
+sion. Thanks to the global receptive field and the robust             the token 1, which is adjacent to the central token in the
+information modeling capabilities of the attention mecha-             2D space, becomes distantly positioned in the 1D sequence,
+nism, models [3, 35, 64] based on vision transformers have            disrupting the natural structural relationships. A common
+advanced significantly in various tasks such as classifica-           practice in previous solutions [27, 34] is to increase the
+tion [7], detection [31], and segmentation [65], surpassing           scanning routes on non-causal visual features, which alle-
+classic CNN-based models [22, 25, 26, 44]. However, the               viates these two concerns to some extent. Given these ob-
+quadratic computational complexity of the attention mech-             servations, an important question emerges: Is there a more
+anism makes it resource-intensive for tasks involving long            effective and efficient way to apply SSD to non-causal vi-
+
+
+
+                                                              10819
+                                                                 86                                                               86
+
+
+                                                                 85                                                               85
+
+
+
+
+                                             Top-1 Accuracy(%)
+
+
+
+
+                                                                                                              Top-1 Accuracy(%)
+                                                                 84                                                               84
+
+
+                                                                 83                                                               83
+
+                                                                                              ConvNeXt                                                                ConvNeXt
+                                                                 82                           VMamba                              82                                  VMamba
+                                                                                              VSSD                                                                    VSSD
+                                                                                              Swin                                                                    Swin
+                                                                 81                                                               81
+                                                                      0   10      20        30           40                            0   500   1000   1500   2000   2500   3000
+                                                                               FLOPs(G)                                                          Throughput(imgs/s)
+                      (a)                                                         (b)                                                                   (c)
+Figure 1. (a) Two challenges when applying SSM/SSD to image data. (b) and (c) are comparisons on ImageNet. Our VSSD model
+achieves leading accuracy and efficiency compared to CNN-based ConvNeXt [37], ViT-based Swin Transformer [35], and SSM-based
+VMamba [34]. The throughput of all models is measured on an NVIDIA 4090 GPU using a batch size of 128.
+sion data compared to multi-scan methods?                                              several widely recognized benchmarks in classification, ob-
+    To address this question, our analysis of SSD reveals that                         ject detection, and segmentation.
+treating the matrix A as a scalar facilitates a straightforward
+transformation of the SSD into a non-causal and position-                              2. Related Work
+independent manner, which we denote as Non-Causal SSD                                  Vision Transformers. The introduction of Vision Trans-
+(NC-SSD). Specifically, rather than using A to determine                               formers (ViTs) [8, 9, 35, 48, 51] has revitalized the field
+the proportion of the hidden state to be retained, we employ                           of computer vision, which was previously dominated by
+it to dictate the extent of the current token’s contribution to                        Convolutional Neural Networks (CNNs) [22, 24, 26, 29,
+the hidden states. In this scenario, each token’s contribu-                            33, 37, 44, 47, 58]. However, the quadratic computational
+tion becomes self-referential. Based on this property, we                              complexity of the self-attention mechanism in ViTs poses
+demonstrate that the causal mask in SSD can be naturally                               significant challenges when processing high-resolution im-
+removed without the need for specific scanning routes. This                            ages, demanding significant computational resources. To
+observation motivates us to develop a non-causal format of                             address this issue, different solutions have been proposed,
+SSD, in which a single global hidden state can be derived                              including hierarchical architectures [8, 20, 35, 36, 51, 53],
+to replace the previous token-wise hidden states, resulting                            windowed attention [21, 35, 49, 66], and variants of self-
+in not only improved accuracy but also enhanced training                               attention [52, 55, 63]. Meanwhile, linear attentions [4, 19,
+and inference speeds. Unlike previous multi-scan meth-                                 28, 40] have been successful in reducing the computational
+ods [34, 67] that primarily alleviate the causal limitations of                        complexity to a linear scale by changing the computation
+SSMs, our proposed NC-SSD also resolves the issue where                                order of query, key, and value in self-attention. Despite this
+flattening 2D feature maps into 1D sequences disrupts the                              advancement, the performance of linear attention remains
+continuity of adjacent tokens. Building on NC-SSD, we in-                              inferior to that of the quadratic self-attention [50] and its
+troduce our Visual State Space Duality (VSSD) model and                                variants [12, 21, 66].
+demonstrate its superior effectiveness and efficiency rela-                            State Space Models. State Space Models (SSMs) [13–
+tive to methods based on CNNs, ViTs, and SSMs, as illus-                               17, 45] have increasingly captured the attention of re-
+trated in Fig. 1b and 1c. Compared to the recent proposed                              searchers due to their global receptive field and linear com-
+SSM-based VMamba [34], our VSSD model outperforms it                                   putational complexity. Mamba [14], a prominent example
+by over 1% in top-1 accuracy on ImageNet-1K dataset [7]                                of SSMs, introduced the S6 block, achieving performance
+while keeping a similar computational cost.                                            on par with or better than transformers in Nature Language
+   In summary, our contributions are twofold. First, we an-                            Processing (NLP) benchmarks. Subsequent efforts [2, 10,
+alyze the state space duality and demonstrate that it can be                           27, 30, 42, 61] have explored the adaptation of the S6 block
+seamlessly converted to a non-causal mode. Based on this                               to vision tasks, yielding competitive results compared to
+insight, we introduce the NC-SSD, which retains the global                             both CNNs and ViT-based models. A central challenge
+receptive field and linear complexity benefits of the original                         in developing Mamba-based vision models is adapting the
+SSD while incorporating an inherent non-causal property.                               inherently causal properties of the Mamba block for non-
+Second, utilizing NC-SSD as the foundational component,                                causal image data. The most direct approach involves using
+we propose the VSSD model and conduct extensive exper-                                 different scanning routes to flatten 2D feature maps into 1D
+iments to validate its effectiveness. With similar parame-                             sequences which are then modeled with the S6 block and
+ters and computational costs, our VSSD model outperforms                               integrated. Inspired by these considerations, various scan-
+other State-Of-The-Art (SOTA) SSM-based models across                                  ning routes have been employed and proven effective, as
+
+
+
+                                                                               10820
+evidenced by multiple studies [27, 34, 39, 43, 67]. More                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       quadratic forms. Without loss of generality, the matrix
+recently, Mamba2 [6] has highlighted the significant over-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     transformation form of selective state space models is ex-
+lap between state space models and structured masked at-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       pressed as follows:
+tention, identifying them as duals of each other, and intro-
+duced the concept of State Space Duality (SSD). Building                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            \begin {array}{l} y(t) =\sum _{i=1}^{t} \mathbf {C}_{t}^{T} \mathbf {A}_{t: i+1} \mathbf {B}_{i} x(i), \text {where }\mathbf {A}_{t: i} = \prod _{i}^{t} \mathbf {A}_{i}, \\ y =\operatorname {SSM}(\mathbf {A}, \mathbf {B}, \mathbf {C})(x)=\mathbf {F} x,\text {where } \mathbf {F}_{j i}=\mathbf {C}_{j}^{T} \mathbf {A}_{j: i+1} \mathbf {B}_{i}. \\ \end {array} \label {eq:mat_ssm} 
+on this foundation, we demonstrate that the SSD can be
+transformed into a non-causal mode through a straightfor-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             (4)
+ward transformation, without the need of specific scanning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    When Ai is reduced to a scalar, the quadratic form of Eq. 4
+route.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        can be reformulated as:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \begin {array}{l} y =\mathbf {F} x = \mathbf {M} \cdot (\mathbf {C}^{T}\mathbf {B})x, \\ \text {where } \mathbf {M}_{j i}=\left \{\begin {array}{ll} A_{j} \times \cdots \times A_{i+1} & i < j \\ 1 & i=j \\ 0 & i>j, \end {array}\right . \label {eq:mat_ssm_reformulated} \end {array} 
+3. Method
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     (5)
+3.1. Preliminaries
+State Space Models. Classic State Space Models (SSMs)
+are used to describe the dynamics of a continuous system,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      while its linear form is denoted as:
+transforming an input sequence x(t) \in \mathbb {R} to a latent space
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \begin {array}{l} h(t) = A_t h(t-1) + \mathbf {B}_t x(t), y(t) = \mathbf {C}_t h(t). \label {eq:ssd_linear} \end {array}                                                                                                                                                                                                               (6)
+representation h(t) \in \mathbb {R}^{N} . This representation is then uti-
+lized to generate an output sequence y(t) \in \mathbb {R}. The mathe-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          To adapt SSMs for image data, the 2D feature maps should
+matical formulation of an SSM is structured as follows:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        first be flattened into a 1D sequence of tokens which are
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               then sequentially processed. Due to the causal nature of
+                                                                               \label {eq:continuous_ssm} \begin {array}{l} h'(t) = \overset {\scriptscriptstyle \circ }{\mathbf {A}} h(t) + \overset {\scriptscriptstyle \circ }{\mathbf {B}} x(t),\; y(t) = \mathbf {C}h(t), \end {array}                                                                                                                                                                                                                                                      (1)                           SSMs, where each token can only access previous tokens,
+                                                              ◦                                                                                                                                          ◦
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               information propagation is inherently unidirectional. This
+where A ∈ RN ×N , B ∈ RN ×1 and C ∈ R1×N are pa-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               causal property leads to suboptimal performance when han-
+rameters. To effectively integrate continuous SSMs into                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        dling non-causal image data, a finding that has been corrob-
+deep learning architectures, discretization is essential. This                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 orated by previous works [34, 67]. Furthermore, flattening
+process involves introducing a timescale parameter ∆ ∈ R                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       the 2D feature maps into 1D sequences disrupts their in-
+and applying the zero-order hold (ZOH) technique for dis-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      trinsic structural information. For instance, tokens that are
+cretization. Through this approach, the continuous matrices                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    adjacent in the 2D map might end up being far apart in the
+◦                                                                 ◦
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               1D sequence, resulting in a loss of performance in vision
+A and B are transformed into their discrete counterparts,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               tasks. Since SSD is a variant of SSMs, adopting SSD for
+A and B. Consequently, Eq. 1 is redefined in a discrete
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               vision tasks presents similar challenges to those observed
+format in Eq. 2, facilitating its application within modern
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               with SSMs:
+computational frameworks:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               • Challenge 1: The causal property of the model restricts
+  \label {eq:dis_ssm} \begin {array}{l} h(t) = \mathbf {A}h(t-1) + \mathbf {B}x(t),\; y(t) = \mathbf {C}h(t), \\ \text {where }\mathbf {A} = e^{\mathbf {\Delta } \overset {\scriptscriptstyle \circ }{\mathbf {A}}},\; \mathbf {B} = (\mathbf {\Delta } \overset {\scriptscriptstyle \circ }{\mathbf {A}})^{-1}( e^{\mathbf {\Delta } \overset {\scriptscriptstyle \circ }{\mathbf {A}}} - \mathbf {I})\mathbf {\Delta } \overset {\scriptscriptstyle \circ }{\mathbf {B}}\approx \mathbf {\Delta } \overset {\scriptscriptstyle \circ }{\mathbf {B}},\\ \end {array}            the flow of information, preventing later tokens from in-
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  fluencing earlier ones.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               • Challenge 2: Flattening 2D feature maps into 1D se-
+                                                       (2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        quences disrupts the inherent structural relationships
+where I denotes the identity matrix. Furthermore, the pro-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        among patches during processing.
+cess of Eq. 2 could be implemented in a global convolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     In the context of applying causal SSD to non-causal image
+manner as:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     data, it is instructive to revisit the linear formulation of SSD.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               In Eq. 6, the scalar At modulates the influence of the previ-
+                       \begin {array}{l} y =x \odot \mathbf {K}, \; \mathbf {K} =\left (\mathbf {C} \mathbf {B}, \mathbf {C} \mathbf {A B}, \ldots , \mathbf {C} \mathbf {A}^{L-1} \mathbf {B}\right ), \end {array} \label {eq:conv_kernel}                                                                                                                                                                                                                                                                                                     (3)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               ous hidden state h(t−1) and the information in current time
+where K ∈ RL represents the convolution kernel. Recently,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      step. In other words, the current hidden state h(t) could
+Mamba [14] makes the parameters B, C, and ∆ input-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             be viewed as a linear combination of the previous hidden
+dependent. This modification addresses the limitations of                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      state and the current input, weighted by At and 1, respec-
+the Linear Time Invariant (LTI) characteristics inherent in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    tively. Therefore, if we discard the magnitude of these two
+previous SSM models [13, 16], thus enhancing the adapt-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        terms and only preserve their relative weight, Eq. 6 could
+ability and performance of SSMs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               be rewritten as:
+
+3.2. Non-Causal State Space Duality                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  h(t) = h(t-1) + \frac {1}{A_t} \mathbf {B}_t x(t) = \sum _{i=1}^{t} \frac {1}{A_i} \mathbf {B}_i x(i). \label {eq:ssd_linear_rewritten} \vspace {-1mm}                                                                                                                                                                                          (7)
+Mamba2 [6] introduced the State Space Duality (SSD) and
+simplified the matrix A into a scalar. This special case                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       In this scenario, the contribution of a specific token to the
+of selective SSMs can be implemented in both linear and                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        current hidden state can be directly determined by itself as
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          10821
+1
+Ai , rather than through the cumulative multiplication of                                                                                                                                                                                                 Mamba2 framework [6]:
+multiple coefficients. With each token’s contribution be-
+coming self-referential, Challenge 2 is only partially ad-                                                                                                                                                                                                              \begin {aligned} \mathbf {Z} & =\operatorname {contract}(\mathrm {LD}, \mathrm {LN} \rightarrow \mathrm {LND})(\mathbf {X}, \mathbf {B}) \\ \mathbf {H} & =\operatorname {contract}(\mathrm {LL}, \mathrm {LDN} \rightarrow \mathrm {ND})(\mathbf {M}, \mathbf {Z}) \\ \mathbf {Y} & =\operatorname {contract}(\mathrm {LN}, \mathrm {ND} \rightarrow \mathrm {LD})(\mathbf {C}, \mathbf {H}). \end {aligned} \label {eq:non_causal_ssd_contraction} 
+dressed, as the current token can access only a subset of                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        (9)
+tokens due to the issue discussed in Challenge 1.
+    To address Challenge 1, previous SSM-based vision
+models frequently employed multi-scanning routes. Specif-                                                                                                                                                                                                     This algorithm involves three steps: the first step ex-
+ically, in the case of ViM [67], the token sequence was sub-                                                                                                                                                                                              pands the input X using B, the second step unrolls scalar
+jected to both forward and reverse scanning, enabling each                                                                                                                                                                                                SSM recurrences to create a global hidden state H, and the
+token to access global information. Although multi-scan                                                                                                                                                                                                   final step contracts the hidden state H with C. For clar-
+approaches mitigate the causal property of SSMs, they do                                                                                                                                                                                                  ity, the initial two steps of SSD and NC-SSD are depicted
+not address Challenge 2, as the long-range decay character-                                                                                                                                                                                               in Fig. 2a. Compared to vanilla SSD, while the operation
+istic of SSMs remains confined to a 1D format and does not                                                                                                                                                                                                in the first step remains unchanged, the sequence length
+extend into 2D. To enable the acquisition of global infor-                                                                                                                                                                                                dimension in the hidden state H is eliminated in the non-
+mation and thus suit non-causal image data, we also begin                                                                                                                                                                                                 causal mode, as all tokens share the same hidden state. In
+with a bidirectional scanning strategy. And we demonstrate                                                                                                                                                                                                the final step, the output Y is produced through the matrix
+that the results of forward and reverse scanning of Eq. 7                                                                                                                                                                                                 multiplication of C and H. Since Mi,j = A1j , the matrix M
+can be integrated to effectively address the aforementioned                                                                                                                                                                                               could be simplified to vector of weights, where mj = A1j .
+two challenges simultaneously. Let Hi = h(i) denote the                                                                                                                                                                                                   In this case, integrating m with either X or B could further
+hidden state of the ith token in the bidirectional scanning                                                                                                                                                                                               simplify the transformation of Eq. 9 to:
+approach, from which we can easily derive:
+                                                                                                                                                                                                                                                                                                                                                                           \mathbf {Y} = \mathbf {C}(\mathbf {(B\cdot \mathbf {m}})^{T}\mathbf {X}), \label {eq:nc_ssd}                                                                                                                                                                                                                                                         (10)
+
+  \mathbf {H}_i = \sum _{j=1}^{i} \frac {1}{A_j} \mathbf {Z}_j + \sum _{j=-L}^{-i} \frac {1}{A_{-j}} \mathbf {Z}_{-j} = \sum _{j=1}^{L} \frac {1}{A_j} \mathbf {Z}_j + \frac {1}{A_i} \mathbf {Z}_i \label {eq:nc_ssd_bidirection} \vspace {-1mm}        which can be regarded as a variant of linear attention. How-
+                                                                                                                                                                                                                                                         ever, it is worth noting that just as A plays a distinguished
+                                                           (8)                                                                                                                                                                                           role in Mamba2, the vector m is also crucial, as demon-
+where Zj = Bj x(j). Since A1i Zi primarily affects the cur-                                                                                                                                                                                              strated in our ablation studies. In practice, we directly use
+rent token and provides redundant functionality with respect                                                                                                                                                                                             the learned A instead of A1 since they share the same range
+to the skip connection, we omit the bias term to stream-                                                                                                                                                                                                 of values. To gain a more intuitive understanding of the role
+line the model. In such case, Eq. 8 can be further simpli-                                                                                                                                                                                               of m in Eq. 10, we visualize the average of m across differ-
+        PL 1in all tokens sharing the same hidden state
+fied, resulting                                                                                                                                                                                                                                          ent heads as shown in Fig. 2b. Predominantly, m focuses
+H =        j=1 Aj Zj . In such cases, the results from for-                                                                                                                                                                                              on foreground features, enabling the model to prioritize el-
+ward and reverse scanning can be seamlessly combined to                                                                                                                                                                                                  ements that are crucial for the task at hand.
+establish a global context, effectively equivalent to remov-
+ing the causal mask and transitioning to a non-causal for-                                                                                                                                                                                                   3.3. Visual State Space Duality Model
+mat. Consequently, the first challenge associated with the                                                                                                                                                                                                   Block Design. To enhance the SSD block in Mamba2 for
+causal property is resolved. Although the above results are                                                                                                                                                                                                  vision applications, several modifications have been imple-
+derived from a bidirectional scanning approach, it is evi-                                                                                                                                                                                                   mented beyond merely substituting the SSD with an NC-
+dent that in this non-causal format, different scanning routes                                                                                                                                                                                               SSD to develop our Visual State Space Duality (VSSD)
+yield consistent outcomes. Furthermore, as demonstrated                                                                                                                                                                                                      block. When constructing the NC-SSD block, the causal
+in Eq. 8, the contribution of different tokens to the current                                                                                                                                                                                                convolution 1D is replaced by a Depth-Wise Convolution
+hidden state is no longer related to their scanning distance.                                                                                                                                                                                                (DWConv) with a kernel size of three, in line with previ-
+Therefore, processing a flattened 2D feature map into a 1D                                                                                                                                                                                                   ous vision mamba works [27, 34]. Additionally, a Feed-
+sequence no longer compromises the original structural re-                                                                                                                                                                                                   Forward Network (FFN) is integrated subsequent to the
+lationships. To preserve the spatial relationships between                                                                                                                                                                                                   NC-SSD block to facilitate enhanced information exchange
+patches, we simply incorporate 2D Rotary Position Embed-                                                                                                                                                                                                     across channels and to maintain alignment with the estab-
+ding (RoPE) [46] into features C and B. This approach                                                                                                                                                                                                        lished practices of classical vision transformers [9, 35, 48].
+effectively addresses the second challenge, as the spatial                                                                                                                                                                                                   Moreover, a Local Perception Unit (LPU) [18] is incor-
+relationships among patches are now encoded through po-                                                                                                                                                                                                      porated prior to the NC-SSD block and the FFN, aug-
+sitional embeddings rather than being determined by their                                                                                                                                                                                                    menting the model’s capability for local feature perception.
+sequential distance in the 1D representation.                                                                                                                                                                                                                Skip connections [22] are also implemented among differ-
+    After revising the iteration rules for the hidden state                                                                                                                                                                                                  ent blocks.
+space, we update the corresponding tensor contraction al-                                                                                                                                                                                                    Hybrid with Self-Attention. Mamba2 demonstrates that
+gorithm or einsum notation in the linear form, following the                                                                                                                                                                                                 integrating SSD with standard Multi-head Self Attention
+
+
+
+                                                                                                                                                                                                                                                     10822
+                       SSD                                            NC-SSD
+     𝑿𝟏           𝑿𝟐                𝑿𝑳                     𝑿𝟏         𝑿𝟐                𝑿𝑳
+𝑩𝟏                           … 𝑩𝑳                                                              𝑩 ∈ ℝ𝑳×𝑵
+            𝑩𝟐                                        𝑩𝟏        𝑩𝟐              … 𝑩𝑳
+                                                                                               𝑿 ∈ ℝ𝑳×𝑫
+                                                                                               𝒁 ∈ ℝ𝑳×𝑵×𝑫
+      𝒁𝟏           𝒁𝟐        …      𝒁𝑳                     𝒁𝟏         𝒁𝟐        …       𝒁𝑳
+
+
+
+                             …                             𝟏         𝟏                  𝟏
+      𝟏           𝟎                 𝟎        𝑯𝟏                                 …
+                                                           𝑨𝟏        𝑨𝟐                 𝑨𝑳
+                             …                             𝟏         𝟏                  𝟏
+     𝑨𝟐:𝟏         𝟏                 𝟎        𝑯𝟐                                 …
+                                                           𝑨𝟏        𝑨𝟐                 𝑨𝑳          𝑯
+
+
+
+                                              …
+       …
+
+
+
+
+                                    …
+                   …
+
+
+
+
+                                                            …
+
+
+
+
+                                                                                        …
+                                                                      …
+                                                                                                 𝑯 ∈ ℝ𝑵×𝑫
+                                                           𝟏         𝟏                  𝟏
+     𝑨𝑳:𝟏        𝑨𝑳:𝟐        …      𝟏        𝑯𝑳                                 …
+                                                           𝑨𝟏        𝑨𝟐                 𝑨𝑳
+                 𝑴 ∈ ℝ𝑳×𝑳                𝑯 ∈ ℝ𝑳×𝑵×𝑫                  𝑴 ∈ ℝ𝑳×𝑳
+
+                                                  (a)                                                                         (b)
+Figure 2. (a) Illustration of the Hidden State Generation Process for SSD and NC-SSD. During the hidden state update process, NC-
+SSD utilizes the scalar A to determine the extent of information increment for the current token, in contrast to SSD where A dictates the
+proportion of the hidden state to be retained. Unlike the SSD, which generates token-wise hidden states, the NC-SSD produces only a
+global hidden state to accommodate non-causal image data. (b) Visualization of input images alongside their corresponding heat maps,
+derived by averaging the vector m across various heads in the NC-SSD.
+(MSA) yields additional improvements. In a similar                                           tum at 0.9. A cosine decay scheduler manages the learning
+vein, our model incorporates self-attention. However, un-                                    rate and is combined with a weight decay rate of 0.05. To
+like Mamba2, which uniformly intersperses self-attention                                     further refine model accuracy and generalization, we incor-
+throughout the network, we strategically replace the NC-                                     porate exponential moving average (EMA) techniques and
+SSD block with self-attention module exclusively in the last                                 apply label smoothing with a coefficient of 0.1. More de-
+stage. This modification leverages the robust capabilities                                   tailed configurations could be found in our supplementary
+of self-attention in processing high-level features, as evi-                                 material.
+denced by prior works [12, 32, 41] in vision tasks.                                          Performance Evaluation. Tab. 1 presents a compar-
+Overlapped downsampling layers. As hierarchical vision                                       ative comparison of our VSSD models against CNNs,
+transformers [35] and vision state space models [34] pre-                                    ViTs, and SSM-based frameworks on the ImageNet-1K
+dominantly employ non-overlapped convolution for down-                                       dataset [7]. The VSSD-T model, with 28M parameters
+sampling, recent studies [21, 54] have demonstrated that                                     and 5.0G FLOPs, secures a top-1 accuracy of 83.8%, sur-
+overlapped downsampling convolutions can introduce ben-                                      passing the similarly priced VMamba-T [34] by 1.2%. In
+eficial inductive biases. Consequently, we adopt overlapped                                  comparison with models categorized as small and base,
+convolutions in our model, following the manner used in                                      VSSD consistently outperforms its counterparts. Specif-
+previous works [12, 19]. To maintain the parameter count                                     ically, the VSSD-S model, which has 50M parameters
+and computational FLOPs remain comparable, we have ac-                                       and 8.1G FLOPs, achieves an accuracy of 84.6%, outdo-
+cordingly adjusted the depth of our model.                                                   ing VMamba-S [34] by 1.0%. For the base-sized model
+Overall Architecture. We develop our VSSD model in ac-                                       variant, VSSD-B, which comprises 89M parameters and
+cordance with the methods discussed above. Mirroring the                                     16.1G FLOPs, achieves an accuracy of 85.4%, surpass-
+design principles of established vision backbones in previ-                                  ing the VMamba-B [34] by 1.8%. Furthermore, we pro-
+ous works [34, 35, 37], our VSSD model is structured into                                    vide a comprehensive efficiency comparison between our
+four hierarchical stages. The first three stages employ the                                  VSSD and widely used architectures including Swin [35],
+VSSD block, while the final stage incorporates the MSA                                       ConvNeXt [37], and VMamba [34] in Tab. 2. Notably,
+block. Detailed architectures and illustration of the pro-                                   compared to previous works, our VSSD achieves superior
+posed model could be found in the appendix.                                                  accuracy-throughput trade-off while substantially reducing
+                                                                                             memory consumption. We provide comparison with SOTA
+4. Experiment                                                                                works in the appendix.
+                                                                                             Effective Receptive Field Comparison. In addition to
+4.1. Classification
+                                                                                             quantitative comparisons, we conducted a comparative
+Configurations. Our experiments are conducted using the                                      analysis of the Effective Receptive Field (ERF) before
+ImageNet-1K dataset [7], consistent with methodologies                                       and after training across various models, including CNN-
+from prior studies [34, 35]. Each model is subjected to                                      based ResNet50 [22] and ConvNeXt-Tiny [37], attention-
+a training regimen spanning 300 epochs, which includes a                                     based Swin-Tiny [35] and DeiT-Small [48], and SSM-based
+20-epoch warm-up phase. Optimization is performed with                                       VMamba-Tiny [34], along with our VSSD-Tiny. The ERF
+AdamW, where the betas are set to (0.9, 0.999) and momen-                                    of the central pixel is plotted using the method proposed
+
+
+
+                                                                                       10823
+                                                       Top-1                                                               Top-1
+  Method                Type   #Param. FLOPs                            Method                  Type    #Param. FLOPs
+                                                      Acc(%)                                                              Acc(%)
+                      Tiny Models                                                        Small Models (cont.)
+  ConvNeXt-T [37]     Conv    29M          4.5G        82.1             CSwin-S [8]         Attn     35M       6.9G         83.6
+  MambaOut-T [62]     Conv    27M          4.5G        82.7             NAT-S [21]          Attn     51M       7.8G         83.7
+  InternImage-T [52]  Conv    30M          5.0G        83.5             SMT-B [32]          Attn     32M       7.7G         84.3
+  DeiT-S [48]         Attn    22M          4.6G        79.8             PMamba-L2 [59]      SSM      25M       8.1G         81.6
+  Swin-T [35]         Attn    29M          4.5G        81.3             VMamba-S [34]       SSM      50M       8.7G         83.6
+  PVTv2-B2 [53]       Attn    25M          4.0G        82.0             LVMamba-S [27]      SSM      50M      11.4G         83.7
+  Focal-T [60]        Attn    29M          4.9G        82.2             MSVMamba-S [43]     SSM      50M       8.8G         84.1
+  CSwin-T [8]         Attn    23M          4.3G        82.7             SpatialMamba-S [56] SSM      43M       7.1G         84.6
+  NAT-T [21]          Attn    28M          4.3G        83.2             VSSD-S              SSD      50M      8.1G          84.6
+  CMT-S [18]          Attn    25M          4.0G        83.5
+                                                                                            Base Models
+  VMamba-T [34]       SSM     30M          4.9G        82.6
+                                                                        ConvNeXt-B [37]     Conv    89M          15.4G      83.8
+  LVMamba-T [27]      SSM     26M          5.7G        82.7
+                                                                        MambaOut-B [62]     Conv    85M          15.8G      84.2
+  MSVMamba-T [43]     SSM     33M          4.9G        83.0
+                                                                        DeiT-B [48]         Attn    86M          17.5G      81.8
+  SpatialMamba-T [56] SSM     27M          4.5G        83.5
+                                                                        Swin-B [35]         Attn    88M          15.4G      83.5
+  VSSD-T              SSD     28M          5.0G        83.8
+                                                                        CSwin-S [8]         Attn    78M          15.0G      84.2
+                        Small Models                                    NAT-B [21]          Attn    90M          13.7G      84.3
+  ConvNeXt-S [37]       Conv    50M        8.7G        83.1             PMamba-L3 [59]      SSM     50M          14.4G      82.3
+  MambaOut-S [62]       Conv    48M        9.0G        84.1             VMamba-B [34]       SSM     89M          15.4G      83.9
+  Swin-S [35]            Attn   50M        8.7G        83.0             MSVMamba-B [43]     SSM     91M          16.3G      84.4
+  PVTv2-B3 [53]          Attn   45M        6.9G        83.2             SpatialMamba-B [56] SSM     96M          15.8G      85.3
+  Focal-S [60]           Attn   50M        8.7G        83.5             VSSD-B              SSD     89M          16.1G      85.4
+     Table 1. Accuracy Comparison across Various Models on ImageNet-1K. The LAttn is the abbreviation of linear attention.
+
+                               Swin                     ConvNeXt                        VMamba                  VSSD
+                        Tiny   Small   Base    Tiny    Small Base        Large   Tiny    Small Base      Tiny   Small    Base
+       Thru. (imgs/s)   1570    972     654   1685      1085     728      391    1456     743     531    1263    826      417
+       Memory (MB)      2402   2596    3362   1670      1753    2380     3777    3204    5780    7826    1946   2051     3481
+         Acc. (%)       81.3   83.0    83.5   82.1      83.1    83.8     84.3    82.6    83.6    83.9    83.8   84.6     85.4
+Table 2. Efficiency comparison of different architectures: Attention-based Swin Transformer, CNN-based ConvNeXt, SSM-based
+VMamba, and our proposed VSSD model. All models are evaluated with an input resolution of 224×224 and batch size of 128 on an
+NVIDIA RTX 4090 GPU, following the experimental settings in VMamba.
+
+in [38], utilizing 50 randomly selected images with a reso-            such that the shorter side measures 800 pixels, while the
+lution of 1024x1024 from the ImageNet-1K validation set.               longer side does not exceed 1333 pixels. Optimization is
+To demonstrate the effectiveness of the proposed NC-SSD,               carried out using the AdamW optimizer, with a set learning
+the techniques such as hybrid self-attention and overlapped            rate of 0.0001 and a batch size of 16. When adopting the
+downsampling layers are not employed in our VSSD model                 standard ”1×” training schedule, the learning rate is reduced
+for this analysis. Notably, only our VSSD and DeiT consis-             by a factor of 0.1 at epochs 8 and 11 while the extended ”3×
+tently exhibit a global receptive field both before and after          + MS” schedule sees a reduction in the learning rate by the
+training. Under after-training, a distinct cross-shaped at-            same factor at epochs 27 and 33, following Swin [35].
+tenuation is observed in VMamba, whereas our approach                  Performance Evaluation. Tab. 3 details the compara-
+effectively eliminates the impact of token spacing on the              tive performance of our model against well-established
+contribution of information.                                           CNNs, ViTs, and other SSM-based models. Our VSSD
+                                                                       model demonstrates comparable or superior performance
+4.2. Object Detection and Instance Segmentation
+                                                                       in various configurations. Remarkably, our VSSD-T model
+Configurations. Our evaluation of the VSSD model uti-                  demonstrates a significant advantage, outperforming Swin-
+lizes the MS COCO dataset [31] within the Mask R-CNN                   T [35] by margins of +4.3 in box AP and +3.5 in mask AP.
+framework [23] for tasks related to object detection and in-           This superior performance extends to both small and base
+stance segmentation. All experiments are facilitated using             variants of our architecture. When evaluated under the ex-
+the MMDetection library [1]. Consistent with prior stud-               tended ”3×” training schedule, VSSD maintains its com-
+ies [34, 35], during the training phase, images are adjusted           petitive edge across all metrics. Specifically, VSSD-S sur-
+
+
+
+                                                               10824
+Figure 3. Comparison of the Effective Receptive Field (ERF) among our VSSD, CNN-based models (ResNet [22] and ConvNeXt [37]),
+attention-based models (Swin [35] and DeiT [48]), and the SSM-based VMamba [34]. Our VSSD effectively eliminates the impact of
+token spacing on the contribution of information compared to SSM-based VMamba.
+
+                      Mask R-CNN 1x                                                          mIoU mIoU
+                                                                       Method                          #Param. FLOPs
+Method             APb APb50 APb75 APm APm    m
+                                         50 AP75 Param. FLOPs                                 SS   MS
+Swin-T [35]     42.7 65.2 46.8 39.3 62.2 42.2   48M    267G            Swin-T [35]           44.4   45.8     60M       945G
+ConvNeXt-T [37] 44.2 66.6 48.3 40.1 63.3 42.8   48M    262G            ConvNeXt-T [37]       46.0   46.7     60M       939G
+MambaOut-T [62] 45.1 67.3 49.6 41.0 64.1 44.1   48M    262G            Mambaout-T [62]       47.4   48.6     54M       938G
+MSVMamba-T [43] 46.9 68.7 51.4 42.5 66.2 45.8   52M    275G            FocalNet-T [60]       45.8   47.0     62M       998G
+VMamba-T [34]   47.3 69.3 52.0 42.7 66.4 45.9   50M    271G            MSVMamba-T [43]       47.9   48.5     63M       953G
+VSSD-T          47.0 69.5 51.6 42.8 66.5 46.1   52M    298G            VMamba-T [34]         48.0   48.8     62M       949G
+                                                                       VSSD-T                48.7   49.7     59M       953G
+Swin-S [35]     44.8 66.6 48.9 40.9 63.2 44.2   69M    354G
+ConvNeXt-S [37] 45.4 67.9 50.0 41.8 65.2 45.1   70M    348G            Swin-S [35]           47.6   49.5     81M      1038G
+MambaOut-S [62] 47.4 69.1 52.4 42.7 66.1 46.2   65M    354G            ConvNeXt-S [37]       48.7   49.6     82M      1027G
+MSVMamba-S [43] 48.1 70.1 52.8 43.2 67.3 46.5   70M    349G            Mambaout-S [62]       49.5   50.6     76M      1032G
+VMamba-S [34]   48.7 70.0 53.4 43.7 67.3 47.0   70M    349G            FocalNet-S [60]       48.0   50.0     85M      1130G
+VSSD-S          48.9 71.1 53.8 43.9 68.1 47.4   77M    381G            VMamba-S [34]         50.6   51.2     76M      1028G
+                                                                       VSSD-S                50.3   51.0     81M      1021G
+Swin-B [35]       46.9 -     - 42.3 -       - 107M     496G
+ConvNeXt-B [37]   47.0 69.4 51.7 42.7 66.3 46.0 111M   507G            Swin-B [35]           48.1   49.7    121M      1188G
+MambaOut-B [62]   47.4 69.3 52.2 43.0 66.4 46.3 100M   495G            ConvNeXt-B [37]       49.1   49.9    122M      1170G
+VMamba-B [34]     49.2 70.9 53.9 43.9 67.7 47.6 108M   485G            Mambaout-B [62]       49.6   51.0    112M      1178G
+VSSD-B            49.9 72.1 54.7 44.8 69.1 48.3 108M   506G            FocalNet-B [60]       49.0   50.5    126M      1354G
+                   Mask R-CNN 3x + MS                                  VMamba-B [34]         51.0   51.6    122M      1170G
+Method             APb APb50 APb75 APm APm    m                        VSSD-B                51.5   52.2    120M      1190G
+                                         50 AP75 Param. FLOPs
+
+Swin-T [35]     46.0 68.1 50.3 41.6 65.1 44.9   48M    267G
+                                                                 Table 4. Results of Semantic Segmentation on the ADE20K
+ConvNeXt-T [37] 46.2 67.9 50.8 41.7 65.0 44.9   48M    262G
+                                                                 Dataset [65] using the UperNet Framework [57]. FLOPs for all
+MSVMamba-T [43] 48.7 69.8 53.3 43.4 67.2 46.8   52M    275G
+                                                                 models are computed using input dimensions of 512×2048. In the
+VMamba-T [34]   48.8 70.4 53.5 43.7 67.4 47.0   50M    271G
+                                                                 table, ”SS” represents single-scale testing, while ”MS” indicates
+VSSD-T          49.1 71.2 53.5 44.0 67.6 47.4   52M    298G
+                                                                 multi-scale testing.
+Swin-S [35]     48.2 69.8 52.8 43.2 67.0 46.1   69M    354G
+ConvNeXt-S [37] 47.9 70.0 52.7 42.9 66.9 46.2   70M    348G         mask AP, respectively.
+MSVMamba-S [43] 49.7 70.9 54.3 44.2 68.0 47.9   70M    349G
+VMamba-S [34]   49.9 70.9 54.7 44.2 68.2 47.7   70M    349G         4.3. Semantic Segmentation
+VSSD-S          50.7 72.2 55.8 45.1 69.4 48.8   77M    381G
+                                                                    Configurations. In alignment with the approaches de-
+Table 3. Object Detection and Instance Segmentation with            scribed in Swin [35] and VMamba [34], our experiments
+Mask R-CNN Framework [23] on MS COCO Dataset [31].                  leverage the UperNet [57] framework, utilizing an Ima-
+The FLOPs are tested with an input size of 1280 × 800.              geNet pre-trained backbone for initialization. The train-
+                                                                    ing regimen spans 160K iterations with a batch size of 16,
+passes VMamba-S by margins of 0.8 and 0.9 in box AP and             executed using the MMSegmentation library [5]. The pri-
+
+
+
+                                                            10825
+          Top-1 Thru. Train Thru.                  Op.            Down. Layers    Top-1 #Params. FLOPs Thru. Memory.
+Method                                Param. FLOPs
+         Acc(%) (imgs/sec) (imgs/sec)                                             Acc(%)          (G) (imgs/sec) (MB)
+SSD        82.0     1455         597     29.8M 4.73G SSD     Patch 2, 2, 10, 2      82.0    29.8 M    4.7     1455      1751
+Bi-SSD     82.4     1373         410     30.3M 4.85G
+                                                     +NC-SSD Patch 2, 2, 10, 2      82.8    29.8 M    4.8     1471      1807
+NC-SSD 82.8         1471         717     29.8M 4.80G +LPU    Conv 2, 2, 8, 2        83.4    27.2 M    4.9     1260      1941
+w/ Bias 82.7        1280         606     29.8M 4.80G +Hybrid Conv 2, 2, 8, 2        83.6    28.2 M    5.0     1263      1946
+w/o m   82.4        1517         758     29.7M 4.74G +MESA Conv 2, 2, 8, 4          83.8    28.2 M    5.0     1263      1946
+                           (a)                                                             (b)
+Table 5. (a). Ablation for different SSD variants and the components in the proposed NC-SSD. (b). Ablation study of VSSD-Tiny on
+ImageNet-1K. Our NC-SSD outperforms vanilla SSD in terms of accuracy with similar inference throughput and memory cost. Other
+techniques further enhance the performance.
+
+mary experiments are performed with a standard input res-         ference efficiency. In contrast, removing vector m slightly
+olution of 512 × 512. To further evaluate the robustness of       improves model throughput but results in a 0.4% reduction.
+our model, Multi-Scale (MS) testing is implemented. Op-           LPU and Overlapped Downsampler. Our experiments in
+timization is carried out using the AdamW optimizer, with         Tab. 5b demonstrate that incorporating overlapped down-
+the learning rate established at 6 × 10−5 .                       sampling layers and the local perception unit (LPU) in-
+Performance Evaluation. Detailed performance for our              troduces beneficial inductive bias and enhances local per-
+model and competitors are displayed in Tab. 4, encompass-         ception capabilities. These modifications improve the top-
+ing both single-scale and multi-scale testing. In the Tiny        1 accuracy by 0.6% while marginally affecting inference
+model category, our VSSD demonstrates compelling advan-           throughput. To maintain comparable computational costs
+tages over existing architectures. Specifically, VSSD-T sur-      despite the additional parameters and FLOPs introduced by
+passes Swin-T, ConvNeXt-T, and VMamba-T by margins                these operations, we strategically reduce the model depth.
+of 4.3, 2.7, and 0.7 mIoU under single-scale testing, and         Hybrid Architecture with Attention and MESA. Tab. 5b
+3.9, 3.0, and 0.9 mIoU with multi-scale testing, respectively.    validates the effectiveness of our hybrid approach, which
+When scaled to the base variant, VSSD-B achieves an mIoU          combines standard attention in the final stage with over-
+of 52.2 under multi-scale evaluation.                             lapped downsampling. Specifically, substituting NC-SSD
+                                                                  with standard attention in the last stage yields a 0.2% accu-
+4.4. Ablations                                                    racy improvement while slightly increasing the parameter
+To validate the effectiveness of the proposed modules, we         count. Additionally, following MLLA [19], we incorpo-
+conducted detailed ablation experiments on the VSSD-Tiny          rate MESA [11] to mitigate overfitting, resulting in a further
+model. Using the SSD block as the token mixer and patchi-         0.2% gain in top-1 accuracy.
+fied downsamplers (e.g. convolution with 4 × 4 kernel and
+stride of 4 in stem) following Swin [35] and vanilla VMam-
+                                                                  5. Conclusion
+aba [34], we established the baseline configuration, detailed     In conclusion, our study introduces the NC-SSD, which re-
+in the first row of Tab. 5b. For throughput testing, we uti-      defines SSD by modifying the role of matrix A and elimi-
+lized an NVIDIA RTX 4090 GPU with a batch size of 128.            nating the causal mask. These adaptations facilitate a transi-
+SSD Mechanisms. In our ablation study for the token               tion to a non-causal mode, significantly enhancing both ac-
+mixer, we explored different scanning routes for SSD.             curacy and efficiency. Extensive experiments demonstrate
+Specifically, the Bi-SSD is introduced, where we split the        its superiority over the vanilla SSD and its multi-scan-based
+channels into two parts and reverse one part to create back-      variants. Furthermore, by integrating techniques such as
+ward scanning sequences. These sequences with opposite            hybrid standard attention and overlapped downsampling,
+scanning routes are then concatenated after the SSD block.        our VSSD model achieves comparable or superior perfor-
+As shown in Tab. 5a, our NC-SSD model outperforms both            mance compared to well-established CNNs, ViTs, and Vi-
+the vanilla SSD and Bi-SSD by 0.8% and 0.4% in top-1              sion SSMs across several widely-used benchmarks.
+accuracy, respectively. Moreover, the training throughput
+are significantly enhanced, with NC-SSD improving train-          6. Acknowledgements
+ing throughput by over 50% compared to the Bi-SSD. Addi-
+                                                                  This work was supported in part by the Start-up
+tionally, we conduct ablation studies on key components of        Grant (No.    9610680) of the City University of
+NC-SSD, specifically examining the impact of the omitted          Hong Kong, Young Scientist Fund (No. 62406265)
+bias term in Eq. 10 and the vector m in Eq. 7. Incorporating      of NSFC, and the Australian Research Council
+the bias term leads to a marginal decrease of 0.1% in top-        under Projects DP240101848 and FT230100549.
+1 accuracy while adversely affecting both training and in-
+
+
+
+                                                             10826
+References                                                            [15] Albert Gu, Tri Dao, Stefano Ermon, Atri Rudra, and Christo-
+                                                                           pher Ré. Hippo: Recurrent memory with optimal polynomial
+ [1] Kai Chen, Jiaqi Wang, Jiangmiao Pang, Yuhang Cao, Yu                  projections. NeurIPS, 2020. 1
+     Xiong, Xiaoxiao Li, Shuyang Sun, Wansen Feng, Ziwei Liu,
+                                                                      [16] Albert Gu, Karan Goel, and Christopher Ré. Efficiently
+     Jiarui Xu, et al. Mmdetection: Open mmlab detection tool-
+                                                                           modeling long sequences with structured state spaces. arXiv
+     box and benchmark. arXiv preprint arXiv:1906.07155, 2019.
+                                                                           preprint arXiv:2111.00396, 2021. 3
+     6
+                                                                      [17] Albert Gu, Isys Johnson, Karan Goel, Khaled Saab, Tri
+ [2] Tianxiang Chen, Zhentao Tan, Tao Gong, Qi Chu, Yue Wu,
+                                                                           Dao, Atri Rudra, and Christopher Ré. Combining recurrent,
+     Bin Liu, Jieping Ye, and Nenghai Yu. Mim-istd: Mamba-
+                                                                           convolutional, and continuous-time models with linear state
+     in-mamba for efficient infrared small target detection. arXiv
+                                                                           space layers. NeurIPS, 2021. 1, 2
+     preprint arXiv:2403.02148, 2024. 2
+                                                                      [18] Jianyuan Guo, Kai Han, Han Wu, Yehui Tang, Xinghao
+ [3] Bowen Cheng, Ishan Misra, Alexander G. Schwing, Alexan-               Chen, Yunhe Wang, and Chang Xu. Cmt: Convolutional
+     der Kirillov, and Rohit Girdhar. Masked-attention mask                neural networks meet vision transformers. In CVPR, 2022.
+     transformer for universal image segmentation. In CVPR,                1, 4, 6
+     2022. 1
+                                                                      [19] Dongchen Han, Ziyi Wang, Zhuofan Xia, Yizeng Han, Yi-
+ [4] Krzysztof Choromanski, Valerii Likhosherstov, David Do-               fan Pu, Chunjiang Ge, Jun Song, Shiji Song, Bo Zheng, and
+     han, Xingyou Song, Andreea Gane, Tamas Sarlos, Peter                  Gao Huang. Demystify mamba in vision: A linear attention
+     Hawkins, Jared Davis, Afroz Mohiuddin, Lukasz Kaiser,                 perspective. In NeurIPS, 2024. 2, 5, 8
+     et al. Rethinking attention with performers. arXiv preprint
+                                                                      [20] Kai Han, An Xiao, Enhua Wu, Jianyuan Guo, Chunjing Xu,
+     arXiv:2009.14794, 2020. 2
+                                                                           and Yunhe Wang. Transformer in transformer. In NeurIPS,
+ [5] MMSegmentation Contributors.              MMSegmentation:             2021. 2
+     Openmmlab semantic segmentation toolbox and
+                                                                      [21] Ali Hassani, Steven Walton, Jiachen Li, Shen Li, and
+     benchmark.         https : / / github . com / open -
+                                                                           Humphrey Shi. Neighborhood attention transformer. In
+     mmlab/mmsegmentation, 2020. 7
+                                                                           CVPR, 2023. 1, 2, 5, 6
+ [6] Tri Dao and Albert Gu. Transformers are ssms: General-           [22] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+     ized models and efficient algorithms through structured state         Deep residual learning for image recognition. In CVPR,
+     space duality. In ICML, 2024. 1, 3, 4                                 2016. 1, 2, 4, 5, 7
+ [7] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li,           [23] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Gir-
+     and Li Fei-Fei. Imagenet: A large-scale hierarchical image            shick. Mask r-cnn. In ICCV, 2017. 6, 7
+     database. In CVPR, 2009. 1, 2, 5
+                                                                      [24] Andrew G Howard, Menglong Zhu, Bo Chen, Dmitry
+ [8] Xiaoyi Dong, Jianmin Bao, Dongdong Chen, Weiming                      Kalenichenko, Weijun Wang, Tobias Weyand, Marco An-
+     Zhang, Nenghai Yu, Lu Yuan, Dong Chen, and Baining Guo.               dreetto, and Hartwig Adam. Mobilenets: Efficient convolu-
+     Cswin transformer: A general vision transformer backbone              tional neural networks for mobile vision applications. arXiv
+     with cross-shaped windows. In CVPR, 2022. 1, 2, 6                     preprint arXiv:1704.04861, 2017. 2
+ [9] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov,           [25] Jie Hu, Li Shen, and Gang Sun. Squeeze-and-excitation net-
+     Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner,                   works. In CVPR, 2018. 1
+     Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl-         [26] Gao Huang, Zhuang Liu, Geoff Pleiss, Laurens Van
+     vain Gelly, et al. An image is worth 16x16 words: Trans-              Der Maaten, and Kilian Weinberger. Convolutional networks
+     formers for image recognition at scale. In ICLR, 2020. 1, 2,          with dense connectivity. IEEE TPAMI, 2019. 1, 2
+     4
+                                                                      [27] Tao Huang, Xiaohuan Pei, Shan You, Fei Wang, Chen Qian,
+[10] Chengbin Du, Yanxi Li, and Chang Xu. Understanding ro-                and Chang Xu. Localmamba: Visual state space model with
+     bustness of visual state space models for image classifica-           windowed selective scan. arXiv preprint arXiv:2403.09338,
+     tion. arXiv preprint arXiv:2403.10935, 2024. 2                        2024. 1, 2, 3, 4, 6
+[11] Jiawei Du, Daquan Zhou, Jiashi Feng, Vincent Tan, and            [28] Angelos Katharopoulos, Apoorv Vyas, Nikolaos Pappas, and
+     Joey Tianyi Zhou.       Sharpness-aware training for free.            François Fleuret. Transformers are rnns: Fast autoregressive
+     NeurIPS, 2022. 8                                                      transformers with linear attention. In ICML, 2020. 2
+[12] Qihang Fan, Huaibo Huang, Mingrui Chen, Hongmin Liu,             [29] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton.
+     and Ran He. Rmt: Retentive networks meet vision trans-                Imagenet classification with deep convolutional neural net-
+     formers. In CVPR, 2024. 2, 5                                          works. NeurIPS, 2012. 2
+[13] Daniel Y Fu, Tri Dao, Khaled K Saab, Armin W Thomas,             [30] Kunchang Li, Xinhao Li, Yi Wang, Yinan He, Yali Wang,
+     Atri Rudra, and Christopher Ré. Hungry hungry hippos: To-            Limin Wang, and Yu Qiao. Videomamba: State space model
+     wards language modeling with state space models. arXiv                for efficient video understanding. In ECCV, 2024. 2
+     preprint arXiv:2212.14052, 2022. 2, 3                            [31] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+[14] Albert Gu and Tri Dao. Mamba: Linear-time sequence                    Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence
+     modeling with selective state spaces.         arXiv preprint          Zitnick. Microsoft coco: Common objects in context. In
+     arXiv:2312.00752, 2023. 1, 2, 3                                       ECCV, 2014. 1, 6, 7
+
+
+
+
+                                                                 10827
+[32] Weifeng Lin, Ziheng Wu, Jiayu Chen, Jun Huang, and Lian-        [49] Zhengzhong Tu, Hossein Talebi, Han Zhang, Feng Yang,
+     wen Jin. Scale-aware modulation meet transformer. In ICCV,           Peyman Milanfar, Alan Bovik, and Yinxiao Li. Maxvit:
+     2023. 5, 6                                                           Multi-axis vision transformer. In ECCV, 2022. 2
+[33] Jing Liu, Bohan Zhuang, Zhuangwei Zhuang, Yong                  [50] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-
+     Guo, Junzhou Huang, Jinhui Zhu, and Mingkui Tan.                     reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia
+     Discrimination-aware network pruning for deep model com-             Polosukhin. Attention is all you need. In NeurIPS, 2017. 2
+     pression. IEEE Transactions on Pattern Analysis and Ma-         [51] Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao
+     chine Intelligence, 2021. 2                                          Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao. Pyra-
+[34] Yue Liu, Yunjie Tian, Yuzhong Zhao, Hongtian Yu, Lingxi              mid vision transformer: A versatile backbone for dense pre-
+     Xie, Yaowei Wang, Qixiang Ye, and Yunfan Liu. Vmamba:                diction without convolutions. In ICCV, 2021. 1, 2
+     Visual state space model. In NeurIPS, 2024. 1, 2, 3, 4, 5, 6,   [52] Wenhai Wang, Jifeng Dai, Zhe Chen, Zhenhang Huang,
+     7, 8                                                                 Zhiqi Li, Xizhou Zhu, Xiaowei Hu, Tong Lu, Lewei Lu,
+[35] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng               Hongsheng Li, et al. Internimage: Exploring large-scale vi-
+     Zhang, Stephen Lin, and Baining Guo. Swin transformer:               sion foundation models with deformable convolutions. arXiv
+     Hierarchical vision transformer using shifted windows. In            preprint arXiv:2211.05778, 2022. 2, 6
+     ICCV, 2021. 1, 2, 4, 5, 6, 7, 8                                 [53] Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao
+[36] Ze Liu, Han Hu, Yutong Lin, Zhuliang Yao, Zhenda Xie,                Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao. Pvt
+     Yixuan Wei, Jia Ning, Yue Cao, Zheng Zhang, Li Dong, et al.          v2: Improved baselines with pyramid vision transformer.
+     Swin transformer v2: Scaling up capacity and resolution. In          Computational Visual Media, 2022. 2, 6
+     CVPR, 2022. 1, 2                                                [54] Haiping Wu, Bin Xiao, Noel Codella, Mengchen Liu,
+[37] Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feicht-               Xiyang Dai, Lu Yuan, and Lei Zhang. Cvt: Introduc-
+     enhofer, Trevor Darrell, and Saining Xie. A convnet for the          ing convolutions to vision transformers. arXiv preprint
+     2020s. In CVPR, 2022. 2, 5, 6, 7                                     arXiv:2103.15808, 2021. 5
+[38] Wenjie Luo, Yujia Li, Raquel Urtasun, and Richard S.
+                                                                     [55] Zhuofan Xia, Xuran Pan, Shiji Song, Li Erran Li, and
+     Zemel. Understanding the effective receptive field in deep
+                                                                          Gao Huang. Dat++: Spatially dynamic vision transformer
+     convolutional neural networks. In NeurIPS, 2016. 6
+                                                                          with deformable attention. arXiv preprint arXiv:2309.01430,
+[39] Xiaohuan Pei, Tao Huang, and Chang Xu. Efficientvmamba:              2023. 2
+     Atrous selective scan for light weight visual mamba. arXiv
+                                                                     [56] Chaodong Xiao, Minghan Li, Zhengqiang Zhang, Deyu
+     preprint arXiv:2403.09977, 2024. 3
+                                                                          Meng, and Lei Zhang. Spatial-mamba: Effective visual
+[40] Zhen Qin, Weixuan Sun, Hui Deng, Dongxu Li, Yunshen
+                                                                          state space models via structure-aware state fusion. In ICLR,
+     Wei, Baohong Lv, Junjie Yan, Lingpeng Kong, and Yiran
+                                                                          2025. 6
+     Zhong. cosformer: Rethinking softmax in attention. arXiv
+                                                                     [57] Tete Xiao, Yingcheng Liu, Bolei Zhou, Yuning Jiang, and
+     preprint arXiv:2202.08791, 2022. 2
+                                                                          Jian Sun. Unified perceptual parsing for scene understand-
+[41] Sucheng Ren, Xingyi Yang, Songhua Liu, and Xinchao
+                                                                          ing. In ECCV, 2018. 7
+     Wang. Sg-former: Self-guided transformer with evolving
+     token reallocation. In ICCV, 2023. 5                            [58] Saining Xie, Ross Girshick, Piotr Dollár, Zhuowen Tu, and
+                                                                          Kaiming He. Aggregated residual transformations for deep
+[42] Jiacheng Ruan and Suncheng Xiang. Vm-unet: Vision
+                                                                          neural networks. In CVPR, 2017. 2
+     mamba unet for medical image segmentation. arXiv preprint
+     arXiv:2402.02491, 2024. 2                                       [59] Chenhongyi Yang, Zehui Chen, Miguel Espinosa, Linus Er-
+[43] Yuheng Shi, Minjing Dong, and Chang Xu. Multi-scale                  icsson, Zhenyu Wang, Jiaming Liu, and Elliot J Crowley.
+     vmamba: Hierarchy in hierarchy visual state space model.             Plainmamba: Improving non-hierarchical mamba in visual
+     In NeurIPS, 2024. 1, 3, 6, 7                                         recognition. arXiv preprint arXiv:2403.17695, 2024. 1, 6
+[44] Karen Simonyan and Andrew Zisserman. Very deep convo-           [60] Jianwei Yang, Chunyuan Li, Xiyang Dai, and Jianfeng Gao.
+     lutional networks for large-scale image recognition. arXiv           Focal modulation networks. NeurIPS, 2022. 6, 7
+     preprint arXiv:1409.1556, 2014. 1, 2                            [61] Yuhuan Yang, Chaofan Ma, Jiangchao Yao, Zhun Zhong,
+[45] Jimmy TH Smith, Andrew Warrington, and Scott W Linder-               Ya Zhang, and Yanfeng Wang. Remamber: Referring
+     man. Simplified state space layers for sequence modeling.            image segmentation with mamba twister. arXiv preprint
+     arXiv preprint arXiv:2208.04933, 2022. 1, 2                          arXiv:2403.17839, 2024. 2
+[46] Jianlin Su, Murtadha Ahmed, Yu Lu, Shengfeng Pan, Wen           [62] Weihao Yu and Xinchao Wang. Mambaout: Do we really
+     Bo, and Yunfeng Liu. Roformer: Enhanced transformer with             need mamba for vision? arXiv preprint arXiv:2405.07992,
+     rotary position embedding. Neurocomputing, 2024. 4                   2024. 6, 7
+[47] Mingxing Tan and Quoc Le. Efficientnet: Rethinking model        [63] Weihao Yu, Mi Luo, Pan Zhou, Chenyang Si, Yichen Zhou,
+     scaling for convolutional neural networks. In ICML, 2019.            Xinchao Wang, Jiashi Feng, and Shuicheng Yan. Metaformer
+     1, 2                                                                 is actually what you need for vision. In CVPR, 2022. 2
+[48] Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco          [64] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun
+     Massa, Alexandre Sablayrolles, and Hervé Jégou. Training           Zhu, Lionel M Ni, and Heung-Yeung Shum. Dino: Detr
+     data-efficient image transformers & distillation through at-         with improved denoising anchor boxes for end-to-end object
+     tention. In ICML, 2021. 1, 2, 4, 5, 6, 7                             detection. arXiv preprint arXiv:2203.03605, 2022. 1
+
+
+
+
+                                                                 10828
+[65] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela
+     Barriuso, and Antonio Torralba. Scene parsing through
+     ade20k dataset. In CVPR, 2017. 1, 7
+[66] Lei Zhu, Xinjiang Wang, Zhanghan Ke, Wayne Zhang, and
+     Rynson Lau. Biformer: Vision transformer with bi-level
+     routing attention. In CVPR, 2023. 2
+[67] Lianghui Zhu, Bencheng Liao, Qian Zhang, Xinlong Wang,
+     Wenyu Liu, and Xinggang Wang. Vision mamba: Efficient
+     visual representation learning with bidirectional state space
+     model. In ICML, 2024. 1, 2, 3, 4
+
+
+
+
+                                                                 10829
+

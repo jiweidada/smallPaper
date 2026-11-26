@@ -1,0 +1,116 @@
+Academic Editor: Wen Yang
+Received: 9 January 2025
+Revised: 21 February 2025
+Accepted: 27 February 2025
+Published: 3 March 2025
+Citation: Dong, C.; Jiang, S.; Sun, H.;
+Li, J.; Yu, Z.; Wang, J.; Wang, J. QEDetr:
+DETR with Query Enhancement for
+Fine-Grained Object Detection. Remote
+Sens. 2025, 17, 893. https://doi.org/
+10.3390/rs17050893
+Copyright: © 2025 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license
+(https://creativecommons.org/
+licenses/by/4.0/).
+Article
+QEDetr: DETR with Query Enhancement for Fine-Grained
+Object Detection
+Chenguang Dong 1,2
+ , Shan Jiang 1,*, Haijiang Sun 1, Jiang Li 1, Zhenglei Yu 3, Jiasong Wang 1 and Jiacheng Wang 1
+1 Changchun Institute of Optics, Fine Mechanics and Physics, Chinese Academy of Sciences,
+Changchun 130033, China; dongchenguang23@mails.ucas.ac.cn (C.D.); sunhj@ciomp.ac.cn (H.S.);
+lijiang@ciomp.ac.cn (J.L.); wangjiasong@ciomp.ac.cn (J.W.); wangjiacheng@ciomp.ac.cn (J.W.)
+2 University of Chinese Academy of Sciences, Beijing 100049, China
+3 College of Biological and Agricultural Engineering, Jilin University, Changchun 130022, China;
+zlyu@jlu.edu.cn
+* Correspondence: jiangshantx@ciomp.ac.cn
+Abstract: Fine-grained object detection aims to accurately localize the object bounding
+box while identifying the specific model of the object, which is more challenging than
+conventional remote sensing object detection. Transformer-based object detector (DETR)
+can capture remote inter-feature dependencies by using attention, which is suitable for
+fine-grained object detection tasks. However, most existing DETR-like object detectors are
+not specifically optimized for remote sensing detection tasks. Therefore, we propose an
+oriented fine-grained object detection method based on transformers. First, we combine
+denoising training and angle coding to propose a baseline DETR-like object detector for
+oriented object detection. Next, we propose a new attention mechanism for extracting
+finer-grained features by constraining the angle of sampling points during the attentional
+process, ensuring that the sampling points are more evenly distributed across the object
+features. Then, we propose a multiscale fusion method based on bilinear pooling to obtain
+the enhanced query and initialize a more accurate object bounding box. Finally, we combine
+the localization accuracy of each query with its classification accuracy and propose a new
+classification loss to further enhance the high-quality queries. Evaluation results on the
+FAIR1M dataset show that our method achieves an average accuracy of 48.5856 mAP and
+the highest accuracy of 49.7352 mAP in object detection, outperforming other methods.
+Keywords: remote sensing; fine-grained object detection; DETR
+1. Introduction
+With the development of remote sensing technology, the resolution of remote sensing
+images is increasing. High-resolution remote sensing images often carry large amounts
+of information, requiring intelligent interpretation. Deep learning-based remote sensing
+object detection models can accurately locate targets in these images, which plays a crucial
+role in vegetation detection [1], natural hazard monitoring [2], autonomous driving and
+navigation [3], traffic planning [4], and earth observation [5]. A series of advanced remote
+sensing object detectors [6–15] have also greatly contributed to the development of this field.
+Fine-grained object detection (FGOD) is a subtask of remote sensing object detection that
+requires the detector to accurately localize the target while accurately identifying its fine-
+grained subcategories. For example, the object detector could identifies the target aircraft
+type, such as Boeing 737 or Boeing 747, while recognizing the object as an aircraft. This
+paper focuses on fine-grained object detection in remote sensing images. Compared with
+Remote Sens. 2025, 17, 893 https://doi.org/10.3390/rs17050893
+
+---PAGE---
+
+Remote Sens. 2025, 17, 893 2 of 25
+traditional object detection, fine-grained object detection has the problem of large intra-class
+variations and small inter-class variations [16]. It can also lead to semantic confusion of the
+target features, and has high feature extraction ability requirements with neural networks,
+making the classification problem in object detection more difficult. Second, in remote
+sensing images, the object does not occupy the main position [ 17], and a large number
+of complicated backgrounds greatly interferes with the accuracy of target localization
+and recognition; as such, fine-grained object detection is more difficult in remote sensing
+contexts compared to general object detection.
+In recent years, transformer-based object detectors [18–21] have taken full advantage
+of the fact that attention is effective at capturing long-range dependencies, which greatly
+advances the ever-increasing accuracy of object detectors. However, these object detectors
+are designed for general-purpose object detection, and the high computational effort caused
+by the large format of the remote sensing image determines whether the image can capture
+the dependencies between features through the original attention. Because transformer-
+based object detectors cannot be adapted to the extra angular regression parameter for
+oriented object detection, there is currently a great deal of space for the further development
+of transformer-based object detectors in the field of remote sensing object detection.
+Because fine-grained object detection requires precise localization and identification,
+two-stage object detectors is more suitable for this task [ 22]. Zhu et al. [ 23] proposed
+a two-stage transformer-based object detection algorithm which introduces multiscale
+features to filter the top-k query as the foreground query based on the classification score
+of the encoder output query. However, this leads to discrepancies between different
+scale layers in decision-making about the foreground, while the single-level feature-based
+foreground query does not contain enough information to support the decoder for fine-
+grained classification and boundary refinement.
+As one of the important subtasks of fine-grained object detection in remote sensing,
+object classification is usually supervised in traditional object detectors using the focal
+loss [24], which adaptively adjusts the weights of positive and negative samples by mod-
+ulation factors and treats all samples equally. However, this can lead to both high- and
+low-quality foreground queries having the same weight, resulting in the former not taking
+a dominant role in the optimization process. In addition, because transformer-based object
+detection algorithms achieve one-to-one object-prediction box matching through Hungar-
+ian matching, a high-confidence foreground query does not always have high localization
+accuracy. For this reason, high-quality foreground querying and high positioning accuracy
+are not harmonized. In response to the above issues, the main contributions of our work
+are as follows:
+1. A basic framework (QEDetr) based on PSC angle coding and denoising training for
+transformer-based object detection for oriented object detection in the field of remote
+sensing. We ensure that the object box angles are generated by the regression, and
+encode the angles in such a a way that they are regressed and the angular boundary
+problem is avoided. In the decoder stack specific to DETR, the object angle coding
+generated by the regression can be iteratively refined layer-by-layer in the decoder
+layer of the object detector.
+2. Based on the specific needs of rotating box sampling in oriented object detection,
+a Rotation-Aligned Deformable Attention (RADA) module is proposed which can
+adaptively adjust the distribution of sampling points according to the shapes of the
+reference box and the distribution of sampling points. Each query is able to interact
+with precise features that enhance the information contained within the query to
+realize more accurate feature extraction.

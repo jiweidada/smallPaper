@@ -1,0 +1,202 @@
+RepPoints: Point Set Representation for Object Detection
+Ze Y ang1†∗ Shaohui Liu2,3†∗ Han Hu3 Liwei Wang1 Stephen Lin3
+1Peking University 2Tsinghua University
+3Microsoft Research Asia
+yangze@pku.edu.cn, b1ueber2y@gmail.com, wanglw@cis.pku.edu.cn
+{hanhu, stevelin }@microsoft.com
+Abstract
+Modern object detectors rely heavily on rectangular
+bounding boxes, such as anchors, proposals and the ﬁ-
+nal predictions, to represent objects at various recognition
+stages. The bounding box is convenient to use but pro-
+vides only a coarse localization of objects and leads to a
+correspondingly coarse extraction of object features. In
+this paper , we present RepPoints (representative points),
+a new ﬁner representation of objects as a set of sample
+points useful for both localization and recognition. Given
+ground truth localization and recognition targets for train-
+ing, RepPoints learn to automatically arrange themselves
+in a manner that bounds the spatial extent of an object
+and indicates semantically signiﬁcant local areas. They
+furthermore do not require the use of anchors to sample
+a space of bounding boxes. We show that an anchor-free
+object detector based on RepPoints can be as effective as
+the state-of-the-art anchor-based detection methods, with
+46.5 AP and 67.4 AP50 on the COCO test-dev detection
+benchmark, using ResNet-101 model. Code is available at
+https://github.com/microsoft/RepPoints.
+1. Introduction
+Object detection aims to localize objects in an image and
+provide their class labels. As one of the most fundamental
+tasks in computer vision, it serves as a key component for
+many vision applications, including instance segmentation
+[
+30], human pose analysis [ 37], and visual reasoning [ 41].
+The signiﬁcance of the object detection problem together
+with the rapid development of deep neural networks has led
+to substantial progress in recent years [
+7, 11, 10, 33, 14, 3].
+In the object detection pipeline, bounding boxes, which
+encompass rectangular areas of an image, serve as the ba-
+sic element for processing. They describe target locations
+∗Equal contribution. †The work is done when Ze Y ang and Shaohui
+Liu are interns at Microsoft Research Asia.
+recognition
+supervision
+convert
+feature extraction
++ classification
+localization
+supervision
+Figure 1. RepPoints is a new representation for object detection
+that consists of a set of points which indicate the spatial extent of
+an object and semantically signiﬁcant local areas. This representa-
+tion is learned via weak localization supervision from rectangular
+ground-truth boxes and implicit recognition feedback. Based on
+the richer RepPoints representation, we develop an anchor-free ob-
+ject detector that yields improved performance compared to using
+bounding boxes.
+of objects throughout the stages of an object detector, from
+anchors and proposals to ﬁnal predictions. Based on these
+bounding boxes, features are extracted and used for pur-
+poses such as object classiﬁcation and location reﬁnement.
+The prevalence of the bounding box representation can
+partly be attributed to common metrics for object detection
+performance, which account for the overlap between esti-
+mated and ground truth bounding boxes of objects. Another
+reason lies in its convenience for feature extraction in deep
+networks, because of its regular shape and the ease of sub-
+dividing a rectangular window into a matrix of pooled cells.
+Though bounding boxes facilitate computation, they pro-
+vide only a coarse localization of objects that does not con-
+form to an object’s shape and pose. Features extracted from
+the regular cells of a bounding box may thus be heavily
+inﬂuenced by background content or uninformative fore-
+ground areas that contain little semantic information. This
+may result in lower feature quality that degrades classiﬁca-
+tion performance in object detection.
+In this paper, we propose a new representation, called
+1
+9657
+
+
+---PAGE---
+
+RepPoints, that provides more ﬁne-grained localization and
+facilitates classiﬁcation. Illustrated in Fig. 1, RepPoints is
+a set of points that learns to adaptively position themselves
+over an object in a manner that circumscribes the object’s
+spatial extent and indicates semantically signiﬁcant local
+areas. The training of RepPoints is driven jointly by ob-
+ject localization and recognition targets, such that the Rep-
+Points are tightly bound by the ground-truth bounding box
+and guide the detector toward correct object classiﬁcation.
+This adaptive and differentiable representation can be co-
+herently used across the different stages of a modern object
+detector, and does not require the use of anchors to sample
+over a space of bounding boxes.
+RepPoints differs from existing non-rectangular repre-
+sentations for object detection, which are all built in a
+bottom-up manner [
+38, 21, 47]. These bottom-up represen-
+tations identify individual points (e.g., bounding box cor-
+ners or object extremities) and rely on handcrafted cluster-
+ing to group them into object models. Their representations
+furthermore either are still axis-aligned like bounding boxes
+[
+38, 21] or require ground truth object masks as additional
+supervision [ 47]. In contrast, RepPoints are learned in a
+top-down fashion from the input image / object features, al-
+lowing for end-to-end training and producing ﬁne-grained
+localization without additional supervision.
+With RepPoints replacing all the conventional bounding
+box representations in a two-stage object detector, including
+anchors, proposals and ﬁnal localization targets, we develop
+a clean and effective anchor-free object detector, which
+achieves 42.8 AP and 65.0 AP50 on the COCO benchmark
+[
+26] without multi-scale training and testing, and achieves
+46.5 AP and 67.4 AP50 with multi-scale training and test-
+ing using ResNet-101 model. The proposed object detector
+not only surpasses all existing anchor-free detectors but also
+performing on-par with state-of-the-art anchor-based base-
+lines.
+2. Related Work
+Bounding boxes for the object detection problem. The
+bounding box has long been the dominant form of object
+representation in the ﬁeld of object detection. One reason
+for its prevalence is that a bounding box is convenient to
+annotate with little ambiguity, while providing sufﬁciently
+accurate localization for the subsequent recognition pro-
+cess. This may explain why the major benchmarks all uti-
+lize annotations and evaluations based on bounding boxes
+[
+8, 26, 20]. In turn, these benchmarks motivate object de-
+tection methods to use the bounding box as their basic rep-
+resentation in order to align with the evaluation protocols.
+Another reason for the dominance of bounding boxes is
+that almost all image feature extractors, both before [
+39, 5]
+and during the deep learning era [ 19, 34, 36, 15], are based
+on an input patch with a regular grid form. It is thus con-
+venient to use the bounding box representation to facilitate
+feature extraction [
+11, 10, 33].
+Although the proposed RepPoints has an irregular form,
+we show that it can be amenable to convenient feature
+extraction. Our system utilizes RepPoints in conjunction
+with deformable convolution [
+4], which naturally aligns
+with RepPoints in that it aggregates information from in-
+put features at several sample points. Besides, a rectangular
+pseudo box can be readily generated from RepPoints (see
+Section
+3.2), allowing the new representation to be used
+with object detection benchmarks.
+Bounding boxes in modern object detectors. The best-
+performing object detectors to date generally follow a multi-
+stage recognition paradigm [
+24, 4, 13, 23, 2, 35, 27], and the
+bounding box representation appears in almost all stages:
+1) as pre-deﬁned [
+33, 25] or learnt [ 40, 44, 46] anchors
+that serve as hypotheses over the bounding box space; 2)
+as reﬁned object proposals connecting successive recogni-
+tion stages [
+33, 2]; and 3) as the ﬁnal localization targets.
+The RepPoints can be used to replace the bounding box
+representations in all stages of model object detectors, re-
+sulting in a more effective new object detector. Speciﬁcally,
+the anchors are replaced by center points, which is a special
+conﬁguration of RepPoints. The bounding box proposals
+and ﬁnal localization targets are replaced by the RepPoints
+proposals and ﬁnal targets. Note the resulting object detec-
+tor is anchor-free, due to the use of center points for initial
+object representation. It is thus even more convenient in use
+than the bounding box based methods.
+Other representations for object detection. To address
+limitations of rectangular bounding boxes, there have been
+some attempts to develop more ﬂexible object representa-
+tions. These include an elliptic representation for pedestrian
+detection [
+22] and a rotated bounding box to better handle
+rotational variations [16, 48].
+Other works aim to represent an object in a bottom-up
+manner. Early bottom-up representations include DPM [ 9]
+and Poselet [ 1]. Recently, bottom-up approaches to object
+detection have been explored with deep networks [ 21, 47].
+CornerNet [21] ﬁrst predicts top-left and bottom-right cor-
+ners and then employs a specialized grouping method [ 28]
+to obtain the bounding boxes of objects. However, the two
+opposing corner points still essentially model a rectangu-
+lar bounding box. ExtremeNet [
+47] is proposed to locate
+the extreme points of objects in the x- and y-directions [ 29]
+with supervision from ground-truth mask annotations. In
+general, bottom-up detectors beneﬁt from a smaller hypoth-
+esis space (for example, CornerNet and ExtremeNet both
+detect 2-d points instead of directly detecting a 4-d bound-
+ing box) and potentially ﬁner-grained localization. How-
+ever, they have limitations such as relying on handcrafted
+clustering or post-processing steps to compose whole ob-
+9658

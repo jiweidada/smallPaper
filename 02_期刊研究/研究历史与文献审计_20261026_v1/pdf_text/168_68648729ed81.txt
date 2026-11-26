@@ -1,0 +1,189 @@
+MI-DETR: An Object Detection Model with Multi-time Inquiries Mechanism
+Zhixiong Nan1, Xianghong Li1, Jifeng Dai2, Tao Xiang1*
+1 College of Computer Science, Chongqing University, Chongqing, China
+2 Department of Electronic Engineering, Tsinghua University, Beijing, China
+nanzx@cqu.edu.cn, 202314021077t@stu.cqu.edu.cn,
+daijifeng@tsinghua.edu.cn, txiang@cqu.edu.cn
+Abstract
+Based on analyzing the character of cascaded decoder ar-
+chitecture commonly adopted in existing DETR-like mod-
+els, this paper proposes a new decoder architecture. The
+cascaded decoder architecture constrains object queries
+to update in the cascaded direction, only enabling object
+queries to learn relatively-limited information from image
+features. However, the challenges for object detection in
+natural scenes (e.g., extremely-small, heavily-occluded, and
+confusingly mixed with the background) require an object
+detection model to fully utilize image features, which mo-
+tivates us to propose a new decoder architecture with the
+parallel Multi-time Inquiries (MI) mechanism. MI mech-
+anism is very simple, enabling object queries to parallelly
+perform multi-time inquiries to learn more comprehensive
+information from image features. Our MI based model,
+MI-DETR, outperforms all existing DETR-like models on
+COCO benchmark under different backbones and train-
+ing epochs, achieving +2.3 AP and +0.6 AP improvements
+compared to the most representative model DINO and SOTA
+model Relation-DETR under ResNet-50 backbone.
+1. Introduction
+The first widely-acknowledged object detection model, Vi-
+ola Jones detector [38], is proposed in 2001. Fueled by
+the remarkable R-CNN [9] and DETR [3], CNN based
+works [1, 5, 19, 22, 30, 31, 37] have significantly pushed
+forward the object detection technique since 2014, and
+transformer based DETR-like models [2, 6, 11–13, 15, 16,
+20, 21, 23, 26, 40–42, 44, 45, 47, 49] further bring the tech-
+nique to a new landscape since 2020. A DETR-like model
+consists of a backbone, a transformer encoder, a transformer
+decoder, and a prediction head. From the perspective of
+function, the backbone and encoder are responsible for im-
+age features extraction, the decoder utilizes image features
+*Corresponding author.
+to adapt to the object detection task ( i.e., “feature utiliza-
+tion”), and the prediction head predicts locations and cate-
+gories of objects.
+This paper attempts to explore a new decoder archi-
+tecture to optimize feature utilization. Each transformer
+decoder layer contains a self-attention (SA), a cross-
+attention (CA), and a feed-forward network (FFN), wh-
+liu2023detectionere object queries are optimized by inter-
+acting with image features. Analogously speaking, it is
+like that a student ( object queries act like a student who
+“knows” nothing or a little about the image at the begin-
+ning decoder layer) asks a question to a teacher (image fea-
+tures could be analogous to a teacher since he “knows”
+all information in the image ) and obtains the image in-
+formation based on the teacher’s answer. Therefore, the
+“SA+CA+FFN” architecture in each decoder layer is anal-
+ogously termed as “inquiry head” in this paper. The trans-
+former decoder of existing DETR-like models adopts the
+“cascaded inquiries” architecture. Object queries continu-
+ously inquire the image features layer by layer to learn the
+gradually-refined information in the cascaded direction.
+The robustness of this decoder architecture has been
+fully validated in previous DETR-like models. However,
+from the perspective of feature utilization, this architecture
+presents a worth-noting character. The representations of
+object queries in the next decoder layer are directly decided
+by that in the current decoder layer [4], thus the update of
+query representations is constrained in the cascaded direc-
+tion, which indicates that the cascaded inquiries architecture
+tends to learn the relatively limited information. In addition,
+excessively refined information learnt in deep decoder lay-
+ers of the same cascaded direction might be redundant or
+even negative. More analysis could be found in experiment
+and discussion sections.
+Due to the diversity and complexity of natural scenes,
+objects might be extremely-small, heavily-occluded, or
+confusingly mixed with the background. To adapt to di-
+verse scenes, it is required to fully utilize image features
+to learn comprehensive information. However, based on
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+4703
+
+
+---PAGE---
+
+Primary Object Query
+Auxiliary Object QueryImage Features
+GTSA+CA+FFN
+(b)
+(a)
+...
+fusion
+Figure 1. (a) We propose the parallel multi-time inquiries mecha-
+nism with parameters-dependent inquiry heads and fusion opera-
+tion in a decoder layer; (b) In recent proposed DETR-like models,
+primary and auxiliary queries are concatenated and inputted to the
+same inquiry head in a decoder layer, thus this kind of parallel ar-
+chitecture is parameters-sharing parallel.
+the above analysis, the cascaded multi-time inquiries archi-
+tecture adopted in existing models tends to learn the rela-
+tively limited information. This motivates us to explore a
+new decoder architecture to optimize feature utilization. In-
+spired by the development of traditional CNN-based meth-
+ods, we have noticed that many methods [17, 34–36, 43]
+enhance feature utilization through reasonable parallel ar-
+chitectures. Therefore, we propose a new decoder archi-
+tecture with the parallel Multi-time Inquiries (MI) mecha-
+nism. As shown in Fig. 1a, the architecture is simple, ob-
+ject queries parallelly perform multi-time inquiries through
+multiple parameters-independent inquiry heads, and the up-
+dated object queries are then fused. The parallel MI mech-
+anism conducts feature utilization in separate branches, al-
+lowing to learn gradually-refined multi-pattern information,
+and these information can be fused to be comprehensive.
+Apart from MI mechanism, we also design a U-like F ea-
+ture Interaction (UFI) module to further improve feature
+utilization, which allows image features at each layer of the
+transformer encoder to serve as Key&Value for the corre-
+sponding decoder layer.
+It is noted that the proposed decoder architecture
+is distinct from the parameters-sharing parallel decoder
+adopted in recent proposed DETR-like models, such as H-
+DETR [15] and Group-DETR [6], whose decoder architec-
+ture is illustrated in Fig. 1b. The differences are mainly
+reflected on two aspects. First, from the perspective of mo-
+tivation, the architecture in Fig. 1b is designed to solve the
+issue of insufficient positive object queries ( i.e. the object
+queries that are supervised by Ground Truths), thus auxil-
+iary object queries and one-to-many supervision are intro-
+duced. Differently, our method is proposed to optimize fea-
+ture utilization by digging multi-pattern information. Sec-
+ond, from the perspective of architecture, primary and aux-
+iliary object queries in Fig. 1b are concatenated together and
+then inputted into the same inquiry head, thus the parame-
+ters are sharing and simultaneously-updating. In our opin-
+ion, this type of parameters-sharing parallel architecture,
+from the perspective of feature utilization, is the pseudo par-
+allel architecture, since sharing parameters make two kinds
+of queries learn the same pattern of information. In contrast,
+our parameters-independent parallel architecture allows ob-
+ject queries to learn multi-pattern information to improve
+feature utilization. More analysis could be found in the dis-
+cussion section.
+The proposed decoder architecture with the parallel MI
+mechanism is simple and friendly, and it can be easily
+plugged into existing DETR-like models. In the exper-
+iments, by plugging into the most representative model
+DINO [44] and SOTA Relation-DETR [12], impressive per-
+formance improvements are obtained, achieving +2.3 AP
+and +0.6 AP improvements, respectively, under ResNet-50
+backbone and the condition achieving convergence. To the
+best of our knowledge, these are the best results among ex-
+isting DETR-like models.
+The contributions are as follows: i) This paper proposes
+a new decoder architecture to optimize feature utilization
+by digging multi-pattern information, and our MI-DETR
+(i.e., Multi-time Inquiries DETR ) achieves the best per-
+formance among existing DETR-like models; ii) The pro-
+posed decoder architecture is simple and friendly to plug
+into existing DETR-like models.
+2. Related Work
+Original DETR [3] suffers from slow convergence, requir-
+ing 500 epochs to achieve 43.3 AP. In recent years, a large
+amount of works have focused on improving detection per-
+formance and accelerating training convergence of DETR,
+bringing the significant performance breakthrough to 51.7
+AP within 12 epochs.
+In the early stage, most methods focus on optimizing the
+representations of object queries. Object queries are learn-
+able vectors that are used to capture information about ob-
+jects in the image. Some works [11, 41, 44, 48, 49] have
+noticed that the design of the initial object queries will sig-
+nificantly impact the convergence speed and propose two-
+stage initialization to select top K encoder features from the
+last encoder layer to enhance the initial object queries. Fur-
+thermore, many studies [14, 20, 23, 26, 46] consider intro-
+ducing prior knowledge into object queries. In addition, the
+attention mechanism is also a key area of interest in early re-
+searches. Cross-attention performs the interaction between
+object queries and image features, which enables the ob-
+ject queries to concentrate on related regions of the image.
+Several methods [7, 8, 40, 42, 49] have optimized the cross-
+attention in decoder to improve the ability of object queries
+to quickly locate relevant regions.
+In the past two years, many researchers have paid atten-
+4704

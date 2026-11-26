@@ -1,0 +1,161 @@
+VistrongerDet: Stronger Visual Information for Object Detection in VisDrone
+Images
+Junfeng Wan1, Binyu Zhang1, Yanyun Zhao1,2, Yunhao Du1, and Zhihang Tong1
+1Beijing University of Posts and Telecommunications
+2Beijing Key Laboratory of Network System and Network Culture, China,
+{wanjunfeng, zhangbinyu, zyy, dyh bupt, tongzh}@bupt.edu.cn
+Abstract
+Existing methods are especially difﬁcult to detect objects
+accurately in videos and images captured by UAV . In the
+work, we carefully analyze the characteristics of VisDrone
+DET 2021 dataset, and the main reasons for the low detec-
+tion performance are tiny objects, wide scale span, long-
+tail distribution, confusion of similar classes. To mitigate
+the adverse inﬂuences caused thereby, we propose a novel
+detector named VistrongerDet, which possesses Stronger
+Visual Information. Our framework integrates the novel
+components of FPN level, ROI level and head level en-
+hancements. Beneﬁtted from the overall enhancements,
+VistrongerDet signiﬁcantly improves the detection perfor-
+mance. Without bells and whistles, VistrongerDet is plug-
+gable which can be used in any FPN-based two-stage detec-
+tors. It achieves 1.23 points and 1.15 points higher Average
+Precision (AP) than Faster R-CNN and Cascade R-CNN on
+VisDrone-DET test-dev set.
+1. Introduction
+Drones, or general UA Vs, equipped with cameras have
+been fast deployed to a wide range of applications, in-
+cluding agricultural, aerial photography, fast delivery, and
+surveillance. Consequently, automatic understanding of vi-
+sual data collected from these platforms become highly de-
+manding, which brings computer vision to drones more and
+more closely [9]. Object detection is the most basic and
+important task which crucially restricts the performance of
+high level visual tasks such as tracking, activity recognition
+and other automatic understanding of visual data, and has
+been a research focus in computer vision.
+The convolution neural network (CNN) has high been
+appreciated in computer vision since its more representable
+features than handcrafted features. A number of detec-
+TinyObjectsWide Scale Span
+Long-TailSimilar Classes
+Figure 1. Challenges of object detection in the VisDrone 2021
+dataset. Objects of the same category are labeled with the same
+color. Several difﬁculties are marked in the ﬁgure.
+tors [14, 32, 23, 35, 42] based on CNN have been pre-
+sented one after another, and have achieved excellent suc-
+cesses on public datasets, e.g., MS COCO [24] and PAS-
+CAL VOC [13]. Although object detection methods based
+on deep learning have made great progress, there are still
+open problems such as small objects, occlusion, and gener-
+alization that need to be solved. In particular, it is especially
+difﬁcult to detect objects accurately in videos and images
+captured by UA V , e.g., VisDrone [44] and UA VDT [11],
+which suffers from a large number of tiny objects, wide
+scale distribution, serious long-tail distribution and difﬁ-
+culty for distinguishing similar categories caused by aerial
+shooting. The object detection on VisDrone DET 2021
+dataset is a challenging visual task with such difﬁculties as
+shown in Figure 1. In this paper, we propose several effec-
+tive strategies to solve the difﬁcult problems in VisDrone
+DET 2021. And we achieved good competition ranking
+2820
+
+
+---PAGE---
+
+Size <2002 2002∼4002 >4002 <322 322∼962 >962
+number 487887 2035 42 306262 159999 23703
+Table 1. The statistics data of all object bounding boxes in VisDrone2021 train&val set. The ﬁrst row represents the object size range and
+the second row shows the number of objects falling within each range.
+in this evaluation task by integrating our strategies into the
+high-performance detectors.
+In VisDrone DET task, tiny objects which size is less
+than 32 pixels and wide scale distribution of objects are two
+problems that must be faced. The pyramidal feature net-
+work (FPN) [22] proposed by Lin et al. could obtain more
+convincing semantic representation and be widely applied
+for object detection. However the general detectors based
+on FPN have poor detection performance for tiny objects in
+VisDrone DET dataset, and FPN features are not sensitive
+to tiny objects, even the bottom level. Furthermore, wide
+scale distribution of objects in VisDrone dataset leads to the
+imbalance of instances in each layer of FPN, and also inﬂu-
+ences the model performance. Inspired by [15], we adopt
+effective fusion factors to avoid the impact caused by the
+imbalance of instances in each layer of FPN. Meanwhile, in
+order to make FPN features of objects more expressive, we
+introduce mask supervision on each layer during the model
+training. We refer to these two strategies as FPN level en-
+hancement.
+In FPN structure, the feature of each ROI is obtained
+by only pooling on the features of one level. However two
+ROIs with similar size may be assigned to different levels by
+the procedure. Then such pooling algorithm may produce
+sub-optimal detections since there is a strong correlation be-
+tween levels, especially adjacent levels. Therefore, we pro-
+pose an Adjacent ROI Fusion (ARF) module to fuse ROI
+features from adjacent levels by parameterizing the proce-
+dure of ROI pooling. We refer to this processing as ROI
+level enhancement.
+The third problem to be solved is the long-tail distribu-
+tion in the VisDrone DET dataset. The ideas of many meth-
+ods for solving long-tail distribution problem come from
+long-tail classiﬁcation. Buda M et al. balanced the differ-
+ences between long-tail categories and head categories with
+more samples for tail classes during training [2]. Cui Y
+et al. settled this problem by assigning large weights for
+tail categories during training [7]. However, these meth-
+ods can only solve some problems, and they may lead to
+over-ﬁtting, even cause optimization difﬁculty. We exploit
+a Dual Sampler and Head Network (DSHNet) [39] to han-
+dle head and tail classes separately. In addition, there exist
+similar categories in the VisDrone dataset, such as pedes-
+trian and people, which are difﬁcult to distinguish for aerial
+shot images. We cleverly add two supervisors to the classi-
+ﬁcation head: multi-label prediction and grouping softmax,
+thereby indirectly avoid modifying the structure of original
+detection network. We term these strategies HEAD level
+enhancement.
+In light of these challenges and the characteris-
+tic of VisDrone dataset, we propose a novel detector
+named VistrongerDet, which possesses Stronger V isual
+Information. Our framework integrates the novel compo-
+nents of FPN level, ROI level and head level enhancements.
+In summary, the main contributions of this paper are as
+follows:
+1) We propose a novel detector (VistrongerDet), en-
+hanced from FPN level, ROI level, and head level re-
+spectively.
+2) Our improvement method is pluggable, and can be
+used in any FPN-based two-stage detectors such
+as [32, 4, 30, 29, 16].
+3) We achieve signiﬁcant improvement compared to the
+benchmark provided by the VisDrone Challenge. Fi-
+nally, our model is ranked 5th in VisDrone-DET2021
+challenge [9].
+2. Related Work
+In the section, an overview of related work is presented
+in response to the proposed research work, which mainly
+includes the following three aspects: general object detec-
+tion, object detection in UA V images and Long-tail object
+detection.
+General Object Detection. The current popular object
+detection frameworks mainly divided into anchor-free and
+anchor-based. Anchor-free approaches focus on detecting
+objects by locating and regressing key points. CornerNet
+detects an object as a pair of key points—the top-left corner
+and bottom-right corner of the bounding box [18]. Where-
+after, grouping the corners based on the distances to get the
+ﬁnal detection results. CenterNet represents objects by a
+single at their bounding box center, and regresses to the
+corresponding size for each object according to the center
+point [42]. ExtremeNet detects four extreme points (top-
+most, left-most, bottom-most, right-most) of an object [43].
+Anchor-based approaches can then be subdivided into one-
+stage and two-stage detectors. SSD [26] and YOLO [31] are
+commonly used one-stage detectors, the mainly advantage
+is fast but without high accuracy. RetinaNet proposes a fo-
+cal loss to solve the problem of imbalance between positive
+and negative samples and difﬁcult and easy samples [23].
+2821

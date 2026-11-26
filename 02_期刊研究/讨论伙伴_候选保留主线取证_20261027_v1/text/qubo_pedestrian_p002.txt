@@ -1,0 +1,98 @@
+(a) (b) (c) (d)
+(e) (f) (g) (h)
+Figure 2. Example usage of our proposed algorithm. The top row
+uses a foreground shape covering approach to produce a large set
+of candidate detections. The bottom row samples from conﬁdence
+maps produced by a sliding window human detector to generate
+candidate detections. In both cases, we perform the same binary
+quadratic optimization procedure to choose the solution set of can-
+didates that maximize a quadratic objective function. (a) fore-
+ground image. (b) candidate detections generated from (a). (c)(d)
+our detection results. (e) sliding window detector conﬁdence map
+(only one scale level shown). (f) candidate detections sampled
+from the conﬁdence map. (g)(h) our detection results.
+candidate detections to optimize the tradeoff between unary
+conﬁdence scores and pairwise overlap penalties.
+2. Related Work
+Object detection has been widely studied and signiﬁcant
+progress has been made in recent years. Of the several
+approaches that have been proposed for detecting pedes-
+trians, one common method uses a pre-trained classiﬁer
+within a sliding window to scan the whole image looking
+for people at all locations and scales. For example, [ 1] pro-
+poses a state-of-the-art human detection method using the
+Histograms of Oriented Gradients (HOG) descriptor and
+SVM as a linear classiﬁer. [ 7] compares this HOG-based
+approach with other methods on large datasets including
+more than 20,000 images, and shows that it outperformed
+other methods. Many variants have been proposed, seek-
+ing improvements through novel features and/or classiﬁers
+[22, 19, 14, 3] or by leveraging feature space transformation
+methods, e.g. Partial Least Squares (PLS) analysis [ 20], for
+feature generation and dimensionality reduction. Since slid-
+ing window methods usually generate multiple overlapping
+detections on a person, the common ﬁnal step is to apply
+non-maximum suppression as an attempt to remove false
+positive detections [9, 11].
+In video, alternative approaches based on motion or
+background subtraction can be used to detect pedestrians.
+One line of work proposes to segment foreground blobs
+into human shapes using an MCMC-based optimization ap-
+proach to determine the number and conﬁguration of over-
+lapping shapes [ 23, 24, 10]. These methods generate good
+results for detection and counting tasks, but the sampling-
+based MCMC search mechanism is very time-consuming.
+We propose to use Quadratic Unconstrained Binary Op-
+timization (QUBO) for pedestrian detection in order to rea-
+son more directly/thoroughly about overlapping detection
+candidates and their associated conﬁdence scores and over-
+lap penalties. Recently, several other papers have also ex-
+plored the application of combinatorial optimization meth-
+ods to the problem of object detection [ 8, 2, 18, 6, 21]. [ 2]
+introduces a uniﬁed model for recognizing multi-class ob-
+ject conﬁgurations by learning the spatial arrangement of
+those objects. A quadratic cost function is used to represent
+criteria relating object conﬁdence, overlapping hypotheses,
+and spatial interactions between pairs of objects from dif-
+ferent classes. [ 18] apply a similar framework to crowd
+scene analysis and integrate it with a term related to crowd
+density. Both of these papers use a heuristic greedy search
+method to seek a solution to the QUBO problem. Another
+heuristic method for solving binary optimization problems
+is Tabu search, a stochastic local search approach which has
+been used in various ﬁelds [ 12, 17], e.g. to solve the multi-
+assignment problem in Intelligent Visual Surveillance [ 5].
+3. Proposed Optimized Detection Framework
+Figure 3 presents a “big picture” overview of how our
+approach would be incorporated into a typical pedestrian
+detection pipeline. Our framework consists of two steps.
+First, an existing pedestrian detector is applied to produce a
+detection conﬁdence score map, or if that is not available as
+output, a set of unﬁltered bounding boxes with associated
+conﬁdence scores. Our method then samples a large but ﬁ-
+nite set of plausible candidates. A unary conﬁdence score
+is computed for each candidate, to represent the quality of
+that proposed detection. Furthermore, for candidates that
+overlap, a pairwise score is computed to specify a penalty
+that will be incurred if both candidates are kept in the ﬁnal
+solution. The purpose of this penalty is to prohibit exces-
+sive amounts of overlap while still allowing some amount
+of reasonable overlap to occur.
+In the second step, unary and pairwise scores are
+grouped into a cost matrix to form the objective function
+for a quadratic unconstrained binary optimization (QUBO)
+problem. In this QUBO problem, the unknown binary vari-
+ables to solve for represent whether to keep or discard each
+pedestrian candidate from the ﬁnal solution set of detec-
+tions. An optimization algorithm is then applied to search
+for an assignment of 0’s and 1’s to candidates yielding a
+high, ideally the maximum, objective function value.
+Section 3.1 discusses generation of candidates and ob-
+jective function scores for two very different types of de-
+tection approach. The ﬁrst is a shape covering approach,
+based on ﬁnding size and placement of a set of pedestrian
+shapes in order to cover the pixels of a foreground mask
+computed by, e.g., background subtraction. The second ap-
+3689
+3689
+3691

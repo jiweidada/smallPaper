@@ -1,0 +1,50 @@
+既有训练视图字段核查与最小data-only范围
+2026-10-27 America/Los_Angeles。状态：字段/源码审查完成；未执行新的变换、支持mask、删除统计、模型或评价。
+这是SNIP原文前提对应的项目材料盘点，不能称已发现训练异常或新主线。
+
+一、50/52/55实际回答过什么
+50_Mosaic固定曝光布局_几何首检协议第7行仅预留“无像素但仍有GT”的单列规则，不能当作实际发生证据。
+52总结的是49原生数据录制及51布局可行性：保持最终保留GT身份，改变源片段容器；不是原标签删除链审计。
+51_mosaic_layout_geometry.py第32–62行重建整张源图的离散支持。pieces.pixels统计整源支持，bounds同时并入该源最终保留GT框范围；不能当作对象可见像素或目标掩码。
+55_global_tight_geometry.json只含现有最终框的全图裁紧尺度与跨4px计数，没有删除目标或逐对象像素映射。
+既有布局/来源mask的阴性仍保留，不能借本前提重启这些公式。旋转AABB几何是否完整覆盖本问句仍须按其具体检查内容判断，二者不可只凭同名合并。
+
+二、49现成缓存的直接字段
+49_augmentation_replay_audit_v4/01_transform_traces.json有256条pre-collate事件；每增强seed128主图，Mosaic为69/62。
+sources：index、image_id、raw_size、file_name、raw_pixel_sha256、raw_GT计数。
+params：实际Resize/Affine/Photo/Flip等调用参数；Mosaic有唯一Affine和至少5次Resize的旧断言。
+final_GT、final_classes、source_ids、final640_sha256：数据样本完成、collate前的结果。
+05_tagged_source_identity.json有最终幸存目标annotation_id、source_image_id、source_slot和最终boxes。
+49脚本第73–85行在原load_item处赋发生唯一标签；第128–129行仅把最终幸存者的元数据写出。没有导出完整初始tag表、每一步删除名单或删除原因。
+但绑定的原始ANN、每次source槽和源图仍在；可用原load_item合法性过滤重建初始GT库存，再与最终幸存者连接。直接保存缺失不等于不可恢复，恢复结果必须另核身份和初始框。
+
+16份seed*_mosaic*.pt是每增强seed前8个Mosaic的pre-collate图像、targets、event。本轮只用ZIP/pickle指令元数据读取第一份，不执行pickle、不加载模型。
+第一份targets字段含boxes/labels/image_id/area/iscrowd/orig_size/idx/mosaic_source_image_ids/size，没有现成逐对象像素掩码或删除清单。
+02_plain_batch_identity有collate后的hash、classes、MixUp权重、shape和RNG hash，但没有直接保存post-collate annotation/source身份表。
+原生MixUp采用前一项roll并按顺序拼接目标，因此这些身份原则上可能从pre-collate标签序列恢复；不可因“未直接保存”断言绝对不可追踪。但post-collate RGB本体不是在49中完整保存，不能跳过像素核验称已有完整对应。
+
+三、实现和配方边界
+绑定resolved.yml中Mosaic use_cache=false，先Resize320再Affine；两次SanitizeBoundingBoxes min_size=1，分别在Flip/Resize640前后。
+Compose在Mosaic样本中跳过ZoomOut/IoUCrop。本候选第一轮不混入其他分支。
+49使用torch2.5.1+cpu、torchvision0.20.1+cpu；数据采集epoch4、128固定主图、增强seed1/2。
+这是一批新开发面板，和旧历史输入不逐像素相同；不能称132轮真实训练历史。当前读到的native副本是可定位源码，不在未核旧清单时声称每字节等同历史版本。
+原始ANN路径：outputs/scale_protection12_20261010_v1/terminal_collection/seed1_target_protect_v1/extracted/reference/train_annotations.json。
+源图D:/数据集/visdrone2019/VisDrone2019-DET-train/images当前可读；配置原件可读。
+
+四、最小data-only判别范围（草案，未冻结/执行）
+限定49已有的每流前8个Mosaic、合计16张快照，固定其原source/GT/RNG/参数，不扩展到全训练或验证集。
+若要用原生数据路径重新记录，必须保留到这些事件为止的必要完整前缀和collate RNG消耗，不能跳过非Mosaic输入后冒称同一随机流。
+先取得源原GT→每个空间操作及两次Sanitize前后→最终保留/删除的发生身份；只作记录，不改变原生目标处理。
+第一道门槛是16张RGB hash、最终boxes/classes、source身份及可核RNG与49逐项一致。任何实现不一致先停，不能把差异判作数据问题。
+再给每个源GT建立保守外包的“原bbox像素足迹”，跟随实际空间变换及插值核。它只是bbox包围区域的几何载体，不是对象分割标注。
+尤其不能用51的整源nearest-ID mask、连续框面积<1、仅AABB投影或简单nearest缩放替代实际RGB各次插值的支持传播。
+只有在明确边界/插值与GT包围前提下，零足迹才是该源bbox区域被消去的证书；非零、保留比例或面积均不能证明对象语义仍可辨。
+对“标签删而足迹非零”，只能列审查候选，需查看原像素和裁断政策；不能把所有片段或暗区判作漏标，更不能直接宣告实际负梯度。
+对“标签留而足迹为零”，也须排除映射实现错误、其他同实例出现和标签语义误读；记录对应阶段与原规则。
+不得从某次目标消失推断它整个训练从未获得正例；也不把SNIP两阶段RPN的ignore阈值套成DETR目标规范。
+这一步只回答原生视图/标签前提是否实际存在；若只发现实现问题则列基线修正，若只有模糊残片则NA，均不自动成为方法主线。
+
+五、BN分支的交叉提醒
+本侧亲读旧D0/87等只有冻结核查前后BN缓冲hash不变；它们不等于已分离动态BN统计或EMA运行缓冲。
+有限旧文档检索没有同一实测证据，不意味着全库已穷尽。根对话正核原文、freeze_norm和EMA源码，本侧不重复执行。
+

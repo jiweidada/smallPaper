@@ -1,0 +1,187 @@
+Binarized Neural Network for Multi-spectral Image Fusion
+Junming Hou1 † Xiaoyu Chen1 † Ran Ran2 † Xiaofeng Cong1
+Xinyang Liu3 Jian Wei You1 ‡ Liang-Jian Deng2 ‡
+1Southeast University 2University of Electronic Science and Technology of China
+3The Hong Kong Polytechnic University
+{junming hou, 213214058 }@seu.edu.cn, ranran@std.uestc.edu.cn, cxf svip@163.com,
+codex.lxy@gmail.com, jvyou@seu.edu.cn, liangjian.deng@uestc.edu.cn
+Abstract
+Pan-sharpening technology refers to generating a high-
+resolution (HR) multi-spectral (MS) image with broad ap-
+plications by fusing a low-resolution (LR) MS image and
+HR panchromatic (PAN) image. While deep learning
+approaches have shown impressive performance in pan-
+sharpening, they generally require extensive hardware with
+high memory and computational power, limiting their de-
+ployment on resource-constrained satellites. In this study,
+we investigate the use of binary neural networks (BNNs)
+for pan-sharpening and observe that binarization leads to
+distinct information degradation across different frequency
+components of an image. Building on this insight, we pro-
+pose a novel binary pan-sharpening network, termed BN-
+NPan, structured around the Prior-Integrated Binary Fre-
+quency (PIBF) module that features three key ingredients:
+Binary Wavelet Transform Convolution, Latent Diffusion
+Prior Compensation, and Channel-wise Distribution Cal-
+ibration. Specifically, the first decomposes input features
+into distinct frequency components using Wavelet Trans-
+form, then applies a “divide-and-conquer” strategy to opti-
+mize binary feature learning for each component, informed
+by the corresponding full-precision residual statistics. The
+second integrates a latent diffusion prior to compensate
+for compromised information during binarization, while the
+third performs channel-wise calibration to further refine
+feature representation. Our BNNPan, developed with the
+proposed techniques, achieves promising pan-sharpening
+performance on multiple remote sensing datasets, surpass-
+ing state-of-the-art binarization algorithms.
+1. Introduction
+High-resolution multi-spectral (HRMS) images have seen
+widespread application in remote sensing, such as map-
+† Equal contribution; ‡ Corresponding authors; The code is available.
+(a) Spatial Real-valued Feature (b) Spatial Binary Feature
+(c) Frequency Real-valued Feature (d) Frequency Binary Feature
+Binarization
+Binarization
+DWT
+HHb
+LHb
+HLb
+LLb
+HL
+LHLL
+HH
+Figure 1. Analysis of the binarization. Given a (a) real-valued
+(i.e., full-precision) feature map, we can observe that: 1) its cor-
+responding binary activation, i.e., (b) spatial binary feature, ex-
+hibits significant degradation. 2) while the frequency binary acti-
+vation, i.e., (d) frequency binary feature, delivers more informa-
+tion, meanwhile different frequency components showcase vary-
+ing responses to binary activation.
+ping services, military systems, and environmental monitor-
+ing, owing to their superior spectral and spatial resolutions.
+Nonetheless, the direct acquisition of HRMS images poses
+significant challenges due to the technical limitations inher-
+ent in current remote sensing sensors. To address this, the
+pan-sharpening technique has been proposed as a reliable
+solution for generating HRMS images by fusing readily ac-
+cessible low-resolution multi-spectral (LRMS) images and
+paired texture-rich panchromatic (PAN) images [7, 30].
+Over the last few years, deep learning (DL)-based meth-
+ods have become the mainstream solutions in the field
+of pan-sharpening, demonstrating notable performance im-
+provements over traditional algorithms [7, 39]. Initiated by
+the inspiration from SRCNN [8], PNN [22] led the way in
+introducing the convolutional neural network (CNN) into
+the pan-sharpening domain. Remarkably, it surpasses tra-
+ditional algorithms significantly, even with a simple three-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+2236
+
+
+---PAGE---
+
+Binary Convolution
+Binary Convolution
+Vanilla BConv Unit
+Proposed BConv Unit
+Full-precision activation
+Binary activation w/ normlization
+Binary activation w/o normlization
+t-SNE of Different Activations
+Figure 2. Left: Comparison between the vanilla binary convolu-
+tion (BConv) unit and the proposed normalized binary convolu-
+tion unit. Our design leverages full-precision residual statistics to
+realign the distribution of binarized features, effectively mitigat-
+ing value discrepancies. Right: t-SNE visualization of different
+activations. It is clear that binary features processed with the pro-
+posed normalization mechanism are tightly clustered with the full-
+precision activations, whereas those without normalization remain
+distinctly separated, highlighting the efficacy of our design.
+layer CNN structure. Following that, PanNet [36] performs
+the pan-sharpening learning using a deeper CNN network
+architecture implemented with residual learning [11]. Since
+then, a flood of complicated network architectures has been
+proposed to enhance pan-sharpening performance. For ex-
+ample, multi-scale architectures [12, 18, 25], adaptive net-
+works [9, 19], spatial-frequency frameworks [13, 43], trans-
+former models [1, 14, 23, 42], and others.
+Our motivation. Although state-of-the-art DL-based ap-
+proaches deliver impressive pan-sharpening performance,
+they typically require substantial computational resources,
+such as high-end GPUs, rendering them impractical for re-
+mote sensing satellites with limited processing and stor-
+age capacities. To address this challenge, we investi-
+gate network binarization as a potential solution for pan-
+sharpening, aiming to reduce computational demands while
+preserving performance levels for deployment feasibility.
+We first analyze the variations in real-valued activations
+after the binarization process. As shown in Fig. 1, the
+binarized features encounter significant information loss
+compared to the full-precision features. Given the pixel-
+level precision required for pan-sharpening, these losses
+normally result in substantial performance degradation.
+Herein, we address this challenging issue from a fundamen-
+tal image processing perspective. Specifically, we investi-
+gate the effects of binarization on different frequency com-
+ponents, recognizing that each component provides unique
+content information. As illustrated in Fig. 1, our analysis re-
+veals that: 1) different frequency components respond dif-
+ferently to binarization; and 2) applying binarization at the
+frequency level preserves a greater amount of feature infor-
+mation. This insight motivates the adoption of frequency-
+wise binary feature learning for pan-sharpening.
+In addition, to address the inherent distributional dispar-
+ity between binarized and full-precision features, we de-
+velop a full-precision statistics normalized binary convolu-
+tion (BConv) unit. As shown in Fig. 2, unlike the conven-
+tional BConv unit, our design introduces a lightweight nor-
+malization step that leverages full-precision residual statis-
+tics to redistribute the binary output, effectively narrowing
+the value gap with minimal computational overhead. The
+t-SNE visualization in Fig. 2 further demonstrates that our
+normalization approach tightly clusters the binary activa-
+tions with their full-precision counterparts, significantly en-
+hancing representational capability. Building on this, we
+propose an effective Binary Wavelet Transform Convolu-
+tion (BWTC) block that allows different frequency com-
+ponents to attain optimal feature learning, tailored to their
+specific characteristics and full-precision statistics. Fol-
+lowing BWTC, we further integrate a latent diffusion prior
+to compensate for the information lost during binarization.
+Lastly, channel-wise attention is introduced to refine the en-
+riched feature representations. With these core innovations,
+BNNPan achieves competitive performance relative to full-
+precision and binary baselines across multiple datasets.
+Our contributions are summarized as follows:
+• We propose BNNPan, a streamlined and efficient binary
+network tailored for remote sensing multi-spectral image
+fusion, delivering promising results with lower computa-
+tional requirements. To the best of our knowledge, this is
+the first attempt to introduce a binary neural network for
+pan-sharpening learning.
+• We devise a novel binary convolution unit by introducing
+a computation-negligible normalization subsequent to its
+vanilla counterpart, which utilizes full-precision residual
+statistics to redistribute the output of binary convolution,
+effectively narrowing the value gap.
+• We introduce a latent diffusion module (LDM) to gener-
+ate comprehensive and compact image feature represen-
+tations, functioning as a degradation-free prior to com-
+pensating for the information lost during the binarization
+process through a three-stage training strategy.
+• Experiments on multiple remote sensing benchmark
+datasets show that the proposed BNNPan outperforms
+state-of-the-art binary neural networks.
+2. Related Work
+2.1. Deep Learning-based Pan-sharpening
+Over the past years, deep learning technology has made im-
+pressive strides across various low-level vision tasks [5, 8,
+10, 27, 41]. These significant advantages have also per-
+meated pan-sharpening and have taken a leading role in
+this field. PNN [22] stands as a pioneering effort, utiliz-
+ing a straightforward three-layer CNN architecture that per-
+forms competitively with traditional algorithms. Following
+2237

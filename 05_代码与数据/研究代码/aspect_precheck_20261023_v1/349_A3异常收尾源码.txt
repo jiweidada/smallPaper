@@ -1,0 +1,95 @@
+"""Read-only recovery of A3 seed2 raw forwards after strict 343 rejected geometry.
+Retain all predictions and invalid boxes as diagnostic data; do not evaluate them.
+"""
+import importlib.util
+from pathlib import Path
+p = Path(r'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\aspect_precheck_20261023_v1')
+sp = importlib.util.spec_from_file_location('aspect349', p/'349_precheck.py')
+C = importlib.util.module_from_spec(sp)
+sp.loader.exec_module(C)
+C.sys.stdout.reconfigure(encoding='utf-8')
+prepared = C.prepare()
+binding, cohort, dataset, by, checkpoints, reference, data_root = prepared
+binding_sha = C.sha(p/'349_inputs.json')
+C.require_A0(binding_sha)
+model = C.S.load_real_model(checkpoints[2]['path'])
+C.COUNTS['model_loads'] += 1
+assert model.encoder.eval_spatial_size == model.decoder.eval_spatial_size == [640,640]
+model.encoder.eval_spatial_size = None
+model.decoder.eval_spatial_size = None
+assert all(x.device.type == 'cpu' and not x.requires_grad for x in model.parameters())
+before = C.state_sha(model)
+C.write(p/f'349_model_load_seed2_A3_recovery_{C.uuid.uuid4().hex}.json',
+        {'seed':2,'arm':'A3','utc':C.now(),'binding_sha256':binding_sha,'state_sha':before,
+         'purpose':'Complete missing raw forwards; preserve strict postprocessing failure'})
+literal_rows, invalid, geo0, image_records, artifacts = [], [], set(), [], {}
+selected_ids = set(cohort['T']) | set(cohort['S'])
+for position, im in enumerate(dataset['images'],1):
+    e, rp = C.raw_entry(2,'A3',im,model,binding,binding_sha,data_root)
+    artifacts[str(rp)] = C.sha(rp)
+    boxes, logits = e['final300_boxes'], e['final300_logits']
+    xyxy = C.G.global_queries_to_orig_xyxy(boxes,e['orig_wh'])
+    scores, indices = logits.sigmoid().flatten().topk(300)
+    queries, labels = indices//10, indices%10
+    selected, counts = [], {}
+    for i in (scores > .001).nonzero().flatten().tolist():
+        label = int(labels[i])
+        if counts.get(label,0)<100:
+            selected.append(i)
+            counts[label] = counts.get(label,0)+1
+    selected = C.torch.tensor(selected,dtype=C.torch.long)
+    coords = xyxy[queries[selected]]
+    xywh = C.torch.cat((coords[:,:2],coords[:,2:]-coords[:,:2]),-1)
+    rows = [{'image_id':int(im['id']),'category_id':int(label),'bbox':b.tolist(),'score':float(score)}
+            for label,b,score in zip(labels[selected],xywh,scores[selected])]
+    bad = (xywh[:,2:]<=0).any(1)
+    if bad.any():
+        try:
+            C.F.fuse({'final300_boxes':boxes,'final300_logits':logits,'orig_wh':e['orig_wh'],
+                      'window_xyxy_640':C.torch.tensor([0.,0.,64.,64.])})
+        except AssertionError as ex:
+            assert str(ex)=='expected positive xyxy edges'
+        else:
+            raise RuntimeError('Diagnostic found invalid rows but strict 343 did not reject')
+        invalid.append({'image_id':im['id'],'bad_selected_rows':[
+            {'rank_after_filter':j,'query_index':int(queries[selected[j]]),
+             'flatten_index':int(indices[selected[j]]),'normalized_cxcywh':boxes[queries[selected[j]]].tolist(),
+             'row':rows[j]} for j in bad.nonzero().flatten().tolist()]})
+    else:
+        out,_ = C.F.fuse({'final300_boxes':boxes,'final300_logits':logits,'orig_wh':e['orig_wh'],
+                         'window_xyxy_640':C.torch.tensor([0.,0.,64.,64.])})
+        assert rows == C.F.coco_rows(im['id'],out)
+    literal_rows.extend(rows)
+    items = [a for a in by[im['id']] if a['id'] in selected_ids]
+    if items:
+        b = C.torch.tensor([a['bbox'] for a in items],dtype=C.torch.float64)
+        gt = C.torch.cat((b[:,:2],b[:,:2]+b[:,2:]),-1)
+        queries_all = C.G.global_queries_to_orig_xyxy(boxes.double(),e['orig_wh'])
+        mx = C.G.pairwise_iou(queries_all,gt,allow_raw_a=True).max(0).values
+        geo0.update(a['id'] for a,v in zip(items,mx.tolist()) if v<.5)
+    image_records.append({'image_id':im['id'],'forward_seconds':e['forward_seconds'],'diagnostic_rows':len(rows)})
+    if position%64==0 or position==548:
+        C.say({'event':'A3_raw_recovery','images':position,'of':548,
+               'new_forwards':C.COUNTS['forwards'],'invalid_images':len(invalid)})
+after = C.state_sha(model)
+assert before==after and all(x.grad is None for x in model.parameters())
+diagnostic = p/'349_A3_seed2_候选预测_含非正框_仅诊断.json'
+C.write(diagnostic,literal_rows)
+artifacts[str(diagnostic)] = C.sha(diagnostic)
+groups = {name:{'n':len(ids),'Geo0':len(set(ids)&geo0),'TP_at_0p5':None}
+          for name,ids in {'T':cohort['T'],'S':cohort['S'],**cohort['T_width_bins']}.items()}
+report = {'status':'raw_complete_strict_postprocessing_invalid','seed':2,'arm':'A3','shape_WH':[960,544],
+          'images':548,'binding_sha256':binding_sha,'invalid_images':invalid,
+          'invalid_selected_row_count':sum(len(x['bad_selected_rows']) for x in invalid),
+          'cohorts':groups,'stats12':None,'T_matched_prediction_width_orig_median':None,
+          'unavailable_reason':'343_fusion.fuse rejects selected query boxes with nonpositive width/height. No filtering/clipping/precision changes.',
+          'diagnostic_candidates_file':str(diagnostic),'CPU_forward_seconds':sum(r['forward_seconds'] for r in image_records),
+          'counts_this_recovery':dict(C.COUNTS),'total_seed2_A3_raw_forwards':548,
+          'total_seed2_A3_model_loads':len(list(p.glob('349_model_load_seed2_A3_*.json'))),
+          'state_sha_before':before,'state_sha_after':after,'all_grad_none':True,
+          'per_image':image_records,'artifact_sha256':artifacts,'source_sha256':C.local_sources(),
+          'recovery_source_sha256':C.sha(p/'349_A3异常收尾源码.txt')}
+C.sealed_json(p/'349_A3_seed2_异常与原始前向完成.json',report)
+C.say({'event':'raw_complete_strict_invalid','invalid_images':len(invalid),
+       'invalid_selected_rows':report['invalid_selected_row_count'],'cohorts':groups,
+       'recovery_counts':C.COUNTS})

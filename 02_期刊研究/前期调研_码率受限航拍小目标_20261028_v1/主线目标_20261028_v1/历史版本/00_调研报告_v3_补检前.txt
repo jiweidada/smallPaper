@@ -1,0 +1,285 @@
+码率受限的无人机航拍小目标检测：选题收敛、近邻方法与继续价值
+定向前期调研报告 v3（新增FSIC/PDAD正文通读与YOLO26源码核查）
+日期：2026-10-28（America/Los_Angeles）
+工作方式：academic-research-suite / deep-research；单助手检索与综合。
+交付范围：调研报告与未来验证设计。本轮没有运行检测实验。
+
+证据标记
+【原文】已取得文献中实际读到的结论/设定；不是对论文结果的独立复现。
+【推断】由这些证据作出的研究判断，不能写成文献已经证明的结论。
+【假设】需要未来数据或实验才能成立的命题。
+【方案】尚未执行的验证安排，不是实验结果或已获准启动的任务。
+文献编号R1–R20对应第7、9、10、11部分和01_核心文献矩阵.txt。04是早期主线答复，06是本次全文/源码核查，07/08是最新最小验证设计。
+
+0. 先给判断：值得保留问题，尚不足以确认一条可发表的算法主线
+
+【原文】这件事已经有人做过，而且不止一种路线：R3研究无人机JPEG图像的检测退化；R1在VisDrone上做固定JPEG载荷的接收端恢复；R2直接针对小目标设计检测感知压缩；R5改进航拍检测的损坏鲁棒性；R4已经用普通压缩图像重训练缓解退化。
+
+【推断】因此，“压缩伤害小目标→加恢复/边缘模块→检测提升”不能当作本论文的新问题或新贡献。“原图教师指导压缩输入学生”“前景加权蒸馏”“保高频用于检测”也都有明确先例。换成DEIM、YOLO新版本或换数据集，不会自动产生方法新颖性。
+
+【推断】当前值得继续的窄问题是：在相同传输文件和受控训练预算下，普通压缩增强、检测器适配、接收端恢复各自解决了哪些漏检；强基线之后，是否还存在与压缩有关、不能只由目标尺寸或一般难例解释的剩余失败。现有可读证据没有把这个比较闭合，但这个比较缺口本身还不是算法创新。
+
+当前建议：有条件保留，先不进入新模块开发。若未来普通增强/简单编解码选择已解决主要退化，或候选方法无法超过普通蒸馏，就停止这条算法路线。当前不能承诺它能支撑某级别期刊，也不能承诺最终会出现正结果。
+
+0.1 数据集、算法和主线的具体建议
+
+研究对象：真实无人机采集的RGB航拍图像中的小目标检测；以单帧有损压缩为边界。
+主数据集：暂建议VisDrone2019-DET。理由是R1/R2/R3/R5均有直接近邻、可作严格比较，且项目已有相关配置与日志，能减少无关迁移成本。选择依据是问题与对照，不是预先限定数据集。
+第二数据域：若方法先通过主数据集的淘汰条件，再考虑UAVDT车辆检测。其视频帧相关性和ignore规则须另核；不把它当无压缩/压缩配对数据。当前未读取其图像或测试集。
+开发检测器（本轮更正）：优先建议YOLO26s、固定640输入；YOLOv8s作为可选跨版本参照。YOLO26已有公开代码/模型，STAL直接面向小目标正样本覆盖，JCRR也使用YOLO26s。此前偏向YOLOv8s的工程理由不足以排除YOLO26。具体版本/权重/训练配方/推理路径需冻结，尚未实测航拍压缩效果和训练成本，见05_YOLO26选择与选题来源说明.txt。
+现有DEIM：可作为后续跨架构复核候选。已读到132轮基线配置/日志的存在，不等于本轮核实了全部权重、代码和当前GPU预算。它不构成本方向必须使用DETR/DEIM的理由。
+候选主线：优先考察训练监督如何适应压缩造成的实例差异，而不是默认在推理前加一个恢复网络。第5部分给出候选增量，但尚未批准其中任何一个为已成立创新。
+资源条件：用户追加确认“单卡约24GB，训练时间可接受数天”。这是后续规划上限；具体GPU型号、吞吐和可用环境没有实测，不承诺完整投稿矩阵都能在该时间内完成。
+目标期刊：未指定，本报告不猜测录用概率或替用户固定投稿档次。
+
+1. 检索策略与实际记录
+
+1.1 研究问题已由用户确认
+“码率受限的无人机航拍小目标漏检：普通压缩增强、检测器适配和图像恢复分别能解决到什么程度？”
+用户确认原话：“以此问题做定向前期调研”。采用非系统综述的定向检索，不宣称穷尽所有论文。
+
+子问题
+Q1：哪些直接UAV文献确认了压缩退化，小目标和码率如何定义？
+Q2：恢复器带来的收益，是否可能通过普通压缩训练或已有适配方法获得？
+Q3：强对照之后还剩什么具体失败，可能需要哪一种新增算法作用？
+Q4：在发送端也可以改变时，WebP、分辨率取舍或已有任务压缩会不会更合适？
+
+1.2 检索范围与检索式
+渠道：网页学术检索；回到CVF/ECVA、arXiv、期刊出版商和作者官方项目核对。未登录检索Scopus、Web of Science等订阅数据库，不生成虚假的数据库命中量或PRISMA流程图。
+核心检索结构：
+(UAV OR drone OR aerial) AND (object detection OR small object OR tiny object)
+AND (JPEG OR image compression OR bitrate OR coding for machines)
+再分别增加 augmentation / retraining / adaptation / restoration / knowledge distillation / task-aware / frequency 等机制词。
+追溯方式：先查直接UAV证据，再顺引/逆查接收端恢复、任务压缩和像素域到压缩域知识迁移；核查2025/2026近邻；最后检索候选增量的机制重叠。
+
+实际查询例（完整逐条记录见02_检索与证据记录.json）
+“UAV aerial small object detection JPEG compression bitrate benchmark”
+“object detection” “compression robustness” “training” JPEG
+“small object detection” “image compression” algorithm
+“UAV” “task-aware” “compression” detection
+“JPEG” “object detection” “knowledge distillation” compression
+“object detection” “cross-quality” distillation
+“FSIC: Frequency-separated image compression for small object detection” authors code
+“Masked Feature Compression for Object Detection”
+以及文献准确标题、DOI和出版商站点的定点查询。
+
+纳入：直接UAV图像检测的压缩/鲁棒性研究，以及能否定宽泛创新主张的相关算法先例。
+区分：一般COCO、热红外、视频编码、实例分割作为相邻证据，不能替代RGB UAV小目标实证。
+排除核心证据：网络参数压缩/剪枝/INT8等与图像传输压缩混同的结果；纯卫星图像；反无人机目标识别；纯分割；水下检测；没有原始论文支撑的商业生成报告和社区个例。
+
+1.3 访问失败与阅读边界
+初始一批查询连接失败，已保留失败记录；失败不是“没有相关研究”。MDPI和ScienceDirect多次出现403/429/503，部分下载出现TLS EOF。JCRR后来取得出版商PDF；RD-MIM通过出版商提供的CDN取得PDF；Varga取得的是arXiv v2，不冒充正式期刊全文。
+R2与R16已取得用户提供PDF并通读正文；R16为接收稿，其实验协议存在前后冲突，见06核查报告。R3、R7、R13、R14、R18仍主要依据出版商可检索选段。R9、R10、R12论文仅摘要/元数据，矩阵明确标注。R20为官方摘要/推理段/作者README有限选读。R11为官方摘要及数据集说明选段；R15、R17为摘要/方法图说明等有限选读。没有把下载、自动提取或检索命中写作全文阅读。
+本报告据此能确认已有路线及明显重叠，不能证明某个极细的候选机制“从未有人研究”。
+
+2. 核心文献矩阵（摘要表；完整字段见01_核心文献矩阵.txt）
+
+编号 | 研究位置 | 对本选题的约束 | 实际阅读范围
+R1 JCRR，2026 | VisDrone接收端恢复 | 固定JPEG后恢复已有直接结果 | 出版商PDF方法/表2–3/讨论选读，表格目视核对
+R2 FSIC，2025 | 小目标任务感知压缩 | 单套codec，全图MSE+高频检测loss，检测器冻结 | 用户PDF正文p1–8通读，p3–8公式图表目视
+R3 YOLO/JPEG UAV，2026 | UAV压缩退化分析 | 小目标更敏感、比较YOLO已有人做 | 出版商§2–4及结论选段；非全文
+R4 Lost in Compression，2022 | FLIR压缩训练对照 | 普通重训练是必要强基线 | PDF p1、p4–5；表6目视核对；非UAV RGB
+R5 RD-MIM，2024 | 航拍损坏鲁棒训练 | 航拍检测训练侧改进已有压缩列结果 | HTML方法/实验选读，PDF表5目视核对
+R6 TransTIC，2023 | 任务驱动学习式编码 | 少量可训练参数适配固定codec已有先例 | PDF §3–4选读，方法图目视核对；COCO
+R7 Pixel→compressed KD，2026 | HEVC删残差+跨域蒸馏 | 原图教师指导压缩学生已有直接先例 | 出版商/PMC方法实验选段；非全文
+R8 UAV pipeline，2022 | 压缩/分辨率/整管线 | 简单输入参数选择不可遗漏 | arXiv v2的相关章节及图7；非正式期刊全文
+
+辅助方法查重：R9 FGD已处理前景/背景、关键像素和全局蒸馏；R13已有对象mask特征压缩；R14已有像素域到压缩latent域的输出/特征迁移。R10是检测损坏基准背景，R11支持第二UAV数据域选择，R12用于限定单帧与视频编码的边界。
+
+3. 与最接近工作的逐项比较
+
+3.1 R1 JCRR是“JPEG固定载荷+恢复”最直接的近邻
+
+比较维度 | R1已经做到 | 对候选论文的要求
+作用位置 | 标准JPEG解码之后恢复，再交给固定检测器 | 不能把同一接口和轻量恢复包装为新问题
+发送端/传输 | JPEG文件不变；恢复输出不计入传输字节 | 若声称同载荷，必须实际共享同一文件；恢复计算仍要计成本
+方法 | BRR残差恢复；SPRR多一个归一化Sobel输入；共同重建/边缘损失 | “加边缘输入/边缘损失”已经覆盖
+训练 | 恢复器在Q20图对训练；没有检测器梯度/检测损失参与恢复训练 | 加检测损失可形成不同实验，但任务驱动优化已有R2/R6先例
+下游检测器 | 固定YOLO26s；另有YOLO26n检验 | 不能批评它“只有一个检测器”；它仍未直接回答压缩专门训练后的比较
+小目标 | letterbox到640后按面积<32²定义，conf≥0.25、同类IoU≥0.5的匹配召回 | 该数不能改名为标准原图COCO AP_s
+码率 | JPEG/恢复精确共享载荷；WebP只取邻近码率点 | 不能据此做严格跨codec排名
+成本 | 约62 FPS是恢复模型FP32前向，不含解码/检测/通信 | 不可当整套无人机链路的实时证据
+外推 | 单VisDrone验证集，两个YOLO尺寸 | 换第二数据集/架构是验证增强，不能单独构成新算法
+
+【原文】R1 Table 2/3中的主要结果如下（均为论文数值，未复现）：
+Q值 | JPEG bpp | JPEG mAP50 | SPRR mAP50 | JPEG小目标匹配召回 | SPRR小目标匹配召回
+15 | 0.3190 | 0.3566 | 0.3768 | 0.3980 | 0.4088
+20 | 0.4085 | 0.3722 | 0.3889 | 0.4162 | 0.4247
+25 | 0.5192 | 0.3737 | 0.3958 | 0.4170 | 0.4288
+小目标结果按R1的letterbox口径，不是本项目已验证结果。
+
+【推断/表中算术】不能把SPRR相对JPEG的全部提升归于Sobel设计。按表2所列精度，SPRR相对ARCNN的mAP50优势约0.26、0.09、0.28个百分点；相对BRR约0.02、0.00、0.08个百分点。表中四舍五入不证明真实差异恰为零。它提示的是：恢复已经有贡献，但额外边缘设计的增量很有限，不能据大幅“对JPEG提升”来支持另一个边缘模块。
+
+【推断】R1未直接比较“普通混合压缩训练的检测器”与恢复路线，这是真实的比较缺口；它没有证明恢复优于适配，也没有证明适配足以替代恢复。固定检测器的实验设定是其研究范围，不是实验错误。
+
+3.2 R2 FSIC：全文确认的是codec训练，不是JPEG后处理
+
+【原文，p3–6】单套学习式codec使用全图MSE和重建高频分量检测loss，YOLOv5s预训练300轮后冻结，梯度仍可传至codec；不是双码流。先缩到640再编码，正式主要报告总体mAP@0.5。p7表5是相近文件大小，不能说严格同bpp；表6是编码耗时。p3原始高频重组是借原图信息的诊断，不是同载荷可部署恢复器。
+【推断】高频/边缘与检测感知编码已经有明确先例；发送端接口与JPEG后处理不同，但用户未限定必须JPEG，不能人为用兼容性绕过该工作。
+【仍未充分说明】FSIC自身训练总轮数、高频数值处理、resize细节与作者代码；详见06，不代填。现在已经取得并阅读正文，不再沿用早期“未拿到全文”的状态。
+
+3.3 训练侧同样有直接/相邻先例
+
+【原文】R4 Table 6在FLIR Q15上，Cascade R-CNN由原图训练/压缩测试的0.623，变为同Q压缩训练/测试的0.749。其tiny与small定义有包含关系，且结果来自热红外，不可直接外推RGB UAV。
+【原文】R5 Table 5的compression列，VisDrone FRCNN从19.1升至22.7 AP；它是航拍训练鲁棒性的直接先例，不是实际bpp曲线，也不是专门小目标AP。不能把其多种损坏的平均相对增益写成JPEG增益。
+【原文】R7已有像素域教师指导压缩域检测学生的特征/输出迁移。R9和R14进一步覆盖前景加权、全局关系、像素到压缩表征迁移等宽泛思路。
+【推断】普通重训练、混合质量增强、普通前景蒸馏都应被视为对照；候选算法必须说明其额外作用，不能把域迁移本身叫新颖性。
+
+3.4 不能直接横向排列论文AP
+
+R1的small按640输入面积，R3结论按少于200像素刻画，R4 tiny≤20²且属于small；这些口径不同。R3还存在IoU=0.1、conf=0.1与mAP0.5:0.95同时出现的描述，需区分匹配、NMS及AP程序各自设置，不能武断认定其mAP错误，也不能照抄成统一评估。
+R1固定载荷的后处理、R2重设codec、R7改变HEVC编码/部分解码、R13传特征的系统权限不同。各自的参数量、FPS、bpp和AP没有统一协议，不能拼成“我们的潜在方法优于它们”的排行榜。
+
+3.5 新增全文核查后的训练侧近邻
+
+【原文】LAD已有教师指导标签分配，GID已有实例选择蒸馏。PDAD正文明确DP参数预测与条件IRB恢复辅助训练，部署移除二者；式1–8未给出可还原的固定干净图检测教师特征/logit损失。接收稿p6–7出现两套退化范围和人脸/微表情训练叙述冲突，降低复现可确定性，不据此否定全部结果。AERIS[R20]也已有恢复辅助训练与推理不显式重建。
+【推断】“按实例蒸馏”“退化感知”“训练辅助、推理去分支”均不能单独成为贡献。PDAD不易直接复现并不降低我们的查重标准。仍未核到直接UAV同码流、同版本、同预算下恢复对已适配检测器互补性的完整对照；这只是局部证据缺口。
+更新状态：VisDrone2019-DET + YOLO26s；具体算法增量仍未确定。06给出逐项核查，07给出两阶段最小验证设计，当前没有新模型诊断结果。
+
+4. 有依据的研究空白，以及还没有被证明的部分
+
+G1：直接UAV近邻中，同文件且适配后的恢复互补性尚未闭合。
+【依据】R1直接比较接收端恢复；R4说明简单适配有效；R5说明航拍训练侧已有提升；R2/R6说明编码端也能受任务驱动。
+【推断】在同一JPEG载荷、同版本、同预算下，检测器适配后恢复是否仍互补，值得验证；不是声称全领域从未比较适配与恢复，AERIS已有相邻比较。此缺口本身不能单独支撑算法改进论文。
+
+G2：强基线后的小目标剩余失败是否具有压缩特有结构，尚未建立。
+【依据】R1主要提供全局指标和尺寸组匹配召回；R3给出压缩/尺寸退化趋势；R5有compression整体AP。它们不能直接给本项目生成实例级原因。
+【假设】同类、同尺度、相似原图检测难度的目标，可能仍因局部压缩敏感性不同而出现不同退化；现有监督可能未利用这种差异。此假设必须排除“只是小目标”“只是低置信度”“只是类别/背景不同”这些解释。FSIC全文未取得，也不能据这些已读内容断言整个领域无人分析实例差异。
+
+G3：按码率、精度和计算成本共同判断方法是否值得，证据仍不闭合。
+【依据】R1自己限制了FPS范围且WebP未精确等码率；R8已强调分辨率/压缩的管线取舍。
+【推断】只报PSNR提升、一个Q值的AP提升或恢复器前向速度，不足以说明实际收益。若发送端可改，简单WebP或分辨率重分配可能比新增网络划算。这是必须加入的淘汰对照，不是本论文已发现的优越算法。
+
+明确不能声称的空白：
+“无人机小目标压缩检测没人做”；“现有方法不保留高频”；“没有把蒸馏用于压缩输入”；“换成DEIM就是首次”；“低Q观察到掉点就证明有算法创新空间”。
+
+还缺的项目条件：实际通信字节/带宽约束、是否必须保持JPEG、接收端计算限制、具体GPU型号及可复现代码。用户已给24GB单卡/数天的规划边界；其余未给条件不能用一个合成QF替代，本轮不猜填。
+
+5. 候选增量、可行性和风险
+
+候选A：用实例的压缩稳定性分配训练中的附加监督；仅是假设卡，尚未通过PDAD/GID等近邻的精确差异核查。
+【假设】均匀特征/输出对齐可能把已经受损的局部外观也强行对齐；若存在稳定且可解释的实例差异，可以仅调整蒸馏/一致性项的权重，保留全部GT检测监督。
+具体算法接口：训练时使用源参考图与其压缩版本、GT，以及固定教师在对应目标上的预测稳定性；比较同一个目标跨压缩条件的响应，而不只按源图置信度或框面积加权。推理仍使用普通检测器，不要求额外恢复图像或读取GT。
+可能的增量在哪里：若有效，应体现在“压缩条件造成的相对监督变化”有用，且超出普通压缩增强、FGD式前景权重、一般置信度权重和面积权重。不能以“用了蒸馏”作为贡献。
+主要风险：教师失稳不等于目标视觉信息不可恢复；教师错误可能被传递；降低困难目标的附加权重可能只是偏向容易样本；可靠性加权本身已有广泛相关研究，本次检索尚不足以确认其精确新颖性。不能删掉低可见目标的GT来制造召回提升。
+可行性判断：比重新学习整个codec更接近检测算法改进；但训练期教师前向、配对输入及权重估计的成本必须计入，不能称“免费”。当前不建议写损失公式和搭模块，先证明G2。
+
+候选B：用真实JPEG量化条件驱动检测器的轻量适配；仅作为待查备选，不与A叠加，也尚未通过已有退化感知方法的差异核查。
+【假设】仅靠图像级QF混合训练，可能未充分利用编码条件和输入尺度；量化表/采样方式等信息可能帮助一个小适配层或条件化归一化。
+可能的增量在哪里：必须证明它能在未训练质量/编码器上超过“质量数值条件化”和普通混合增强，而不是只多几个参数。JPEG Q不是跨编码器通用尺度。
+主要风险：质量感知和条件化适配不是新概念；量化表可能只是数据来源标签；对不同codec不自然通用；额外参数和统计更新可能解释收益。没有真实部署元数据约束时，其必要性偏弱。
+可行性判断：工程上可能小，但本轮证据不足以把它列为可靠创新。A若失败，不应自动改做B以延长项目。
+
+不保留为独立创新的方案：再加Sobel/高频分支、普通原图教师蒸馏、恢复器加检测loss、前景mask压缩、简单更换骨干。R1/R2/R6/R7/R9/R13/R14已经覆盖其中关键概念。它们可以是强基线或组件，不能靠拼接证明新颖性。
+
+投入建议：目前只值得为候选问题保留位置，不值得直接投入整套大训练矩阵。A/B的宽泛新颖性已受到追加文献明显约束；只有先建立剩余问题、再核清精确方法差异，才有资格重新评估立项。若只有比较表、没有区别于先例的机制和稳定收益，交付应止于技术报告或负结果，不强写创新。
+
+6. 最小验证设计（本次已细化；未执行）
+
+见07_VisDrone_YOLO26s最小验证方案.txt与08_最小验证参数.json。固定VisDrone fit6171/dev300/val548、YOLO26s、v8.4.191 commit2004cba021c68a46429be460e26954ab171b2862、640输入。
+阶段A只做D0原始训练与DA随机JPEG训练，两种配方各seed0/100轮；Q15/Q20/Q70及reference，附WebP/缩放JPEG淘汰控制。只有留下明确问题才做一个已有BRR恢复器，分别检查对D0/DA的收益。100轮是问题筛选预算，不是已证充分收敛。
+共享原始分辨率JPEG文件与真实字节；固定one2many+NMS；明确ignore政策、输入小目标AP与配对漏检分析，不混称官方挑战AP或原图标准AP_s。单seed不能证明可发表效果。
+设计不构成自动执行授权，本轮无模型/训练/推理/新数据压缩评价。协议或收敛不成立时记为无法判定，不强凑模块。
+
+7. 可核验参考文献与链接
+
+[R1] Wang, L., & Zhang, H. (2026). Designing a JPEG-compatible receiver-side residual refinement pipeline for unmanned aerial vehicle image transmission and object detection. Design+, 3(3), 026260029. https://doi.org/10.36922/DP026260029
+出版商：https://accscience.com/journal/DP/articles/online_first/8498
+
+[R2] Dai, C., Song, T., Chen, Q., Gong, H., Yang, B., & Song, G. (2025). FSIC: Frequency-separated image compression for small object detection. Digital Signal Processing, 156, 104822. https://doi.org/10.1016/j.dsp.2024.104822
+出版商：https://www.sciencedirect.com/science/article/pii/S1051200424004470
+注意：卷期为2025；DOI中的2024不等于卷期年份。现已读用户提供的出版商PDF正文p1–8。
+
+[R3] Tsekhmystro, R., Lukin, V., & Krytskyi, D. (2026). YOLO-based object localization and classification in UAV images compressed by JPEG. Computation, 14(9), 206. https://doi.org/10.3390/computation14090206
+出版商：https://www.mdpi.com/2079-3197/14/9/206
+
+[R4] Bhowmik, N., Barker, J. W., Gaus, Y. F. A., & Breckon, T. P. (2022). Lost in compression: The impact of lossy image compression on variable size object detection within infrared imagery. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (PBVS), 369–378.
+官方作者版：https://openaccess.thecvf.com/content/CVPR2022W/PBVS/papers/Bhowmik_Lost_in_Compression_The_Impact_of_Lossy_Image_Compression_on_CVPRW_2022_paper.pdf
+
+[R5] Sun, X., Yu, Y., & Cheng, Q. (2024). Robust and discriminative feature learning via mutual information maximization for object detection in aerial images. Computers, Materials & Continua, 80(3), 4149–4171. https://doi.org/10.32604/cmc.2024.052725
+出版商全文：https://www.techscience.com/cmc/v80n3/57863/html
+
+[R6] Chen, Y.-H., Weng, Y.-C., Kao, C.-H., Chien, C., Chiu, W.-C., & Peng, W.-H. (2023). TransTIC: Transferring transformer-based image compression from human perception to machine perception. Proceedings of the IEEE/CVF International Conference on Computer Vision, 23297–23307. https://doi.org/10.1109/ICCV51070.2023.02129
+官方作者版：https://openaccess.thecvf.com/content/ICCV2023/papers/Chen_TransTIC_Transferring_Transformer-based_Image_Compression_from_Human_Perception_to_Machine_ICCV_2023_paper.pdf
+
+[R7] Dikyar, S., & Toreyin, B. U. (2026). Efficient object detection in compressed domain by exploiting knowledge distillation from pixel domain. Journal of Imaging, 12(7), 325. https://doi.org/10.3390/jimaging12070325
+出版商：https://www.mdpi.com/2313-433X/12/7/325
+
+[R8] Varga, L. A., Koch, S., & Zell, A. (2022). Comprehensive analysis of the object detection pipeline on UAVs. Remote Sensing, 14(21), 5508. https://doi.org/10.3390/rs14215508
+本轮实际读到的版本：https://arxiv.org/abs/2203.00306v2
+注意：方法阅读与图号锚定v2；不能引用为已逐页核对正式期刊版。
+
+[R9] Yang, Z., Li, Z., Jiang, X., Gong, Y., Yuan, Z., Zhao, D., & Yuan, C. (2022). Focal and global knowledge distillation for detectors. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 4643–4652.
+CVF官方元数据：https://openaccess.thecvf.com/content/CVPR2022/html/Yang_Focal_and_Global_Knowledge_Distillation_for_Detectors_CVPR_2022_paper.html
+仅摘要；页码采用CVF作者版，未猜填DOI。
+
+[R10] Michaelis, C., Mitzkus, B., Geirhos, R., Rusak, E., Bringmann, O., Ecker, A. S., Bethge, M., & Brendel, W. (2019). Benchmarking robustness in object detection: Autonomous driving when winter is coming. NeurIPS Workshop on Machine Learning for Autonomous Driving. https://arxiv.org/abs/1907.07484
+仅摘要与元数据。
+
+[R11] Du, D., Qi, Y., Yu, H., Yang, Y., Duan, K., Li, G., Zhang, W., Huang, Q., & Tian, Q. (2018). The unmanned aerial vehicle benchmark: Object detection and tracking. European Conference on Computer Vision, 370–386.
+官方元数据：https://www.ecva.net/papers/eccv_2018/papers_ECCV/html/Dawei_Du_The_Unmanned_Aerial_ECCV_2018_paper.php
+阅读范围为摘要/数据集说明选段，非全文。
+
+[R12] Jia, C., Ye, F., Sun, H., Ma, S., & Gao, W. (2023). Learning to compress unmanned aerial vehicle (UAV) captured video: Benchmark and analysis. Data Compression Conference. https://doi.org/10.1109/DCC55655.2023.00060
+作者预印本：https://arxiv.org/abs/2301.06115
+仅摘要/元数据，作视频边界背景。
+
+[R13] Dai, C., Song, T., Jin, Y., Ren, Y., Yang, B., & Song, G. (2024). Masked feature compression for object detection. Mathematics, 12(12), 1848. https://doi.org/10.3390/math12121848
+出版商：https://www.mdpi.com/2227-7390/12/12/1848
+仅取得可索引方法/结论选段，未核完整数据与实验表，不用于宣称UAV效果。
+
+[R14] Tu, H., Li, L., Zhou, W., & Li, H. (2024). Reconstruction-free image compression for machine vision via knowledge transfer. ACM Transactions on Multimedia Computing, Communications, and Applications, 20(10), Article 313, 1–19. https://doi.org/10.1145/3678471
+本轮选读摘要、引言与§3.1；正式应用涉及分类/实例分割，不写作UAV bbox直接证据。
+
+[W1] VisDrone官方数据仓库：https://github.com/VisDrone/VisDrone-Dataset
+[W2] Ultralytics官方YOLOv8说明：https://docs.ultralytics.com/models/yolov8/
+两者作为数据/实现入口，不作为算法优越性证明。网页访问不保证大文件下载和未来复现一定成功。
+
+8. 交付与执行核验
+
+00_调研报告.txt：研究问题、搜索策略、比较、研究空白、候选增量、最小未来方案与参考文献。
+01_核心文献矩阵.txt：20条主干/辅助/追加查重材料的任务、方法、可变部分、码率、小目标定义、限制与阅读范围。
+02_检索与证据记录.json：实际查询、确认原话、范围与检索快照路径；不含虚构命中量。
+03_来源核验与原件存档.json：下载状态、文件SHA256、文本和结构预检路径及阅读范围。
+04_主线收敛与数据算法选择.txt：结合24GB单卡/数天预算的选择，以及PDAD、GID、LAD等追加查重对创新判断的影响。
+原件集中保存到既有“文献_相关原始论文_20261004”库；未取得的原件明确标记，不伪装归档成功。
+
+本轮实际执行：文献检索、原文/已有项目静态文件阅读、论文下载、PDF文本提取/结构预检/表图目视核对、报告编写。PDF结构PASS不等于结论正确或全文已读。
+本轮未执行：检测模型构建/权重加载/新模型前向、训练、重评缓存、GPU/远端作业、实验计时/性能分析、测试或test-dev评估。没有新算法结果，没有子代理，没有发出后续实验任务。
+报告由同一助手完成核对与反证检查，不冒充独立同行评审或系统综述。
+
+9. 追加可核验参考文献（用户要求继续收敛主线后补检）
+
+[R15] Nguyen, C. H., Nguyen, T. C., Tang, T. N., & Phan, N. L. H. (2022). Improving object detection by label assignment distillation. Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision.
+官方论文：https://openaccess.thecvf.com/content/WACV2022/papers/Nguyen_Improving_Object_Detection_by_Label_Assignment_Distillation_WACV_2022_paper.pdf
+范围：摘要、方法图说明、官方代码README选段，未通读；原件已归档。
+
+[R16] Gu, X., & Chen, J. (2026). Progressive degradation-aware distillation for robust indoor object detection. Scientific Reports. Advance online publication. https://doi.org/10.1038/s41598-026-63984-0
+范围：用户13页接收稿正文p2–11通读、p4–10公式/表图目视。室内相邻机制先例；定量数值仅为作者报告，接收稿协议冲突见06。
+
+[R17] Dai, X., Jiang, Z., Wu, Z., Bao, Y., Wang, Z., Liu, S., & Zhou, E. (2021). General instance distillation for object detection. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 7842–7851.
+官方元数据：https://openaccess.thecvf.com/content/CVPR2021/html/Dai_General_Instance_Distillation_for_Object_Detection_CVPR_2021_paper.html
+范围：摘要与Figure 1说明选段，未读完整方法/实验；PDF下载失败。
+
+[R18] Wu, L., & Wang, S. (2026). A unified object detection method in drone view with degradation-aware and domain adaptive modeling. Engineering Reports, 8(1), e70597. https://doi.org/10.1002/eng2.70597
+范围：出版商§3.1方法与引用元数据选段；完整数据集/码率/实验细节未核，不据此声称JPEG小目标效果。
+
+10. YOLO26基线选择更正与问题来源
+
+当前优先开发基线更正为YOLO26s。其STAL等已有小目标监督设计应进入问题成立条件；此前选YOLOv8s偏保守，没有充分比较依据。直接近邻JCRR也已经使用YOLO26s/n。关于选题初筛、用户确认、近邻查重后降级的实际过程，见05_YOLO26选择与选题来源说明.txt。当前仍是文献筛出的候选问题，没有新模型诊断或已确认的算法主线。
+
+[W3] Ultralytics官方YOLO26文档：https://docs.ultralytics.com/models/yolo26/
+[R19] Jocher, G., Qiu, J., Liu, M., Lyu, S., Akyon, F. C., & Kalfaoglu, M. E. (2026). Ultralytics YOLO26: Unified real-time end-to-end vision models. arXiv:2606.03748v1. https://arxiv.org/abs/2606.03748v1
+范围：论文仅摘要/元数据；官方文档选读Overview、Key Features、性能表、架构和推理路径。没有据COCO结果推定VisDrone压缩性能。
+
+11. 本次全文/源码核查的最终增量
+
+FSIC是冻结检测器监督codec；PDAD是退化预测+条件恢复辅助训练，但接收稿复现协议不自洽；YOLO26已有STAL候选区域扩展，v8.4.24与v8.4.191的8–16像素边长处理不同。源码静态边界不是已测到的压缩失败，更不是新分配算法的立项证据。
+本轮到调研报告与方案为止。继续价值为有条件的“小规模问题验证”，不是已确定可发表主线。完整核查及阅读证据见06；执行设计见07、08。
+
+[R20] Cui, Z., Zhu, Y., Gu, L., Qi, G.-J., Li, X., Zhang, R., Zhang, Z., & Harada, T. (2022). Exploring resolution and degradation clues as self-supervised signal for low quality object detection. ECCV, 473–491.
+官方论文：https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136690465.pdf
+作者项目：https://github.com/cuiziteng/ECCV_AERIS
+阅读范围：官方摘要/§4.3推理段/README有限选读，未通读或核定量表；本地PDF存档下载失败。
+
+R20出版元数据补核：ECVA链接指向Springer，页码473–491及DOI 10.1007/978-3-031-20077-9_28 已由出版商页面确认；全文阅读范围不变。

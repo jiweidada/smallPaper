@@ -1,0 +1,5 @@
+当前先读05_机制预检结果与最新问题卡.txt。
+04为后续零训练检验前的完整CPU结果快照，执行状态由05更新。
+原raw/原生EMA对照的权威数字在attempt02；新的同CPU结果在同后端CPU重放_20261026_v1/analysis_v1；共有ID与B在后续零训练预检_20261026_v1。
+父目录results.json是旧序列化失败遗留，不使用。
+当前工作状态=work_state_v2.json；work_state.json与delivery_manifest.json保留为早期快照。最新交付清单=delivery_manifest_v2.json。

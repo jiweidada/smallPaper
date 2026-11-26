@@ -1,0 +1,24 @@
+Material Passport: academic-research-suite; primary-source method comparison, not a novelty clearance.
+本文件用于帮助设计具体增量，不以研究问题相似直接判方法等价。
+
+1. Chen et al., Learning Efficient Object Detection Models with Knowledge Distillation, NIPS2017。
+原文官方PDF第4–5页、§3.3、式4已读取：学生对GT的回归误差加margin未优于老师时，启用额外GT回归项；学生已超过老师则该项为0。它提供了teacher-bounded学习原则和强简单对照，但该式不是逐bin KL或条件DDF的相同公式，也不传递完整分布形状。
+https://proceedings.neurips.cc/paper/2017/file/e1e32e235eee1f970470a3a6658dfdd5-Paper.pdf
+
+2. D-FINE, arxiv2410.13842v1，§4.1/4.2已读取；本项目冻结deim_criterion.py第337–385行与dfine_decoder.py已核对。
+已有FDR、固定pre参考、非均匀offset bins、最终层向前层的分布KD。当前代码DDF正项用student detached IoU，负项用teacher maxsigmoid，T=5。teacher_corners与同次前向final pred_corners逐值相同。
+这是现成强基线。任何新设计须说明改变的是教师选择、分布目标、坐标度量、传递内容还是优化路径，并与最直接的teacherbetter gate、DDF半权/关闭比较。只增加一个门控名词不提供方法增量。
+https://arxiv.org/html/2410.13842
+
+3. Distilling Object Detectors with Task Adaptive Regularization, arxiv2006.13108。
+本轮仅读作者摘要：按师生对不同任务的相对合理性自适应转移知识，并逐步减小KD惩罚。具体公式尚未核实；可作为相近动机和必须精查的先例，不能声称与某个新分布目标已公式等同。
+https://arxiv.org/abs/2006.13108
+
+4. Localization Distillation for Dense Object Detection, CVPR2022；相关作者TPAMI版本另列arxiv2204.05957。
+已有完整定位分布KD。本文当前只新核到官方索引/摘要，若新方法依赖与其详细差别，应读取§方法再作判断。本文献不足以否定所有具体的传递内容约束，但限制“首次利用分布蒸馏定位”的主张。
+https://arxiv.org/abs/2102.12252
+
+5. Salience DETR, arxiv2403.16131v1，作者HTML摘要、引言及相关方法内容已读取：尺度无偏salience过滤和两阶段query初始化稳定性已有。新topk冻结诊断表明本机巨大ordered槽变化主要是重排，故当前没有“集合剧烈流失”的相应数字起点。
+https://arxiv.org/html/2403.16131
+
+本次预算按新增数值/冻结/离线性能核查计，总计最多2项；读原文、读取旧结果和必要完整性检查不单算一项实验。每项数值核查事前明确一个主问题、组别、样本与比较口径；不把大量参数搜索打包为一次，不用结果修改判据。

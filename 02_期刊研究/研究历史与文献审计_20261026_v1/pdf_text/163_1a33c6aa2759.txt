@@ -1,0 +1,188 @@
+1. INTRODUCTION 
+In references [4-71, the formulation and analysis 
+of a decision rule for target presence was derived for 
+a radar using an array antenna, under the assumption 
+of Gaussian noise with unknown covariance. It was 
+assumed that a single N-length data vector (called the 
+“primary” vector) may contain a signal or target return 
+with known direction vector s and unknown complex 
+amplitude b, while K > N other independent data 
+vectors (called “secondary” vectors) are available that 
+are zero mean, and share the same N x N Covariance 
+matrix M. The generalized likelihood ratio test (GLRT) 
+derived under these assumptions is given by 
+Hi 
+(1) 
+)stk-1212 
+stA-’s ( 1 + -ztM-’z ; )iKi- 
+In this formula z is the primary data vector, and M is a 
+sample covariance matrix based on the secondary data 
+vectors: 
+(2) 
+lK lih = - Z(k)Z(k)t. 
+k=l K 
+Similar detection problems leading to the same test 
+statistic will also arise for other signal models. For 
+example, the data vector can be modeled as a vector 
+of multiple “looks” at a moving target where the phase 
+shift between elements of the vector corresponds to a 
+Doppler progression. The secondary data may then be 
+taken as samples of data from other ranges. 
+The test described by (1) is a constant false alarm 
+rate (CFAR) detector, in which the probability of false 
+alarm is independent of the true covariance matrix 
+of the interference. The adaptive detector of Reed, 
+Mallett, and Brennan (RMB) [8] used conventionally 
+for interference rejection is the numerator of this test 
+statistic. 
+based on the GLRT assuming the covariance is 
+known. After the test statistic is derived, the maximum 
+likelihood estimate of the covariance matrix based on 
+the secondary data is inserted in place of the known 
+covariance. The resulting test statistic has the form 
+of a normalized matched filter and it is also a CFAR 
+detector. This test statistic does not contain the factor 
+in parentheses, found in the denominator of the GLRT 
+(1). This term is computationally intensive for real 
+time systems, as it must be calculated for each new 
+input sample. We note that this term tends to unity 
+when K is large. 
+signals on boresight (i.e., in the s direction), as well 
+as for signals that are not matched to boresight. The 
+performance of this test to signals that are aligned with 
+the steering vector exhibits a small loss when compared 
+with the GLRT detector at low signal-to-noise ratios 
+(SNR). The new detector exhibits the interesting 
+Here, a detection algorithm is derived that is 
+The performance of our detector is determined for 
+A CFAR Adaptive Matched 
+Filter Detector 
+FRANK C. ROB= 
+DANIEL R FUHRMANN 
+Washington University 
+EDWARD J. KELLY 
+M.I.T. Lincoln Laboratory 
+RAMON NITZBERG 
+General Electric 
+An adaptive algorithm for radar target detection using an 
+.de= array is proposed. The detector is derived in a lllpnner 
+similar to (bsl of (he gencralhd Ukellhood-ratio lest (GLRT) 
+bpl contains a slnpllhd test ststbtk that is a umiting case 
+of tbc GLRT detector. "his sinpUfkd detector is analymd for 
+perfornrna to signals on boreslght, as well as when the signal 
+direction Is mbpliewa with (he look direction 
+Manusaipt nceived August 14,1989; revised July 20,1990 and 
+March 23,1991. 
+IEEE Log No. 9103598. 
+This w& was funded in part by the Department of Air Force under 
+Authors’ add-: E C. Robey and D. R Fuhrmann, Electronic 
+Systems and Signals Research Laboratory, Department of Electrical 
+Engineering, Washington University, St. Louis, MO 63130; E. J. 
+Kelly, M.I.T. Lincoln Laboratory, 244 W Stwt, Lexington, MA 
+02173; R Nitzberg, General Electric Co., CSP4-5, Syracuse, NY 
+13221. 
+ESD Contract Fl%28-8S-C-o002. 
+0018-%?51/92/s3.00 @ 1992 IEEE 
+#)8 IEEE TRANSACTIONS ON AEROSPACE AND ELECTRONIC SYSTEMS VOL. 28, NO. 1 JANUARY 1992 
+~ - ~~ 
+Authorized licensed use limited to: INDIAN INSTITUTE OF SCIENCE. Downloaded on January 21, 2010 at 01:38 from IEEE Xplore.  Restrictions apply. 
+
+---PAGE---
+
+property that the probability of detection (PD) is 
+higher than that of the GLRT detector for high SNRs. 
+The GLRT has no known optimality property, and this 
+result demonstrates that the GLRT is not optimal in 
+the Neyman-Pearson sense of maximizing the PD for 
+a given probability of false alarm (PFA). However, the 
+absence of the denominator term causes our test to be 
+much more sensitive to signals that would appear in 
+the sidelobes of the adapted antenna pattern. 
+II. ADAPTIVE MATCHED FILTER 
+The same signal model as that used in [5] is 
+assumed. The signal vector z is assumed to be a 
+complex Gaussian random vector with mean 0 under 
+hypothesis Ho, mean bs under hypothesis HI, and 
+covariance M. K additional data vectors are available 
+that are assumed to have mean 0 and covariance M. 
+These vectors may be used as secondary vectors to 
+estimate the noise covariance. 
+The procedure used to derive the test statistic is to 
+assume that the covariance is known, and then to write 
+the GLRT maximizing over the unknown parameter b. 
+The resulting test statistic is the output power of the 
+standard colored-noise matched filter. The maximum 
+likelihood estimate of the covariance based on the 
+secondary data alone is then substituted into this test. 
+The derivation is begun by writing the GLRT 
+Substituting the complex multivariate Gaussian density 
+functions and canceling common terms yields 
+(4) A = e- (z-bs)'M-'(z- bs)+ztM-'z 
+We can now take the logarithm, and simplify to 
+log(A) = 2Re(b*stM-'z) - Ib12stM-'s. 
+Maximizing this with respect to the unknown complex 
+amplitude b yields 
+(5) 
+Substituting (6) into (5) and simplifying produces the 
+test 
+(7) 
+Js~M-~zJ~ 
+< Q. StM-'S H~ 
+This test statistic is proportional to the squared 
+magnitude of the output of the colored noise linear 
+matched Fiter, since the term in the denominator is a 
+constant when the true covariance is known. 
+If the noise covariance matrix were known, 
+then we would use the detector described by (7). In 
+general, the covariance matrix is unknown and must be 
+accounted for by using adaptive techniques. The GLRT 
+provides one such adaptive approach. We propose 
+to account for not knowing the true covariance by 
+the ad hoc procedure of substituting the maximum 
+likelihood estimate based on the secondary data. Reed, 
+Mallett, and Brennan used a similar approach in their 
+maximum signal-to-noise formulation of the detection 
+problem. The test form is then 
+We call this test the adaptive matched filter (AMF) 
+test. This test statistic has the RMB test statistic as the 
+numerator, with a normalization that is the same as 
+that which would be provided by the GLRT for a large 
+number of secondary samples. This normalization will 
+provide the desired CFAR behavior, and is a natural 
+normalization factor to use for this purpose. 
+methods. In Appendix A it is shown that this test 
+statistic also results from a type of cell averaging 
+CFAR where the cell average is made from the outputs 
+of an RMB adaptive beamformer. 
+secondary) in the likelihood maximization under each 
+hypothesis. The AMF test makes no use of the primary 
+vector to estimate the covariance, therefore poorer 
+detection performance might be expected. In the 
+following sections, the performance loss is shown to 
+be small and that, in certain situations, the AMF test 
+will actually outperform the GLRT 
+The AMF test may also be derived by other 
+The GLRT uses all the data (primary and 
+Ill. CFAR BEHAVIOR 
+We now show that the AMF test statistic is 
+independent of the true covariance matrix under Ho 
+and thus it gives a constant false alarm rate test. 
+be written 
+Let U = MA1l2s, and y = M-'f2z. Then the test can 
+where M 3 M-'/2MM-1/2. M is subject to the 
+complex Wishart distribution with parameters K, N, 
+and I, which is denoted CW(K,N;I) [2]. 
+Now a unitary transform is defined that rotates the 
+whitened signal vector into the first elementary vector: 
+de = U~U, e = [1,0 ,..., 01'. (10) 
+The Fist column of U is the whitened signal vector 
+U, and the other N - 1 columns form an arbitrary 
+orthonormal basis for the orthogonal complement of 
+the subspace spanned by U. The test then becomes 
+(11) 
+Idet(?1x/2 lete-'xl2 
+d2etC-le etC-le H~ 2Q - t= - 
+where x G Uty and C G UtMU. Then x is distributed 
+N(0,I) under Ho, and C is distributed CW(K,N;I). 
+ROBEY. ET AL.: A CFAR ADAPTIVE MATCHED FILTER DETECTOR 209 
+Authorized licensed use limited to: INDIAN INSTITUTE OF SCIENCE. Downloaded on January 21, 2010 at 01:38 from IEEE Xplore.  Restrictions apply. 

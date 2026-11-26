@@ -1,0 +1,85 @@
+Noise-Robust Tiny Object Localization with Flows
+Huixin Sun1, Linlin Yang2, Ronyu Chen3,
+Kerui Gu3, Baochang Zhang1, Angela Yao3, Xianbin Cao1
+1Beihang University, China
+2Communication University of China, China
+3National University of Singapore, Singapore
+Abstract
+Despite significant advances in generic object detection, a persistent performance gap remains for tiny objects com-
+pared to normal-scale objects. We demonstrate that tiny objects are highly sensitive to annotation noise, where op-
+timizing strict localization objectives risks noise overfitting. To address this, we propose Tiny Object Localization
+with Flows (TOLF), a noise-robust localization framework leveraging normalizing flows for flexible error modeling
+and uncertainty-guided optimization. Our method captures complex, non-Gaussian prediction distributions through
+flow-based error modeling, enabling robust learning under noisy supervision. An uncertainty-aware gradient modula-
+tion mechanism further suppresses learning from high-uncertainty, noise-prone samples, mitigating overfitting while
+stabilizing training. Extensive experiments across three datasets validate our approach’s effectiveness. Especially,
+TOLF boosts the DINO baseline by 1.2% AP on the AI-TOD dataset.
+Keywords:Tiny Object Detection, Noise Robustness, Normalizing Flows
+1. Introduction
+Recent progress in deep neural networks (DNNs) [1] has significantly advanced object detection field [2]. De-
+spite these advancements, Tiny Object Detection (TOD) remains a highly challenging problem [3]. Characterized
+by extremely limited pixel inputs (less than 16×16 pixels [4]), tiny objects exhibit severe performance degradation
+in generic detectors compared to general object detection [2]. For instance, DINO [5], a state-of-the-art query-based
+detector, achieves 37.6% AP on medium objects but only 9.9% AP on tiny objects in AI-TOD [4]. The prohibitively
+low performance falls short of the demands of safety-critical real-world applications, such as traffic management [6],
+driving assistance [7], and anomaly detection [8].
+The inherently limited pixel inputs of tiny objects constitutes a primary challenge in TOD, which hinders the ex-
+traction of sufficient discriminative foreground features [9]. This challenge is intensified in cluttered environments [9],
+where pervasive occlusions, complex background noise [10], and critically low signal-to-noise ratios induce ambi-
+guity in the feature representation space [11]. Consequently, generic detectors can develop a feature bias towards
+distinguishing the foreground from background regions that resemble it, which results in missed detections and false
+positives in TOD. Recent efforts address these problems by enhancing feature resolution via upsampling or special-
+ized architectures [12], exploiting contextual information to compensate for limited pixel inputs [13], and auxiliary
+self-reconstruction modules [9] to refine object discrimination.
+In this work, we reveal that tiny objects are vulnerable to annotation noise and risks overfitting. Due to limited res-
+olution and visual ambiguity manual annotations of tiny objects often suffer from labeling inconsistencies, including
+missed objects, inaccurate bounding boxes, or incorrect classes [4]. To quantify the prevalence of annotation noise
+in real-world tiny object datasets, we manually reviewed 532 bounding boxes across 10 randomly selected images
+from AI-TOD test in Fig. 2. Results show that nearly 34.2% of annotations are noisy. These errors are exacerbated by
+the IoU sensitivity of tiny objects, where even a minor deviation can dramatically alter localization quality. A trivial
+2-pixel shift leads to over 20% IoU drop for a 10×10 object, whereas the same error would only cause 5% degrada-
+tion for a 100×100 object. Under such conditions, optimizing for strict localization criteria (e.g., 1.0 IoU) can cause
+models to overfit annotation noise rather than learning effective regression. Illustrated in Fig. 1 (b), the overfitting
+arXiv:2601.00617v1  [cs.CV]  2 Jan 2026
+
+---PAGE---
+
+𝜎!:0.55𝜎"	:0.62(a) Annotation Noise(b) False Positives(c) Noise-RobustGT BaselineTOLFObject
+(d)
+Figure 1: Pathological predictions due to overfitting label noise. (a) Inaccurate ground-truth annotation covering background shadows. (b) Over-
+fitting leads to false positives in background regions that resemble noisy annotations. (c) TOLF exhibits low confidence in uncertain locations and
+more accurate localization. (d) A noise sensitivity analysis that injects Gaussian noise into training annotations and measures detection perfor-
+mance across object scales. Results reveal tiny objects exhibit the largest degradation. Detection performance is evaluated by training a 1×FCOS
+detector [14]. The model is trained on the AI-TOD [4]trainvaland validated on the AI-TODtest.
+can result in increased false positives in background regions. Moreover, we conduct a noise sensitivity analysis to
+quantify the impact of training-time label noise across object scales. We inject Gaussian noise with standard deviation
+σ∈ {1.0,2.0,3.0}pixels into the centers of training bounding boxes and evaluate on clean data. As shown in Fig. 1
+(d), performance decresed with increasing noise levels across all scales, with the largest degradation for tiny objects.
+Atσ=3.0 pixels, overall AP decreases by 40.0%, while AP for very tiny and tiny objects decreases by 66.7%. This
+heightened sensitivity to annotation noise highlights the importance of robust localization objectives in tiny object
+detection.
+In light of the analysis, we introduceTinyObjectLocalizationFlow (TOLF), a robust localization framework
+leveraging normalizing flows for flexible prediction distribution modeling, which accounts for uncertainty and label
+noise. Unlike conventional uncertainty methods constrained by Gaussian assumptions or fixed priors, TOLF employs
+invertible normalizing flows to explicitly learn the error distribution between predictions and noisy annotations. This
+enables TOLF to capture intricate noise structures, including heavy tails, skewness, and multimodality. Furthermore,
+TOLF’s loss is uncertainty-aware. By adaptively down-weighting noisy examples through uncertainty-based weight-
+ing, it suppresses overfitting to annotation errors and maintains stable training under severe noise conditions. This
+prevents outliers from dominating the loss landscape. By unifying flexible error modeling with uncertainty-aware op-
+timization, TOLF provides a principled, data-driven solution that mitigates overfitting at its source, achieving superior
+localization robustness and improved accuracy.
+To summarize, our main contributions are three-fold:
+1. We demonstrate that tiny object detectors are highly vulnerable to annotation noise, and show that strict local-
+ization objectives risk overfitting to noisy labels. To address this, we proposeTOLF, a noise-robust localization
+framework employing flexible distribution modeling.
+2. TOLF incorporates a normalizing flow-based error modeling component to capture complex, non-Gaussian
+error patterns, and an uncertainty-aware gradient modulation mechanism that adaptively suppresses gradients
+from high-uncertainty, noise-prone samples.
+3. TOLF significantly improves training stability and advances state-of-the-art accuracy for tiny object detectors,
+offering a principled, data-driven alternative to conventional uncertainty modeling approaches reliant on fixed
+priors or Gaussian assumptions.
+2. Related Work
+2.1. Tiny Object Detection
+Advances in deep convolutional neural networks (DNNs) have significantly enhanced object detection tasks [2].
+Despite the advances, tiny object detection remains a challenging problem due to the intrinsic limited pixel input [4].
+2

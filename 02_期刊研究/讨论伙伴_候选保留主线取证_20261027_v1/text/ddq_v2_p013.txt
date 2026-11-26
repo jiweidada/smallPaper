@@ -1,0 +1,92 @@
+Table 9. Comparison between 3D MAX Filter and Pyramid
+Shuffle. * means the results is unstable
+Flops Parameters Operations AP
+- - - 41.0*
+12.2 G 0.59M Conv&GN&Relu&MaxPool3d41.2
+0.2 G 0.00M Shuffle x3 41.5
+12.2 G 0.59M Conv&GN&Relu& Shuffle x3 42.0
+Table 10. Performance of one-stage DDQ with different numbers
+of shuffle channels.
+Number AP AP50 AP75
+0 41.0* 59.9 45.1
+8 41.2 60.3 45.4
+16 41.3 60.6 45.4
+32 41.4 60.6 45.5
+64 41.5 60.9 45.4
+96 41.6 61.1 45.7
+128 39.9 59.9 43.6
+C.1. Number of Pyramid Shuffle Operations
+We report the results of DDQ FCN with the differ-
+ent number of pyramid shuffle operations in the classifica-
+tion and regression branches. When no pyramid shuffle is
+adopted in the DDQ FCN, its performance is unstable and
+fluctuates between 40.8 AP and 41.1 AP. We report an av-
+erage performance of 41.0 AP. Even though there has been
+a cross-level distinct queries selection operation, compared
+to adopting only 2 and 1 operations to two branches respec-
+tively, there is still a 0.5 AP drop.
+Table 11. Different number Pyramid shuffle operations in DDQ
+FCN. Cls means the classification branch and Reg means the re-
+gression branch. * indicate the performance is unstable
+Cls Reg AP AP50 AP75
+0 0 41.0* 59.9 45.1
+1 0 41.3 60.1 45.6
+0 1 41.3 60.6 45.4
+0 2 41.3 60.0 45.6
+2 0 41.2 60.1 45.5
+1 1 41.3 60.6 45.8
+2 1 41.5 60.9 45.4
+2 2 41.4 60.6 45.5
+4 4 41.5 61.1 45.6
+D. DDQ R-CNN with Encoder
+The encoder can provide a more powerful feature repre-
+sentation for the decoder head which is explored in [7, 30,
+38]. We simply add 6 dynamic blocks in DyHead [6] as our
+encoder. 500 queries and 3 refinement stages are adopted.
+It is observed in the main manuscript that there is about 3
+AP improvement for DDQ R-CNN.
+E. Details of Improved DeformableDETR and
+Comparison with DINO
+DINO [33] adopt some techniques that significantly im-
+prove the Deformable DETR. We remove the CDN and mix
+query selection from DINO to form our baseline. DDQ
+is a concurrent work of DINO. The contrastive denoising
+training (CDN) is not intended to relieve the optimization
+difficulty of very similar queries among dense queries. In
+their implementation, the generated positive and negative
+samples in each pair are always significantly distinct from
+each other. Mix query selection increases the distinctness of
+queries by additionally initializing content embeddings, but
+the position embeddings are still created from top-k dense
+regression predictions which can be very similar and still
+hinder the optimization. We have shown our components
+can be combined with DINO.
+F. Number of Queries and Stages in DDQ R-
+CNN
+Table 12. Performance with different number of refine stages(S)
+and queries(Q).
+100 Q 200 Q 300 Q 400 Q
+S=1 43.0 43.2 43.4 43.2
+S=2 44.2 44.2 44.6 44.8
+S=3 44.4 44.8 45.1 44.9
+S=4 44.5 45.0 45.0 45.2
+We analyze the combination of different numbers of
+stages and queries for DDQ R-CNN. Table. 12 shows that
+the best number of stages is proportional to the number of
+queries. This is easy to understand. When the number of
+queries increases, the newly added queries are of low qual-
+ity, and more stages are needed to refine these queries. It is
+worth emphasizing that we use 2 stages and 300 queries to
+trade off the performance and latency. When using 3 stages
+with the same number of queries, our method achieves an
+even higher performance of 45.1 AP on MS COCO.
+G. Latency Benchmark
+As for the details of latency calibration, We compare the
+speed (forwarding + post-processing) of different methods
+with batch size 1 in Table. 8. All evaluations were per-
+formed on Tesla A100 GPU with Intel(R) Xeon(R) Gold
+6348 CPU @ 2.60GHz. The Pytorch version is 1.9.0 with
+CudaToolkit 11.1 and Cudnn 8.0.5. An average of 200 it-
+erations during model inference is adopted as the latency
+reported in this study.
+13

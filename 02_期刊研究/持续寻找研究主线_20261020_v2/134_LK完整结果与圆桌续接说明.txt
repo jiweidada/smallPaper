@@ -1,0 +1,42 @@
+本轮实际进展与圆桌接口恢复记录（2026-10-21）
+
+目标仍ACTIVE。上一场不是人为暂停整个目标，而是UI明确报告“专家调用超时，局部输出未保存”，第1轮仅Claude/A两条完整回答，B失败、C未回答。133保存完整JSON，不能当成四人共识。沿用设置继续，不归档或修改旧场。
+
+125/126→127 注意力模板局部配准：实际4次C0 online eval前向，零VJP、零更新；四图902GT/453原sub4。原输出相对114的boxes/logits误差核查、selected_indices、top300排序及原8计数全部通过。CP、完整state和BN哈希前后相同。
+
+计数，顺序 original / GN / trace / barycenter：
+all_geo05       370 / 290 / 299 / 365
+sub4_geo05       66 /  35 /  35 /  62
+all_geo075      184 / 118 / 116 / 168
+sub4_geo075      15 /   3 /   2 /  11
+all_class05     324 / 248 / 261 / 321
+sub4_class05     51 /  25 /  26 /  48
+all_class075    162 / 104 / 103 / 153
+sub4_class075    10 /   2 /   1 /  10
+
+GN四个条件全未通过；停止固定模板、±2差分、固定ridge的精确版本。不得事后选重心、反向GN或调lambda救结果；也不宣称所有注意力/局部读取无效。
+127/01_cache.pt已真实生成，含C0同次前向的final_corners、ref_points_initial、reduce(P2)、真实末层采样和权重。121不含corners/ref，但127含；现在不再存在C0分布资产缺失，不拼BASE24或旧BASE12。
+
+128/129 PMF共同平移兼容质量：原门槛未改变。首次导入CPU runtime缺失在读数据前失败；root补项目现有runtime和[13,15]/RAM>8限制。随后130在weighting_function标量shape失败，132在translate_gt FP64输入/FP32目的张量不匹配失败。两次都有完整错误和原缓存/源码前后SHA。它们不是统计阴性、没有PMF质量均值可供改门槛。131存档129首次执行代码，B受托追加135/136修正原生精度接口，再由root执行137，不覆盖旧失败证据。
+
+实际原生数学（本地dfine_utils.py和decoder.py已读）：
+up=nn.Parameter(torch.tensor([.5]),requires_grad=False)，reg_scale同为tensor[1]；weighting_function在FP32 eval生成33个非均匀节点，端点±2*abs(up[0])*abs(reg_scale)，中点0。
+原生distance2bbox使用R=abs(reg_scale)：
+x1=c_ref-(.5*R+l)*w_ref/R，x2=c_ref+(.5*R+r)*w_ref/R。
+故c_final=c_ref+(r-l)*w_ref/(2R)，halfwidth=w_ref*(.5+(l+r)/(2R))。
+原first-layer pre_bboxes.detach()是所有后层FDR固定reference；corners累加残差logits。首层/其他直接监督仍存在，不能说小GT没有几何监督。
+translate_gt先用float索引建立FP32权重目的张量，索引赋值要求右侧同dtype；不能声称其可直接接受FP64 boxes得到FP32权重。
+
+对133两条回答的必要纠正（构造推理，不是新实测）：
+1. 51/55/89/223是不同干预域的独立最大匹配，不能推出“所有漏检主要是中心”或“多数修正必须>2px”。只能说明本面板存在可恢复的中心作用面。
+2. max(w_ref,8px)不保证所有中大目标不变：大GT也可能由小reference表示，且训练共享参数/其他loss会改变。只能说对同一输入reference且w_ref>=8px的给定解码公式不变；APl代价本就未确立。
+3. 支持域改变不能只靠端bin概率判断；不要事后加“必须超过89”门槛比较不同干预集合。支持扩展的oracle可证明作用面，不能证明可学或创新。
+4. 原边距l,r in[a,b]，t=(r-l)/2,s=(l+r)/2，给定s时 |t|<=min(s-a,b-s)。独立t/s矩形是具体变量，但中心/尺寸分布已有先例，须比较原公式；range×2和同预算直接中心残差头是强简单控制。
+
+本轮原文阅读范围（主助手实际网页原文，摘要不是已读全文）：
+Deep Lucas-Kanade Homography for Multimodal Image Alignment，arXiv2104.11693v1，§3.1 Eq6–9：特征残差/Jacobian求逆；其§3使用专门训练的配准特征及收敛性质，不应把这种条件借给原C0 reduce或注意力模板。https://arxiv.org/html/2104.11693v1
+RefineBox，Enhancing Your Trained DETRs with Box Refinement，arXiv2307.11828v1 §4.1：冻结检测器，另训FPN和ROIAlign/Residual/MLP框细化器，L1/GIoU，分类不变。冻结后细化、只改几何不新。https://arxiv.org/html/2307.11828v1
+DAVNet，Distribution Aware VoteNet for 3D Object Detection，AAAI2022，原论文Distribution calculation Eq1–4和邻段：学习中心、尺寸、方向偏移的离散分布，积分读出。不是2D D-FINE有限支持解耦的直接实现，但中心尺寸分布参数化与期望读出不能称首次。https://ojs.aaai.org/index.php/AAAI/article/download/20049/19808
+LCB-Net Electronics2025 14(22)4487仅检索摘要线索，出版社页面429，尚未读方法，不作为已排除创新的证据。
+
+继续真实设计讨论；先不新增训练、不远程/监测、不修改旧实验。失败只停止精确候选，总目标没有完成。

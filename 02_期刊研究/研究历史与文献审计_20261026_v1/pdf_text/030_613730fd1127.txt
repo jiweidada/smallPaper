@@ -1,0 +1,191 @@
+Deep-LK for Efﬁcient Adaptive Object Tracking
+Chaoyang Wang, Hamed Kiani Galoogahi, Chen-Hsuan Lin and Simon Lucey
+Carnegie Mellon University
+Abstract
+In this paper we present a new approach for efﬁcient re-
+gression based object tracking which we refer to as Deep-
+LK. Our approach is closely related to the Generic Object
+Tracking Using Regression Networks (GOTURN) frame-
+work of Held et al. [
+16]. We make the following contri-
+butions. First, we demonstrate that there is a theoretical
+relationship between siamese regression networks like GO-
+TURN and the classical Inverse-Compositional Lucas &
+Kanade (IC-LK) algorithm. Further , we demonstrate that
+unlike GOTURN IC-LK adapts its regressor to the appear-
+ance of the currently tracked frame. We argue that this miss-
+ing property in GOTURN can be attributed to its poor per-
+formance on unseen objects and/or viewpoints. Second, we
+propose a novel framework for object tracking - which we
+refer to as Deep-LK - that is inspired by the IC-LK frame-
+work. Finally, we show impressive results demonstrating
+that Deep-LK substantially outperforms GOTURN. Addi-
+tionally, we demonstrate comparable tracking performance
+to current state of the art deep-trackers whilst being an or-
+der of magnitude (i.e. 100 FPS) computationally efﬁcient.
+1. Introduction
+Regression based strategies to object tracking have long
+held appeal from a computational standpoint. Speciﬁcally,
+they apply a computationally efﬁcient regression function to
+the current source image to predict the geometric distortion
+between frames. As noted by Held et al. [
+16] most the state
+of the art trackers in vision are based on a classiﬁcation-
+based approach, classifying many image patches to ﬁnd the
+target object. Notable examples in this regard are correla-
+tion ﬁlter methods [
+13, 17, 19, 6, 11], and more recent ex-
+tensions based on deep learning [ 7, 30, 37] can be also con-
+sidered as adhering to this classiﬁcation-based paradigm to
+tracking.
+Recently, Held et al. [
+16] proposed their Generic Object
+Tracking Using Regression Networks (GOTURN) frame-
+work for object tracking. As it is a regression based ap-
+proach, it can be made to operate extremely efﬁciently -
+100 Frames Per Second (FPS) on a high-end GPU. This
+is in stark contrast to the latest classiﬁcation-based deep
+networks for tracking - e.g. MDNet [
+30], ECO [ 11] re-
+port tracking times of less than 10 FPS using a GPU.
+Classiﬁcation-based methods to object tracking that do not
+rely on deep learning - such as correlation ﬁlters - can com-
+pete with GOTURN in terms of computational efﬁciency.
+However, they often suffer from poor performance as they
+do not take advantage of the large number of videos that
+are readily available to improve their performance. Finally,
+regression based strategies hold the promise of being able
+to efﬁciently track objects with more sophisticated geomet-
+ric deformations than just translation (e.g. afﬁne, homogra-
+phies, thin-plate spline, etc.) - something that is not compu-
+tationally feasible with classiﬁcation-based approaches.
+Although showing much promise, GOTURN has a fun-
+damental drawback. As noted by Held et al. the approach
+performs admirably on object’s that have similar appear-
+ance to those seen in training. However, when attempt-
+ing to apply GOTURN to object’s or viewpoints that have
+not been seen in training the approach can dramatically fail.
+This type of poor generalization is not seen in classiﬁcation-
+based deep networks such as FCSN etc [
+7]. This poor result
+at ﬁrst glance is surprising as GOTURN employs a siamese
+network which predicts the relative geometric deformation
+between frames. This network architecture, along with the
+employment of tracking datasets with large amounts of ob-
+ject variation, should in principle overcome this generaliza-
+tion issue. It is this discrepancy between theory and practice
+which is at the heart of our paper.
+In this paper we attempt to explain this discrepancy by
+looking back to a classical algorithm in computer vision lit-
+erature - namely the Lucas & Kanade (LK) algorithm [
+25].
+Speciﬁcally, we demonstrate that Inverse-Compositional
+LK (IC-LK) [
+4] can be re-interpreted as a siamese regres-
+sion network that shares many similar properties to GO-
+TURN. We note, however, an important difference that
+drives the central thesis of our paper. Speciﬁcally, within
+the IC-LK algorithm the regression function adapts to the
+appearance of the previously tracked frame. In GOTURN,
+their regression function is “frozen” - partially explaining
+why the approach performs so poorly on previously unseen
+1
+arXiv:1705.06839v2  [cs.CV]  30 May 2017
+
+---PAGE---
+
+Figure 1. Three typical types of variations which LK is sensitive
+to: (a) occlusion; (b) illumination and appearance changes; (c) un-
+modeled geometric transformation, such as out-of-plane rotation
+of the ball.
+objects and/or viewpoints. Based on this insight we pro-
+pose a new algorithm for efﬁcient object tracking - which
+we refer to as DeepLK - that enjoys the same computational
+advantages of GOTURN without the poor generalization.
+When evaluated upon VOT2014, our DeepLK method
+achieves very competitive results to the state of the art
+classiﬁcation-based deep methods (e.g. FCSN), and signiﬁ-
+cantly outperforms GOTURN. Further, we demonstrate the
+superior generalization properites of DeepLK in compari-
+son to GOTURN. We compare with state-of-the-art trackers
+on 50 challenging higher frame rate videos (240 FPS) from
+the NfS [
+1] tracking dataset. For these higher frame rate
+videos, our proposed approach is on par with state-of-the-
+art classiﬁcation-based deep trackers while enjoying an or-
+der of magnitude faster (100 FPS) computational efﬁciency.
+Notations. We deﬁne our notations throughout as follows:
+lowercase boldface symbols ( e.g. x) denote vectors, upper-
+case boldface symbols ( e.g. W) denote matrices, and up-
+percase calligraphic symbols ( e.g.I) denote images, and
+we use the notations I(x) : R2 →RK to indicate sam-
+pling of the K-channel image representation at subpixel lo-
+cation = [x, y ]⊤ .
+2. The Inverse Compositional LK Algorithm
+The core assumption of LK is that the relationship of the
+image appearance has an approximated linear relationship
+with the geometric displacements. Given a predeﬁned geo-
+metric warp function parametrized by the warp parameters
+p, this relationship can be written as
+I(∆ p)≈I(0) + ∂I(0)
+∂p ∆ p , (1)
+which is the ﬁrst-order Taylor expansion evaluated at the
+identity warp p = 0.
+Given a source imageI and a template imageT to align
+against, the Inverse Compositional (IC) LK algorithm at-
+tempts to ﬁnd the geometric warp update ∆ p onT that
+could in turn be inversely composed to I by minimizing
+the sum of squared differences (SSD) objective
+min
+∆ p
+∥I(p)−T(∆ p)∥2
+2 . (2)
+IC-LK further utilizes Equation
+1 to linearize Equation 2 as
+min
+∆ p
+∥I(p)−T(0)−∂T (0)
+∂p ∆ p∥2
+2 . (3)
+Solving for Equation
+3, we get the IC-LK update equation:
+∆ p = W†[I(p)−T(0)]. (4)
+where†is the Moore-Penrose pseudo-inverse operator. W
+is the so-called template image Jacobian, factorized as
+W = ∂T (0)
+∂p =∇T(0) ∂W(x; 0)
+∂p⊤ , (5)
+where∇T(0) are the image gradients that are solely a func-
+tion ofT (0), and ∂W(x;0)
+∂p⊤ is the predeﬁned warp Jacobian.
+The warp parameter p are updated by:
+p←p◦−1 ∆ p, (6)
+where we use the notation ◦−1 to denote the inverse com-
+positional warp functions parametrized by p, and ∆ p.
+Since the true relationship between appearance and geo-
+metric deformation is not linear in most cases, Equations 4
+and 6 need to be applied iteratively until convergence.
+The advantage of the IC form of LK over the original
+lies in its efﬁciency. Speciﬁcally, W† is evaluated on the
+template image T at the identity warp p = 0; therefore,
+W† remains constant throughout as long as the template
+image remains static. We refer the readers to [ 4] for a more
+detailed treatment.
+Recently, there has been a number of works that aims
+to increase the robustness of the classical LK framework
+by minimizing feature differences extracted from the im-
+ages [
+2, 3]. Following the same aforementioned derivation,
+the geometric warp update ∆ p in Equation 4 becomes
+∆ p = W†[φ(I(p))−φ(T (0))] , (7)
+where φ(·) is a feature extraction function; correspondingly,
+W = ∂φ (T (0))
+∂p is also solely a function of φ(T (0)). Sim-
+ilar to the original IC-LK, W† is ﬁxed throughout since
+φ(T (0)) only needs to be evaluated once at the identity
+warp.
+2.1. Cascaded Linear Regression
+Equation
+7 can be written in a more generic form of lin-
+ear regression as
+∆ p = R·φ(I(p)) + b, (8)

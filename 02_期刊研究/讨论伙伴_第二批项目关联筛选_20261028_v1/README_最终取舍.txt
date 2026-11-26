@@ -1,0 +1,7 @@
+先读01_单事件回交_外部风险与本项目关联门.txt及02_公开共识_两批未找到本项目主线.txt。
+
+本项目为VisDrone2019-DET十类RGB图像检测与DEIM/HGNet。两批当前0个合格本项目问题；Constellation与ContextShift均只保留外部线索，尚未找到可推荐主线，不再扩池。
+
+原件ContextShift_arXiv2606.09495v1.pdf，45页。实际范围见01及source_ledger.json，不等于全文精读。Table15在物理PDF25，已视觉核；ContextShift_pdf24_Fig9.png是前一页的图9，不是Table15。
+
+代码/API取文失败与未核实现只作资源边界，不是研究进展。没有执行模型、统计实验、重评、训练或profiling；原始数据和旧缓存未动。

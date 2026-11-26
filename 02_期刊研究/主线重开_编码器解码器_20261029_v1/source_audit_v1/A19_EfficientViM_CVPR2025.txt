@@ -1,0 +1,693 @@
+                            This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+                                         Except for this watermark, it is identical to the accepted version;
+                                   the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+                                 EfficientViM: Efficient Vision Mamba with
+                                Hidden State Mixer based State Space Duality
+
+                             Sanghyeok Lee1            Joonmyung Choi1            Hyunwoo J. Kim2 *
+                                                 1                         2
+                                                     Korea University          KAIST
+                             {cat0626, pizard}@korea.ac.kr               hyunwoojkim@kaist.ac.kr
+
+
+
+                             Abstract
+
+For the deployment of neural networks in resource-
+constrained environments, prior works have built
+lightweight architectures with convolution and attention
+for capturing local and global dependencies, respectively.
+Recently, the state space model (SSM) has emerged as an
+effective operation for global interaction with its favorable
+linear computational cost in the number of tokens. To
+harness the efficacy of SSM, we introduce Efficient Vision
+Mamba (EfficientViM), a novel architecture built on
+hidden state mixer-based state space duality (HSM-SSD)
+that efficiently captures global dependencies with further            Figure 1. Comparison of efficient networks on ImageNet-
+reduced computational cost. With the observation that the             1K [9] classification. The family of our EfficientViM, marked
+runtime of the SSD layer is driven by the linear projections          as red and blue stars, shows the best speed-accuracy trade-offs. ✝
+                                                                      indicates the model trained with distillation following [55].
+on the input sequences, we redesign the original SSD layer
+to perform the channel mixing operation within compressed             tion [20, 65, 67, 68, 75], etc. Earlier works [5, 15, 36]
+hidden states in the HSM-SSD layer. Additionally, we                  have explored the efficient convolutional neural networks
+propose multi-stage hidden state fusion to reinforce the rep-         (CNN). One such technique is depthwise separable con-
+resentation power of hidden states and provide the design             volution (DWConv), introduced in Xception [5], which
+to alleviate the bottleneck caused by the memory-bound                has been widely adopted for modeling lightweight archi-
+operations. As a result, the EfficientViM family achieves a           tectures, especially CNN-based networks including Mo-
+new state-of-the-art speed-accuracy trade-off on ImageNet-            bileNet [18, 19, 46] and following works [52, 59].
+1k, offering up to a 0.7% performance improvement over                Meanwhile, with the advent of Vision Transformer (ViT)
+the second-best model SHViT with faster speed. Further,               [11], attention mechanisms have become a key operation for
+we observe significant improvements in throughput and                 capturing long-range dependencies within image patches.
+accuracy compared to prior works, when scaling images                 However, the quadratic cost of self-attention presents chal-
+or employing distillation training. Code is available at              lenges for designing efficient architectures. To address this,
+https://github.com/mlvlab/EfficientViM .                              prior works have attempted to approximate self-attention
+                                                                      with reduced cost [6, 26, 62, 66], or restrict the number of
+                                                                      tokens [1, 4, 7, 27, 35, 70]. For on-device deployment, sev-
+                                                                      eral works [3, 33, 38, 39, 41, 58, 72, 73] devoted effort to
+1. Introduction                                                       developing hybrid ViTs combined with CNNs (DWConv).
+Efficient vision architectures for resource-constrained envi-         While prior works have demonstrated superior performance
+ronments have been consistently explored in computer vi-              over traditional CNNs, the inherent quadratic complexity of
+sion tasks, including image classification [5, 19, 22, 38,            self-attention in the number of tokens remains a major bot-
+39, 52, 74], object detection [28, 44, 53, 61], segmenta-             tleneck limiting their efficiency and scalability.
+                                                                      Recently, state space models (SSMs) [8, 12–14, 51] have
+  * Corresponding author.                                             emerged as a promising alternative to self-attention, of-
+
+
+
+                                                                14923
+fering a favorable linear computational complexity while            2. Preliminaries
+maintaining a global receptive field. Mamba [8, 13] has
+introduced selective scanning mechanisms on SSM (S6) to             State space models (SSM). Inspired by the linear time-
+process sequences with the hardware-aware parallel algo-            invariant (LTI) continuous system, an SSM maps an input
+rithm. Following Mamba, vision Mambas [21, 34, 69, 77]              sequence x(t) ∈ R to an output sequence y(t) ∈ R as
+have extended the concept of SSM to vision tasks. These                      h′ (t) = Âh(t) + B̂x(t), y(t) = Ĉh(t),        (1)
+works have studied multi-path scanning mechanisms to ad-
+dress the causal constraints of SSM that are not desirable          where h(t) ∈ RN ×1 is a hidden state, Â ∈ RN ×N ,
+for image processing. More recent works like VSSD [49]              B̂ ∈ RN ×1 , Ĉ ∈ R1×N are the projection matrix, and
+and Linfusion [32] further eliminated the causal mask in            N is the number of states. To adapt this continuous-time
+the state space duality (SSD) of Mamba2 [8], introduc-              system for discrete data in deep learning, given the multi-
+                                                                                                                 ⊤ ⊤
+                                                                    variate input sequences x = x⊤
+                                                                                                                  
+ing non-causal state space duality (NC-SSD). While vision                                           1 , . . . , xL   ∈ RL×D with
+                                                                               1×D
+Mambas demonstrate improved performance over previous               ∀t xt ∈ R       , Mamba [13] first generates parameters as
+SOTA methods, they still have relatively slower speeds than         B̂, C = xWB , xWC ∈ RL×N , ∆ = xW∆ ∈ RL , where
+lightweight vision models. Further, we have observed that           WB , WC ∈ RD×N , W∆ ∈ RD×1 are learnable matrices.
+the major bottleneck of the previous SSD is the linear pro-         Then, the discretized form of SSM with zero-order hold dis-
+jection in gating operation and output projection.                  cretization is defined as
+In this paper, we present an Efficient Vision Mamba
+                                                                               ht = At ht−1 + B⊤
+                                                                                               t xt , yt = Ct ht ,           (2)
+(EfficientViM), a new family of mamba-based lightweight
+vision backbone built with a fast and effective SSD layer           where y ∈ RL×D , ht ∈ RN ×D , At = e∆t Â ∈ RN ×N ,
+called Hidden State Mixer-based SSD (HSM-SSD). In the               Bt = (∆t Â)−1 (e∆t Â − I) · ∆t B̂t ≈ ∆t B̂t ∈ R1×N .
+HSM-SSD layer, we transfer the channel mixing operations            In this formulation, Â ∈ RN ×N is a learnable diagonal
+of the standard SSD layer, including linear projection and          matrix, and all projection matrices At , Bt , Ct enable the
+gating function, from the image feature space to the hid-           linear time-variant discrete system that selectively attends
+den state space. These hidden states serve as compressed            to inputs x and hidden state h of each timestamp t.
+latent representations of the input. We observe that this de-
+sign mitigates the major bottleneck of the SSD layer while
+                                                                    State space duality (SSD). Mamba2 [8] further simpli-
+maintaining the generalization ability of the model.
+                                                                    fies the diagonal form of the evolution matrix Â into the
+Also, we introduce a multi-stage hidden state fusion ap-
+                                                                    scalar form as â ∈ R resulting in a ∈ RL via the same
+proach that generates the predictions by combining the orig-
+                                                                    discretization step. Then, the state space duality (SSD) re-
+inal logits with those derived from the hidden states at
+                                                                    formulates Equation (2) as matrix transformation:
+each stage, leading to an enhanced representation power
+                                                                              y = SSD(x, a, B, C) = M ⊙ (CB⊤ ) x,
+                                                                                                                      
+of hidden states. After breaking down the runtime of
+the HSM-SSD layer, we present the macro design that                                Qi
+minimizes memory-bound operations, prioritizing practi-                             k=j+1 ak if i > j
+                                                                                   
+                                                                                                                             (3)
+cal performance in real-world applications over theoreti-                  Mij = 1                 if i = j ,
+                                                                                   
+                                                                                      0            if i < j
+                                                                                   
+cal metrics like FLOPs. Through extensive experiments,
+we demonstrate that our EfficientViM achieves the new
+speed-accuracy state-of-the-art trade-off as shown in Fig-          where M ∈ RL×L , and ⊙ indicates Hadamard product.
+ure 1. In particular, EfficientViM-M2 outperforms the pre-          Note that the lower triangular matrix M acts as a causal
+vious SOTA model SHViT [72], and pioneering work Mod-               mask, which is suboptimal for image processing. To ad-
+elNetV3 [18] with a 0.6% performance improvement even               dress this, non-causal SSD (NC-SSD) [32, 77] has been
+bringing about 7% and 80% speed-ups, respectively. In                        Qan
+                                                                    studied as    alternative to SSD by defining the mask as
+                                                                                L
+summary, the contributions of EfficientViM are threefold:           Mij = k=j+1 ak , resulting in M1j = M2j = . . . =
+                                                                    MLj . Further, in VSSD [77], it is simplified as Mij = aj
+• We propose a novel mamba-based lightweight architec-              resulting in
+  ture called EfficientViM, leveraging the linear computa-
+  tional cost of the global token mixer.                                      y = NC-SSD(x, a, B, C) = Ch,
+                                                                                                  XL                         (4)
+• We introduce HSM-SSD, which makes the major over-                           h = (a1⊤     ⊤
+                                                                                     N ⊙ B) x =        ai B⊤
+                                                                                                           i xi ,
+  head of the SSD layer controllable by adjusting the num-                                               i=1
+  ber of hidden states.                                             where 1N ∈ RN is one vector for broadcasting a. Since the
+• With a design minimizing memory-bound operations                  cumulative multiplication of a restricts the receptive fields
+  and incorporating multi-stage hidden state fusion, Effi-          as discussed in [49, 50], we adopt this version of NC-SSD
+  cientViM achieves the best speed-accuracy tradeoffs.              as our starting point for an efficient token mixer.
+
+
+
+                                                            14924
+            Complexity               Method
+        O(LD2 + L2 D)     Attention [60]
+           O(LD2 )     Linear Attention [24]
+        O(LD2 + LN D) SSD [8], NC-SSD [49]
+        O(N D2 + LN D)      HSM-SSD
+
+Table 1. Complexity comparison of global tokens mixers. L: #
+tokens, N : # states, D: # channels.
+
+3. Method
+We present a hidden state mixer-based SSD (HSM-SSD)
+for capturing global context with reduced costs, detailed
+in Section 3.1. Then, we discuss the additional techniques
+to improve both speed and performance with HSM-SSD
+in Section 3.2. After that, we outline the overall architecture
+and block designs to construct EfficientViM in Section 3.3.                      (a) NC-SSD layer                  (b) HSM-SSD layer
+
+                                                                      Figure 2. Illustration of (left) NC-SSD and (right) HSM-SSD
+3.1. Hidden State Mixer-based SSD                                     layer. In the HSM-SSD layer, the computationally heavy projec-
+We start with a brief discussion on the computational cost of         tions are handled with the reduced hidden state in HSM as high-
+the NC-SSD layer depicted in Figure 2a. The entire process            lighted. Red, blue, and orange colors indicate the operation requir-
+                                                                      ing the complexities of O(LD2 ), O(LN D), and O(N D2 ).
+of the NC-SSD layer can be summarized as
+                                                                     where Win ∈ RD×D , and hin = (a1⊤           ⊤
+                                                                                                          N ⊙B) xin ∈ R
+                                                                                                                           N ×D
+                                                                                                                                .
+              B̂, C, ∆, x, z = Linear(xin )                (5)       By computing hin first, we perform a linear projection onto
+              a, B = Discretization(â, B̂, ∆),            (6)       the hidden state space. This approach reduces the cost from
+                                                                     O(LD2 ) to O(N D2 ) which relies on the number of states.
+              B, C, x := DWConv(B, C, x),                  (7)       In other words, we could alleviate the major costs of the
+              y = NC-SSD(x, a, B, C),                      (8)       layer by adjusting the number of states such that N ≪ L.
+              xout = Linear(y ⊙ σ(z)),                     (9)       Hidden State Mixer. The next step is to alleviate the cost
+                                                                     of gating and output projection in Equation (9), which still
+where xin , xout , x, z ∈ RL×D , and σ is the activation func-       remains O(LD2 ). To address this, we focus on a shared
+tion. The computational costs of Equations (5) to (7)                global hidden state h. Note that the hidden state h itself is
+with a constant kernel size is O(LD2 + LN D). Subse-                 the reduced latent array that compresses the input data with
+quently, executing NC-SSD and the output projection re-              a significantly smaller sequence length N . Based on this
+quires O(LN D) and O(LD2 ), respectively. Given that the             observation, we propose a Hidden State Mixer (HSM) that
+number of states N is typically much smaller than the num-           performs channel mixing, including the gating and output
+ber of channels D (i.e., N ≪ D), the overall complexity              projection, directly on the reduced latent array h as high-
+is mainly driven by the linear projections involved in gen-          lighted in Figure 2b. To this end, we approximate the output
+erating x, z, and xout , leading to O(LD2 ). Therefore, op-          of the NC-SSD layer as follows:
+timizing the linear projection in SSD blocks is crucial for
+scalability.                                                               xout = f (y)
+We delve into optimizing these computations for efficient                       = Linear(y ⊙ σ(z))
+layer designs. NC-SSD (Equation (4)) can be factorized                                                                               (11)
+                                                                                = (Ch ⊙ σ(xin Wz ))Wout
+into two steps. First, it obtains shared global hidden state
+h ∈ RN ×D through a weighted linear combination of input                        ≈ C ((h ⊙ σ(hin Wz ))Wout ) = Cf (h),
+states B⊤i xi ∈ R
+                    N ×D
+                          using importance weights a ∈ RL .           where y = Ch from Equation (4), and f indicates chan-
+Second, the outputs for each input are generated by project-          nel mixing of gating function followed by linear projection
+ing a hidden state with their corresponding C ∈ RL×N .                with the learnable matrix Wz , Wout ∈ RD×D . Contrary
+Here, if we denote the projected input x as xin Win remov-            to the original NC-SSD layer where Ch is computed first
+ing DWConv, the following holds:                                      and then fed to f , we apply the gating and projection di-
+                                                                      rectly to the hidden states with HSM. Then, the final output
+          h = (a1⊤     ⊤
+                 N ⊙ B) (xin Win )                                    xout is generated by projecting updated hidden states with
+                                                          (10)
+            = ((a1⊤     ⊤
+                  N ⊙ B) xin )Win = hin Win ,
+                                                                      C. Consequently, the total complexity of capturing global
+
+
+
+                                                                 14925
+                                                                      Algorithm 1 HSM-SSD Layer
+                                                                      Input: xin ∈ RL×D
+                                                                      Output: xout ∈ RL×D
+                                                                       1: B̂, C, ∆ ← Linear(xin )                                           ▷ O(LN D)
+                                                                       2: B̂, C ← DWConv(B̂, C)                                          ▷ O(LN K 2 D)
+                                                                       3: A, B ← Discretization(â, B̂, ∆)                                    ▷ O(LD)
+                                                                       4: hin ← (A ⊙ B)⊤ xin                                                ▷ O(LN D)
+                                                                       5: h, z ← Linear(hin )                                               ▷ O(N D2 )
+                                                                       6: h ← Linear(h ⊙ σ(z))                                              ▷ O(N D2 )
+                                                                       7: xout ← Ch                                                         ▷ O(LN D)
+                                                                       8: Return xout
+
+Figure 3. Runtime breakdown of HSM-SSD with EfficientViM-
+M2. The operations highlighted in red are memory-bound.
+                                                                      from the output of the last stage, which is defined as
+                                                 2
+context in the HSM-SSD layer becomes O(N D + LN D),                                                 S
+                                                                                                    X          (s) (s)
+which is negligible as N gets smaller. Refer to Table 1 for a                                 z=          β̂     z       ,
+comparison of the big-O complexities with previous global                                           s=0
+                                                                                                                                                  (13)
+token mixers.                                                                                (s)      exp(β (s) )
+                                                                                        β̂         = PS                              ,
+Proposition 1. Let N = L, a1⊤ L ⊙B = IL , and C ∈ R
+                                                      L×L
+                                                                                                      i=0 exp(β
+                                                                                                                             (i) )
+
+be diagonal. Then, HSM-SSD(x, a, B, C) is equivalent to               where β (s) is learnable scalar. By training with this com-
+NC-SSD(x, a, B, C) including gating and output projec-                bined logit, we explicitly reinforce the representational
+tion, as xout = f (y) = Cf (h). See supplement for proof.             power of the hidden states, as they contribute to the final
+                                                                      predictions. It also enriches the information by integrating
+Remark 1. Although we utilize gating and linear projec-               both low-level and high-level features, thereby enhancing
+tion for the HSM to emulate the operation in the original             the generalization ability of the model during inference.
+SSD layer, other methods are also available. For example,
+inspired by the Perceiver architecture [23], we could imple-          Single-head HSM-SSD. The multi-head design in the at-
+ment a global token mixer for the function f in Eq. (11) to           tention mechanism [60] allows it to selectively attend to the
+efficiently handle high-dimensional inputs using a reduced            features from independent representation subspaces within
+set of latent variables. Moreover, HSM-SSD can recursively            each head. SSD-based models [8, 49] generally adopt a
+apply HSM-SSD itself as the hidden state mixer, further re-           multi-head variant called multi-input SSD, where the input
+ducing computational complexity and forming a recurrent               x and a are defined for each head while B, and C are shared
+architecture unrolled across depth.                                   across the head. However, recent work [72] has pointed out
+                                                                      that a significant portion of real runtime in multi-head self-
+3.2. HSM-SSD layer                                                    attention is driven by memory-bound operations.
+Multi-stage hidden state fusion. To further improve the               In our preliminary experiments, we also found that multi-
+performance of EfficientViM, we introduce a multi-stage               head configuration has become a bottleneck for HSM-SSD
+hidden-state fusion (MSF) mechanism that fuses the pre-               as summarized in Figure 3. As shown in the figure, the
+diction logits leveraging hidden states from multiple stages          real runtime of multi-head HSM-SSD is largely bounded by
+of the network. Let {h(s) }Ss=1 denote the hidden states at           memory access, requiring almost a quarter of the total run-
+the last block of each stage s, where S is the total number of        time. Hence, we eliminate all tensor manipulation caused
+stages. For each h(s) , we compute a global representation            by multi-head (e.g., reshape, copy operation). Concurrently,
+ (s)                                                                  to mimic the capability of multi-head in capturing diverse
+ĥ     through a simple average over the hidden states:               relationships, we set ∆ ∈ RL×N , â ∈ RN , enabling the
+                      (s)       1 XN (s)                              importance weights A ∈ RL×N to estimate the importance
+                    ĥ      =         h .                 (12)        of the tokens per state. Then, the input for the hidden state
+                                N  i=1 i
+                                                                      mixer becomes
+                                     (s)
+Then, each global representation ĥ ∈ RD is normalized                                       hin = (A ⊙ B)⊤ xin .                                 (14)
+and projected to generate its corresponding logits z(s) ∈
+Rc , where c indicates the number of classes. We set the                 As a result, our single-head HSM-SSD with state-wise
+final logit z of EfficientViM as a weighted sum of the logits            importance weights achieved higher throughput (17,005
+from all stages, including the original logit z(0) obtained              img/s) with single-head compared to multi-head (15,703
+
+
+
+                                                                 14926
+Figure 4. (left) Overall architecture and (right) block design of EfficientViM. The dotted line indicates a skip connection for multi-stage
+hidden state fusion (MSF). Illustration of the HSM-SSD layer in the EfficientViM block is presented in Figure 2.
+
+img/s) along with competitive performance (see Table 9.b)                         Model         # Blocks      # Channels        # States
+under similar FLOPs. The pseudocode of the single-head                        EfficientViM-M1   [2, 2, 2]   [128, 192, 320]    [49, 25, 9]
+HSM-SSD layer is provided in Algorithm 1.                                     EfficientViM-M2   [2, 2, 2]   [128, 256, 512]    [49, 25, 9]
+                                                                              EfficientViM-M3   [2, 2, 2]   [224, 320, 512]    [49, 25, 9]
+                                                                              EfficientViM-M4   [3, 4, 2]   [224, 320, 512]   [64, 32, 16]
+3.3. EfficientViM
+In this subsection, we present EfficientViM, an efficient vi-                    Table 2. Specification of EfficientViM variants.
+sion mambas built upon the HSM-SSD layer. The overall
+architecture is illustrated in Figure 4.                                  4. Experiments
+Block design. In each block of EfficientViM, we sequen-                   In this section, we first demonstrate the effectiveness of
+tially stack the HSM-SSD layer and a feed-forward network                 EfficientViM on image classification (Section 4.1). Then,
+(FFN) to facilitate global information aggregation and chan-              we conduct experiments to analyze the extensibility of Ef-
+nel interaction, respectively. FFN layer consists of two con-             ficientViM on dense predictions (Section 4.2). We also
+secutive 1×1 convolution layers, known as pointwise con-                  provide ablation studies and analysis of EfficientViM (Sec-
+volution, with an expansion ratio of 4. To capture the local              tion 4.3). See the supplement for implementation details
+context with minimal computational costs, we incorporate                  and more experiments.
+a 3×3 depthwise convolution (DWConv) layer before both
+the NC-SSD and FFN layers. Each layer is combined with                    4.1. Image Classification.
+a residual connection using a layer scale following [56, 57].           Comparison with efficient vision backbones. For com-
+For normalization, we apply layer normalization (LN) only               parison of EfficientViM with prior works, we conduct
+before the HSM-SSD layer for numerical stability, while                 ImageNet-1K [9] classification. To validate the effective-
+batch normalization (BN) is used for DWConv and FFN                     ness of EfficientViM in speed-accuracy trade-offs, we mea-
+considering its faster speed over LN.                                   sure the throughput (im/s), and latency (ms) with the batch
+Overall architecture. The stem layer first maps the                     size of 256 on an NVIDIA RTX 3090 along with the ac-
+H × W × 3 input image to the down-sized feature map                     curacy, and present the results in Table 3. EfficientViM
+ H     W
+16 × 16 × D1 through the four consecutive 3×3 convolu-                  outperforms all previous efficient networks in both speed
+tional layers with the stride of 2. Then, the resulting fea-            and accuracy. After training 450 epochs, EfficientViM-
+ture map is fed into the three stages built with EfficientViM           M1 shows a competitive performance with MobileNetV3-L
+blocks. To achieve hierarchical architecture and improve ef-            0.75 [18] and EfficientViT-M3 [33] while achieving about
+ficiency, we downscale the feature map while increasing the             90% and 30% speedup. Further, EfficientViM-M2 achieves
+number of channels at the end of each stage via the down-               about 4× faster speed, with a 0.2% performance improve-
+sampling layer adopted from [33, 46, 77]. Regarding acti-               ment compared to MobileViTV2 0.75 [39] and FastViT-
+vation functions, we use SiLU only in the HSM-SSD layer,                T8 [58]. EfficientViM-M3 and M4 achieve 77.9% and
+and others use ReLU [40] since the latencies of the complex             79.7% accuracy, respectively, surpassing all previous works
+activation functions (e.g., Gelu [17], DynamicReLU [2],                 in throughput and accuracy within each section. Also, Effi-
+etc.) are largely dependent on devices, as discussed in previ-          cientViM consistently outperforms the previous SOTA net-
+ous works [33, 59, 72]. Detailed architecture specifications            work, SHViT [72], across model sizes while reducing la-
+of EfficientViM variants are available in Table 2.                      tency, which demonstrates the superiority of EfficientViM.
+
+
+
+                                                                  14927
+                                                  Input             Token      Throughput       Latency   Top-1   Params   FLOPs
+               Method                 Venue               Epochs
+                                                   Size             Mixer   (im/s) ↑ Thrrel ↑    (ms) ↓   (%) ↑    (M)      (M)
+       MobileViTV2 0.5 [39]         Arxiv 2022    2562     300      Att.      6,702    ×0.32      0.149   70.2     1.4      466
+       MobileOne-S0 [59]            CVPR 2023     2242     300      Conv     13,313    ×0.64      0.075   71.4     2.1      275
+       EMO-1M [73]                  ICCV 2023     2242     300      Att.      6,945    ×0.34      0.144   71.5     1.3      261
+       MobileFormer-96M [3]         CVPR 2022     2242     450      Att.     11,554    ×0.56      0.087   72.8     4.6       96
+       SHViT-S1 [72]                CVPR 2024     2242     300      Att.     19,868    ×0.96      0.050   72.8     6.3      241
+       EfficientViM-M1                   -        2242     300      SSD      20,731    ×1.00      0.048   72.9     6.7      239
+       MobileNetV3-L 0.75 [18]      ICCV 2019     2242     600      Conv     10,846    ×0.52      0.092   73.3     4.0      155
+       EfficientViT-M3 [33]         CVPR 2023     2242     300      Att.     16,045    ×0.77      0.062   73.4     6.9      263
+       EfficientViM-M1                   -        2242     450      SSD      20,731    ×1.00      0.048   73.5     6.7      239
+       EfficientFormerV2-S0 [30]   NeurIPS 2022   2242     300      Att.      1,350    ×0.08      0.741   73.7     3.5      407
+       EfficientViT-M4 [33]         CVPR 2023     2242     300      Att.     15,807    ×0.93      0.063   74.3     8.8      299
+       EdgeViT-XXS [41]             ECCV 2022     2242     300      Att.      5,990    ×0.35      0.167   74.4     4.1      556
+       EMO-2M [73]                  ICCV 2023     2242     300      Att.      4,990    ×0.29      0.200   75.1     2.3      439
+       MobileNetV3-L 1.0 [18]       ICCV 2019     2242     600      Conv      9,493    ×0.56      0.105   75.2     5.4      217
+       MobileFormer-151M [3]        CVPR 2022     2242     450      Att.      8,890    ×0.52      0.112   75.2     7.6      151
+       SHViT-S2 [72]                CVPR 2024     2242     300      Att.     15,899    ×0.93      0.063   75.2     11.4    366
+       EfficientViM-M2                   -        2242     300      SSD      17,005    ×1.00      0.059   75.4     13.9    355
+       MobileViTV2 0.75 [39]        Arxiv 2022    2562     300      Att.      4,409    ×0.26      0.227   75.6     2.9     1030
+       FastViT-T8 [58]              ICCV 2023     2562     300      Att.      4,365    ×0.26      0.229   75.6     3.6      705
+       EfficientViM-M2                   -        2242     450      SSD      17,005    ×1.00      0.059   75.8     13.9    355
+       EfficientMod-XXS [37]        ICLR 2024     2242     300      Att.       7022    ×0.59      0.142   76.0     4.7      583
+       ConvNeXtV2-A [64]            CVPR 2023     2242     300      Conv       7563    ×0.63      0.132   76.2     3.7      552
+       EfficientViT-M5 [33]         CVPR 2023     2242     300      Att.     11,105    ×0.93      0.090   77.1     12.4    522
+       MobileOne-S2 [59]            CVPR 2023     2242     300      Conv      5,360    ×0.45      0.187   77.4     7.8     1299
+       SHViT-S3 [72]                CVPR 2024     2242     300      Att.     11,873    ×0.99      0.084   77.4     14.2    601
+       EdgeViT-XS [41]              ECCV 2022     2242     300      Att.      4,405    ×0.37      0.227   77.5     6.7     1136
+       EfficientViM-M3                   -        2242     300      SSD      11,952    ×1.00      0.084   77.6     16.6    656
+       MobileFormer-294M [3]        CVPR 2022     2242     450      Att.      6,576    ×0.55      0.152   77.9     11.4    294
+       EfficientFormerV2-S1 [30]   NeurIPS 2022   2242     300      Att.      1,248    ×0.10      0.801   77.9     6.1      668
+       EfficientViM-M3                   -        2242     450      SSD      11,952    ×1.00      0.084   77.9     16.6    656
+       ConvNeXtV2-F [64]            CVPR 2023     2242     300      Conv      6,405    ×0.78      0.156   78.0     5.2      785
+       MobileViTV2 1.0 [39]         Arxiv 2022    2562     300      Att.      2,977    ×0.36      0.336   78.1     4.9     1844
+       MobileOne-S3 [59]            CVPR 2023     2242     300      Conv      4,181    ×0.51      0.239   78.1     10.1    1896
+       EfficientMod-XS [37]         ICLR 2024     2242     300      Att.      5,321    ×0.65      0.188   78.3     6.6      778
+       EMO-6M [73]                  ICCV 2023     2242     300      Att.      3,266    ×0.40      0.306   79.0     6.1      961
+       FastViT-T12 [58]             ICCV 2023     2562     300      Att.      2,741    ×0.34      0.365   79.1     6.8     1419
+       MobileFormer-508M [3]        CVPR 2022     2242     450      Att.      4,586    ×0.56      0.218   79.3     14.0     508
+       MobileOne-S4 [59]            CVPR 2023     2242     300      Conv      3,041    ×0.37      0.329   79.4     14.8    2978
+       SHViT-S4 [72]                CVPR 2024     2562     300      Att.      8,024    ×0.98      0.124   79.4     16.5     986
+       EfficientViM-M4                   -        2562     300      SSD       8,170    ×1.00      0.122   79.4     19.6    1111
+       MobileViTV2 1.25 [39]        Arxiv 2022    2562     300      Att.      2,409    ×0.24      0.415   79.6     7.5     2857
+       EfficientViM-M4                   -        2562     450      SSD       8,170    ×1.00      0.122   79.6     19.6    1111
+
+Table 3. Comparison of efficient networks on ImageNet-1K [9] classification. Results are sorted by accuracy. We also denote the
+relative throughput Thrrel of each method compared to EfficientViM in each split.
+
+                                                                        Comparison with vision Mambas. In Table 4, we com-
+         Method            Thr.    Thrrel Top-1 Params FLOPs            pare our EfficientViM with the recent vision Mambas in-
+                                                                        cluding ViM [77], LocalViM [21], EfficientVMamba [42],
+  EfficientViM-M2        17,005 ×2.08     75.8    13.9M    355M
+  ViM-T [77]              1,612 ×0.20     76.1     7.1M   1500M         and MSVMamba [50]. EfficientViM brings promising
+  LocalViM-T [77]           593 ×0.07     76.2     8.0M   1500M         speed improvements over the prior works. EfficientViM-
+  EfficientVMamba-T [37] 2,763 ×0.34      76.5     6.0M    800M         M2 is almost 10× and 29× faster than ViM-T and
+  MSVMamba-N [50]         2,060 ×0.25     77.3     6.9M    864M
+                                                                        LocalViM-T with comparable accuracy. EfficientViM-M4
+  EfficientVMamba-S [37] 1,350 ×0.17      78.7    11.0M   1300M
+  EfficientViM-M4         8,170 ×1.00     79.6    19.6M   1111M         shows about 3∼14× higher throughput than other meth-
+  MSVMamba-M [50]         1,527 ×0.19     79.8    11.9M   1507M         ods even with competitive performances. Notably, it out-
+                                                                        performs MSVMamba-N and EfficientVMamba-S by 3.1%
+Table 4. Comparison of EfficientViM with vision Mambas.                 and 2.3%, achieving about 4× and 6× higher throughput,
+Thrrel is relative throughput compared to EfficientViM-M4.              respectively. This reveals that EfficientViM is a highly effi-
+                                                                        cient architecture among mamba-based vision models.
+
+
+
+
+                                                                   14928
+          Method            Size   Thr. Thrrel Top-1 Params FLOPs                                     PVTV2     FastViT   EdgeViT    EfficientViM
+                                                                                          Metric
+                                                                                                       -B0       -SA12     -XXS           -M4
+SHViT-S1 [72]               2242 19,868 ×0.96 74.0        6.3M        241M
+EfficientViM-M1             2242 20,731 ×1.00 74.6        6.7M        239M             Latency (ms)    0.87      1.63      0.94          0.45
+                                                                                       mIoU(%)         37.2      38.0      39.7          41.3
+EfficientFormerV2-S0 [30] 2242    1,350 ×0.08     75.7 3.5M 407M
+SwifitFormer-XS [47]        2242 6,102 ×0.36      75.7 3.5M 605M                   Table 7. Semantic segmentation with SemanticFPN [25] on
+SHViT-S2 [72]               2242 15,672 ×0.94     76.2 11.4M 366M
+                                                                                   ADE20K [76]
+FastViT-T8 [58]             2562 4,365 ×0.26      76.7 3.6M 705M
+EfficientViM-M2             2242 17,005 ×1.00     76.7 13.9M 355M                            Method            Memory Thr. Thrrel Top-1 Params
+EfficientMod-XXS [37]     2242 7,022 ×0.59        77.1 4.7M 583M                      EfficientViT-M4 [33]       870M 15,807 ×0.93    74.3   8.8M
+SHViT-S3 [72]             2242 11,873 ×0.99       78.3 14.2M 601M                     EMO-2M [73]               2656M 4,990 ×0.29     75.1   2.3M
+SwifitFormer-S [47]       2242 4,675 ×0.39        78.5 6.1M 988M                      MobileNetV3-L 1.0 [18]    2643M 9,493 ×0.56     75.2   5.4M
+EfficientFormerV2-S1 [30] 2242 1,248 ×0.10        79.0 6.1M 668M                      Mobile-Former-151M [3]    1800M 8,890 ×0.52     75.2   7.6M
+EfficientViM-M3           2242 11,952 ×1.00       79.1 16.6M 656M                     SHViT-S2 [72]              879M 15,899 ×0.94    75.2   11.4M
+EfficientMod-XS [37]        2242   5,321 ×0.65    79.4 6.6M 778M                      FastViT-T8 [72]           2811M 4,365 ×0.26     75.6   3.6M
+SHViT-S4 [72]               2562   8,024 ×0.98    80.2 16.5M 986M                     EfficientViM-M2            969M 17,005 ×1.00    75.8   13.9M
+FastViT-T12 [58]            2562   2,741 ×0.34    80.3 6.8M 1419M
+                                                                                   Table 8. Comparsion on peak memory usage during inference.
+EfficientViM-M4             2562   8,170 ×1.00    80.7 19.6M 1111M
+                                                                                   Thrrel is relative throughput compared to EfficientViM-M2.
+Table 5. Comparison of efficient networks after training with
+distillation objective in [55]. Thrrel is relative throughput com-                works [33, 41, 58, 72], where Mask R-CNN [16] and Reti-
+pared to EfficientViM in each split.                                              naNet [45] are used for instance segmentation and object
+                                                                                  detection. After training the model for 12 epochs (1x sched-
+                         Head: Mask R-CNN [16]
+                                                                                  ule) with a batch size of 16, we report the performances
+         Method          Lat. (ms) APb APb50 APb75 APm APm    m
+                                                         50 AP75                  and backbone latencies with the resolution of 5122 , follow-
+ EfficientNet-B0 [52]      0.95    31.9   51.0   34.5   29.4   47.9    31.2       ing [72]. Table 6 demonstrates that EfficientViM achieves
+ PoolFormer-S1 [71]        1.49    37.3   59.0   40.1   34.6   55.8    36.9
+ FastViT-SA12 [58]         1.63    38.9   60.5   42.2   35.9   57.6    38.1
+                                                                                  competitive performances while maintaining a faster speed
+ SHViT-S4 [72]             0.52    39.0   61.2   41.9   35.9   57.9    37.9       in dense prediction tasks. Specifically, in instance seg-
+ EfficientViM-M4           0.45    39.3   60.2   42.5   35.8   57.1    37.4       mentation with Mask R-CNN, EfficientViM-M4 surpasses
+                          Head: RetinaNet [45]                                    SHViT-S4 with the 0.3% improvements in APb while re-
+         Method          Lat. (ms) AP AP50 AP75 APs APm                APl        ducing latency by 0.7ms. Similarly, in object detection with
+ PVTV2-B0 [63]             0.87    37.2   57.2   39.5   23.1   40.4    49.7       RetinaNet, EfficientViM-M4 achieves the best average pre-
+ MobileFormer-508M [3]     1.09    38.0   58.3   40.3   22.9   41.2    49.7       cision of 38.8% with the lowest latency.
+ EdgeViT-XXS [41]          0.94    38.7   59.0   41.0   22.4   42.0    51.6       Semantic segmentation. We also demonstrate the exten-
+ SHViT-S4 [72]             0.52    38.8   59.8   41.1   22.0   42.4    52.7
+ EfficientViM-M4           0.45    38.8   59.6   41.1   22.1   42.4    52.8       sibility of EfficientViM on semantic segmentation using
+                                                                                  ADE20K [76] benchmark. Following previous works [41,
+Table 6. Instance segmentation and object detection and re-                       58], we replace the backbone of SemanticFPN [25] with
+sults on COCO-2017 [31].                                                          EfficientViM-M4. The model is finetuned for 40K iter-
+                                                                                  ations with the batch size of 32 and the initial learning
+Training with distillation. We compare EfficientViM with                          rate of 2×10−4 decayed using a polynomial scheduler with
+the prior works [30, 47, 58, 72] trained with distillation ob-                    a power of 0.9. We report the mIoU and latency of the
+jectives in DeiT [55]. We train the model for 300 epochs,                         backbone with 5122 resolutions in Table 7. We observe
+using RegNetY-160 [43] as the teacher model. Table 5                              that EfficientViM-M4 largely surpasses all previous effi-
+shows that distillation is effective for EfficientViM. Com-                       cient backbones in semantic segmentation, which demon-
+pared to FastViT-T8&T12 [58], EfficientViM-M2&M4 de-                              strates the efficacy of EfficientViM in dense predictions
+livers more than 3× higher throughput along with compara-                         along with the results of object detection and instance seg-
+ble or even better performance. Further, EfficientViM out-                        mentation. It is worth noting that EfficientViM-M4 brings
+performs SHViT [72] up to 0.8% running at a higher speed.                         both 1.6% mIoU gains and about 2× speedup compared to
+With distillation, EfficientViM still outperforms all other                       the second-best model EdgeVit-XXS.
+models in speed-accuracy trade-offs and further establishes
+a promising Pareto front as shown in Figure 1.                                    4.3. Analysis and Ablation studies
+                                                                                  Memory Efficiency. Our models have a relatively large
+4.2. Dense Predictions                                                            number of parameters compared to prior works. Yet, the
+Object detection and instance segmentation. We validate                           memory usage of the model in the device is determined by
+the effectiveness of EfficientViM on object detection and                         the memory I/O during inference rather than just the num-
+instance segmentation using the COCO-2017 [31] dataset.                           ber of parameters alone. We here analyze the peak memory
+For training the models, we follow the settings of previous                       usage of the networks and provide the results in Table 8.
+
+
+
+                                                                              14929
+              Method              Thr.    Top-1 Params FLOPs           the channel and generating more feature maps.
+   (A) EfficientViM-M2 (Base) 17,005      75.4   13.9M   355M          Following ViTs [11], several works [3, 33, 38, 39, 41, 58,
+   (B) EfficientViM-M3        11,952      77.5   16.6M   656M          72, 73] built efficient vision backbones with attention [60].
+   a. Token Mixers (Base: HSM-SSD)                                     Some works sparsified the attention [7, 10, 35] to reduce
+                                                                       query and key, while another line of works [6, 26, 62,
+   (C) (→) NC-SSD [49]            9,786   76.2   13.0M   382M
+   (D) (→) Self-Attention [60]   13,038   76.1   13.6M   416M          66] have approximated attention itself with reduced cost.
+                                                                       More recently, EfficientFormer [29], EfficientViT [33], and
+   b. Head designs (Base: Single-head with A ∈ RL×N )
+                                                                       SHViT [72] have proposed hardware-frienly ViT architec-
+   (E) (→) Multi-head            15,703   75.4   13.9M   352M          tures for real-world applications, focusing on actual speed
+   c. Multi-stage fusion                                               in practical use, rather than FLOPs.
+   (F) (→) None                  17,317   75.1   13.0M   354M          Vision Mambas. State space model (SSM) [8, 12–14, 51]
+                                                                       has become a popular global token mixer with its fa-
+Table 9. Ablation studies on EfficientViM. All ablation studies        vorable linear cost. Especially, Mamba [13] has intro-
+were conducted with EfficientViM-M2 denoted as (Base).                 duced a selective scan mechanism on SSM (S6) to enable
+                                                                       time-variant selection. Following Mambas [8, 13], several
+Despite the highest parameter counts, EfficientViM shows               works [21, 34, 37, 48, 54, 69, 77] have proposed SSM-
+a competitive memory efficiency while achieving the best               based Vision backbones. ViM [77] applied bi-directional
+throughput. Notably, we observe that EfficientViM requires             SSM to flattened patches considering the causal nature in
+only about 1/3 of the peak memory usage of the models hav-             Mamba. Similarly, VMamba [34], PlainMamba [69], and
+ing lower parameters, e.g., EMO [73], MobileNetV3 [18],                LocalMamba [21] have been proposed with the multi-path
+and FastViT [58]. Furthermore, the models with a relatively            scanning mechanism. GroupMamba [48], and EfficientV-
+large number of parameters (e.g., EfficientViT, SHViT, and             Mamba [42] further enhance the efficiency by splitting the
+EfficientViM) demonstrate high throughput and low mem-                 channels and sharing the learnable parameters for each path.
+ory consumption, highlighting that the number of parame-               Recent works, VSSD [49] and Linfusion [32] introduced
+ters is not a critical factor for memory and time efficiency.          non-causal SSD to overcome causal properties in Mamba.
+Overall, our EfficientViM achieves the best speed and per-
+formance maintaining memory efficiency.
+                                                                       6. Conclusion
+Ablation studies. We conduct ablation studies with
+EfficientViM-M2 after training 300 epochs and provide the              We propose a novel mamba-based architecture, Efficient Vi-
+results in Table 9. First, we compare HSM-SSD with other               sion Mamba (EfficientViM), built with a hidden state mixer-
+global token mixers, by replacing them with other meth-                based SSD (HSM-SSD). With the observation that the pri-
+ods including NC-SSD [49] and self-attention (SA) [60].                mary bottleneck of SSD stems from the linear projections
+Considering that EfficientViM-M3 with HSM-SSD shows                    with input tokens, we rearrange the channel mixing opera-
+77.5% with a throughput of 11,952 (im/s), NC-SSD and                   tion within the hidden states which serve as reduced latent
+SA show a poorer speed-accuracy trade-off than HSM-SSD.                representations. We also introduce multi-stage hidden state
+Regarding head choices, we observe that our single-head                fusion that integrates both low-level and high-level features.
+design brings significant speed-up (15703 → 17005 (im/s))              To enhance practical runtime efficiency, we adopt a single-
+without performance degradation. Lastly, multi-stage fu-               head design for HSM-SSD to minimize the memory-bound
+sion with hidden states (75.4%) surpasses the accuracy of              operations, which are typically overlooked when only con-
+EfficientViM without fusion (75.1%) under similar through-             sidering FLOPs. Our comprehensive experiments demon-
+put. Refer to the supplement for more ablation studies.                strate that EfficientViM significantly improves efficiency
+                                                                       and performance over prior works across various tasks.
+5. Related Works
+Efficient vision backbones. Earlier works [5, 18, 19, 22,              Acknowledgments. This work was supported by Korea
+36, 46, 52, 59, 74] have studied improving the trade-off be-           University - KT (Korea Telecom) R&D Center, the National
+tween accuracy and computational efficiency in CNN archi-              Research Foundation of Korea (NRF) grant funded by the
+tectures. To reduce the complexity of convolution, Xcep-               Korea government (MSIT) (NRF-2023R1A2C2005373),
+tion [5] introduced depthwise convolutions (DWConv),                   the Virtual Engineering Platform Project (Grant No.
+which have become major techniques used across modern                  P0022336), funded by the Ministry of Trade, Industry &
+efficient models. For instance, the pioneering work Mo-                Energy (MoTIE, South Korea), and the Institute of Informa-
+bileNet [19] constructed lightweight architectures based on            tion & communications Technology Planning & Evaluation
+DWConv. ShuffleNet [74] and GhostNet [15] also have ex-                (IITP) grant funded by the Korean government (MSIT) (No.
+plored additional techniques to enhance CNN by shuffling               RS-2024-00457882, AI Research Hub Project).
+
+
+
+                                                                  14930
+References                                                           [18] Andrew Howard, Mark Sandler, Grace Chu, Liang-Chieh
+                                                                          Chen, Bo Chen, Mingxing Tan, Weijun Wang, Yukun Zhu,
+ [1] Daniel Bolya, Cheng-Yang Fu, Xiaoliang Dai, Peizhao                  Ruoming Pang, Vijay Vasudevan, et al. Searching for mo-
+     Zhang, Christoph Feichtenhofer, and Judy Hoffman. Token              bilenetv3. In ICCV, 2019. 1, 2, 5, 6, 7, 8
+     merging: Your vit but faster. ICLR, 2022. 1
+                                                                     [19] Andrew G Howard.           Mobilenets: Efficient convolu-
+ [2] Yinpeng Chen, Xiyang Dai, Mengchen Liu, Dongdong                     tional neural networks for mobile vision applications.
+     Chen, Lu Yuan, and Zicheng Liu. Dynamic relu. In ECCV,               arXiv:1704.04861, 2017. 1, 8
+     2020. 5
+                                                                     [20] Jie Hu, Linyan Huang, Tianhe Ren, Shengchuan Zhang,
+ [3] Yinpeng Chen, Xiyang Dai, Dongdong Chen, Mengchen                    Rongrong Ji, and Liujuan Cao. You only segment once: To-
+     Liu, Xiaoyi Dong, Lu Yuan, and Zicheng Liu. Mobile-                  wards real-time panoptic segmentation. In CVPR, 2023. 1
+     former: Bridging mobilenet and transformer. In CVPR,            [21] Tao Huang, Xiaohuan Pei, Shan You, Fei Wang, Chen Qian,
+     2022. 1, 6, 7, 8                                                     and Chang Xu. Localmamba: Visual state space model with
+ [4] Joonmyung Choi, Sanghyeok Lee, Jaewon Chu, Minhyuk                   windowed selective scan. arXiv:2403.09338, 2024. 2, 6, 8
+     Choi, and Hyunwoo J Kim. vid-tldr: Training free token          [22] Forrest N Iandola.        Squeezenet: Alexnet-level accu-
+     merging for light-weight video transformer. In CVPR, 2024.           racy with 50x fewer parameters and¡ 0.5 mb model size.
+     1                                                                    arXiv:1602.07360, 2016. 1, 8
+ [5] François Chollet. Xception: Deep learning with depthwise       [23] Andrew Jaegle, Felix Gimeno, Andy Brock, Oriol Vinyals,
+     separable convolutions. In CVPR, 2017. 1, 8                          Andrew Zisserman, and Joao Carreira. Perceiver: General
+ [6] Krzysztof Choromanski, Valerii Likhosherstov, David Do-              perception with iterative attention. In International confer-
+     han, Xingyou Song, Andreea Gane, Tamas Sarlos, Peter                 ence on machine learning, 2021. 4
+     Hawkins, Jared Davis, Afroz Mohiuddin, Lukasz Kaiser,           [24] Angelos Katharopoulos, Apoorv Vyas, Nikolaos Pappas, and
+     et al. Rethinking attention with performers. ICLR, 2021.             François Fleuret. Transformers are rnns: Fast autoregressive
+     1, 8                                                                 transformers with linear attention. In ICML, pages 5156–
+ [7] Xiangxiang Chu, Zhi Tian, Yuqing Wang, Bo Zhang, Haib-               5165. PMLR, 2020. 3
+     ing Ren, Xiaolin Wei, Huaxia Xia, and Chunhua Shen.             [25] Alexander Kirillov, Ross Girshick, Kaiming He, and Piotr
+     Twins: Revisiting the design of spatial attention in vision          Dollár. Panoptic feature pyramid networks. In CVPR, 2019.
+     transformers. NeurIPS, 2021. 1, 8                                    7
+ [8] Tri Dao and Albert Gu. Transformers are SSMs: Gen-              [26] Nikita Kitaev, Łukasz Kaiser, and Anselm Levskaya. Re-
+     eralized models and efficient algorithms through structured          former: The efficient transformer. ICLR, 2020. 1, 8
+     state space duality. In International Conference on Machine     [27] Sanghyeok Lee, Joonmyung Choi, and Hyunwoo J Kim.
+     Learning (ICML), 2024. 1, 2, 3, 4, 8                                 Multi-criteria token fusion with one-step-ahead attention for
+ [9] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li,               efficient vision transformers. In CVPR, 2024. 1
+     and Li Fei-Fei. Imagenet: A large-scale hierarchical image      [28] Quanquan Li, Shengying Jin, and Junjie Yan. Mimicking
+     database. In CVPR, 2009. 1, 5, 6                                     very efficient network for object detection. In CVPR, 2017.
+[10] Xiaoyi Dong, Jianmin Bao, Dongdong Chen, Weiming                     1
+     Zhang, Nenghai Yu, Lu Yuan, Dong Chen, and Baining Guo.         [29] Yanyu Li, Geng Yuan, Yang Wen, Ju Hu, Georgios Evan-
+     Cswin transformer: A general vision transformer backbone             gelidis, Sergey Tulyakov, Yanzhi Wang, and Jian Ren.
+     with cross-shaped windows. In CVPR, 2022. 8                          Efficientformer: Vision transformers at mobilenet speed.
+[11] Alexey Dosovitskiy. An image is worth 16x16 words: Trans-            NeurIPS, 2022. 8
+     formers for image recognition at scale. ICLR, 2021. 1, 8        [30] Yanyu Li, Ju Hu, Yang Wen, Georgios Evangelidis, Kamyar
+[12] Daniel Y Fu, Tri Dao, Khaled K Saab, Armin W Thomas,                 Salahi, Yanzhi Wang, Sergey Tulyakov, and Jian Ren. Re-
+     Atri Rudra, and Christopher Ré. Hungry hungry hippos: To-           thinking vision transformers for mobilenet size and speed.
+     wards language modeling with state space models. ICLR,               In ICCV, 2023. 6, 7
+     2023. 1, 8                                                      [31] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+[13] Albert Gu and Tri Dao. Mamba: Linear-time sequence mod-              Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence
+     eling with selective state spaces. arXiv:2312.00752, 2023. 2,        Zitnick. Microsoft coco: Common objects in context. In
+     8                                                                    ECCV, 2014. 7
+[14] Albert Gu, Karan Goel, and Christopher Ré. Efficiently mod-    [32] Songhua Liu, Weihao Yu, Zhenxiong Tan, and Xin-
+     eling long sequences with structured state spaces. ICLR,             chao Wang. Linfusion: 1 gpu, 1 minute, 16k image.
+     2022. 1, 8                                                           arXiv:2409.02097, 2024. 2, 8
+[15] Kai Han, Yunhe Wang, Qi Tian, Jianyuan Guo, Chunjing Xu,        [33] Xinyu Liu, Houwen Peng, Ningxin Zheng, Yuqing Yang,
+     and Chang Xu. Ghostnet: More features from cheap opera-              Han Hu, and Yixuan Yuan. Efficientvit: Memory efficient
+     tions. In CVPR, 2020. 1, 8                                           vision transformer with cascaded group attention. In CVPR,
+[16] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Gir-           2023. 1, 5, 6, 7, 8
+     shick. Mask r-cnn. In ICCV, 2017. 7                             [34] Yue Liu, Yunjie Tian, Yuzhong Zhao, Hongtian Yu, Lingxi
+[17] Dan Hendrycks and Kevin Gimpel. Gaussian error linear                Xie, Yaowei Wang, Qixiang Ye, and Yunfan Liu. Vmamba:
+     units (gelus). arXiv:1606.08415, 2016. 5                             Visual state space model. NeurIPS, 2024. 2, 8
+
+
+
+
+                                                                 14931
+[35] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng            [53] Mingxing Tan, Ruoming Pang, and Quoc V Le. Efficientdet:
+     Zhang, Stephen Lin, and Baining Guo. Swin transformer:                 Scalable and efficient object detection. In CVPR, 2020. 1
+     Hierarchical vision transformer using shifted windows. In         [54] Lv Tang, HaoKe Xiao, Peng-Tao Jiang, Hao Zhang, Jinwei
+     ICCV, 2021. 1, 8                                                       Chen, and Bo Li. Scalable visual state space model with
+[36] Ningning Ma, Xiangyu Zhang, Hai-Tao Zheng, and Jian Sun.               fractal scanning. arXiv:2405.14480, 2024. 8
+     Shufflenet v2: Practical guidelines for efficient cnn architec-   [55] Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco
+     ture design. In ECCV, 2018. 1, 8                                       Massa, Alexandre Sablayrolles, and Hervé Jégou. Training
+[37] Xu Ma, Xiyang Dai, Jianwei Yang, Bin Xiao, Yinpeng Chen,               data-efficient image transformers & distillation through at-
+     Yun Fu, and Lu Yuan. Efficient modulation for vision net-              tention. In ICML, 2021. 1, 7
+     works. ICLR, 2024. 6, 7, 8                                        [56] Hugo Touvron, Matthieu Cord, Alexandre Sablayrolles,
+[38] Sachin Mehta and Mohammad Rastegari. Mobilevit: light-                 Gabriel Synnaeve, and Hervé Jégou. Going deeper with im-
+     weight, general-purpose, and mobile-friendly vision trans-             age transformers. In ICCV, 2021. 5
+     former. ICLR, 2022. 1, 8                                          [57] Hugo Touvron, Matthieu Cord, and Hervé Jégou. Deit iii:
+                                                                            Revenge of the vit. In ECCV, 2022. 5
+[39] Sachin Mehta and Mohammad Rastegari. Separable self-
+                                                                       [58] Pavan Kumar Anasosalu Vasu, James Gabriel, Jeff Zhu, On-
+     attention for mobile vision transformers. arXiv:2206.02680,
+                                                                            cel Tuzel, and Anurag Ranjan. Fastvit: A fast hybrid vision
+     2022. 1, 5, 6, 8
+                                                                            transformer using structural reparameterization. In ICCV,
+[40] Vinod Nair and Geoffrey E Hinton. Rectified linear units
+                                                                            2023. 1, 5, 6, 7, 8
+     improve restricted boltzmann machines. In ICML, 2010. 5
+                                                                       [59] Pavan Kumar Anasosalu Vasu, James Gabriel, Jeff Zhu, On-
+[41] Junting Pan, Adrian Bulat, Fuwen Tan, Xiatian Zhu, Lukasz              cel Tuzel, and Anurag Ranjan. Mobileone: An improved one
+     Dudziak, Hongsheng Li, Georgios Tzimiropoulos, and Brais               millisecond mobile backbone. In CVPR, 2023. 1, 5, 6, 8
+     Martinez. Edgevits: Competing light-weight cnns on mobile         [60] A Vaswani. Attention is all you need. NeurIPS, 2017. 3, 4,
+     devices with vision transformers. In ECCV, 2022. 1, 6, 7, 8            8
+[42] Xiaohuan Pei, Tao Huang, and Chang Xu. Efficientv-                [61] Chengcheng Wang, Wei He, Ying Nie, Jianyuan Guo,
+     mamba: Atrous selective scan for light weight visual mamba.            Chuanjian Liu, Yunhe Wang, and Kai Han. Gold-yolo: Ef-
+     arXiv:2403.09977, 2024. 6, 8                                           ficient object detector via gather-and-distribute mechanism.
+[43] Ilija Radosavovic, Raj Prateek Kosaraju, Ross Girshick,                NeurIPS, 2024. 1
+     Kaiming He, and Piotr Dollár. Designing network design           [62] Sinong Wang, Belinda Z Li, Madian Khabsa, Han Fang, and
+     spaces. In CVPR, 2020. 7                                               Hao Ma. Linformer: Self-attention with linear complexity.
+[44] J Redmon. You only look once: Unified, real-time object                arXiv:2006.04768, 2020. 1, 8
+     detection. In CVPR, 2016. 1                                       [63] Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao
+[45] T-YLPG Ross and GKHP Dollár. Focal loss for dense object              Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao.
+     detection. In CVPR, 2017. 7                                            Pvtv2: Improved baselines with pyramid vision transformer,
+[46] Mark Sandler, Andrew Howard, Menglong Zhu, Andrey Zh-                  2022. 7
+     moginov, and Liang-Chieh Chen. Mobilenetv2: Inverted              [64] Sanghyun Woo, Shoubhik Debnath, Ronghang Hu, Xinlei
+     residuals and linear bottlenecks. In CVPR, 2018. 1, 5, 8               Chen, Zhuang Liu, In So Kweon, and Saining Xie. Con-
+                                                                            vnext v2: Co-designing and scaling convnets with masked
+[47] Abdelrahman Shaker, Muhammad Maaz, Hanoona Rasheed,
+                                                                            autoencoders. In CVPR, 2023. 6
+     Salman Khan, Ming-Hsuan Yang, and Fahad Shahbaz Khan.
+     Swiftformer: Efficient additive attention for transformer-        [65] Enze Xie, Wenhai Wang, Zhiding Yu, Anima Anandkumar,
+     based real-time mobile vision applications. In ICCV, 2023.             Jose M Alvarez, and Ping Luo. Segformer: Simple and ef-
+     7                                                                      ficient design for semantic segmentation with transformers.
+                                                                            NeurIPS, 2021. 1
+[48] Abdelrahman Shaker, Syed Talal Wasim, Salman Khan,
+                                                                       [66] Yunyang Xiong, Zhanpeng Zeng, Rudrasis Chakraborty,
+     Juergen Gall, and Fahad Shahbaz Khan. Groupmamba:
+                                                                            Mingxing Tan, Glenn Fung, Yin Li, and Vikas Singh.
+     Parameter-efficient and accurate group visual state space
+                                                                            Nyströmformer: A nyström-based algorithm for approximat-
+     model. arXiv:2407.13772, 2024. 8
+                                                                            ing self-attention. In AAAI, 2021. 1, 8
+[49] Yuheng Shi, Minjing Dong, Mingjia Li, and Chang Xu.               [67] Yunyang Xiong, Bala Varadarajan, Lemeng Wu, Xiaoyu Xi-
+     Vssd: Vision mamba with non-casual state space duality.                ang, Fanyi Xiao, Chenchen Zhu, Xiaoliang Dai, Dilin Wang,
+     arXiv:2407.18559, 2024. 2, 3, 4, 8                                     Fei Sun, Forrest Iandola, Raghuraman Krishnamoorthi, and
+[50] Yuheng Shi, Minjing Dong, and Chang Xu. Multi-scale                    Vikas Chandra. Efficientsam: Leveraged masked image pre-
+     vmamba: Hierarchy in hierarchy visual state space model.               training for efficient segment anything. In CVPR, 2024. 1
+     NeurIPS, 2024. 2, 6                                               [68] Jiacong Xu, Zixiang Xiong, and Shankar P Bhattacharyya.
+[51] Jimmy TH Smith, Andrew Warrington, and Scott W Linder-                 Pidnet: A real-time semantic segmentation network inspired
+     man. Simplified state space layers for sequence modeling.              by pid controllers. In CVPR, 2023. 1
+     ICLR, 2023. 1, 8                                                  [69] Chenhongyi Yang, Zehui Chen, Miguel Espinosa, Linus Er-
+[52] Mingxing Tan and Quoc Le. Efficientnet: Rethinking model               icsson, Zhenyu Wang, Jiaming Liu, and Elliot J Crowley.
+     scaling for convolutional neural networks. In ICML, 2019.              Plainmamba: Improving non-hierarchical mamba in visual
+     1, 7, 8                                                                recognition. BMVC, 2024. 2, 8
+
+
+
+
+                                                                   14932
+[70] Hongxu Yin, Arash Vahdat, Jose M Alvarez, Arun Mallya,
+     Jan Kautz, and Pavlo Molchanov. A-vit: Adaptive tokens for
+     efficient vision transformer. In CVPR, 2022. 1
+[71] Weihao Yu, Mi Luo, Pan Zhou, Chenyang Si, Yichen Zhou,
+     Xinchao Wang, Jiashi Feng, and Shuicheng Yan. Metaformer
+     is actually what you need for vision. In CVPR, 2022. 7
+[72] Seokju Yun and Youngmin Ro. Shvit: Single-head vision
+     transformer with memory efficient macro design. In CVPR,
+     2024. 1, 2, 4, 5, 6, 7, 8
+[73] Jiangning Zhang, Xiangtai Li, Jian Li, Liang Liu, Zhucun
+     Xue, Boshen Zhang, Zhengkai Jiang, Tianxin Huang, Yabiao
+     Wang, and Chengjie Wang. Rethinking mobile block for ef-
+     ficient attention-based models. In ICCV, 2023. 1, 6, 7, 8
+[74] Xiangyu Zhang, Xinyu Zhou, Mengxiao Lin, and Jian Sun.
+     Shufflenet: An extremely efficient convolutional neural net-
+     work for mobile devices. In CVPR, 2018. 1, 8
+[75] Hengshuang Zhao, Xiaojuan Qi, Xiaoyong Shen, Jianping
+     Shi, and Jiaya Jia. Icnet for real-time semantic segmentation
+     on high-resolution images. In ECCV, 2018. 1
+[76] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela
+     Barriuso, and Antonio Torralba. Scene parsing through
+     ade20k dataset. In CVPR, 2017. 7
+[77] Lianghui Zhu, Bencheng Liao, Qian Zhang, Xinlong Wang,
+     Wenyu Liu, and Xinggang Wang. Vision mamba: Efficient
+     visual representation learning with bidirectional state space
+     model. ICML, 2024. 2, 5, 6, 8
+
+
+
+
+                                                                 14933
+

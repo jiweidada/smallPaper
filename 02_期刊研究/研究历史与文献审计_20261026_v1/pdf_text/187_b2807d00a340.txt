@@ -1,0 +1,77 @@
+Acquisition of Localization Conﬁdence for
+Accurate Object Detection
+Borui Jiang ∗1,3, Ruixuan Luo ∗1,3, Jiayuan Mao ∗2,4,
+Tete Xiao1,3, and Yuning Jiang 4
+1 School of Electronics Engineering and Computer Science, Peki ng University
+2 ITCS, Institute for Interdisciplinary Information Sciences, T singhua University
+3 Megvii Inc. (Face++) 4 Toutiao AI Lab
+{jbr, luoruixuan97, jasonhsiao97 }@pku.edu.cn,
+mjy14@mails.tsinghua.edu.cn, jiangyuning@bytedance.com
+Abstract. Modern CNN-based object detectors rely on bounding box
+regression and non-maximum suppression to localize objects. Wh ile the
+probabilities for class labels naturally reﬂect classiﬁcation conﬁdence,
+localization conﬁdence is absent. This makes properly locali zed bounding
+boxes degenerate during iterative regression or even suppressed d uring
+NMS. In the paper we propose IoU-Net learning to predict the IoU
+between each detected bounding box and the matched ground-tru th.
+The network acquires this conﬁdence of localization, which im proves
+the NMS procedure by preserving accurately localized bounding bo xes.
+Furthermore, an optimization-based bounding box reﬁnement met hod
+is proposed, where the predicted IoU is formulated as the objective .
+Extensive experiments on the MS-COCO dataset show the eﬀecti veness
+of IoU-Net, as well as its compatibility with and adaptivity to several
+state-of-the-art object detectors.
+Keywords:
+object localization, bounding box regression, non-maximum
+suppression
+1 Introduction
+Object detection serves as a prerequisite for a broad set of downstr eam vision
+applications, such as instance segmentation [19, 20], human skeleton [27], fac e
+recognition [26] and high-level object-based reasoning [30]. Object dete ction
+combines both object classiﬁcation and object localization. A majority of modern
+object detectors are based on two-stage frameworks [9, 8, 22, 16, 10], in which
+object detection is formulated as a multi-task learning problem: 1) di stinguish
+foreground object proposals from background and assign them with proper class
+labels; 2) regress a set of coeﬃcients which localize the object by m aximizing
+intersection-over-union (IoU) or other metrics between detection results and the
+ground-truth. Finally, redundant bounding boxes (duplicated det ections on the
+same object) are removed by a non-maximum suppression (NMS) procedu re.
+∗ indicates equal contribution.
+
+
+---PAGE---
+
+2 B. Jiang, R. Luo, J. Mao, T. Xiao, and Y. Jiang
+(a) Demonstrative cases of the misalignment between classiﬁc ation conﬁdence and localiza-
+tion accuracy. The yellow bounding boxes denote the ground-tru th, while the red and green
+bounding boxes are both detection results yielded by FPN [16]. Localization conﬁdence is
+computed by the proposed IoU-Net. Using classiﬁcation conﬁd ence as the ranking metric
+will cause accurately localized bounding boxes (in green) bei ng incorrectly eliminated in
+the traditional NMS procedure. Quantitative analysis is provid ed in Section 2.1
+Detection
+Ground-truth
+Regression-based Bounding Box Refine (FPN)
+Optimization-based Bounding Box Refine (Ours)
+IOU: 0.60
+IOU: 0.91 IOU: 0.83 IOU: 0.76
+IOU: 0.92IOU: 0.85IOU: 0.74
+Iterations
+Bounding Box Proposal
+(b) Demonstrative cases of the non-monotonic localization in iterative bounding box
+regression. Quantitative analysis is provided in Section 2.2.
+Fig. 1: Visualization on two drawbacks brought by the absence of localization
+conﬁdence. Examples are selected from MS-COCO minival [17].
+Classiﬁcation and localization are solved diﬀerently in such detecti on pipeline.
+Speciﬁcally, given a proposal, while the probability for each class labe l naturally
+acts as an “classiﬁcation conﬁdence” of the proposal, the bounding box regre ssion
+module ﬁnds the optimal transformation for the proposal to best ﬁt the grou nd-
+truth. However, the “localization conﬁdence” is absent in the loop.
+This brings about two drawbacks. (1) First, the suppression of dupli cated
+detections is ignorant of the localization accuracy while the classiﬁcat ion scores
+are typically used as the metric for ranking the proposals. In Figure 1(a) , we
+show a set of cases where the detected bounding boxes with higher c lassiﬁcation
+conﬁdences contrarily have smaller overlaps with the correspondin g ground-truth.
+Analog to Gresham’s saying that bad money drives out good , the misalignment
+between classiﬁcation conﬁdence and localization accuracy may lead to ac curately
+localized bounding boxes being suppressed by less accurate ones i n the NMS
+procedure. (2) Second, the absence of localization conﬁdence makes th e widely-

@@ -1,0 +1,235 @@
+Scale-aware Automatic Augmentation for Object Detection
+Y ukang Chen1* †, Y anwei Li 1†, Tao Kong 2, Lu Qi 1, Ruihang Chu 1∗, Lei Li 2, Jiaya Jia 1.3
+1The Chinese University of Hong Kong 2ByteDance AI Lab 3SmartMore
+Abstract
+We propose Scale-aware AutoAug to learn data augmen-
+tation policies for object detection. We deﬁne a new scale-
+aware search space, where both image- and box-level aug-
+mentations are designed for maintaining scale invariance.
+Upon this search space, we propose a new search met-
+ric, termed Pareto Scale Balance, to facilitate search with
+high efﬁciency. In experiments, Scale-aware AutoAug yields
+signiﬁcant and consistent improvement on various object
+detectors ( e.g., RetinaNet, Faster R-CNN, Mask R-CNN,
+and FCOS), even compared with strong multi-scale training
+baselines. Our searched augmentation policies are trans-
+ferable to other datasets and box-level tasks beyond ob-
+ject detection ( e.g., instance segmentation and keypoint es-
+timation) to improve performance. The search cost is much
+less than previous automated augmentation approaches for
+object detection. It is notable that our searched policies
+have meaningful patterns, which intuitively provide valu-
+able insight for human data augmentation design. Code and
+models are available at
+https://github.com/Jia-Research-
+Lab/SA-AutoAug.
+1. Introduction
+Object detection, aiming to locate as well as classify var-
+ious objects, is one of the core tasks in the computer vision.
+Due to the large scale variance of objects in real-world sce-
+narios, it raises concerns on how to bring the scale adap-
+tation to the network efﬁciently. Previous work handles
+this challenge mainly from two aspects, namely network ar-
+chitecture and data augmentation . To make the network
+scale invariant, in-network feature pyramids [
+28, 47, 23]
+and adaptive receptive ﬁelds [ 25] are usually employed.
+Another crucial technique to enable scale invariance is data
+augmentation, which is independent of speciﬁc architec-
+tures, and can be generalized among multiple tasks.
+This paper focuses on data augmentation for object
+detection. Current data augmentation strategies can be
+*This work was done during an internship at ByteDance AI Lab. Tao
+Kong is responsible for correspondence. †Equal contribution.
+53
+ 67
+59
+ 64
+ 74
+Inference time (ms/image)
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+AP (%)
+RetinaNet
+ResNet-50
+   FCOS
+ResNet-101
+Faster R-CNN
+ ResNet-101
+ RetinaNet
+ResNet-101
+Mask R-CNN
+ ResNet-101
+AutoAug-det
+Dropblock
+Mixup
+PSIS
+Stitcher
+GridMask
+InstaBoost
+RandAug
+Baseline
+Scale-aware AutoAug
+Figure 1: Comparison with object detection augmentation strate-
+gies on MS COCO dataset. Methods in the same vertical line are
+based upon the same detector. Scale-aware AutoAug outperforms
+both hand-crafted and learned strategies on various detectors.
+grouped into color operations (e.g., brightness, contrast, and
+whitening) and geometric operations ( e.g., re-scaling, ﬂip-
+ping). Among them, geometric operations, such as multi-
+scale training, improve scale robustness [
+39, 19]. Sev-
+eral hand-crafted data augmentation strategies were devel-
+oped to improve performance and robustness of the detec-
+tor [
+41, 42]. Previous work [17, 15] also improves box-level
+augmentation by enriching foreground data. Though inspir-
+ing performance gain has achieved, these data augmentation
+strategies usually rely on heavy expert experience.
+Automatic data augmentation policies were widely ex-
+plored in image classiﬁcation [
+44, 50, 37, 35, 9]. Its poten-
+tial for object detection, however, was not thoroughly re-
+leased. One attempt to automatically learn data augmen-
+tation policies for object detectors is AutoAug-det [
+51]1,
+which performs color or geometric augmentation upon the
+context of boxes. It does not fully consider the scale issue
+from image- and box-level, which are found, however, es-
+sential in object detector design [
+41, 42, 17]. Moreover, the
+heavy computational search cost ( i.e., 400 TPU for 2 days)
+impedes it from vastly practical. Thus, scale-aware property
+and efﬁciency issue are essential to address for searching
+augmentation in box-level tasks.
+In this paper, we propose a new way to automatically
+1We refer it as AutoAug-det [51] to distinguish from AutoAugment [9].
+9563
+
+
+---PAGE---
+
+learn scale-aware data augmentation strategies for object
+detection and relevant box-level tasks. We ﬁrst introduce
+scale-awareness to the search space from two image- and
+box-levels. For image-level augmentations, zoom-in and
+-out operations are included with their probabilities and
+zooming ratios for search. For box-level augmentations,
+the augmenting areas are generalized with a new searchable
+parameter, i.e., area ratio. This makes box-level augmenta-
+tions adaptive to object scales.
+Based on our scale-aware search space, we further pro-
+pose a new estimation metric to facilitate the search process
+with better efﬁciency. Previously, each candidate policy is
+estimated by the validation accuracy on a proxy task [
+9, 27],
+which lacks efﬁciency and accuracy to an extend. Our met-
+ric takes advantage of more speciﬁc statistics, that is, vali-
+dation accuracy and accumulated loss over different scales,
+to measure the scale balance . We empirically show that it
+yields a clearly higher correlation coefﬁcient with the actual
+accuracy than the previous proxy accuracy metric.
+The proposed approach is distinguished from previous
+work from two aspects. First, different from hand-crafted
+policies, the proposed method utilizes automatic algorithms
+to search among a large variety of augmentation candidates.
+It is hard to be fully explored or achieved by human effort.
+Moreover, compared with previous learning-based meth-
+ods, our approach fully explores the important scale issue in
+both image-level and box-level. With the proposed search
+space and evaluation metric, our method attains decent per-
+formance with much ( i.e., 40×) less search cost.
+The overall approach, called Scale-aware AutoAug, can
+be easily instantiated for box-level tasks, which will be elab-
+orated on in Sec.
+3. To validate its effectiveness, we con-
+duct extensive experiments on MS COCO and Pascal VOC
+dataset [
+30, 16] with several anchor-based and anchor-free
+object detectors, which are reported in Sec. 4.2.
+In particular, with ResNet-50 backbone, the searched
+augmentation policies contribute non-trivial gains over the
+strong MS baseline of RetinaNet [
+29], Faster R-CNN [ 39],
+and FCOS [ 43], and achieve 41.3% AP , 41.8% AP , and
+42.6% AP , respectively. We further experiment with more
+box-level tasks, like instance segmentation and keypoint de-
+tection. Without bells-and-whistles, our improved FCOS
+model attains 51.4% AP with the search augmentation poli-
+cies. Besides, our searched policies present meaningful pat-
+terns, which provide intuitive insight for human knowledge.
+2. Related Work
+Data augmentation has been widely utilized for net-
+work optimization and proven to be beneﬁcial in vision
+tasks [
+11, 40, 39, 32, 33, 36]. Traditional approaches could
+be roughly divided into color operations ( e.g., brightness,
+contrast, and whitening) and geometric operations ( e.g.,
+scaling, ﬂipping, translation, and shearing), which require
+hyper-parameter tuning and are usually task-speciﬁc [ 31].
+Some commonly used strategies on image classiﬁcation
+include random cropping, image mirroring, color shift-
+ing/whitening [
+24], Cutout [12], and Mixup [ 49].
+Scale-wise augmentations also play a vital role for
+the optimization of object detectors [ 46, 5]. For exam-
+ple, SNIPER [ 42] generates image crops around ground
+truth instances with multi-scale training. YOLO-v4 [ 2]
+and Stitcher [ 8] introduce mosaic inputs that contain re-
+scaled sub-images. For box-level augmentation, Dwibedi
+et al. [
+15] improve detection performance with the cut-and-
+paste strategy. And the visual context surrounding objects
+are modeled in [
+14]. Furthermore, InstaBoost [ 17] aug-
+ments training images using annotated instance masks with
+a location probability map. However, these hand-crafted
+designs still highly rely on expert efforts.
+Inspired by recent advancements in neural architecture
+search (NAS) [
+52, 53, 38, 7], researchers try to learn aug-
+mentation policies from data automatically. An example
+is AutoAugment [
+9], which searches data augmentations
+for image classiﬁcation and achieves promising results.
+PBA [
+22] uses population-based search method for better
+efﬁciency. Fast AutoAugment [ 27] applies Bayesian opti-
+mization to learn data augmentation policies. RandAug [10]
+removes the search process at the price of manually tailor-
+ing the search space to a very limited volume. AutoAug-
+Det [
+51] extends AutoAugment [ 9] to object detection by
+taking box-level augmentations into consideration.
+3. Scale-aware AutoAug
+In this section, we ﬁrst brieﬂy review the auto augmenta-
+tion pipeline. Then, the scale-aware search space and esti-
+mation metric will be respectively elaborated in Sec.
+3.2 and
+Sec. 3.3. We ﬁnally show the search framework in Sec. 3.4.
+3.1. Review of AutoAug
+Auto augmentation methods [ 9, 51, 22, 27, 26] com-
+monly formulate the process of ﬁnding the best augmenta-
+tion policy as a search problem. To this end, three main
+components are needed, namely the search space , search
+algorithm, and estimation metric . Search space may vary
+according to tasks. For example, the search space [
+9, 22, 27]
+is developed to image classiﬁcation, while it is not the spec-
+iﬁed case for box-level tasks. As for search algorithms, re-
+inforcement learning [
+52] and evolutionary algorithm [ 38]
+are usually utilized to explore the search space in iterations.
+During this procedure, each child model, which is opti-
+mized with the searched policy p, is evaluated on a designed
+metric to estimate its effectiveness. This metric serves as
+feedback for the search algorithm.
+9564

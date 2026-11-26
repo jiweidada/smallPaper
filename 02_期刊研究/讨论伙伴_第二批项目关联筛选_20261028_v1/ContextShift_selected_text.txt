@@ -1,0 +1,528 @@
+=== PDF page 4 ===
+families and the compatibility modeling used to study object–background interactions in a controlled
+and interpretable manner.
+3.3.1 Implicit Manipulations
+Implicit manipulations, named this way since they alter the object’s spatial relationship to the existing
+context without explicitly modifying the background context itself, apply geometric transformations
+to a single object (o, a) while preserving appearance features, i.e., (o, a)′ = (o, a′) and c′ =c . We
+consider similarity transformations (rotation, scaling, and translation) at predefined severity levels
+s∈ S m. Although the background is unchanged, these transformations alter spatial configuration
+(position, scale, orientation), probing sensitivity to the relationship with the context. Invalid cases
+(e.g., boundary overflow, overlaps) are filtered out (Appendix A.4). Only one object is modified in
+each image to isolate manipulation effects. The object’s original footprint is reconstructed using
+LaMa [28], a Fourier-convolution network trained for object removal that fills holes with globally
+coherent background texture rather than boundary-propagated smearing.
+3.3.2 Explicit Context Manipulations
+Explicit manipulations alter the background while preserving the object count and appearance. In
+other words, explicit manipulations preserveO ′ =O. We allow two type of explicit manipulations:
+Synthetic backgrounds: We replace c with simple patterns (solid color, gradient, low-frequency
+noise), preserving object features while removing semantic context.
+Natural backgrounds: We replace c with a natural background c′ sampled from Places365[ 33],
+yielding x′ = (O, c ′). Backgrounds are filtered to contain no detectable objects, so that
+detections in the composited image can be attributed to the original object set O rather than
+unlabeled scene content. Compatibility is defined in an object-centric manner, evaluating
+each (o, c′) pair independently, after realizing the composition using a blending pipeline
+(Appendix A.6). The NPMI-based compatibility function κ(o, c′) is computed using the
+process in Section 3.2.
+Figure 1 illustrates representative examples of implicit and explicit manipulations.
+(a) Implicit (Rotation)
+ (b) Explicit (synthetic background)
+ (c) Explicit (Natural background)
+Figure 1: Representative implicit (rotation) and explicit (synthetic and natural) context manipulations. Additional full examples
+with all variants are provided in Figure 6.
+3.4 Constructed Dataset
+To materialize our benchmark design, we create the CONTEXTSHIFTdataset. It is constructed
+from the COCO 2017 validation set [ 12] using the proposed manipulation framework. Starting
+from 4,952 base images (out of 5,000 total COCO images, having filtered out 48 images with no
+annotated objects), we generate 131,885 samples across implicit and explicit context manipulations.
+Implicit and synthetic variants are materialized as discrete datasets for reuse and benchmarking, while
+compatibility-based natural background substitution is performed in-pipeline to avoid combinatorial
+explosion, enabling fine-grained evaluation over a continuous compatibility space. Table 9 summa-
+rizes the dataset composition; full per-manipulation dataset details are provided in Appendix A.7.
+4 Evaluation
+We evaluate five detectors spanning two-stage, one-stage, and transformer-based paradigms (cf.
+Table 1) on the COCO 2017 validation set under two manipulation classes: implicit (geometric) and
+explicit (synthetic backgrounds, compatibility-driven natural backgrounds). All results are reported
+4
+=== PDF page 5 ===
+relative to the clean baseline; For discrete manipulations (geometric and synthetic backgrounds),
+metrics are averaged over manipulation severity levels s∈ S m; for continous compatibility-based
+background manipulations, they are aggregated along the compatibility axis (Appendix B). Unless
+stated otherwise, inference uses a fixed confidence thresholdτ= 0.25 , model-default post-processing,
+fixed input resolution, and no test-time augmentation. We report AP@0.5, relative area under the
+severity curve (rAUC), and behavioral metrics∆FN/img, ∆FP/img, and ∆pred/img. Full protocol
+details are provided in Appendix C.
+5 Results
+We report cross-model summaries here, with full results in Appendix D. Across all settings, degrada-
+tion follows a consistent pattern: false negatives increase and prediction volume decreases, while
+false positives remain relatively stable (compared to false negatives). As illustrated in Section 5.2.4,
+this performance degradation is likely explained by reduced formation of valid detection candidates
+rather than incorrect detections.
+5.1 Implicit Context Manipulation
+All geometric manipulations exhibit prediction suppression (FN↑, predictions↓, FP≈), with severity
+primarily driven by transformations that alter object scale or canonical appearance. Table 2 reports
+robustness metrics averaged across models, computed only on manipulated objects to isolate each
+transformation’s direct effect. Full per-model breakdowns and full-object-set results are provided in
+Appendix D.1. Translation produces the mildest degradation (rAUC = 0.94) with only a moderate
+reduction in prediction volume (∆pred/img =−9.3% ), indicating limited sensitivity to local spatial-
+context shifts. Scaling manipulations reveal a predictable asymmetry. Shrinking substantially
+degrades robustness (rAUC = 0.81) and produces the largest FN increase (∆FN/img = +106.2%),
+suggesting that down-scaling causes objects to frequently fail in generating valid detection hypotheses
+(plausibly as a result of feature degradation). In contrast, enlarging slightly improves performance
+across models. Rotation produces the strongest overall degradation despite preserving scale and
+location, yielding the lowest robustness (rAUC= 0.57) and the largest reduction in prediction volume
+(∆pred/img =−30.2% ). This suggests strong sensitivity to canonical orientation within the context
+and axis-aligned structure learned during training. Across all degrading transformations, the dominant
+failure mode is suppression rather than confusion: detections are removed rather than replaced with
+incorrect predictions.
+Table 2: Cross-model summary across implicit context manipulations, computed on manipulated objects only. Values report
+the mean across the five evaluated detectors, with the minimum and maximum across models in parentheses. Full per-model
+results are provided in Table 11.
+Rotation Shrinkage Enlargement Translation
+AP rAUC0.57 [0.51, 0.62]0.81 [0.77, 0.83] 1.05 [1.02, 1.06] 0.94 [0.89, 1.02]
+∆FN/img (%) +93.5 [61.9, 147.0]+106.2 [41.4, 168.1]−8.5 [−12.3,−5.4]−16.4 [−0.2, 40.7]
+∆FP/img (%)+6.1 [1.0, 11.7]−17.9 [−36.2, 5.4] +4.7 [−2.9, 8.9]−19.8 [−28.9,−2.5]
+∆pred/img (%)−30.2 [−41.3,−21.1]−18.9 [−27.1,−12.2] +4.6 [3.0, 6.5]−9.3 [−17.7,−5.7]
+Parenthetical values report the model-wise range [min,max] across detectors. Metrics are averaged over images (Nrotate=1,582,
+Nshrink=4,952, Nenlarge=1,376, Ntranslation=1,355). Under a conservative bound ( CV=1), the 95% confidence interval
+half-width is at most ±4.6% (Rotate) and ±3.0% (Shrink), substantially smaller than observed effects. Results are therefore
+statistically reliable.
+5.2 Explicit Context Manipulation
+5.2.1 Synthetic Backgrounds Result Summary
+Synthetic background manipulations reinforce the behavior observed under implicit transformations,
+consistently inducing prediction suppression. As global image statistics diverge from natural images,
+suppression becomes more pronounced, with low-frequency noise producing the strongest degrada-
+tion, followed by gradient and solid color backgrounds (Table 3). We note that in one case (YOLO),
+AP is increased ( AP rAU C= 1.05 ), namely in the least degrading manipulation - solid color.
+However, even in that particular case, prediction suppression is still demonstrated quite clearly. This
+5
+=== PDF page 6 ===
+complementary setting reiterates the implicit-manipulation findings: degradation is driven primarily
+by missed detections and reduced prediction volume.
+Table 3: Cross-model summary across synthetic background manipulations. Values report the mean across the five evaluated
+detectors, with the minimum and maximum across models in parentheses. Full per-model results are provided in Table 13.
+Low Freq Noise Smooth Gradient Solid Color
+AP rAUC0.82 [0.68, 0.96]0.91 [0.83, 0.95] 0.95 [0.87, 1.05]
+∆FN/img (%)+32.4 [10.8, 67.1]+19.6 [6.2, 51.3] +13.3 [−2.7, 42.6]
+∆FP/img (%)−52.2 [−62.5,−43.9]−36.8[−51.5,−25.6]−41.4 [−53.1,−35.0]
+∆pred/img (%)−27.6 [−41.5,−17.0]−17.2 [−33.4,−9.7]−15.8 [−32.4,−9.2]
+Parenthetical values show model-wise range [min,max]. Metrics are computed over COCO 2017 val (N=4,952). Under a
+conservative bound, 95% CI half-widths are≤ ±1.5%, far smaller than observed effects, indicating statistical reliability.
+5.2.2 Natural Backgrounds Result Summary
+To isolate the effect of object–context compatibility without interference from co-occurring objects,
+we evaluate natural background substitution in asingle-object setting. Specifically, we choose to
+analyze images with |O|= 1 . We restrict evaluation to 30 COCO classes (Table 14) that cover diverse
+scene-grounded categories (vehicles, animals, furniture, outdoor objects), deliberately excluding
+food items and small accessories, ensuring that NPMI scores reflect meaningful object–background
+compatibility rather than local feature degradation. A full-object-set evaluation is provided in
+Appendix D.3.
+Table 4 demonstrates consistent suppression across models: FN increases while FP declines, with
+Figure 2 showing all metrics behaving non-monotonically. We discuss this behavior in Section 5.2.5.
+Table 4: Robustness summary under natural background substitution (single-object setting, NPMI-based compatibility).
+Def-DETR D-FINE-L Faster R-CNN RF-DETR-L YOLO26M
+AP rAUC 0.81 0.87 0.890.780.93
+∆FN/img+90.2% +151.5% +227.1% +183.9% +158.6%
+∆FP/img−60.8%−33.2%−41.8%−53.2%−47.8%
+∆pred/img−44.2%−31.2%−34.9%−42.9%−36.3%
+Figure 2: Detection performance as a function of object–background NPMI compatibility ( N=1,079 images, sliding window
+W=500, stride50, Gaussian smoothingσ=50).
+5.2.3 Real-Image Validation of Context-Dependent Suppression
+To verify that the observed behavior is not a composition artifact, we evaluate unmodified COCO
+images by assigning each object instance a compatibility score derived from its image’s scene
+label, obtained via a ResNet50[ 9] classifier trained on Places365 [ 33] and applied to the COCO
+images, which yields N=36,335 object–context pairs ( 4,952 images). Instances are ranked by
+NPMI score and divided into five equal-sized quintiles ( n≈7,267 each), from least compatible
+(Q1, NPMI ∈[−0.42,−0.14] ) to most compatible (Q5, NPMI ∈[0.04,0.70] ). Naturally, middle
+quintiles are far denser than the extremes. Table 5 shows the same non-monotonic pattern, albeit less
+pronounced: performance peaks at intermediate compatibility (Q3, NPMI ≈ −0.019 ) and degrades
+at both extremes. The effect is asymmetric—Q1 impairs detection ( −23 to −35% AP, +29 to +66%
+6
+=== PDF page 8 ===
+5.2.5 Effect of object–context compatibility on detection performance
+Sections 5.2.2–5.2.3, have demonstrated a U-shaped non-monotonic behavior along the NPMI axis:
+AP and recall peak at intermediate compatibility and degrade toward both low- and high-compatibility
+conditions. This behavior may be explained by addressing training-induced priors: firstly, low-
+compatibility contexts provide few contextual cues supporting candidate formation, naturally leading
+to suppressed detection (Q1: ∆E=−22.5% ). At intermediate compatibility, where object–context
+co-occurrence is near chance, detectors operate with minimal contextual bias and achieve the strongest
+performance. In highly compatible contexts, however, composited objects may violate the specific
+contextual patterns learned during training (e.g., lighting, scale, or spatial arrangement), again
+reducing candidate formation (Q5: ∆E=−9.9% ). This suggests an overfitting-like phenomenon
+with regard to object–context relationship, where detectors implicitly learn narrow object–context
+associations and become less reliable when these expectations are only partially matched.
+5.2.6 Validation and Robustness
+A natural question is how much of the observed suppression arises from thresholding, the compatibil-
+ity definition, or composition artifacts. We address each in turn. Confidence sweeps (Appendix D.3.3)
+recover only part of the lost recall, indicating that many missed detections are absent rather than
+thresholded. Alternative compatibility measures (Appendix D.3.4) reproduce the suppression ef-
+fect but lack a structured relationship, supporting the need for a meaningful compatibility axis.
+Finally, composition blending ablations (Appendix D.3.5) preserve the same trends, confirming that
+suppression and inversion are not artifacts of the composition pipeline.
+6 Mitigation: Context-Aware Augmentation
+Having identified prediction suppression under context shift, it is natural to hypothesize that training-
+time exposure to object–context decoupling can mitigate this degrading effect. We select YOLO to
+be our representative model for this mitigation proof-of-concept, retraining it on COCO train2017,
+with augmented dataset variants extended with ∼11k manipulated images (∼9%). While repeating
+training images is known to reduce data efficiency and degrade detection performance [2, 25], any
+gains from adding manipulated images drawn from the same dataset must stem from the nature of the
+manipulation rather than data volume alone. These images created by applying compatibility-based
+background swap (bg_swap) and four geometric transformations (shrink,enlarge,rotate,translate)
+on randomly selected images from the original training dataset.
+Training setup and initialization are identical across variants. Evaluation was performed on a held-out
+990-image split of COCO val2017, under all five context shifts. We report performance on clean
+(unmanipulated) image datasets, with full mitigation pipeline and evaluation results on clean and
+manipulated datasets are reported in Appendix E. We find that all augmented variants outperform
+the baseline on both clean and manipulated data: clean AP@0.5 improves, FN/img drops, and total
+prediction volume increases (Figure 4). These results indicate that prediction suppression is largely
+data-driven and can be mitigated via object–context decoupling without harming clean performance.
+Figure 4: Detection improvements from context-augmentation strategies over an unaugmented baseline. All five strategies
+improve AP@0.5 by 1.1–2.6% and reduce false negatives by 8.9–21.1%, while increasing total prediction volume by 22–36%.
+Results are evaluated on a 990-image held-out split.
+8
+=== PDF page 16 ===
+would result in a combinatorial explosion. Instead, backgrounds are sampled at evaluation time,
+allowing controlled, fine-grained analysis across the compatibility spectrum without increasing
+dataset size.
+Dataset StatisticsTable 9 summarizes the dataset composition across manipulation families.
+Counts reflect the number of generated image samples per manipulation type.
+Table 9: Dataset composition across manipulation families.
+Manipulation Folders Images/folder Subtotal
+background/low_freq_noise 5 (1 original + 4 scales) 4,952 24,760
+background/smooth_gradient 5 (1 original + 4 variants) 4,952 24,760
+background/solid_color 6 (1 original + 5 colors) 4,952 29,712
+geometric/enlarged 6 (1 original + 5 scales) 1,376 8,256
+geometric/offset 5 (1 original + 4 variants) 1,355 6,775
+geometric/rotated 5 (1 original + 4 angles) 1,582 7,910
+geometric/shrinked 6 (1 original + 5 scales) 4,952 29,712
+Total38 131,885
+B Metric Definitions
+B.1 Relative Area under the Severity Curve (rAUC).
+Let Pm(s) denote AP@0.5 under manipulation family m at severity level s, where s∈ S m =
+{s1, . . . , s|Sm|} corresponds to increasing transformation magnitude, andPclean denotes performance
+on the unmanipulated baseline. Robustness is defined as the trapezoidal area under the performance
+curve across manipulated severity levels, normalised by clean performance:
+rAUC(m) ≈ 1
+Pclean (s|Sm| −s 1)
+|Sm|−1X
+i=1
+Pm(si) +P m(si+1)
+2 (si+1 −s i).(2)
+Pclean enters only as a normalisation constant, so rAUC = 1 indicates performance matching
+the clean baseline on average, values below 1 indicate degradation, and values above 1 indicate
+improvement. For multi-family settings, rAUC is averaged across qualifying families.
+B.2 Behavioral Analysis Metrics.
+We measure relative differences in false positives (FP), false negatives (FN), and total predictions per
+image with respect to the clean baseline. The per-image change in false negatives is defined as:
+δs = FNs − FNclean
+FNclean
+×100,(3)
+where FNs is the mean FN count per image at severitys.
+Fordiscretemanipulations,∆FN/imgis the arithmetic mean across severity levels:
+∆FN/img = 1
+|Sm|
+X
+s∈Sm
+δs.(4)
+Forcontinuouscompatibility-based evaluations, values are aggregated over K bins via trapezoidal
+integration along the compatibility axis:
+∆FN/img = 1
+xK −x 1
+K−1X
+k=1
+δk +δ k+1
+2 (xk+1 −x k),(5)
+where xk is the center of bin k. The same aggregation is applied analogously to ∆FP/img and
+∆pred/img.
+16
+=== PDF page 17 ===
+C Evaluation
+C.1 Detailed Evaluation Protocol
+This appendix provides the full evaluation protocol used throughout CONTEXTSHIFT. Our goal is
+to define a reusable and standardized procedure for measuring detector behavior under controlled
+context manipulation, while keeping the main paper focused on the core benchmark design and
+empirical findings.
+C.2 Evaluation Modes
+We define two complementary evaluation modes.
+Manipulated-object mode.Metrics are computed only on the manipulated target object. This
+mode isolates the direct effect of the manipulation on the instance whose object–context relationship
+has been changed. It is the primary mode used for attribution, since it avoids dilution by unmodified
+objects elsewhere in the image.
+Full-image mode.Metrics are computed over all annotated objects in the image. This mode
+captures the overall effect of the manipulation on the detector’s full prediction behavior and is
+intended to reflect end-to-end detection performance in the modified scene.
+Unless explicitly stated otherwise, both modes should be reported when applicable. In practice,
+manipulated-object mode is most informative for understanding the causal effect of the intervention,
+while full-image mode provides complementary information about broader scene-level consequences.
+C.3 Inference Settings
+To ensure comparability across detectors, all evaluations use fixed inference settings unless explicitly
+stated otherwise:
+• confidence thresholdτ= 0.25,
+• model-default post-processing and non-maximum suppression,
+• fixed input resolution per model,
+• no test-time augmentation.
+Any deviation from these settings should be stated explicitly. In particular, confidence-threshold
+sweeps used for behavioral analysis are treated as diagnostic analyses and are reported separately
+from the main benchmark results.
+C.4 Manipulation Protocol
+Implicit context manipulations.For implicit manipulations, each family is evaluated over a
+predefined set of severity levels corresponding to increasing geometric deviation from the original
+object placement or appearance. These include rotation, scaling (shrink and enlarge), and translation
+(offset).
+Synthetic background substitutions.For synthetic backgrounds, each image is evaluated un-
+der a fixed set of generated variants, including solid colors, smooth gradients, and low-frequency
+noise. These manipulations preserve object appearance while progressively removing natural scene
+semantics and perturbing global image statistics.
+Natural background substitutions.For compatibility-driven natural background substitution,
+evaluation is performed over K= 30 bins along the compatibility axis. For each source object, one
+background is sampled from each compatibility bin, producing controlled variation from strongly
+mismatched to highly compatible contexts. The composition procedure, blending pipeline, and
+default parameters are described in Appendix A.6.
+All evaluations use the same manipulation definitions, filtering criteria, and composition pipeline to
+ensure consistency across models and experiments.
+17
+=== PDF page 18 ===
+C.5 Reported Metrics
+We report both standard performance metrics and behavior-oriented metrics designed to capture
+failure modes under context shift.
+Standard performance metrics.
+• AP@0.5: average precision at IoU threshold 0.5, measured as the area under the precision–
+recall curve where a predicted box is a true positive only if its intersection-over-union with
+a ground-truth box exceeds 0.5.
+• Mean IoU: mean intersection-over-union over matched true-positive predictions, reflecting
+localization quality independent of recall.
+• rAUC: relative area under the severity (or compatibility) curve, aggregating AP@0.5
+across manipulation levels and normalizing by clean-baseline performance. This enables
+comparison across detectors with different absolute accuracy.
+Behavioral metrics.To characterize prediction dynamics under context shift, we additionally
+report:
+•∆FN/img: relative change in false negatives per image,
+•∆FP/img: relative change in false positives per image,
+•∆pred/img: relative change in total prediction volume per image.
+Together, these metrics distinguish suppression (FN↑, pred↓, FP≈) from confusion (FN↑, FP↑) and
+calibration drift. Formal definitions are provided in Appendix B.
+C.6 Behavioral Analysis Protocol
+This section describes the step-by-step procedure for conducting behavioral analysis of a detector
+under context shift, as instantiated in this paper. The goal is to distinguish between two competing
+failure hypotheses that aggregate metrics such as AP cannot separate: (i)confidence degradation,
+where the model continues to produce candidates but assigns them lower scores, and (ii)prediction
+suppression, where the model fails to generate viable candidates altogether. We provide the protocol
+as a reusable diagnostic for researchers applying CONTEXTSHIFTto new models or extending it to
+new manipulation families.
+Step 1: Establish the suppression signature.For each manipulation family and severity level
+(or compatibility bin), compute ∆FN/img, ∆FP/img, and ∆pred/img relative to the clean baseline
+(formal definitions in Appendix B). A suppression signature is present when false negatives increase,
+prediction volume decreases, and false positives remain stable or decline. This pattern distinguishes
+suppression from confusion (FP↑, FN↑) and from calibration drift (FP≈, FN≈, confidence shift only).
+If false positives increase substantially alongside false negatives, the failure mode is more likely
+appearance disruption or score redistribution rather than prediction suppression, and the analysis
+should proceed accordingly.
+Step 2: Test the confidence hypothesis.Compute the distribution of maximum prediction score
+per ground-truth instance — i.e., for each GT box, the highest IoU-matched prediction score, or
+zero if no prediction achieves IoU ≥0.5 . A confidence-degradation failure would manifest as a
+rightward-to-leftward shift of mass in the high-confidence region. If instead mass shifts directly to
+zero (no overlapping prediction) with minimal redistribution in the intermediate range, this rules out
+the confidence-degradation hypothesis.
+Complement this with a confidence-threshold sweep: evaluate recall at thresholds τ∈[0.01,0.50]
+for both clean and manipulated conditions. Definerecoverable recall gapas the residual difference at
+τ→0 . A large unrecoverable gap — where substantial recall loss persists even at very low thresholds
+— confirms that missed detections are absent from the model’s output rather than merely suppressed
+by thresholding. We recommend reporting the gap atτ= 0.01as the practical lower bound.
+18
+=== PDF page 19 ===
+Step 3: Measure candidate formation directly.Compute prediction candidate existence rate E:
+the fraction of ground-truth instances for which at least one predicted box achieves IoU ≥0.5 and
+score ≥0.01 , independent of the inference threshold. Compute the conditional score S: the mean
+maximum candidate confidence, averaged over instances where a candidate exists inboththe clean
+and manipulated conditions.
+Report ∆E and ∆S jointly. If |∆E| ≫ |∆S| , the primary mechanism is candidate formation failure.
+If both degrade proportionally, the failure reflects a broader collapse of both localization and scoring.
+If∆Sdominates, a confidence-recalibration or temperature-based mitigation may be appropriate.
+Step 4: Stratify by object properties.Repeat the candidate existence analysis stratified by object
+size (COCO thresholds: <32 2 px, 322–962 px, ≥96 2 px) and, where applicable, by object category
+and compatibility bin. Scale sensitivity is a strong discriminator between manipulation families:
+shrinkage predominantly affects small objects, while compatibility-driven context shift operates more
+uniformly across scales. Disproportionate small-object degradation in ∆E is consistent with feature
+resolution collapse; uniform degradation across scales points to a global contextual signal.
+Step 5: Choose the appropriate evaluation mode.Usemanipulated-object mode(metrics on
+the focal instance only) to attribute effects causally to the manipulation. Usefull-image mode(all
+annotated objects) to measure scene-level consequences and avoid underestimating real-world impact.
+Both modes should be reported; manipulated-object mode is primary for diagnostic attribution, and
+full-image mode for deployment-oriented robustness estimates (cf. Appendix C.2).
+Interpretation summary.Table 10 provides a diagnostic decision table.
+Table 10: Diagnostic decision table for characterizing detector failure mode under context shift.
+∆E∆SRecoverable gap Failure mode
+large↓small large Prediction suppression
+small large↓small Confidence degradation
+large↓large↓moderate Compound failure
+small small small Threshold artifact only
+Statistical reliability.For discrete manipulations, report 95% confidence intervals under a con-
+servative coefficient of variation bound (e.g., CV = 1 ), using the formula CI95 = 1.96 ¯x/
+√
+N.
+Effects should be considered reliable only when substantially larger than this bound. For continuous
+compatibility-based evaluations, stability can be assessed by repeating the analysis with alternative
+window sizes or stride values and verifying that the qualitative shape of the performance curve is
+preserved.
+C.7 Evaluated Models.
+To ensure a comprehensive and balanced evaluation, we select a diverse set of object detectors
+that span the primary paradigms in modern object detection, including two-stage, one-stage, and
+transformer-based approaches. This selection covers both well-established baselines and recent
+high-performing models, allowing us to assess whether robustness trends are consistent across
+fundamentally different design principles. The chosen models differ in their reliance on region
+proposals, dense prediction, and attention-based global reasoning, as well as in their trade-offs
+between accuracy, efficiency, and contextual dependence.
+Faster R-CNN (ResNet50-FPN).Faster R-CNN is a canonical two-stage detector in which a
+Region Proposal Network first generates candidate object regions, followed by classification and box
+refinement on these proposals [21]. It represents the classical proposal-based detection paradigm
+and remains a strong, widely used reference point for localization-oriented detection. Including
+Faster R-CNN allows us to compare modern context sensitivity against a detector whose inference is
+explicitly structured around candidate regions rather than fully end-to-end set prediction.
+19
+=== PDF page 20 ===
+YOLO (YOLO26M).YOLO26M represents the one-stage real-time detection family, where
+detections are produced in a single forward pass with an emphasis on deployment efficiency [20, 10].
+Ultralytics describes YOLO26 as a faster, simpler, end-to-end, NMS-free detector optimized for edge
+and low-power settings, making it a useful counterpoint to heavier two-stage and transformer-based
+models. Its inclusion is important for CONTEXTSHIFTbecause one-stage detectors are commonly
+used in practical real-time systems, and evaluating such a model helps determine whether context
+sensitivity persists in detectors designed primarily around speed and streamlined inference.
+Deformable DETR (ResNet50).Deformable DETR is a foundational transformer-based detector
+that addresses the original DETR optimization bottlenecks by introducing deformable attention,
+which attends to a sparse set of relevant sampling locations and naturally supports multi-scale feature
+aggregation [34]. It is especially relevant here because it serves as a canonical DETR-style model: if
+robustness trends appear in Deformable DETR as well as in CNN-based detectors, they are less likely
+to be artifacts of a single architectural family. It also provides a strong test of whether attention-based
+global reasoning reduces or merely changes dependence on contextual configuration.
+RF-DETR (Large).RF-DETR is a recent real-time detection transformer designed to achieve
+strong accuracy–latency trade-offs through neural architecture search and specialist adaptation [22].
+The authors position it as a state-of-the-art NAS-based method for fine-tuning end-to-end ob-
+ject detectors for diverse datasets and hardware targets, and report strong results on COCO and
+Roboflow100-VL. It is therefore a relevant choice for CONTEXTSHIFTbecause it represents a mod-
+ern high-performance DETR-style detector optimized not only for accuracy but also for transferability
+and deployment, allowing us to test whether context sensitivity remains present in newer real-time
+transformer designs.
+D-FINE (Large).D-FINE is a recent high-performing real-time detector that reformulates box
+regression in DETRs through Fine-grained Distribution Refinement and Global Optimal Localization
+Self-Distillation [18]. Its authors report that D-FINE achieves state-of-the-art real-time accuracy–
+efficiency performance and substantially improves localization precision while preserving practical
+speed. This makes it particularly suitable for our benchmark: because CONTEXTSHIFTstudies
+how manipulations affect both detection success and localization behavior, D-FINE provides a
+strong recent detector whose design explicitly targets precise box prediction, helping assess whether
+improved localization machinery also improves robustness to structured object–context changes.
+These models span two-stage, one-stage, and transformer-based paradigms, enabling evaluation of
+whether context sensitivity is consistent across fundamentally different architectures.
+D Detailed Results
+D.1 Implicit Manipulations
+D.1.1 Per-Manipulation Performance Curves - Manipulated Object Only
+Figure 7 shows the performance curves under manipulated-object evaluation. Each manipulation
+exhibits a distinct degradation pattern. Shrinkage produces a monotonic decline in AP together with
+rapidly increasing FN rates, indicating progressive suppression as objects move below the training
+scale distribution. Enlargement shows the opposite trend: AP slightly improves while FN decreases,
+suggesting that larger objects align better with the scales most frequently observed during training.
+Rotation produces a non-monotonic behavior. Performance degrades sharply at 45◦ and 90◦, partially
+recovers near 180◦, and destabilizes again toward 270◦. The partial recovery at 180◦ is consistent
+with the preservation of coarse object structure under inversion, whereas intermediate rotations
+disrupt the canonical orientation and axis-aligned patterns relied upon during candidate formation.
+The renewed degradation at 270◦ suggests that robustness is not purely symmetry-driven and remains
+sensitive to orientation-specific feature statistics learned during training.
+Translation produces comparatively mild degradation across all metrics. Because object appearance
+and scale remain unchanged, the manipulation primarily disrupts local spatial context and positional
+priors, leading to only moderate increases in FN and relatively stable AP.
+20
+=== PDF page 24 ===
+Across all synthetic manipulations, localization quality remains comparatively stable while FN
+increases and prediction volume decreases, further supporting prediction suppression as the dominant
+failure mode rather than confidence or localization degradation.
+Solid Color
+Smooth Gradient
+Low-Frequency Noise
+Figure 9: Performance curves under synthetic background replacement.
+D.2.2 Per-Manipulation Metric Analysis
+Table 13 presents the per-model robustness and behavioral metrics under synthetic background
+manipulations.
+24
+=== PDF page 35 ===
+E Mitigation
+E.1 Training Setup
+Across all mitigation runs, we re-train YOLO26M, with the same weights and configuration used in
+the evaluation pipeline C, on a fixed split of COCO train2017 (118k images), concatenated with one
+augmented slice. Augmented slices are produced by applying a single manipulation family to a subset
+of train2017 instances. For geometric augmentations, parameter values cycle round-robin across the
+configured severity grid (shrink/enlarge: {10,20,33,50,75}% ; rotate: {45,90,180,270} ◦; translate:
+{5,10,20,40}% of image dimension), and the LaMa inpainter fills any uncovered pixels. For
+bg_swap, single-object compositions onto Places365 backgrounds are sampled from the same
+compatibility distribution used in evaluation. Synthetic-background augmentations (solid,gradient,
+noise) replace background pixels outside polygon segmentations with the corresponding synthetic
+field; YOLO labels are inherited from the source COCO image. Each augmented slice contains ∼11k
+images (∼9% of the train set) and is held fixed across runs to remove sampling variance from the
+comparison. We train each variant for 40 epochs, batch size 64, AMP fp16, with hyperparameters
+identical to the COCO-onlybaselineretrain.
+Critically, the held-out evaluation split (990 COCO val2017 images) is disjoint fromanyimage used
+as a source for training composites, and the scene splits used to source bg_swap backgrounds are
+disjoint from the scene splits used at evaluation, ruling out leakage between train and eval composites.
+E.2 Clean-Image Behavior
+Table 20 reports clean-image behavior on the 990-image held-out eval split. All augmented variants
+improve over the baseline on every metric: AP@0.5 rises by 1.1%–2.7%, FN/img falls by −9% to
+−22%, and prediction volume increases by +22% to +36%. The best overall variant isaug_noise
+(AP 0.904, ∆FN −22.0%); the largest prediction-volume gain comes fromaug_bg_swap( +36.1%).
+Background augmentations match or exceed geometric augmentations across all three metrics.
+Table 20: Clean-image behavior on the 990-image held-out eval split.
+Model AP@0.5 FN/img∆FN vs. baseline∆Preds/img
+baseline 0.877 0.123
+aug_bg_swap 0.899 0.101−17.7% +36.1%
+aug_shrink 0.903 0.097−21.1% +22.3%
+aug_enlarge 0.888 0.112−8.9% +26.1%
+aug_rotate 0.899 0.101−17.7% +29.2%
+aug_translate 0.900 0.100−18.7% +23.3%
+aug_solid 0.895 0.105−14.6% +21.9%
+aug_gradient 0.900 0.100−18.7% +23.1%
+aug_noise0.904 0.096−22.0% +23.0%
+E.3 Cross-Shift Robustness Matrix
+Table 21 reports per-shift AP rAUC for every (training augmentation, evaluation context-shift) pair.
+35
+=== PDF page 36 ===
+Table 21: Per-shift AP rAUC. Rows: training augmentation. Columns: evaluation dataset (context-shifted). Bold = best
+column, Underlined = second best.
+Model bg_swap shrink enlarge rotate translate mean
+baseline 0.346 0.8151.0980.594 0.981 0.767±0.302
+aug_bg_swap0.3850.849 1.051 0.635 0.983 0.781±0.272
+aug_shrink 0.3560.9351.015 0.619 0.975 0.776±0.284
+aug_enlarge 0.356 0.822 1.071 0.635 0.955 0.768±0.282
+aug_rotate 0.348 0.831 1.0570.823 1.021 0.816±0.283
+aug_translate 0.352 0.842 1.059 0.655 1.011 0.784±0.289
+aug_solid 0.355 0.843 1.013 0.615 0.985 0.762±0.277
+aug_gradient 0.358 0.839 1.028 0.598 0.972 0.759±0.279
+aug_noise 0.355 0.827 1.052 0.629 0.968 0.766±0.280
+E.4 Held-Out Transfer (Leave-Home-Turf-Out)
+To isolate performance improvement from matched-context-shift wins, we average per-shift rAUC
+for each augmented variant over the four shifts that arenotits matched manipulation (Table 22).
+aug_bg_swapis the strongest cross-shift generalizer ( +11.3 pp held-out vs. baseline), suggesting
+that compatibility-driven background substitution exposes the detector to the broadest distribution
+of object–context decouplings. Geometric augmentations help mostly on their matched shift and
+degrade on average elsewhere.
+Table 22: Held-out mean rAUC (averaged over the four context shifts excluding the model’s matched shift). The baseline has
+no matched shift and is reported on all five.
+Model held-out mean rAUC∆vs. baseline
+baseline 0.767 ±0.302
+aug_bg_swap 0.879 ±0.183 +11.3pp
+aug_rotate 0.814 ±0.326 +4.7pp
+aug_shrink 0.741 ±0.312 −2.6pp
+aug_translate 0.727 ±0.300 −4.0pp
+aug_enlarge 0.692 ±0.260 −7.5pp
+aug_solid 0.762 ±0.277 −0.5pp
+aug_gradient 0.759 ±0.279 −0.8pp
+aug_noise 0.766 ±0.280 −0.2pp
+F Code, Dataset, and Assets
+F.1 Code
+The full benchmark codebase—including the manipulation pipeline, compatibility scoring, evaluation
+scripts, and analysis notebooks—is publicly available at:
+https://anonymous.4open.science/r/ContextShiftBenchmark-0D3E/
+F.2 Dataset
+The CONTEXTSHIFTmanipulation dataset is publicly available on Hugging Face at:
+https://huggingface.co/datasets/contextshift/manipulation
+It contains 131,885 manipulated images derived from the COCO 2017 validation set ( 4,952 base
+images, 36,781 instances, 80 categories), totalling 14.1 GB. The dataset covers two manipulation
+families: (i) geometric transformations (shrink, enlarge, rotate, translate) at multiple severity levels,
+and (ii) synthetic background replacements (solid color, smooth gradient, low-frequency noise). All
+bounding-box and segmentation annotations are derived programmatically from COCO 2017 and
+36

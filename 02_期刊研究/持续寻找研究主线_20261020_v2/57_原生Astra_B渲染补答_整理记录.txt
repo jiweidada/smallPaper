@@ -1,0 +1,16 @@
+原生子代理 /root/astra_design_b，gpt-6-astra/xhigh，只读补答。以下是主助手依据完整消息整理的记录，非逐字原文；原消息保存在本对话子代理输出中。末尾明确主助手对114的配置纠正。
+
+建议在原Photo＋Flip后的W×H画布上统一渲染，最后原生Resize640。不能从640浮点容器取整裁块，否则片段尺寸、采样相位与51尺度同时改变。
+
+1. 按49四source读取原JPEG核RGB SHA，原生Resize320→黑色Mosaic paste→记录参数PIL affine NEAREST fill114→Photo._transform(recorded_params)→Flip。Photo channel_permutation从JSON还原须原tensor类型。最后Resize640与ConvertPILImage先float32再/255，不能NumPy float64除法。tensor SHA等于final640_sha256，这是collate前，不与MixUp后batch比。
+
+2. 以51同一source-ID mask取Photo+Flip真实RGB和alpha，其他供体像素透明，GT范围扩出的空白也透明。另保留source0背景，Mosaic0与Affine114经过Photo后可能两种。原位置拼回RGB、GT/RNG均精确，不能容器矩形全部视作有效RGB。
+
+3. 居中公式：640容器左上b_i、尺寸d_i，cell左上o_i、尺寸c_i，t_i=o_i+(c_i-s_i*d_i)/2-s_i*b_i；z'=s_i*z+t_i。51已冻结cell/scale，未保存平移，要在输出前固定。D=diag(640/W,640/H)，原frame映射x'=s_i*x+D^-1*t_i。整张RGBA层逆仿射即可，不裁块取整；若扩大整数ROI节省计算，补偿整数原点，不能重算容器/scale。
+
+4. 所有臂共用核/alpha/顺序/背景，建议预乘alpha防透明黑边。可定义原source0位置保留背景颜色，其余用预声明填值；新增空白不带未标注源内容。最终同原Resize640。GT直接按连续s/t映射，保留所有occurrence、类别和顺序，不因mask/取整/Sanitize删标签。跨4px保持51 float64，模型float32误差另记。
+验收原RGB SHA、分层拼回SHA/GT、全部映射框在画布、四臂GT身份、尺度/跨档与51一致、原样s1t0。simple_risk和random保留，复杂当前无几何优势。
+
+LZU为CVPR2023，原方法可逆分片warp zoom输入/unzoom特征；新Scale-Aware Mosaic按尺度组目标中心裁片并过滤GT/候选patch。剩余区别固定同四源可见支持及全部原生GT曝光，在有限布局分配画布。尺度分配、重采样和packing本身非新原理。冻结输出只能判定当前模型上布局是否有用；GT-reference oracle失败不能直接推出content没有目标信息。
+
+主助手明确纠正：实际resolved.yml的fill_value=0；原Mosaic实例Affine的fill同为0。不得照搬以上泛例114。54已以实际配置0固定。完整原文/只读复审是建议与来源，不作为运行权威替代当前源码。

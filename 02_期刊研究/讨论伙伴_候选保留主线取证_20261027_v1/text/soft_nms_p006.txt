@@ -1,0 +1,97 @@
+Nt AP @ 0.5 AP @ 0.6 AP @ 0.7 AP @ 0.8 σ AP @ 0.5 AP @ 0.6 AP @ 0.7 AP @ 0.8
+0.3 0.5193 0.4629 0.3823 0.2521 0.1 0.5202 0.4655 0.3846 0.2533
+0.4 0.5238 0.4680 0.3840 0.2524 0.3 0.5293 0.4765 0.3960 0.2619
+0.5 0.5227 0.4708 0.3869 0.2526 0.5 0.5274 0.4777 0.3997 0.2669
+0.6 0.5127 0.4690 0.3895 0.2527 0.7 0.5232 0.4757 0.4001 0.2695
+0.7 0.4894 0.4535 0.3860 0.2535 0.9 0.5186 0.4727 0.3992 0.2710
+0.8 0.4323 0.4048 0.3569 0.2520 1.1 0.5136 0.4691 0.3976 0.2713
+Table 3. Sensitivity Analysis across multiple overlap thresholds Nt and parameters σ for NMS and Soft-NMS using R-FCN on coco
+minival. Best performance at each Ot is marked in bold for each method.
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
+N t or σ
+0.20
+0.22
+0.24
+0.26
+0.28
+0.30
+0.32
+0.34
+0.36
+0.38
+AP [05:0.95]
+Sensitivity to hyper parameter
+R-FCN σ
+Faster-RCNN σ
+R-FCN N t
+Faster-RCNN N t
+Figure 4. R-FCN Sensitivity to hyper parameters σ (Soft-NMS)
+and Nt (NMS)
+based detectors have higher recall and hence Soft-NMS has
+more potential to improve recall at higher Ot.
+From here on, in all experiments, when we refer to Soft-
+NMS, it uses the Gaussian weighting function. In Fig
+6,
+we also show per-class improvement on MS-COCO. It is
+interesting to observe that Soft-NMS when applied on R-
+FCN improves maximum performance for animals which
+are found in a herd like zebra, giraffe, sheep, elephant, horse
+by 3-6%, while there is little gain for objects like toaster,
+sports ball, hair drier which are less likely to co-occur in
+the same image.
+6.2. Sensitivity Analysis
+Soft-NMS has a σ parameter and traditional NMS has
+an overlap threshold parameter Nt. We vary these param-
+eters and measure average precision on the minival set of
+MS-COCO set for each detector, see Fig
+4. Note that AP is
+stable between 0.3 to 0.6 and drops signiﬁcantly outside this
+range for both detectors. The variation in AP in this range is
+around 0.25% for traditional NMS. Soft-NMS obtains bet-
+ter performance than NMS from a range between 0.1 to 0.7.
+Its performance is stable from 0.4 to 0.7 and better by ∼ 1%
+for each detector even on the best NMS threshold selected
+by us on the coco-minival set. In all our experiments, we set
+σ to 0.5, even though a σ value of 0.6 seems to give better
+performance on the coco minival set. This is because we
+conducted the sensitivity analysis experiments later on and
+a difference of 0.1% was not signiﬁcant.
+6.3. When does Soft­NMS work better?
+Localization Performance Average precision alone
+does not explain us clearly when Soft-NMS obtains sig-
+niﬁcant gains in performance. Hence, we present average
+precision of NMS and Soft-NMS when measured at differ-
+ent overlap thresholds. We also vary the NMS and Soft-
+NMS hyper-parameters to understand the characteristics of
+both these algorithms. From Table
+3, we can infer that av-
+erage precision decreases as NMS threshold is increased.
+Although it is the case that for a large Ot, a high Nt obtains
+slightly better performance compared to a lower Nt — AP
+does not drop signiﬁcantly when a lower Nt is used. On
+the other hand, using a high Nt leads to signiﬁcant drop in
+AP at lower Ot and hence when AP is averaged at multiple
+thresholds, we observe a performance drop. Therefore, a
+better performance using a higher Nt does not generalize to
+lower values of Ot for traditional NMS.
+However, when we vary σ for Soft-NMS, we observe
+a different characteristic. Table
+3 shows that even when
+we obtain better performance at higher Ot, performance at
+lower Ot does not drop. Further, we observe that Soft-NMS
+performs signiﬁcantly better ( ∼ 2%) than traditional NMS
+irrespective of the value of the selected Nt at higher Ot.
+Also, the best AP for any hyper-parameter ( Nt or σ) for a
+selected Ot is always better for Soft-NMS. This compari-
+son makes it very clear that across all parameter settings,
+the best σ parameter for Soft-NMS performs better than
+a hard threshold Nt selected in traditional NMS. Further,
+when performance across all thresholds is averaged, since a
+single parameter setting in Soft-NMS works well at multi-
+ple values of Ot, overall performance gain is ampliﬁed. As
+expected, low values of σ perform better at lower Ot and
+higher values of sigma perform better at higher Ot. Unlike
+NMS, where higher values of Nt lead to very little improve-
+ment in AP , higher values of σ lead to signiﬁcant improve-
+ment in AP at a higher Ot. Therefore, a larger σ can be used
+5566

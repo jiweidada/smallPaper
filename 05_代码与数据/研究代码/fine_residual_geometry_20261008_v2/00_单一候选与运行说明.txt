@@ -1,0 +1,43 @@
+唯一主候选：fine_residual（细尺度邻域残差定位）
+状态：隔离代码及配置已准备，未训练，尚无改进后 AP，尚未证明有效或创新成立。
+
+一、作用范围与自审边界
+针对原 Top300 已选中的 P3 候选，在编码器初始框回归中加入来自融合前 P3 的固定 3×3 邻域残差；保留原语义特征输入。主干、分类、Top300、解码器和原生损失配方沿用基线。
+研究依据是小目标早期定位不足，以及归档检查中细尺度特征与融合后特征表现不同。已有证据尚不能把根因唯一定位到某个融合模块，也不能证明该残差一定改善定位。
+该候选不能直接补入落选查询，不能直接解决全部分类混淆；仍可经原语义特征依赖粗尺度路径，不保证平移不变性。固定邻域也没有恢复丢失像素。
+只保留 baseline、fine_residual 和必要的同结构 fused_residual 对照，两个 seed 共六份配置。fused_residual 使用融合后的特征，帮助判断细尺度来源是否有额外收益，但仍同时改变信息及梯度路径，不能单独区分这两种机制。它不是第二条主改进路线。
+
+二、本版本新增内容
+geometry.py、residual.py 及六份配置与 v1 字节相同。v2 在实验包装层补上最终第132轮的结果归档，不改原训练源码。
+results.py 只读取当轮已计算好的 precision、recall 和匹配记录，不调用模型、IoU、匹配器或评价器。保存十类别 AP、六项总 AP、各 IoU 的逐目标检出标志及误检数量。
+按原生 dtMatches 非零且 dtIgnore 为假判定 TP，保留原评价器的 annotation_id=0 哨兵行为，不擅自改变标注或评价标准。
+比较固定最终轮次的 EMA；报告每个 seed 相对两个对照的指标变化、各类新增检出和损失、具体损失目标。新增/损失 TP 不是 AP 的直接分解。
+归档失败会记录异常并返回原 fit，让原生 last.pth 保存流程继续；fit 返回后如果归档不完整则显式报错。部分结果目录不覆盖，需检查故障后使用新目录。已经结束第132轮的 checkpoint 不能通过空跑 resume 补造本版本终点结果。
+正式比较要求六份同源运行、同一评价协议和环境、完成回执及对应 last.pth 的 SHA。仅校验文件 SHA，不加载或独立复评 checkpoint；独立复现和成本检查仍为未完成。
+
+三、已做与未做的验证
+本版35项工程检查通过，仅使用已有基线数组、匹配记录和标准库桩；两 seed 的六项总指标、每类六项指标、全部38759个目标的 TP50 与独立旧存档一致。检查错轮次、错 maxDets、覆盖缺失、重复匹配、非法数组、类别错序和旧存档冒充新实验等拒绝路径。原始证据及 v1 绑定49个文件保持不变。
+六份计划及原训练快照468个文件通过静态核验，六个准备包状态均为 PREPARED_NOT_TRAINED，runs 目录尚不存在。
+v1 的44项模型工程检查属于先前版本的既有结果，本版没有重新执行模型前向或反向。此次模型/匹配器/评价器/优化器执行次数均为零，没有加载训练 checkpoint。
+真正训练接入、CUDA/AMP、实际 optimizer/EMA、共同初始化加载、训练后 AP、推理延迟和显存仍未经本版运行验证。当前本地环境缺少原 custom pycocoeval，不能用另一个评价器替代后宣称同协议。
+工程测试数据在 engineering_results/archived_baseline_seed*，严格标记 archived_fixture，正式比较入口拒绝它们；不是改进模型结果。
+
+四、后续运行入口（这里只整理命令，尚未执行训练）
+需另行训练授权并具备原生依赖/CUDA 环境。当前 prepared_local 绑定本机绝对路径；环境路径变化须在新目录重新 prepare，不能直接修改已绑定文件。
+PowerShell 中使用明确的 Python 解释器。单次训练命令形式：
+python experiment.py train --bundle prepared_local/fine_residual_seed1
+相同方式运行 baseline、fused_residual、fine_residual 的 seed1 和 seed2。不要并发挤占设备改变资源条件，不选择各方案不同的最好轮次作主比较。
+命令应从本目录调用：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/fine_residual_geometry_20261008_v2
+
+正式比较命令形式：
+python results.py --endpoints runs/baseline_seed1/endpoint_epoch132 runs/fused_residual_seed1/endpoint_epoch132 runs/fine_residual_seed1/endpoint_epoch132 runs/baseline_seed2/endpoint_epoch132 runs/fused_residual_seed2/endpoint_epoch132 runs/fine_residual_seed2/endpoint_epoch132 --output paired_results.json
+输出不自动宣称有效、显著、创新或采用。先审查双 seed 的总 AP、APs、AP75、十类别变化、成功目标损伤和成本，再判断是否值得采用。
+既有 CPU 复评与原训练日志的0.02百分点一致性门槛未通过，本版实时归档并未解决该独立复现问题。
+
+五、审查资料
+前版实现与工程验证：../fine_residual_geometry_20261008_v1
+算子及近邻工作审查：../../data/00_实验计划与证据索引/单一候选空间读取与近邻自审_20261008_v1
+正式评价口径核对：../../data/00_实验计划与证据索引/单一候选正式指标与诊断对象对齐_20261008_v1
+新增工程报告：engineering_results/report.json
+交付回执：02_交付回执与SHA.json

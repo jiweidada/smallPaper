@@ -1,0 +1,37 @@
+Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS 9
+Method w/ Align Loss AP AP 50 AP75
+H-DETR [14] 48.7 66.4 52.9
+Align-H-DETR ✓ 49.3 67.2 53.7
+Table 2: Comparisons (%) of Align-H-DETR and H-DETR on COCO val set with 1x sched-
+ule.
+Method AP AP 50 AP75
+Focal Loss [24] 49.0 66.0 53.5
+IoU branch [15] 49.2 66.3 53.5
+QFL [21] 47.6 64.3 51.8
+VFL [46] 48.7 67.0 52.3
+PSL [26] 49.8 66.7 54.5
+PSL + PMC [26] 50.2 66.7 55.0
+Align Loss (Ours) 50.5 67.8 55.3
+Table 3: Comparison (%) with other methods on the misalignment problem on COCO val.
+We use ”PSL” and ”PMC” for position-supervised loss and position-modulated matching in
+Stable-DINO [26]
+detectors. Compared to the most closely related method, PSL [26], Align Loss demonstrated
+a significant improvement of 0.7% AP. Even when augmented with PMC, PSL still falls short
+of matching the performance of Align Loss. We attribute this discrepancy to PSL’s focus on
+optimizing paths individually for each layer, without addressing the issue of misalignment
+across layers. This is likely a contributing factor to the superior performance of our method.
+4.3 Ablation Study
+We conduct a series of ablation studies with DINO baseline to validate the effectiveness of
+the components. All experiments here use an R50 backbone and a schedule of standard 1x
+training schedule.
+Firstly, we validate the effectiveness of the proposed loss design and the results are sum-
+marized in Tab. 4. It is observed that both classification loss and regression loss contribute to
+the final performance, with the primary contribution stemming from the classification loss,
+Cls Loss Reg Loss Matching AP AP 50 AP75
+✓ ✓ ✓ 50.5 67.8 55.3
+✓ ✓ 50.1 67.2 54.8
+✓ ✓ 49.7 66.9 54.1
+✓ ✓ 49.1 67.5 53.4
+✓ 49.0 66.0 53.5
+Table 4: Ablation study (%) of Align-DETR on each component in terms of AP on COCO
+val. The results demonstrate the effectiveness of our proposed component.

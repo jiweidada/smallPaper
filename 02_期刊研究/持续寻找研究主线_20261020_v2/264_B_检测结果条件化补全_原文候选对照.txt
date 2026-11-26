@@ -1,0 +1,72 @@
+264｜检测结果条件化补全：原文候选对照
+日期：2026-10-21。B独立只读查新；只新增本文件。未运行模型、训练、预测缓存统计或远端任务。
+
+结论先行
+“把已有检测集合输入网络，只补尚未被它解释的实例”有直接原文先例，不能把它或隐藏已匹配预测训练作为当前主创新。最直接的是IterDet；Iter-E2EDET还覆盖了已接受预测的集合关系编码和优先匹配后的剩余GT监督。局部64px、四个追加槽和冻结全局模型是明确的实施区别，但目前不足以独立支持实质方法增量。C的联合择解修正有必要，却不能以二部图匹配性质立新。
+本轮另外读到2026年CTRP原文，其“易检对象推断困难对象”和掩蔽重建也必须纳入，不能只列AutoFocus。下面区分它实际重建什么，不把题名中的missing entities等同自由生成漏检框。
+
+一、所核本地方案及事实边界
+已亲读255_双结果完整回交_含DN与独立复核.txt所保留246第三轮B/C/Claude完整发言。方案为L=D(U4,E(I_W),Enc(P_W))；P_W含与窗相交的原框、类别/分数/位置；原检测器冻结，部署保留原预测并添加L。B的固定剩余GT被C改为：在类别一致、IoU≥.5的原预测边上，lex优化(-|M_P|,-|M_L|,Σ局部匹配native cost)，允许原框在等覆盖数解中改变GT归属。Claude又提出用enc/pre/aux与final的差异选择窗口，尚未据此证明漏检可补。
+这里沿用255的真实背景数：A3末框有几何覆盖而真类未过预算/分数1886/1923；A8额外FP729/475。它们提示排序和错误条件需要面对，但不是本补全方案已恢复的数量。没有用这些数推断“预测稀疏处必然有更多自然漏检”。
+
+二、最直接原文，而非主题类比
+
+[1] IterDet: Iterative Scheme for Object Detection in Crowded Environments，arXiv 2005.05708，2020。
+亲读原文§3、式1和训练/推理段：
+  H_xy(P)=Σ_(b∈P) 1[(x,y)∈b]； B_t=D'(I,H(P_<t))；最终输出∪_t B_t。
+历史图经过一层卷积，与骨干早期图像特征相加。训练将GT随机拆成B_old、B_new，用B_old构成H，只对B_new施加检测监督。因此“让网络知道已检测实例，只产生补集”和以随机缺失条件训练，都已经实际实现。当前输入由栅格历史换为带类别分数的set tokens、全图迭代换为固定局部四槽，并不能独占这个机制。
+原文：https://arxiv.org/html/2005.05708v1#S3
+作者维护仓库：https://github.com/filapro/iterdet
+源码范围：已读仓库README和transforms.py；关键history detector源码请求未取得，未声称逐行核验了历史生成实现。上述机制结论来自已亲读的方法原文。
+
+[2] Progressive End-to-End Object Detection in Crowded Scenes，arXiv 2203.07669，2022（本报告不靠未核会议信息作判断）。
+亲读§3.2式2–4、算法1与§3.3。按分数分为accepted D^h与noisy D^l；对noisy框i，选择accepted邻居，编码位置与IoU，
+  R_i=T(MaxPool(U(E(b_i,N_i)))+F(q_i))， q'_i=R_i+e_i。
+算法1先匹配D^h，删除它所匹配的GT，再匹配D^l到剩余GT。故“已接受集合→新query条件、原覆盖优先的补集监督”已做。实际区别：本文先固定第一次匹配；当前C允许原框在最优覆盖面内重新归属。另外其Sparse-RCNN实例最后一层框直接继承上一层，实际是固定框的识别更新，不应说它已经实现任意四个新框的几何补全。
+原文：https://arxiv.org/html/2203.07669v1#S3.SS2
+作者仓库：https://github.com/megvii-research/Iter-E2EDET
+源码范围：已核作者仓库身份/README，未声称本轮审过训练实现。公式、assignment及identity box结论来自原文。
+
+[3] PS-RCNN: Detecting Secondary Human Instances in a Crowd via Primary Object Suppression，arXiv 2003.07080，2020。
+亲读§3.1–3.3。第一分支对全部GT训练；实际检出GT组成G_d，其余G_m用于第二分支。以实例形状mask抑制G_d对应特征，第二分支专找G_m，最后取两支预测并集；另以最高分辨率特征做RoIAlign。它已经实现“第一次检测后的自然遗漏监督”，所以不能把用真实遗漏代替IterDet随机GT补集本身称新。区别是显式抹除共享特征、人体mask及RCNN提案，而当前保留RGB并输入预测集合。本轮未取得并核作者代码。
+原文：https://arxiv.org/html/2003.07080v1#S3.SS1
+
+[4] Completing Missing Entities: Exploring Consistency Reasoning for Remote Sensing Object Detection，IEEE TIP 35:569–584，2026，DOI 10.1109/TIP.2025.3648164。
+取得的是作者Peng Sun上传的出版社全文转录，带IEEE页码/DOI；亲读§III-A/B/C、§IV-C/G，非仅摘要。MRRL掩蔽目标像素块；预训练检测器给出未遮挡对象及masked/困难区域提案，KNN构关系提案。式2以类别L_u、关系区域特征F_p和空间先验S等为输入，输出masked对象语义L_m与重建特征F_rec；式10显式包含B_u、B_m。§IV-C说部署帮助低置信困难对象；不能据此称它已从无提案位置生成自由新框，也不能反过来声称推理使用GT框。§IV-G明确展示错误条件会向邻近对象传播。
+作者原文：https://www.researchgate.net/publication/399708797_Completing_Missing_Entities_Exploring_Consistency_Reasoning_for_Remote_Sensing_Object_Detection
+出版社身份：https://doi.org/10.1109/TIP.2025.3648164
+作者仓库：https://github.com/sunpeng96/CTRP_mmrotate
+实际读到的作者配置：https://raw.githubusercontent.com/sunpeng96/CTRP_mmrotate/master/CTRP_for_Remote_Sensing_Object_Detection/configs/ctrp/ctrp_rotated_faster_rcnn_r50_fpn_1x_dota_le90.py
+源码范围：配置明确两stage、CTRPRotatedFasterRCNN与CRTrRotatedStandardRoIHead、初始/精修RoI框头。核心head请求未取得；仓库README仍写提供demo、完整代码待发布，不能据目录存在宣称完整训练复现。式9网页转录有排版瑕疵，本文不依赖其逐字符数学正确性；没有补写原文未明确的自由框生成或补集匹配机制。
+
+[5] Introspective False Negative Prediction for Black-Box Object Detectors in Autonomous Driving，Sensors 21(8):2819，2021。
+亲读出版社PDF§3.1–4.3：用固定黑箱检测器的FN制作监督数据，独立网络预测FN类别、中心、宽高。式2–3为Feature_FN=Φ(I;Θ)、O_FN=ψ(Φ(I;Θ))，输入是图像，未显式条件化当前检测集合。故“原检测器不改、另训专补真实FN的轻网络”已有；当前P_W输入是实差，但它又必须面对[1]/[2]。本轮未核作者代码。
+原文PDF：https://mdpi-res.com/d_attachment/sensors/sensors-21-02819/article_deploy/sensors-21-02819-v2.pdf?version=1618821399
+出版社：https://www.mdpi.com/1424-8220/21/8/2819
+
+三、逐变量判断与应保留的强控制
+已覆盖：检测历史作为输入；只监督未解释对象；随机隐藏已解释目标；从首轮自然遗漏构造第二分支标签；已接受预测先占GT、剩余预测再分配；利用相邻已检对象的几何/语义关系。不是只有“名称相似”。
+尚未在上述原文见到的精确组合：冻结既有全局检测器，单个64px新RGB视图、四自由槽、真实含错预测集合条件，以及在原覆盖最优面上联合决定补全标签。其剩余差别主要是预算/接口和监督细节，当前不应宣称已找到足够强的独立方法贡献；也不等于证明这种组合无用。
+必须把“集合条件是否有用”与“只训遗漏是否有用”分开：
+  A 同crop无条件四槽、所有窗内GT训练，同融合/NMS/score校准；
+  B 同crop无条件四槽、完全相同的C式补集分配；
+  C 同crop条件四槽、真实P_W，其他同B。
+A是普通再检测强基线，B排除收益仅来自FN专门化，C−B才指向条件输入。还应有同预算局部IterDet history-map输入，以排除只是旧条件化方案改成tokens。三类都不能以oracle高分或不同topK/NMS给候选优待。人工隐藏训练另列，不把隐藏容易目标的提升当自然遗漏迁移。
+
+四、一个具体可实施的残余修订：区分“必需条件”与“无解释力的错误条件”
+我建议不把当前基础补全结构硬称新，若继续，只留下这一更窄研究问题：真实错误条件能否让局部补全抑制本应发现的实例，而有监督的条件干预可避免它？[4]提供了直接失败机制；当前FP资产说明应查，但尚未证明本数据存在该空间耦合。
+
+保留同一D和四槽，不新增遮挡像素或抹除图像。只改变条件训练关系。定义训练图E(P,G)中p→g当类别相同且IoU≥.5；判条件是否有解释边时用该图的全部GT，不能因GT在窗外就把真实条件误标无效：
+  无合法解释边条件p_f：degree(p_f)=0；删除它不改变可匹配GT解释。
+  必需条件p_t：p_t只连完整位于窗内的g_t，且g_t只连p_t（孤立的真匹配边）。删除它确实让原覆盖少1，不依赖任意最大匹配择解。
+对同一I_W形成P、P\{p_f}、P\{p_t}。自然遗漏标签仍用C式分配；p_t删除时同时从模拟原输出删去，p_f分支只改变条件输入。基准检测损失训练原条件与p_t分支；额外只对无效条件要求集合输出一致：
+  L=L_det(P)+L_det(P\{p_t})+λ D_set(L(P), stopgrad L(P\{p_f}))。
+D_set在四槽之间最小置换匹配，比较类分布并对前景比较框；不得按原槽ID硬对齐。为避免“网络忽略所有条件”伪满足一致性，p_t分支须检查确需补出的g_t；若自然剩余已超过四槽，不把该分支漏g_t硬当不响应。这里的孤立边条件只用于构造可解释干预，不是部署GT输入，也不宣布其对拥挤含歧义对象充分。
+
+具体改变的是错误检测条件对新框生成的作用，不是增加GT数量、改变原检测框或重定义最大匹配。无合法解释边不等于毫无视觉信息，尤其定位稍差的真物体框；强制稳定是待测归纳偏置，不是由图论推出的最优预测定理。它仍属于条件干预/一致性训练，本文未证明其文献新颖性，不将普通regularizer换名宣称新主线。最强新增控制是同输入、同三条件视图预算的随机condition dropout，以及上述条件头仅做检测损失；若二者复制效果，这个修订就没有特异增量。若只是最终score的学习NMS获益，也必须收回“改善新框生成”的主张。
+
+最低成本下一步不是训练：接C已锁窗口，用现有development预测与GT仅数两类干预是否存在，以及无效条件与自然未覆盖GT是否空间相交；分别列类别错、定位不足、背景FP。必须单列“该GT任何原预测都无合法边”和“仅因匹配容量而未覆盖”，不得把某一解的unmatched全当自然唯一漏检。同时列孤立真边删除与自然遗漏的尺寸/可见性差异。若窗口内无错误条件与自然遗漏共存，这一修订没有现实前提；若只存在人工隐藏样本，也不能以此申请自然漏检补全训练。该计数不是AP、像素可辨识性或学习成功证据，本轮未执行。
+
+五、查新范围与当前取舍
+已亲读五篇方法原文，其中2026 CTRP为作者上传出版社全文；不是五篇都读到/验证了完整源码。公开检索未取得的关键实现与全文数学排版缺口已逐项注明。检索无结果不构成不存在更近工作的证据。
+当前基础补全候选可继续做已授权的零前向作用面核查，但不能凭“已有检测集合条件化”立新，也不能因局部上界阳性立即进入训练。最值得区分的实际变量是：自然含错条件对生成的影响，是否超出普通遗漏专门化、旧history map和同预算条件dropout。若没有这项额外作用，就应把它归为已有方法的低预算适配，并继续寻找不同主线。

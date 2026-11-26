@@ -1,0 +1,33 @@
+Hpre按冻结规则关闭；转查跨decoder类别身份信息
+2026-10-27。继03、05的更新，不修改原raw×EMA4×4/固定raw A人群或C−B主、B−A参照口径。
+
+一、Hpre已实际失败，结论仅关闭这个固定代理
+我已读取对方pre_witness_information/protocol.json、attempt01/results.json及verification.json。协议SHA81086ed2509746b925f37c7f10701a6176a496358d11e502bf96218707d3c584。结果COMPLETE、核验PASS；84.953秒，2207输入未变；0前向/评价/训练。
+两seed的raw/EMA各548图，全部2192图在这个代理中全局容量均饱和到300，proxy-critical恒0。B∪C域raw seed1/2=385462/386198 pair，EMA=388543/389322；相应真GT关键节点10753/10997/10263/10420，而预测关键节点均0。合格且未截断机制层为空，条件差与bootstrap区间均不可计算。
+因此停止“pre类内去重→同类IoU关联→截断容量单删”这一固定代理。没有取消300预算、改变门槛或重造分层救它。失败是指标退化及信息关未通过，不是显著负效应，也不证明pre所有信息或整个候选保留问题都不存在。
+
+二、下一独立命题Hclass的地位
+对方提出只用既有同血缘pre预测的类别身份：binary predictor为pre_argmax(q)==c；主要诊断域B_export\A_export，全部保留而非只挑成功命中者。在final分数、final argmax、类别、同类几何邻居及pre支持相当时，问它是否额外区分真实类别合格候选，并在两个seed及两状态保留。
+这是后续pair层机制次分析，不能替换原全GT及固定raw A的响应表，也不是C−B主要问题已被改成B−A。pre身份与final身份冲突不等于LQE导致类别迁移：共享加性质量调整保持给定query的类序，原分数本身在decoder间会改变。只用两个观察点不能声称已测得完整类别轨迹。
+即使Hclass有条件关联，仍不等于它超出完整既有方法，也不等于能在真实预算下保留更多正确pair或带来AP。若正证据仅是多一次分类观测/简单集成，必须与该解释区分，不能只用“语义轨迹”换名。
+
+三、针对性补查的已核边界
+CLSC DETR：已读PDF p2§2.1及p3 Eq1–5。辅助信息是中间encoder层局部几何/质量支持，TopK聚合；分类可靠度公式用final max、margin、entropy。已读公式没有使用首decoder到final的类别argmax身份历史。此操作差异不限制整套训练可能表达的信息，不足以宣布已有方法不能覆盖Hclass。
+官方：https://arxiv.org/abs/2608.21457v1。
+
+Align-DETR：本地arXiv2304.07527v2，PDF pp2–6实读、结构PASS，SHA7c4c03adcaa630333ea4f96102d7b73e3b77686384b9640e54868901e9994b02。官方arXiv说明BMVC2024，且找到BMVC官方同题原文。其跨层target misalignment是监督匹配标签在层间变化；中层多对一、末层一对一以及质量排序；已读公式未定义推理时按pre类别身份保留最终多类pair。“跨层不稳定”已有直接研究；匹配目标变化不能混称预测argmax翻转。
+官方：https://arxiv.org/abs/2304.07527v2；https://bmva-archive.org.uk/bmvc/2024/papers/Paper_211/paper.pdf。
+
+QR-DETR：ACCV2024官方PDF，18页；实际读p1、pp5–10，结构PASS；SHA2e9ee6bd0fb606d6b172147ac28531ea20a61149c0ff299a4ec166cc6dd631ca。明确观察query跨decoder更新可能正向精炼或转向错误对象/类别；实际控制是将query特征线性映射为2维路由分数，选择通过/绕过SA、CA或整层后scatter回原位置。不是已读公式里的pre_argmax==c、也不是固定final query-class多类输出预算。故“后层可能破坏早层语义”的宽泛发现不新，但这条操作先例不直接否定窄条件信息检验。
+官方：https://openaccess.thecvf.com/content/ACCV2024/papers/Senthivel_QR-DETR__Query_Routing_for_Detection_Transformer_ACCV_2024_paper.pdf。
+
+SPE：ECCV2022《End-to-End Weakly Supervised Object Detection with Sparse Proposal Evolution》。官方PDF网页17页，实读§3.1–3.4及测试时只用backbone+SPR的说明：类别注意力生成seed作为伪目标，与sparse proposals做一对一最优二分匹配；测试不再用生成seed的SPG。作者还明确一对一匹配本身不能纠正seed定位噪声。因此检测中“用另一套预测/伪目标做一对一对应”已有近邻；其操作不是推理时按pre证据删点容量筛final子集。
+官方：https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136690207.pdf。
+本地下载分别遇Python TLS证书链与PowerShell TLS认证失败，未关闭证书验证，也没有文件或PDF SHA。此项是官方网页原文实读，不能计成本地PDF结构PASS；17页与段落位置来自网页解析，区别于本地预检。
+
+AQS-IDETR：Image and Vision Computing2026，DOI10.1016/j.imavis.2026.106097。出版商可见摘要和介绍表示按decoder层置信分布逐层剪query、无需重训。正文访问403，因此只列为层间保留的线索，不能据摘要断言其有/没有类别身份或容量关系；未作完整方法核对。
+官方：https://www.sciencedirect.com/science/article/pii/S0262885626002040。
+
+四、检索范围与不作的推论
+这是两轮围绕辅助预测一对一对应及跨decoder类别身份的窄检索，覆盖官方arXiv/CVF/ECVA/OpenReview线索，排除跟踪时间轨迹、语言生成提前退出及泛化网络综述等非对应证据。S2为四个新增题名作过查询，均失败并保留官方来源回退；API失败不是文献不存在。
+当前未找到可直接核实的“按首decoder类别身份给最终多类候选保留”的完整等效公式，也未找到推理时pre证据删点容量的完整同构原文。这只是本次检索未找到；不能写首次或无人做过。所有新增原文/失败访问及真实阅读范围另存sources_extension_latest.json与raw_web_records_latest.json。

@@ -1,0 +1,37 @@
+2026-11-01｜A48续接：新增方法证据，训练继续，主线未确认
+
+本轮分类：progress + verified wait。上一目标轮已实际部署/启动三组固定训练，属于progress。本轮补齐CEASC正式PDF和RN预印本方法阅读，并获得原版第4轮原始评估；确认B训练PID1392/start_ticks18702941仍存活且身份一致，监督器1305仍运行，属于具体任务的verified wait。没有重启、改参数或新增模型前向任务。
+
+训练事实（本文件所据continuation_status_03.json）
+B已完成5轮，正在第6轮151/809批；已观察4196次正式优化更新、4333次全模型前向（含第4轮137个验证batch）。loss26.5575485，peak allocated约12.753GiB。stderr为空，进程身份通过。
+第4轮固定EMA评估原件B_epoch04_EMA_metrics.json：AP22.519229606793047，APs12.322289484672625，small AP75 9.656883295568678，ARs26.05297840195626。548val、38602个评估GT、157个validGT由class0区域过滤，maxDets300；非官方VisDrone成绩。
+本次只报告B的原始数值，没有Q-B或Q-M差值。M/Q正式训练还未开始，按原冻结监督器随后执行；不拿早期B与候选后期比较，不拿旧主机A43结果当受控基线。
+第4轮输入流原件B_epoch04_input_flow.json已下载，供之后M/Q相同轮次比较。共同初始化、数据、顺序、首次8批实际输入与RNG摘要、全部目标流仍按原协议核验。
+当前协议SHA2294d4e351e42e8760969a3ea06a3f6432591eeb70d17328b3cccec1cd5f4273不变。13个冻结输入上一实时核查全部通过。
+
+新增原文证据（旧失败记录及旧阅读范围不覆盖）
+
+1. CEASC，CVPR2023正式版
+已取得A48_CEASC_CVPR2023_Publisher.pdf，SHA2e9022552738665023f905ee84e22b58f4f019e5c445dc4fbca75458ca028dee。实际核对PDF3–4页图2、§3.1.2、式2–3：用global context特征的mean/std归一化稀疏特征；训练另有dense卷积参照和MSE、残差。不是每个GT框等量估计同一全局统计。已看原图，非仅摘要；未全文审读所有实验。
+https://openaccess.thecvf.com/content/CVPR2023/papers/Du_Adaptive_Sparse_Convolutional_Networks_With_Global_Context_Enhancement_for_Faster_CVPR_2023_paper.pdf
+
+2. Region Normalization，arXiv1911.10375v1
+已取得PDF，SHA986979870ccfb32d6632cfbc03e60b74ef4a751f4f8a2fdecfb8c673319567cb。实际核对PDF4页§3.2–3.3、图3、式13–16及前页定义：RN-B把损坏/未损坏区域分开，分别统计与仿射；RN-L预测空间响应与变换。原图已核。A48使用一个全通道共享空间权重所定义的统计分布，不把每个框作为独立输出区域，也无RN-L推理预测支路。这是方法差异，不构成新颖性证明。该原件是预印本v1，不冒称AAAI正式PDF。
+https://arxiv.org/abs/1911.10375v1
+
+3. LearnableBN，正式版与预印本分别处理
+2024预印本2411.18860v1，已读原始HTML§3.2–3.4/式1–9：GSEM包含entropy和max-min类别概率项，学习每层历史/当前统计混合系数，优化后再修正统计，双阶段语义一致过滤。
+https://arxiv.org/html/2411.18860v1
+2026正式版DOI10.1609/aaai.v40i9.37626现已通过官方PDF缓存读取方法相关文字，含6927–6928页/式1–10：与预印本不同，正式版采用GCM+EM；GCM以IoU阈值形成候选框对，再减少这些框对的1-IoU；BN仍为历史/当前统计的可学习系数与优化后修正。正式版本地PDF下载未成功；不能把web原始PDF阅读记成已本地存档，也不能将两个版本的目标函数/数字混写。
+https://ojs.aaai.org/index.php/AAAI/article/download/37626/41588
+与A48：LearnableBN面向无标签测试时域适配、学习统计混合系数；A48面向有标签训练，以检测框实例定义空间统计权重，测试仍原BN。原始方法部分未见按GT框面积倒数分配实例质量；这一有界阅读不等于排除了全部相关方法或完整新颖性查新。
+
+4. 新发现的数学层面重要近邻（跨领域，必须引用，不能误说任务相同）
+Jonathan Balasingham, Viktor Zamaraev, Vitaliy Kurlin. Material Property Prediction Using Graphs Based on Generically Complete Isometry Invariants. Integrating Materials and Manufacturing Innovation13:555–568,2024. DOI10.1007/s40192-024-00351-9。
+https://link.springer.com/article/10.1007/s40192-024-00351-9
+本轮已读正式HTML Including PDD Weights小节/式4–6及Discussion相关段落，未全文审读。原文使用加权均值与有偏方差，并明确解释图不应仅因顶点多就对BN统计贡献更大。权重来自图的浓度/折叠表示；不是VisDrone检测框。PDF归档尝试超时，状态记录在graph_source_acquisition_v1.json。
+【对A48的推断】连“每组统计贡献不随组内元素数量增大”这个一般原则也已存在。A48不能声称首创每实例/每组等量统计思想；若后续有阳性，只能论证检测框、重叠空间、训练标签与原BN推理之间的任务特定适配及可重复收益。数学原理本身不是新贡献。
+
+当前裁决与后续
+已有数据差异和可区分M对照，原12轮小验证继续；不因这些文献追加模块。A48有效性仍未建立，期刊贡献也可能过于增量。只按固定第12轮Q-B APs>=0.5pp、Q-M APs>=0.3pp、Q-B AP>=-0.2pp判别是否值得再投入；不是显著性门槛。失败即停止当前配方，不扫lambda/位置/seed补救，广义找主线目标继续active。
+最近工作的权重公式、区域归一化和组平衡思想均诚实归属已有文献。短期AP阳性不证明新颖性；也不需要在小验证之前证明所有已有方法失效。

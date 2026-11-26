@@ -1,0 +1,148 @@
+--- C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\train341.py
++++ C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\342_codex_pretrain_20261022_v1\train342.py
+@@ -1,4 +1,4 @@
+-"""341 training link = train340 + 317v4 (G class_null lr x10). CPU only; NO GPU.
++"""342 CPU pretraining review link; no real-training entry point. Based on train341.
+ 317v4: only G_geom class_null uses base 1e-3 / lo 1e-4 (v3 curve x10); all other params unchanged.
+ Training entry is marked: 未授权，不得在GPU上运行.
+ """
+@@ -16,6 +16,9 @@
+ P327 = BASE_V2 + r"\327_训练实施输入索引.json"
+ sys.path.insert(0, HEAD_V2); sys.path.insert(0, GCAL_V2)
+ sys.path.insert(0, r"C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\dn_pre_frozen_diagnostic_20261020_v1\native")
++import geom342 as geom
++from importlib import import_module
++head342 = import_module('342_head')
+ import core as core311
+ from core import CLASSES, DIM, SIDE
+ from gcal import GeometryCalibratedHead, copy_R_common
+@@ -38,13 +41,10 @@
+     for e in entries:
+         W = e["window_xyxy_640"]
+         b = e["fullp_boxes"]
+-        ix = torch.clamp(torch.minimum(b[:,2], W[2]) - torch.maximum(b[:,0], W[0]), min=0)
+-        iy = torch.clamp(torch.minimum(b[:,3], W[3]) - torch.maximum(b[:,1], W[1]), min=0)
+-        inter = ix * iy
+-        keep = inter > 0
++        keep = geom.intersecting_candidates(b, W)
+         bb = b[keep]
+-        # window-local xyxy coordinates (unclipped per 317)
+-        loc = torch.stack([bb[:,0]-W[0], bb[:,1]-W[1], bb[:,2]-W[0], bb[:,3]-W[1]], -1)
++        # window-normalized xyxy coordinates (unclipped per 317)
++        loc = geom.win_norm_xyxy(bb, W)
+         per.append((loc, e["fullp_labels"][keep], e["fullp_scores"][keep]))
+         maxn = max(maxn, loc.shape[0])
+     for loc, lab, sc in per:
+@@ -57,7 +57,7 @@
+         P_valid.append(v)
+     return {
+         "rgb": rgb,
+-        "P_boxes": torch.stack(P_boxes),        # window-local xyxy
++        "P_boxes": torch.stack(P_boxes),        # window-normalized xyxy
+         "P_cls": torch.stack(P_cls),
+         "P_scores": torch.stack(P_scores),
+         "P_valid": torch.stack(P_valid),
+@@ -67,8 +67,8 @@
+     """N/S/R from 311_v2 CompletionHead; G from 320_v2 GeometryCalibratedHead (which subclasses R)."""
+     torch.manual_seed(2026102100 + seed)
+     if arm == "G":
+-        return GeometryCalibratedHead()
+-    return core311.CompletionHead(arm)
++        return head342.GeometryCalibratedHead342()
++    return head342.CompletionHead342(arm)
+ 
+ def make_common_init(arm, seed):
+     """All arms start from the same R/common initialisation (317 §8: G/R initial equality)."""
+@@ -99,14 +99,11 @@
+         # U_W GT in window-local normalized cxcywh (window 64px)
+         sel = gt[UW]
+         if sel.numel():
+-            x0,y0,x1,y1 = sel[:,0],sel[:,1],sel[:,2],sel[:,3]
+-            ww = float(W[2]-W[0]); wh = float(W[3]-W[1])
+-            ubox = torch.stack([(x0+x1)/2-W[0].item(), (y0+y1)/2-W[1].item(),
+-                                x1-x0, y1-y0], -1) / torch.tensor([ww,wh,ww,wh])
++            ubox = geom.win_norm_cxcywh(sel, W)
+             ulab = e["gt_labels"][UW]
+         else:
+             ubox = torch.zeros(0,4); ulab = torch.zeros(0,dtype=torch.long)
+-        per_image_denoms.append(max(1, int(UW.sum())))
++        per_image_denoms.append(int(UW.sum()))
+         r = compute_losses({"pred_logits": nl[i], "pred_boxes": nb[i]}, ubox, ulab,
+                            num_classes=CLASSES, denominator=float(max(1,int(UW.sum()))), k=4)
+         det_terms.append(r)
+@@ -118,23 +115,21 @@
+             UW = e["U_W"]; gt = e["gt_boxes_640"]; W = e["window_xyxy_640"]
+             sel = gt[UW]
+             if sel.numel():
+-                x0,y0,x1,y1 = sel[:,0],sel[:,1],sel[:,2],sel[:,3]
+-                ww=float(W[2]-W[0]); wh=float(W[3]-W[1])
+-                ubox = torch.stack([(x0+x1)/2-W[0].item(),(y0+y1)/2-W[1].item(), x1-x0, y1-y0],-1)/torch.tensor([ww,wh,ww,wh])
++                ubox = geom.win_norm_cxcywh(sel, W)
+                 ulab = e["gt_labels"][UW]
+             else:
+                 ubox=torch.zeros(0,4); ulab=torch.zeros(0,dtype=torch.long)
+             det_terms.append(compute_losses({"pred_logits":nl[i],"pred_boxes":nb[i]},ubox,ulab,
+                               num_classes=CLASSES, denominator=denom, k=4))
+-    ld = sum(t["loss_mal"] + 5.0*t["loss_bbox"] + 2.0*t["loss_giou"] for t in det_terms) / len(batch["entries"])
++    ld = sum(t["loss_mal"] + 5.0*t["loss_bbox"] + 2.0*t["loss_giou"] for t in det_terms)
++    if denom_mode == "per_image_mean":
++        ld = ld / len(batch["entries"])
+     losses["loss_det"] = ld
+     # --- L_mass (296 L38) ---
+     mass = out["mass"]  # [B,10,256]
+     lm = []
+     for i, e in enumerate(batch["entries"]):
+         GW = e["G_W"]; K = e["K_g"]
+-        if GW.sum() == 0:
+-            lm.append(torch.tensor(0.0)); continue
+         mstar = torch.zeros(CLASSES, 256)
+         for j in range(e["gt_boxes_640"].shape[0]):
+             if bool(GW[j]):
+@@ -142,7 +137,7 @@
+         m = mass[i]
+         eps = 1e-8
+         term = m - mstar + mstar * torch.log((mstar+eps)/(m+eps))
+-        term = torch.where(mstar > 0, term, torch.zeros_like(term))
++        # At m*=0 only 0*log(0) vanishes; the +m penalty remains (296 §5).
+         lm.append(term.sum() / max(1, int(GW.sum())))
+     losses["loss_mass"] = torch.stack(lm).mean()
+     # --- L_assoc (296 L39) ---
+@@ -154,9 +149,7 @@
+     for i, e in enumerate(batch["entries"]):
+         # need the same P_W subset used in collate
+         W = e["window_xyxy_640"]; b = e["fullp_boxes"]
+-        ix = torch.clamp(torch.minimum(b[:,2], W[2]) - torch.maximum(b[:,0], W[0]), min=0)
+-        iy = torch.clamp(torch.minimum(b[:,3], W[3]) - torch.maximum(b[:,1], W[1]), min=0)
+-        keep = (ix*iy) > 0
++        keep = geom.intersecting_candidates(b, W)
+         n = int(keep.sum())
+         owner = e["m0_cand_owner"][keep]         # per kept candidate: GT index or -1
+         GW = e["G_W"]; K = e["K_g"]
+@@ -214,19 +207,23 @@
+     torch.set_rng_state(st["torch"]); np.random.set_state(st["numpy"]); random.setstate(st["python"])
+ 
+ def save_checkpoint(path, model, opt, step, epoch, shuffle_seed, rng):
+-    torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(),
+-                "step": step, "epoch": epoch, "shuffle_seed": shuffle_seed,
+-                "rng": rng, "lr": opt.param_groups[0]["lr"]}, path)
++    with open(path, "xb") as checkpoint_file:
++        torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(),
++                    "step": step, "epoch": epoch, "shuffle_seed": shuffle_seed,
++                    "rng": rng, "lr": opt.param_groups[0]["lr"]}, checkpoint_file)
+ 
+ def load_checkpoint(path, model, opt):
+     ck = torch.load(path, map_location="cpu", weights_only=False)
+     model.load_state_dict(ck["model"]); opt.load_state_dict(ck["optimizer"])
+-    for g in opt.param_groups: g["lr"] = ck["lr"]
++    # load_state_dict restores EACH group's LR, including G's x10 group.
+     restore_rng(ck["rng"])
+     return ck["step"], ck["epoch"], ck["shuffle_seed"]
+ 
+ def run_steps(model, opt, batches, start_step, steps, total_steps):
+     """Run optimizer steps; returns loss log."""
++    assert 0 <= steps <= 20 and total_steps == 1218, "CPU smoke only"
++    assert all(p.device.type == "cpu" for p in model.parameters())
++    assert sum(len(b["entries"]) for b in batches) <= 32, "development smoke limit"
+     log = []
+     for k in range(steps):
+         b = batches[(start_step + k) % len(batches)]

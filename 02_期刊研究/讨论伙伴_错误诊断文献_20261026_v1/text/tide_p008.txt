@@ -1,0 +1,32 @@
+8 D. Bolya et al.
+Fig. 3: Summary of errors on COCO Detection. Our model speciﬁc error analysis
+applied to various object detectors on COCO. The pie chart shows the relative contri-
+bution of each error, while the bar plots show their absolute contribution. For instance
+segmentation results, see the Appendix.
+To make this concrete, we can deﬁne progressive error∆APa|b to be the change in
+AP from applying oraclea given that you’ve already applied oracleb:
+∆APa|b =APa,b−APb (4)
+Then, computing errors progressively amounts to setting the importance of error i
+to ∆APoi|o1,...,oi−1. This is problematic for two reasons: the deﬁnition of precision
+includes false positives in the denominator, meaning that if you start with fewer false
+positives (as would be the case when having ﬁxed most false positives already), the
+change in precision will be much higher. Furthermore, any changes in recall (e.g., by
+ﬁxing localization or classiﬁcation errors) ampliﬁes the effect of precision onmAP ,
+since the integral now has more area.
+We show this empirically in Fig. 2, where Fig. 2a displays the original COCO eval
+style PR curves, while Fig. 2b simply swaps the order that background and classiﬁcation
+error are computed. Just computing background ﬁrst leads to an incredible decrease in
+the prevalence of its contribution (given by the area of the shaded region), meaning that
+the true weight of background error is likely much less than COCO eval reports. This
+makes it difﬁcult to draw factual conclusions from analysis done this way.
+Moreover, computing errors progressively doesn’t make intuitive sense. When using
+these errors, you’d be attempting to address them individually, one at a time. There will
+never be an opportunity to correct all localization errors, and then start addressing the
+classiﬁcation errors—there will always be some amount of error in each category left
+over after improving the method, so observingAPa|b isn’t useful, because there is no
+state where you’re starting withAPb.
+For these reasons, we entirely avoid computing errors progressively.
+3 Analysis
+In this section we demonstrate the generality and usefulness of our analysis toolbox by
+providing detailed analysis across various object detection and instance segmentation
+models and across different data and annotation sets. We also compare errors based on

@@ -1,0 +1,53 @@
+Published as a conference paper at ICLR 2025
+Table 2: Performance comparison of various real-time object detectors on CrowdHuman.
+Model #Params. GFLOPs Latency (ms) APval APval50 APval75 APvalS APvalM APvalL
+YOLOv8-S 11M 29 6.96 50.4 78.1 - - - -
+YOLOv9-S 7M 26 8.02 50.5 77.1 - - - -
+YOLOv10-S 7M 22 2.65 50.6 78.6 - - - -
+RT-DETR-R18 20M 61 4.63 54.1 82.3 - - - -
+RT-DETRv2-S 20M 60 4.59 54.2 82.6 52.2 19.4 36.8 47.2
+D-FINE-S(Ours) 10M 25 3.49 55.5 87.1 60.1 28.4 44.5 52.7
+Table 3: Effectiveness of FDR and GO-LSD across various DETR models on COCO val2017.
+Model #Params. #Epochs APval APval
+50 APval
+75 APval
+S APval
+M APval
+L
+Deformable-DETR 40M 12 43.7 62.2 46.9 26.4 46.4 57.9
++ FDR & GO-LSD 40M 12 47.1 (+3.4) 64.7 50.8 29.0 50.3 62.8
+DAB-DETR 48M 12 44.2 62.5 47.3 27.5 47.1 58.6
++ FDR & GO-LSD 48M 12 49.5 (+5.3) 67.2 54.1 31.8 53.2 63.3
+DN-DETR 48M 12 46.0 64.8 49.9 27.7 49.1 62.3
++ FDR & GO-LSD 48M 12 49.7 (+3.7) 67.5 54.4 31.8 53.4 63.8
+DINO 47M 12 49.0 66.6 53.5 32.0 52.3 63.0
++ FDR & GO-LSD 47M 12 51.6 (+2.6) 68.6 56.3 33.8 55.6 65.3
+DINO 47M 24 50.4 68.3 54.8 33.3 53.7 64.8
++ FDR & GO-LSD 47M 24 52.4 (+2.0) 69.5 56.9 34.6 55.7 66.2
+enable them to outperform YOLOv10-L and YOLOv10-X by 3.1% and 4.4% AP, thereby position-
+ing them as the top-performing models in this comparison. What’s more, following the pretraining
+protocol of YOLOv8 (Glenn., 2023), YOLOv10 is pretrained on Objects365 for 300 epochs. In
+contrast, D-FINE requires only 21 epochs to achieve its substantial performance gains. These find-
+ings corroborate the conclusions of LW-DETR (Chen et al., 2024), demonstrating that DETR-based
+models benefit substantially more from pretraining compared to other detectors like YOLOs.
+Table 2 compares D-FINE-S with state-of-the-art real-time detectors on the CrowdHuman
+dataset (Shao et al., 2018). D-FINE-S achieves the highest APval (55.5%) and APval
+50 (87.1%) among
+all models, with only 10M parameters, 25 GFLOPs, and a latency of 3.49ms.
+5.3 E FFECTIVENESS ON VARIOUS DETR MODELS
+Table 3 demonstrates the effectiveness of FDR and GO-LSD across multiple DETR-based object
+detectors on COCO val2017. These methods are designed for flexibility and can be seamlessly
+integrated into Deformable DETR, DAD-DETR, DN-DETR, and DINO, consistently boosting de-
+tection accuracy by 2.0% to 5.3% without increasing the number of parameters and computational
+burden. These results highlight the effectiveness of FDR and GO-LSD in enhancing localization
+precision and maximizing efficiency, demonstrating their adaptability and substantial impact across
+various end-to-end detection frameworks.
+5.4 A BLATION STUDY
+5.4.1 T HE ROADMAP TO D-FINE
+Table 4 showcases the stepwise progression from the baseline model (RT-DETR-HGNetv2-L (Zhao
+et al., 2024)) to our proposed D-FINE framework. Starting with the baseline metrics of 53.0% AP,
+32M parameters, 110 GFLOPs, and 9.25 ms latency, we first remove all the decoder projection lay-
+ers. This modification reduces GFLOPs to 97 and cuts the latency to 8.02 ms, although it decreases
+AP to 52.4%. To address this drop, we introduce the Target Gating Layer, which recovers the AP to
+52.8% with only a marginal increase in computational cost.
+8

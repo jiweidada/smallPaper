@@ -1,0 +1,36 @@
+182 同类、同正槽预算的 FDR 支持域所有权：必要上界
+状态：先写183交root审查；本代理不执行、不读取新的支持图效果。159/160排序交换、147条件展开、172/174次峰方案的精确阴性不变。本核查不是这些版本的改阈值复活。
+
+1. 唯一输入与预算
+固定127_C0_attention_template_registration/01_cache.pt，SHA=f2fb2120ccd670f846a0a70651a3fabbf9bcfb636c94d43d33f8dc34eceac79c；固定160_C0_exchange_label_audit/00_results.json，SHA=750d13d7dc3376ae34e3f2f05a4a0635a16172a96c106f827a68e525e4f4f39c。只用单C0 online四图，902GT、453 original_sub4。读取160实际末层ordinary own Hungarian配对，不把它称GO/union。
+各图146/280/418/58个GT；own配对数146/280/300/58，总784。418GT图中原未匹配118个GT完全不加入。每图保留原matched query集合、原matched GT集合，以及每个query原正类别。按原own目标类别分组，仅允许组内query与GT一对一重新分配。所有784个正类别槽原位不变、每个GT出现一次、MAL原GT分母902不变。本核查不计算MAL新梯度。
+真实已知：160的784个own正槽中251对当前FP32框IoU=0；这是待分解群体，不能预先当成支持外。160 Hi/Hq的119个正交换及预选动作被分别增删复制，已停止，不把此处匹配求解器叫新的排序方法。
+
+2. 物理支持：明确两个几何量和两种精度
+唯一支持域参考框是缓存ref_points_initial（pre_bboxes.detach）；当前IoU使用缓存最终pred_boxes。不得用当前预测框替换初始ref。GT使用缓存normalized cxcywh，不用target.area、部署像素坐标或selected_indices推目标。
+实际native weighting_function生成FP32的33节点；从缓存校验reg_max=32、up=.5、R=abs(reg_scale)>0、端点a=-R、b=R。作为实数常量固定这些FP32节点和缓存FP32 ref/GT，再转FP64计算物理逆映射。
+对ref=(cx,cy,w,h)、GT端点(x1,y1,x2,y2)，未截断逆映射为：
+ dL=(cx-x1)/(w/R)-R/2，dT=(cy-y1)/(h/R)-R/2，
+ dR=(x2-cx)/(w/R)-R/2，dB=(y2-cy)/(h/R)-R/2。
+主可行边F_qg=1[四个d都在闭区间[a,b]]，GT及ref宽高必须严格正。此式是native distance2bbox的实数逆式，与147原始域一致；不添加target encoder分母中的1e-16。这里允许PMF有零质量，是有限softmax可达集合的闭包上界；不声称有限logits能精确取得支持端点。
+精度分报：复用136 encode_native_fp32真实调用native bbox2distance，ref/target/up/reg_scale实际均FP32（up/scale为tensor[1]），在translate_gt前捕获未clip four_lens。这个FP32编码域包括生产公式1e-16及FP32 xyxy转换，和上述FP64物理域分别报告，不将已被clip的插值索引当可行证据。136原FP64辅助含1e-16，本脚本不把它作为主逆式；会报告它与无epsilon物理逆式的最大差。
+主F按FP64严格>=a、<=b，不扩大边。固定近边tol=1e-10*max(1,R)，仅记录距离任一支持端点<=tol的候选边，并附收紧[a+tol,b-tol]、放宽[a-tol,b+tol]两图的匹配数/同一simple的支持数和门槛敏感性；不据效果选精度或调tol。如必要门槛随这两种近边处理翻转，停止效果解释、交数值复核，不能把它报成方法阴性/阳性。FP32编码结果只作预定精度scope，不替换主图。
+
+3. 上界及完整置换见证
+对每图每类别n×n图F求无权二分最大匹配数k（query/GT容量均1），SciPy与独立Kuhn逐组核对。k是任何保持该组完整预算的重分配可取得的最大可达配对数。
+证明：任意完整置换的可达边形成F中的匹配，数量<=k；取一个大小k的最大匹配，其剩余未匹配query与GT之间不可能有F边，否则直接再加一条边可得k+1。剩余行列按编号补齐即完整置换，补边必不可达，因此达到且恰达到k。保存一个确定的Kuhn最大匹配及补满见证，但不将它当拟议候选的三层字典序解。
+原own配对为第一对照。最强simple在完全相同的q/GT/类别预算内，以原生box_ops.box_iou的当前normalized FP32框IoU为权，SciPy linear_sum_assignment(-IoU)最大化总IoU。输入query和GT均按原编号升序排列；用当前固定SciPy1.13.1确定性返回，不增加保原owner微扰，也不以support打破最优IoU并列。记录最优总IoU、所选完整配对、支持数和与原own差。该simple是一个预定确定性IoU最优解，不声称同时最大化所有IoU并列解的支持数。
+主图最大匹配见证的当前IoU总和可以低于simple/原own；完整报告，不能把k的上界性质偷换成还满足IoU总和不降。此阶段不求badcount/totalv/nativecost完整字典序候选，也不改任何损失或训练映射。
+
+4. 唯一必要门槛
+逐图K_i=sum_class k、S_i=sum_class simple中的主F可达数。只有 sum_i K_i > sum_i S_i 且至少2图K_i>S_i，necessary_gate=true。
+若不满足且近边处理不改变判断，则在本次ordinary-own固定q/GT/正类别槽预算内，“比simple额外减少支持外配对且至少两图改善”的必要前提已不可能满足，停止这个ordinary固定预算原型。真实GO拥有不同的GT多重计数预算，当前较小原型不能替GO宣布阴性；GO须使用其真实缓存和GT multiplicity另行登记。若满足，仅允许讨论/另行登记本预算的真正字典序候选，不代表其IoU总和不降、不代表GO分支成立、AP、可学习性、创新或训练许可。没有IoU阈值新门槛。
+
+5. 完整输出和自检
+报告各图/各类别n、原own支持数、simple支持数、K、边数、每GT各自可达数与同时匹配数差；三种完整分配的当前IoU总和；simple/见证完整q-GT-ID配对；全部784原own逐对当前IoU、原ref、GT、主逆四边、FP32编码逆四边、两域支持状态。原251个零IoU配对单列主支持内/外、native32内/外、近边数。报告两FP scope及近边匹配敏感性，保留118未匹配GT编号。另存各组支持图、FP32支持图、边距、当前IoU矩阵和q/GT索引供复核。
+读取127/160内容前先运行固定合成检查：每个GT单独可达但不能同时接管；部分可行匹配可补成完整置换且补边全部不可达；所有query/GT和query正类别槽守恒；SciPy与Kuhn一致；IoU Hungarian确定排序；原生decode合法端点、域外点、非正宽拒绝；真实FP32目标编码/插值与FP64域分离。测试失败failclosed，不读取真实效果。
+
+6. 范围与资源
+只新增182/183；默认输出本ROOT新的184_C0_sameclass_support_bound，不覆盖。输入路径固定127和160；输出仅本ROOT直属尚不存在的184_*。复用已审159/136纯函数并校验SHA，绝不调用旧main。只加载数学函数，不加载模型、checkpoint、优化器；无forward/backward/训练/远程。
+CPU2/interop1，affinity[13,15]，BelowNormal，空闲RAM>8GiB，MKL_THREADING_LAYER=SEQUENTIAL；按类和512对块计算FP32编码。保存全部输入、依赖、协议、脚本前后SHA和结果产物SHA。
+原文边界：有限距离/range约束、几何边筛选和最大匹配本身不是创新。root将对GFL/FCOS regression-range、Q-MCMF/Stable-DINO核最近公式；本次只能回答该真实数据上表示域所有权是否尚有必要作用面。

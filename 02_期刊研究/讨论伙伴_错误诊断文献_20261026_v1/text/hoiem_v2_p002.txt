@@ -1,0 +1,44 @@
+New Visualization: Our ﬁrst version of the analysis code (described in the paper) focuses on charac-
+terizing the types of false positives, such as what percent of conﬁdent false positives are due to localization
+error vs. confusion with similar objects. However, focusing purely on characteristics of errors can sometimes
+obscure improvements. For example, we might want to know whether a change to a detection algorithm
+reduced the confusion with similar categories and increased the number of true detections at a given rank
+(rather than swapping one kind of error for another). Also, one detector that makes very few mistakes
+(whether “reasonable” or not) may be preferred over a detector that makes many reasonable mistakes.
+We introduce a new visualization that summarizes detection performance and types of false positives in
+a single plot. See Figure ?? for examples. The visualization includes stacked area plots that display the
+cumulative fraction of detections that are correct or due to localization, confusion with similar, confusion
+with other, or confusion with background. An improvement in a detector algorithm should push the white
+area upward. The x-axis is normalized by the total number of non-“diﬃcult” objects (VOC notation for
+objects that are considered too small or occluded to be required for detection) in the category, so a perfect
+detector would achieve 100% fraction of correct detections up to 1 on the x-axis, and remaining detections
+would be split among various types of errors. More typically, the top-ranked detections are highly accurate,
+and the cumulative fraction of errors increases slowly with detection rank. The visualization also includes
+line plots of recall with strong localization (solid red) and weak localization (dashed red) criteria on the
+same axes. The y-axis is recall percentage; the x-axis, the number of detections divided by the total number
+of objects. For a perfect detector, the recall would match the number of detections until the normalized
+number of detections is 1; then, recall would be saturated at 1. Note, however, that the plot is semi-log
+so a perfect recall plot is not a straight line. Typically, a detector’s recall will steadily improve until the
+normalized number of detections reaches 1 or 2, and then most remaining detections will be incorrect, with
+recall plateauing at 60-90%, depending on the category and detector.
+4 Using the Detection Analysis Tools
+The following process is suggested:
+1. Modify detector/dataset parameters in the analysis code. See text ﬁle for details.
+2. Run detectionAnalysisScript.m after checking settings at the top of the ﬁle. This produces ﬁgures
+and tex ﬁles.
+3. Remove white space around the pdf ﬁgures (e.g., with a script in Acrobat for batch processing). The
+ﬁgures plot impact strong.pdf and plot fp dttrendarea *.pdf are the most useful for a quick
+summary. The impact plots are only available for a subset of categories in the VOC 2007 dataset
+(because they require additional annotation).
+4. Compile the latex document detectionAnalysisAutoReportTemplate.tex and view.
+5. View false positive analysis *.txt and missed object characteristis *.txt for further details
+and view additional qualitative results.
+References
+[1] P. Felzenszwalb, R. Girshick, D. McAllester, and D. Ramanan. Object detection with discriminatively
+trained part-based models. IEEE Trans. on Pattern Analysis and Machine Intelligence , 2010.
+[2] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich feature hierarchies for accurate object detection
+and semantic segmentation. In CVPR, 2014.
+[3] D. Hoiem, Y. Chodpathumwan, and Q. Dai. Diagnosing error in object detectors. In ECCV, 2012.
+[4] A. Vedaldi, V. Gulshan, M. Varma, and A. Zisserman. Multiple kernels for object detection. In ICCV,
+2009.
+2

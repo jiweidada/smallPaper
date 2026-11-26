@@ -1,0 +1,181 @@
+Anchor DETR: Query Design for Transformer-Based Object Detection
+Yingming Wang Xiangyu Zhang Tong Yang Jian Sun
+MEGVII Technology
+{wangyingming, zhangxiangyu, yangtong, sunjian}@megvii.com
+Abstract
+In this paper, we propose a novel query design for the
+transformer-based object detection. In previous transformer-
+based detectors, the object queries are a set of learned em-
+beddings. However, each learned embedding does not have
+an explicit physical meaning and we cannot explain where
+it will focus on. It is difﬁcult to optimize as the prediction
+slot of each object query does not have a speciﬁc mode. In
+other words, each object query will not focus on a speciﬁc
+region. To solved these problems, in our query design, object
+queries are based on anchor points, which are widely used
+in CNN-based detectors. So each object query focuses on
+the objects near the anchor point. Moreover, our query de-
+sign can predict multiple objects at one position to solve the
+difﬁculty: “one region, multiple objects”. In addition, we de-
+sign an attention variant, which can reduce the memory cost
+while achieving similar or better performance than the stan-
+dard attention in DETR. Thanks to the query design and the
+attention variant, the proposed detector that we called Anchor
+DETR, can achieve better performance and run faster than
+the DETR with 10 × fewer training epochs. For example, it
+achieves 44.2 AP with 19 FPS on the MSCOCO dataset when
+using the ResNet50-DC5 feature for training 50 epochs. Ex-
+tensive experiments on the MSCOCO benchmark prove the
+effectiveness of the proposed methods. Code is available at
+https://github.com/megvii-research/AnchorDETR.
+Introduction
+The object detection task is to predict a bounding box and a
+category for each object of interest in an image. In the last
+decades, there are many great progresses in object detection
+based on the CNN (Ren et al. 2015; Cai and Vasconcelos
+2018; Redmon et al. 2016; Lin et al. 2017; Zhang et al. 2019;
+Qiao, Chen, and Yuille 2020; Chen et al. 2021). Recently,
+Carion et al. (Carion et al. 2020) propose the DETR which
+is a new paradigm of object detection based on the trans-
+former. It uses a set of learned object queries to reason about
+the relations of the objects and the global image context to
+output the ﬁnal predictions set. However, the learned object
+query is very hard to explain. It does not have an explicit
+physical meaning and the corresponding prediction slots of
+each object query do not have a speciﬁc mode. As shown in
+Copyright © 2022, Association for the Advancement of Artiﬁcial
+Intelligence (www.aaai.org). All rights reserved.
+(a) DETR
+(b) Ours
+Figure 1: Visualization of the prediction slots. Note that the
+sub-ﬁgure (a) comes from the ﬁgure in DETR (Carion et al.
+2020). Each prediction slot includes all box predictions on
+the val set of a query. Each of the colored points represents
+the normalized center position of a prediction. The points
+are color-coded so that green color corresponds to small
+boxes, red to large horizontal boxes, and blue to large verti-
+cal boxes. The black points in the last row of sub-ﬁgure (b)
+indicate the anchor points. The prediction slots of ours are
+more related to a speciﬁc position than DETR.
+Figure 1(a), the predictions of each object query in DETR
+are related to different areas and each object query will be in
+charge of a very large area. This positional ambiguity, i.e.,
+the object query does not focus on a speciﬁc region, makes
+it hard to optimize.
+Reviewing the detectors based on CNN, the anchors are
+highly related to the position and contain interpretable phys-
+ical meanings. Inspired by this motivation, we propose a
+novel query design based on the anchor points, i.e., we en-
+arXiv:2109.07107v2  [cs.CV]  4 Jan 2022
+
+---PAGE---
+
+Feature AP GFLOPs FPS
+DETR DC5 43.3 187 12
+SMCA multi-level 43.7 152 10
+Deformable DETR multi-level 43.8 173 15
+Conditional DETR DC5 43.8 195 10
+Ours DC5 44.2 172 19
+Table 1: Comparison with transformer detectors. The results
+are based on the ResNet-50 backbone and “DC5” means the
+dilated C5 feature. The DETR is trained with 500 epochs
+while the others are trained with 50 epochs. We evaluate
+the FPS of the proposed detector by following the script in
+DETR and set the batch size to 1 for a fair comparison with
+others. Note that we follow the DETR to script the model to
+evaluate the speed.
+code the anchor points as the object queries. The object
+queries are the encodings of anchor points’ coordinates so
+that each object query has an explicit physical meaning.
+However, this solution will encounter difﬁculty: there will be
+multiple objects appearing in one position. In this situation,
+only one object query in this position cannot predict multiple
+objects, so that the object queries from other positions have
+to predict these objects collaboratively. It will cause each ob-
+ject query to be in charge of a larger area. Thus, we improve
+the object query design by adding multiple patterns to each
+anchor point so that each anchor point can predict multiple
+objects. As shown in Figure 1(b), all the predictions of the
+three patterns of each object query are distributed around the
+corresponding anchor point. In other words, it demonstrates
+that each object query only focuses on the objects near the
+corresponding anchor point. So the proposed object query
+can be easy to explain. As the object query has a speciﬁc
+mode and does not need to predict the object far away from
+the corresponding position, it can easier to optimize.
+Besides the query design, we also design an attention vari-
+ant that we call Row-Column Decouple Attention (RCDA).
+It decouples the 2D key feature into the 1D row feature and
+the 1D column feature, then conducts the row attention and
+column attention successively. The RCDA can reduce the
+memory cost while achieving similar or better performance
+than the standard attention in DETR. We believe it can be a
+good alternative to the standard attention in DETR.
+As shown in Table 1, thanks to the novel query design
+based on the anchor point and the attention variant, the
+proposed detector Anchor DETR can achieve better perfor-
+mance and run faster than the original DETR with even 10×
+fewer training epochs when using the same single-level fea-
+ture. Compared with other DETR-like detectors with 10 ×
+fewer training epochs, the proposed detector achieves the
+best performance among them. The proposed detector can
+achieve 44.2 AP with 19 FPS when using a single ResNet50-
+DC5 (He et al. 2016) feature for training 50 epochs.
+The main contributions can be summarized as:
+• We propose a novel query design based on anchor points
+for the transformer-based detectors. Moreover, we attach
+multiple patterns to each anchor point so that it can pre-
+dict multiple objects for each position to deal with the
+difﬁculty: “one region, multiple objects”. The proposed
+query based on anchor point is more explainable and eas-
+ier to optimize than the learned embedding. Thanks to the
+effectiveness of the proposed query design, our detector
+can achieve better performance with 10× fewer training
+epochs than the DETR.
+• We design an attention variant that we called Row-
+Column Decoupled Attention. It can reduce the memory
+cost while achieving similar or better performance than
+the standard attention in DETR, which can be a good al-
+ternative to standard attention.
+• Extensive experiments are conducted to prove the effec-
+tiveness of each component.
+Relative Work
+Anchors in Object Detection
+There are two type of anchors used in CNN-based object
+detectors, i.e. anchor boxes (Ren et al. 2015; Lin et al.
+2017) and anchor points (Tian et al. 2019; Zhou, Wang, and
+Kr¨ahenb¨uhl 2019). As the hand-craft anchor boxes need to
+be carefully tuned to achieve good performance, we may
+prefer to not using the anchor boxes. We usually treat the
+anchor-free as the anchor boxes free so that the detectors us-
+ing anchor point also be treated as anchor-free (Tian et al.
+2019; Zhou, Wang, and Kr ¨ahenb¨uhl 2019). DETR (Carion
+et al. 2020) adopt neither the anchor boxes nor the anchor
+points. It directly predicts the absolute position of each ob-
+ject in the image. However, we ﬁnd that introducing the an-
+chor point into the object query can be better.
+Transformer Detector
+Vaswani et al. (Vaswani et al. 2017) propose the trans-
+former for sequence transduction at ﬁrst. Recently, Carion et
+al. (Carion et al. 2020) propose the DETR which is based on
+the transformer for object detection. The transformer detec-
+tor will feed the information of value to the query base on the
+similarity of the query and key. Zhu et al. (Zhu et al. 2020)
+propose the Deformable DETR with sampling deformable
+points of value to the query and using multiple level features
+to solve the slowly converge speed of the transformer detec-
+tor. Gao et al. (Gao et al. 2021) add a Gaussian map in the
+original attention for each query.
+Concurrent with us, the Conditional DETR (Meng et al.
+2021) encodes the reference point as the query position em-
+bedding. But the motivations are different so that it only uses
+the reference point to generate position embedding as the
+conditional spatial embedding in the cross attention and the
+object queries are still the learned embeddings. Besides, it
+does not involve the multiple predictions of one position and
+the attention variants.
+Efﬁcient Attention
+The self-attention of the transformer has high complexity
+so that it cannot well deal with a very large number of
+queries and keys. To solve this problem, many efﬁcient at-
+tention modules have been proposed (Wang et al. 2020b;

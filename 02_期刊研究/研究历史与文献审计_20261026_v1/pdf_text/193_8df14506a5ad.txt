@@ -1,0 +1,91 @@
+Proceedings of Machine Learning Research 260:-, 2024 ACML 2024
+Enhancing DETRs for Small Object Detection via
+Multi-Scale Refinement and Query-Aided Mining
+Sisi Fu fusisi@m.scnu.edu.cn
+Zhiming Chen zhimingchen@m.scnu.edu.cn
+Xiaocheng Fang fangxiaocheng@m.scnu.edu.cn
+Jieyi Cai caijieyi@m.scnu.edu.cn
+Huanyu Liu liuhuanyu@m.scnu.edu.cn
+Huosheng Wen wenhuosheng@m.scnu.edu.cn
+Bingzhi Chen∗ chenbingzhi@m.scnu.edu.cn
+School of Artificial Intelligence, South China Normal University, Foshan, China
+Editors: Vu Nguyen and Hsuan-Tien Lin
+Abstract
+Small object detection (SOD) aims to precisely localize and accurately classify objects from
+limited spatial extent and discernible features. Despite significant advancements in object
+detection driven by CNN-based and Transformer-based methods, SOD remains a signif-
+icant challenge. This is primarily due to their minimal spatial dimensions and distinct
+features which pose difficulties in both computational efficiency and effective supervision.
+Particularly, Transformer-based detectors suffer from the high computational cost caused
+by the introduction of a feature pyramid network (FPN) and the sparse supervision for
+the encoder output due to insufficient positive queries. Current approaches attempt to
+mitigate these issues through sparse attention mechanisms and auxiliary one-to-many label
+assignment strategies. However, these approaches often still suffer from inefficiencies in
+processing multi-scale information and a deficiency in generating adequate positive queries
+for small objects. To address this issue, we propose a novel small object detector MRQM,
+which integrates Multi-scale Refinement and Query-aided Mining. The scale-aware en-
+coder strategically refines features across multiple scales from a bi-directional feature pyra-
+mid network (BiFPN) through iterative updates. This process not only reduces redundant
+computations but also significantly enhances the representation of features at various scales.
+Furthermore, the IoU-aware head integrates the dynamic anchors mining strategy and one-
+to-many label assignments to fully mine potential high-quality auxiliary positive queries
+for small instances, and mitigate issues related to sparse supervision for the encoder. Ex-
+tensive experiments on the SODA-D and VisDrone datasets consistently demonstrate the
+superiority and effectiveness of our MRQM method.
+Keywords: small object detection, Transformer-based models, multi-scale information,
+auxiliary positive queries
+1. Introduction
+As a fundamental task in computer vision, object detection requires localizing and clas-
+sifying the instances. In recent years, remarkable progress in object detection has been
+achieved, primarily driven by two main research directions: CNN-based Ren et al. (2015)
+and Transformer-based Zhu et al. (2020) methods. Compared to objects of general scales,
+© 2024 S. Fu, Z. Chen, X. Fang, J. Cai, H. Liu, H. Wen & B. Chen ∗.
+
+---PAGE---
+
+Fu Chen F ang Cai Liu Wen Chen ∗
+small objects pose unique difficulties due to their limited spatial extent and lower distin-
+guishable features, which can lead to significant drops in detection performance. This is
+particularly crucial in applications such as autonomous driving, aerial surveillance, and
+medical imaging where small objects often carry critical information. In the task of SOD,
+Transformer-based methods encounter more challenges compared to the extensively stud-
+ied CNN-based methods. This difficulty is primarily due to two factors: 1) substantial
+computational cost limits the effective use of multi-scale features from FPNs
+in Transformer-based methods, 2) insufficient number and quality of positive
+queries for small instances lead to sparse supervision for the encoder output.
+Earlier studies Lin et al. (2017a); Tan et al. (2020) have demonstrated that FPNs ef-
+ficiently integrate features across diverse scales and resolutions. This capability enhances
+their ability to comprehend both fine-grained details and the global contextual information
+of small target objects. However, FPNs often entail prohibitive computational costs, partic-
+ularly when used with Transformer-based detectors. Simply applying multi-scale features
+from FPNs to Transformer encoder layers is impractical because the computational complex-
+ity scales quadratically with the number of feature tokens. Concretely, handling a feature
+map with a spatial size of H × W requires a computational cost of O(HW ) for CNN-based
+detectors, while the complexity of the attention mechanism in Transformer-based detectors
+is O(H 2W 2). To address this problem, Deformable DETR Zhu et al. (2020) and Sparse
+DETR Roh et al. (2021) substitute the original global dense attention mechanism with
+sparse attention. SMCA-DETR Gao et al. (2021) confines most Transformer encoder layers
+to be scale-specific and allows only one layer to integrate multi-scale features. However,
+as the number of tokens scales quadratically with the feature map size from FPNs, these
+methods still face significant computational and memory demands Zhang et al. (2023a).
+In DETRs, limited positive queries result in sparse supervision for the encoder output.
+This limitation significantly impairs the encoder’s ability to learn discriminative features
+and also adversely affects attention learning in the decoder. To address this issue, Group-
+DETR Chen et al. (2023) constructs group-wise one-to-many label assignments to exploit
+multiple positive object queries. Co-DETR Zong et al. (2023) presents a novel collaborative
+hybrid assignments training scheme. However, these methods face challenges in effectively
+handling small objects, as their label assignment relies heavily on overlap or distance met-
+rics. Small instances typically occupy a minimal area, resulting in sparse overlaps between
+anchors and ground truth that fall below conventional positive IoU thresholds. Conse-
+quently, the current one-to-many label assignment methods struggle to generate sufficient
+high-quality positive samples for small instances, resulting in an insufficient number and
+quality of positive queries for small instances optimization in the decoder.
+To address these challenges, we propose a small object detector MRQM based on the
+scale-aware encoder and IoU-aware head. Concretely, motivated by the spatial redundancy
+of high-resolution features, we introduce a straightforward yet effective encoder block. This
+block partitions the multi-scale features from FPNs into high-level features (e.g.,F3, F4, F5)
+and low-level features (e.g., F2). These high-level and low-level features are updated in an
+interleaved manner, ensuring efficient utilization of the multi-scale information. In addition,
+enlightened by the auxiliary head in Co-DETR Zong et al. (2023), we introduce an IoU-
+aware mechanism to dynamically optimize the anchors IoU threshold for small objects in
+the auxiliary head, which can mine more high-quality small object positive queries for the

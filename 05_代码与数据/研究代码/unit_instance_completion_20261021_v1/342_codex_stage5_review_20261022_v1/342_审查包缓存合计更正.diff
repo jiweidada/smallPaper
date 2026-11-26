@@ -1,0 +1,43 @@
+--- WORK/342_开训前审查包.md (inactive draft)
++++ phase5/342_开训前审查包.md (active)
+@@ -1,6 +1,6 @@
+ # 342 开训前审查包
+ 
+-日期：2026-10-22。状态：阶段5汇总完成，待主控审查；本文件不构成真实训练授权。
++日期：2026-10-22。本目录同名文件为活动更正版；工作目录根部同名稿的缓存合计误写已作废，原稿保留。状态：阶段5汇总完成，待主控审查；本文件不构成真实训练授权。
+ 
+ 主线：已有检测的可拒绝解释与漏检补全。冻结BASE24 raw全局模型，比较N/S/G/R四臂在同一局部RGB、同一辅助监督和固定预算下的生成信息路径。R学习逐candidate对应/null并将残余用于四槽补全；R−S检验受限残余接口相对自由P融合，R−G检验可学习content/逐candidate null相对固定几何＋类别null校准的联合增量。
+ 
+@@ -37,7 +37,7 @@
+ 
+ ## 2. 缓存清单与SHA
+ 
+-状态：已验证。阶段5重新核验development 6470条＋val1096条，共7576条文件SHA与大小。所有活动条目均有源checkpoint、源图像及payload身份；训练加载只绑定新development清单。
++状态：已验证。阶段5重新核验development 6470条＋val1096条，共7566条文件SHA与大小。所有活动条目均有源checkpoint、源图像及payload身份；训练加载只绑定新development清单。
+ 
+ | split/seed | 条目数 | 活动文件字节 | 清单 |
+ |---|---:|---:|---|
+@@ -46,7 +46,7 @@
+ | val/seed1 | 548 | 326311864 | [342_val548_逐条SHA清单.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage3_20261022_v1/342_val548_逐条SHA清单.json) |
+ | val/seed2 | 548 | 326693496 | [342_val548_逐条SHA清单.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage3_20261022_v1/342_val548_逐条SHA清单.json) |
+ 
+-合并逐条证据（路径、文件/payload/source SHA）：[342_活动缓存7576_逐条SHA总清单.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_活动缓存7576_逐条SHA总清单.json)。
++合并逐条证据（路径、文件/payload/source SHA）：[342_活动缓存7566_逐条SHA总清单.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_活动缓存7566_逐条SHA总清单.json)。
+ development中6469条继续引用343只读缓存，seed2 #1466为344新文件；mask在旧343条目读取并核SHA后由raw宽高重算入内存，#1466显式存fullp_nonpositive_mask。val只采用342_cache_val_v2_seed1/2；保留的首版失败缓存不作输入。
+ 来源链：340有效子集SHA＋339 final300逐位对照＋本轮整文件封存，用户已接受；340历史子集SHA本来不覆盖final300，只有seed1前32条具有历史整文件SHA，不把新封存写成更早的历史证明。证据：[343_result_3b来源预检.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/343_codex_stage4_3b_20261022_v1/343_result_3b来源预检.json)、[343_追加放行与计数口径.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/343_codex_stage4_3b_20261022_v1/343_追加放行与计数口径.json)。
+ 
+@@ -78,7 +78,7 @@
+ 
+ FLOPs口径：PyTorch FlopCounterMode所注册的卷积/矩阵乘等算子，乘加按2 FLOPs；逐算子清单与未注册调用见证据。CPU融合attention、softmax、归一化和elementwise等可能未计入，数字不冒称完整FLOPs或完整部署成本。时延包含aux分支，未剪枝部署aux；不含cache I/O、collate、损失、反向、优化器、global和评价。仅两个指定窗，不冒称数据集均值。
+ 实测与运行环境：[342_result_CPU单窗资源实测_v2.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_result_CPU单窗资源实测_v2.json)。首次计量因torch module_tracker的grad-hook断言实现失败，计量临时模型关闭requires_grad后另存v2通过；原记录与diff保留：[342_result_CPU计量首次实现失败.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_result_CPU计量首次实现失败.json)、[342_CPU计量接口修正.diff](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_CPU计量接口修正.diff)。
+-缓存活动存储量见第2节；含逐条大小与分阶段实测耗时的账本：[342_缓存耗时与存储账本.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_缓存耗时与存储账本.json)。各进程存在并行、断点和失败段，不相加冒称总墙钟；#1466单独构建时间及development历史global完整成本未核。GPU显存=NA、GPU小时=NA、GPU墙钟=NA，未外推。
++缓存活动存储量见第2节；含逐条大小与分阶段实测耗时的账本：[342_缓存耗时与存储账本_v2.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_缓存耗时与存储账本_v2.json)。各进程存在并行、断点和失败段，不相加冒称总墙钟；#1466单独构建时间及development历史global完整成本未核。GPU显存=NA、GPU小时=NA、GPU墙钟=NA，未外推。
+ 
+ ## 4. 八个run配置清单
+ 
+@@ -138,4 +138,4 @@
+ 
+ 本包完成“开训前审查材料”交付；是否补核、是否批准正式入口及真实训练，由主控与用户裁定。当前没有启动任何真实训练，没有读取heldout文件。
+ 
+-阶段5调用数、输入封存、失败修复与交付SHA见 [342_阶段5_result.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_阶段5_result.json)；一页中文汇总见 [342_阶段5_中文汇总.md](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_阶段5_中文汇总.md)。
++阶段5调用数、输入封存、失败修复与交付SHA见 [342_阶段5_result_v2.json](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_阶段5_result_v2.json)；一页中文汇总见 [342_阶段5_中文汇总_v2.md](C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/unit_instance_completion_20261021_v1/342_codex_stage5_review_20261022_v1/342_阶段5_中文汇总_v2.md)。

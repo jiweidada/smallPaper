@@ -1,0 +1,115 @@
+Academic Editor: Shunjun Wei
+Received: 15 June 2025
+Revised: 21 July 2025
+Accepted: 21 July 2025
+Published: 24 July 2025
+Citation: Zhou, Y.; Wei, Y.
+UAV-DETR: An Enhanced RT-DETR
+Architecture for Efficient Small Object
+Detection in UAV Imagery.Sensors
+2025, 25, 4582. https://doi.org/
+10.3390/s25154582
+Copyright: © 2025 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license
+(https://creativecommons.org/
+licenses/by/4.0/).
+Article
+UA V-DETR: An Enhanced RT-DETR Architecture for Efficient
+Small Object Detection in UA V Imagery
+Yu Zhou
+ and Yan Wei *
+College of Computer and Information Science, Chongqing Normal University, Chongqing 401331, China;
+2023110516055@stu.cqnu.edu.cn
+* Correspondence: weiyan@cqnu.edu.cn; Tel.: +86-180-0836-2818
+Abstract
+To mitigate the technical challenges associated with small-object detection, feature degrada-
+tion, and spatial-contextual misalignment in UAV-acquired imagery, this paper proposes
+UAV-DETR, an enhanced Transformer-based object detection model designed for aerial
+scenarios. Specifically, UAV imagery often suffers from feature degradation due to low
+resolution and complex backgrounds and from semantic-spatial misalignment caused by
+dynamic shooting conditions. This work addresses these challenges by enhancing feature
+perception, semantic representation, and spatial alignment. Architecturally extending the
+RT-DETR framework, UAV-DETR incorporates three novel modules: the Channel-Aware
+Sensing Module (CAS), the Scale-Optimized Enhancement Pyramid Module (SOEP), and
+the newly designed Context-Spatial Alignment Module (CSAM), which integrates the
+functionalities of contextual and spatial calibration. These components collaboratively
+strengthen multi-scale feature extraction, semantic representation, and spatial-contextual
+alignment. The CAS module refines the backbone to improve multi-scale feature per-
+ception, while SOEP enhances semantic richness in shallow layers through lightweight
+channel-weighted fusion. CSAM further optimizes the hybrid encoder by simultaneously
+correcting contextual inconsistencies and spatial misalignments during feature fusion, en-
+abling more precise cross-scale integration. Comprehensive comparisons with mainstream
+detectors, including Faster R-CNN and YOLOv5, demonstrate that UAV-DETR achieves
+superior small-object detection performance in complex aerial scenarios. The performance
+is thoroughly evaluated in terms of mAP@0.5, parameter count, and computational com-
+plexity (GFLOPs). Experiments on the VisDrone2019 dataset benchmark demonstrate that
+UAV-DETR achieves an mAP@0.5 of 51.6%, surpassing RT-DETR by 3.5% while reducing
+the number of model parameters from 19.8 million to 16.8 million.
+Keywords: small object detection; UAV imagery; RT-DETR; feature fusion
+1. Introduction
+The accelerated evolution of drone technologies and sustained improvements in data
+transmission capabilities have revealed significant utility for UAVs in multiple domains,
+including surveillance, emergency rescue, and supply chain management. The capacity for
+drones to acquire high-resolution remote sensing images with ease is facilitated by their
+advanced data acquisition capabilities, providing significant support for target detection
+tasks. Consequently, the precise identification of targets utilizing UAV-captured imagery
+has garnered substantial scholarly attention.
+Sensors 2025, 25, 4582 https://doi.org/10.3390/s25154582
+
+---PAGE---
+
+Sensors 2025, 25, 4582 2 of 20
+Since AlexNet [1] introduced Convolutional Neural Networks (CNNs) and achieved
+remarkable success in the ImageNet competition in 2012, CNN-based approaches have
+rapidly become the mainstream in the field of object detection. Subsequently, two-stage
+detectors, such as the R-CNN series [2,3], were proposed, which significantly improved
+both detection accuracy and speed. However, their high computational cost makes them
+unsuitable for deployment on UAV platforms. To address the limitations of two-stage
+detectors in terms of real-time performance, one-stage detectors such as YOLO [ 4] and
+SSD [5] were developed. Later studies focused on improving detection accuracy by ad-
+dressing the specific challenges inherent in aerial imagery. For example, Sahin et al. [ 6]
+enhanced the detection of small objects in aerial images by expanding YOLOv3’s output
+layers to five, which improved accuracy but at the cost of significantly increased parameters.
+Similarly, Tan et al. [7] introduced the Receptive Field Block (RFB) module into YOLOv4 to
+address issues such as severe occlusion and uneven sample distribution in aerial scenarios.
+However, the use of dilated convolutions within the RFB module may introduce noise
+information. Although these modifications have effectively mitigated some challenges
+associated with aerial images, the intrinsic limitations of CNNs in capturing long-range
+dependencies render them suboptimal for aerial image-based tasks.
+With the remarkable success of the Transformer architecture [8] in the field of natural
+language processing, researchers have begun exploring its innovative concepts for object
+detection tasks. In 2020, the Facebook team proposed DETR [ 9], an end-to-end object
+detection framework based on Transformers, which elegantly eliminates the need for the
+aforementioned hand-crafted processing steps, thereby streamlining the detection pipeline.
+Although DETR offers a more efficient and direct detection paradigm, its substantial param-
+eter count poses a significant challenge, necessitating strategies for parameter optimization
+while maintaining model performance. As a result, numerous DETR variants have been
+proposed to address the issues of large parameter size and high computational cost. In
+2021, Zhu et al. introduced Deformable DETR [ 10], which enhances the attention mech-
+anism by focusing solely on key sampling points around reference locations to improve
+performance. In 2022, Roh et al. proposed Sparse DETR [11], which reduces the attention
+complexity within the encoder through a token sparsification strategy, thereby improv-
+ing detection performance under the same computational budget. Also in 2022, Li et al.
+proposed DN-DETR [12], which leverages denoising training to address the instability of
+bipartite matching in DETR, significantly accelerating model convergence. Furthermore, Li
+et al. introduced DINO [13] in 2022, which achieves substantial model size reduction by
+improving both the encoder and decoder structures. To address the high computational
+overhead of DETR, Baidu proposed RT-DETR [14], a real-time detection framework based
+on DETR that removes threshold filtering and non-maximum suppression (NMS), enabling
+RT-DETR to achieve higher training accuracy with fewer iterations.
+Although RT-DETR has achieved promising results, its neck network still relies on
+the traditional pyramid structure, which fails to fully exploit the correlations between
+feature maps at different scales, leading to suboptimal feature fusion. Moreover, UAV aerial
+images often suffer from uneven sample distribution and severe occlusions. The fixed
+receptive field of convolutional kernels in the neck network is insufficient to capture both
+global context and fine-grained details simultaneously. Therefore, based on RT-DETR, an
+improved UAV-DETR detector is proposed to achieve a balance between detection accuracy
+and computational efficiency. The main contributions of this work are as follows:
+1. A lightweight and efficient backbone is developed by introducing the Channel-
+Aware Sensing (CAS) module, which replaces conventional convolutional blocks
+with a spatial-channel attention mechanism. This architecture not only enhances
+small-target detection capability but also substantially decreases parameter volume

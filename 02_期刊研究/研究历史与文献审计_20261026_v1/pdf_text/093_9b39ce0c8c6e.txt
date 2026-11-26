@@ -1,0 +1,109 @@
+Received:
+Revised:
+Accepted:
+Published:
+Citation:Shen, F.; Cui, J.; Li, W.; Zhou,
+S. TinyDef-DETR: UAV-Based
+Transmission Lines Defect Detection.
+Remote Sens.2025,1, 0.
+https://doi.org/
+Copyright:© 2025 by the authors.
+Submitted toRemote Sens.for possible
+open access publication under the
+terms and conditions of the Creative
+Commons Attri- bution (CC BY)
+license (https://creativecommons.
+org/licenses/by/4.0/).
+Article
+TinyDef-DETR: A Transformer-Based Framework for Defect
+Detection in Transmission Lines from UA V Imagery
+Feng Shen 1, Jiaming Cui 1, Wenqiang Li 1, and Shuai Zhou 1,2∗
+1 Harbin Institute of Technology, Harbin 150001, China;
+fshen@hit.edu.cn(F.S.);hitcjm@stu.hit.edu.cn(J.C.);wenqli@stu.hit.edu.cn(W.L.);22B901046@stu.hit.edu.cn(S.Z.)
+2 Electric Power Research Institute, Yunnan Power Grid Co., Ltd., Kunming 650217,China;
+22B901046@stu.hit.edu.cn(S.Z.)
+*Correspondence: 22B901046@stu.hit.edu.cn (S.Z.)
+Highlights
+What are the main findings?
+• We proposeTinyDef-DETR, a transformer-based detection framework specifically
+designed for UAV imagery in transmission line defect detection, integrating edge-
+enhanced feature extraction, stride-free space-to-depth downsampling, dual-domain
+multi-scale attention, and a Focaler-Wise-SIoU loss function.
+What is the implication of the main finding?
+• The proposed framework enhances the reliability and scalability of UAV-based trans-
+mission line defect detection, enabling efficient defect analysis with low computational
+requirements and reducing missed detections in field deployments.
+• The design principles of TinyDef-DETR demonstrate a certain level of generalizability
+in improving small-object detection performance, particularly in remote sensing and
+aerial vision applications.
+Abstract
+Automated defect detection from UAV imagery of transmission lines is a challenging task
+due to the small size, ambiguity, and complex backgrounds of defects. This paper proposes
+TinyDef-DETR, a DETR-based framework designed to achieve accurate and efficient de-
+tection of transmission line defects from UAV-acquired images. The model integrates four
+major components: an edge-enhanced ResNet backbone to strengthen boundary-sensitive
+representations, a stride-free space-to-depth module to enable detail-preserving downsam-
+pling, a cross-stage dual-domain multi-scale attention mechanism to jointly model global
+context and local cues, and a Focaler-Wise-SIoU regression loss to improve the localization
+of small and difficult objects. Together, these designs effectively mitigate the limitations
+of conventional detectors. Extensive experiments on both public and real-world datasets
+demonstrate that TinyDef-DETR achieves superior detection performance and strong gen-
+eralization capability, while maintaining modest computational overhead. The accuracy
+and efficiency of TinyDef-DETR make it a suitable method for UAV-based transmission
+line defect detection, particularly in scenarios involving small and ambiguous objects.
+Keywords:Transmission lines;Defect detection;UAV imagery;Small Object Detection;
+Version November 14, 2025 submitted toRemote Sens.https://doi.org/10.3390/rs1010000arXiv:2509.06035v9  [cs.CV]  13 Nov 2025
+
+---PAGE---
+
+Version November 14, 2025 submitted toRemote Sens. 2 of 34
+1. Introduction
+Along with the sustained development of the Chinese economy, the mileage of trans-
+mission lines has increased rapidly[1]. As the core infrastructure for long-distance energy
+transmission, their reliable operation is essential for meeting the growing demand for
+electricity[2]. However, transmission lines are exposed to harsh outdoor environments[3],
+where prolonged exposure significantly raises the risk of diverse faults—ranging from
+component damage to foreign object intrusions—collectively referred to as transmission
+line defects[4].
+Unmanned aerial vehicles (UAVs) are increasingly employed to capture imagery of
+transmission lines for post-flight visual inspection and defect detection[5]. In such UAV-
+acquired imagery, defects often appear as small objects due to long shooting distances and
+the inherent resolution limitations of aerial imaging systems[6]. These small objects typi-
+cally occupy regions smaller than 32×32 pixels, lacking clear contours and distinct textures,
+which severely hampers reliable recognition[7]. The challenge is further exacerbated by
+complex backgrounds such as vegetation, towers, and shadows, where small defects are
+frequently obscured or confused with surrounding structures[8].
+From a system perspective, the present work focuses on thepost-processing stage
+of the inspection workflow, where UAVs execute routine patrols, capture high-resolution
+imagery along the transmission corridor, and subsequently upload these data to a ground-
+based server for automated analysis. In this paradigm, defect detection is conductedoffline
+as a post-processing taskrather than on-board the UAV , thus avoiding the stringent real-
+time and energy constraints associated with aerial platforms. This server-side processing
+setting enables the adoption of more expressive Transformer-based architectures and
+advanced optimization strategies while still meeting operational maintenance timelines.
+Meanwhile, the proposed model remains sufficiently lightweight to support potential
+migration to edge-computing platforms, achieving a practical balance between detection
+accuracy, robustness, and deployment flexibility.
+With the rapid advancement of smart grid development, transmission line defect detec-
+tion has increasingly adopted deep learning-based object detection methods[9]. Alongside
+this progress, numerous general-purpose detectors—such as YOLO[ 10], DINO[11], and
+RT-DETR[12]—have been developed. While these models achieve remarkable success in
+generic scenarios, most of them on the COCO dataset[ 13], they face notable limitations
+in transmission line defect detection under complex conditions involving occlusion, back-
+ground clutter, and variable lighting[14]. Common issues include missed detections, false
+positives, and false negatives, which substantially undermine the practical utility of UAV-
+acquired imagery in real-world transmission line maintenance[15]. These shortcomings
+are consistently reported in previous studies and further confirmed by our preliminary
+experiments, highlighting the critical need for specialized detection frameworks capable of
+accurately identifying small-scale defects in UAV operational scenarios.
+In this article, we propose TinyDef-DETR, a novel transmission line defect detection
+network built upon the Transformer[ 16] architecture, which aims to enhance detection
+accuracy, recall, and robustness for UAV-acquired imagery under complex inspection
+scenarios. The main contributions of this work are summarized as follows:
+1. We construct an Edge Enhanced ResNet (EE-ResNet) by embedding an Edge-
+Enhanced Convolution (EEConv) module into the residual backbone. The EEConv
+integrates central, horizontal, and vertical difference convolutions to encode gradient
+priors, thereby improving sensitivity to fine-grained details and object boundaries.
+Through a re-parameterization strategy, the multi-branch structure of EEConv is fused
+into a single 3× 3 kernel at inference, incurring no additional computational overhead.
+By augmenting the ResNet backbone with such edge-aware feature extraction, EE-

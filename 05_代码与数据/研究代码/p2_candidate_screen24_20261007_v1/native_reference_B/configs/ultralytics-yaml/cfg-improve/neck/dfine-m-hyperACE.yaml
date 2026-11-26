@@ -1,0 +1,48 @@
+backbone:
+  # [from, module, args]
+  - [-1, StemBlock, [24, 32, True]] # 0-P2/4
+  - [-1, HG_Stage, [32, 96, 1, 4, False, False, 3, True, 'se']] # 1-P2/4
+  - [-1, HG_Stage, [64, 384, 1, 4, True, False, 3, True, 'se']] # 2-P3/8
+  - [-1, HG_Stage, [128, 768, 3, 4, True, True, 5, True, 'se']]  # 3-P4/16
+  - [-1, HG_Stage, [256, 1536, 1, 4, True, True, 5, True, 'se']] # 4-P5/32
+
+encoder:
+  - [2, ConvNormLayer_fuse, [256, 1, 1]] # 5-P3/8
+  - [3, ConvNormLayer_fuse, [256, 1, 1]] # 6-P4/16
+  - [4, ConvNormLayer_fuse, [256, 1, 1]] # 7-P5/32
+
+  - [-1, TransformerEncoderBlock, [8, 1024, 0.1, "relu", 10000, False]] # 8-P5/32
+
+
+  - [[5, 6, 8], HyperACE, [256, 1, 8, True, True]] # 9-P4/16
+  - [-1, nn.Upsample, [None, 2, "nearest"]] # 10-P3/8
+  - [9, DownsampleConv, []] # 11-P5/32
+
+  - [[5, 10], FullPAD_Tunnel, []] # 12-P3/8
+  - [[6, 9], FullPAD_Tunnel, []] # 13-P4/16
+  - [[8, 11], FullPAD_Tunnel, []] # 14-P5/32
+
+  - [-1, ConvNormLayer_fuse, [256, 1, 1]] # 15
+  - [-1, nn.Upsample, [None, 2, "nearest"]] # 16
+  - [[-1, 13], Concat, []] # 17-P4/16
+  - [-1, RepNCSPELAN4, [256, 512, 128, 2, False, 'silu']] # 18-P4/16
+  - [[-1, 9], FullPAD_Tunnel, []] # 19-P4/16
+
+  - [-1, ConvNormLayer_fuse, [256, 1, 1]] # 20
+  - [-1, nn.Upsample, [None, 2, "nearest"]] # 21
+  - [[-1, 12], Concat, []] # 22-P3/8
+  - [-1, RepNCSPELAN4, [256, 512, 128, 2, False, 'silu']] # 23-P3/8
+  - [[-1, 10], FullPAD_Tunnel, []] # 24-P3/8
+
+  - [-1, SCDown, [256, 3, 2, 'silu']] # 25-P4/16
+  - [[-1, 20], Concat, []] # 26-P4/16
+  - [-1, RepNCSPELAN4, [256, 512, 128, 2, False, 'silu']] # 27-P4/16
+  - [[-1, 9], FullPAD_Tunnel, []] # 28-P4/16
+
+  - [-1, SCDown, [256, 3, 2, 'silu']] # 29-P5/32
+  - [[-1, 15], Concat, []] # 30-P5/32
+  - [-1, RepNCSPELAN4, [256, 512, 128, 2, False, 'silu']] # 31-P5/32
+  - [[-1, 11], FullPAD_Tunnel, []] # 32-P5/32
+
+decoder:
+  - [[24, 28, 32], DFINETransformer, {"feat_strides":[8, 16, 32], "hidden_dim": 256, "num_levels": 3, "num_layers": 4, "num_points": [3, 6, 3], "dim_feedforward": 1024}]

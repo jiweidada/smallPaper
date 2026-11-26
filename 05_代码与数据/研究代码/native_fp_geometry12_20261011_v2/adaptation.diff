@@ -1,0 +1,48 @@
+--- v1/analyze.py
++++ v2/analyze.py
+@@ -44,13 +44,15 @@
+         packet=base['packet'];folder=packet/'baseline_eval';proof=base['source_report_sha256']
+         rank_folder=ROOT/protocol['baseline_caches'][str(seed)]['rank']
+     else:
+-        vpath=ROOT/f'outputs/warm_stem_primary_collection12_20261011_v1/seed{seed}_warm_stem_v1/primary_verification_v1.json'
+-        v=read(vpath);assert v['status']=='PASS_WARM_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS'
+-        assert v['all_collected_files_verified'] and v['actual_stage_images']==548
+-        assert v['verification_script_sha256']==sha(ROOT/'英文小论文/code/warm_stem_primary_collection12_20261011_v1/verify_primary_v2.py')
++        assert seed==2 and tag in ('backbone_silu','p2_skip')
++        vpath=ROOT/f'outputs/user_backbone_primary_collection12_20261011_v2/seed{seed}_{tag}_v1/primary_verification_v1.json'
++        v=read(vpath);assert v['status']=='PASS_USER_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS'
++        assert v['all_collected_files_verified'] and v['actual_stage_images']==548 and v['files_verified']==617
++        assert v['verification_script_sha256']==sha(ROOT/'英文小论文/code/user_backbone_primary_collection12_20261011_v2/verify_primary.py')
++        assert v['identity']['seed']==seed and v['identity']['arm']==tag
+         packet=Path(v['downloaded_packet']);assert sha(packet/'primary_manifest.json')==v['primary_manifest_sha256']
+         folder=packet/'run';proof=sha(vpath)
+-        rank_folder=ROOT/f'outputs/warm_stem_primary_analysis12_20261011_v1/seed{seed}/warm_ranking'
++        rank_folder=ROOT/f'outputs/user_backbone_primary_analysis12_20261011_v2/seed{seed}_{tag}/candidate_ranking'
+     for n,h in read(rank_folder/'manifest.json')['files'].items():assert sha(rank_folder/n)==h
+     rank=read(rank_folder/'report.json');checks=read(rank_folder/'image_score_checks.json')
+     summary,flags,_=readers['control'].native_endpoint(folder/'endpoint_epoch12',base['annotation'])
+@@ -63,7 +65,7 @@
+ 
+ def analyze(seed,tag):
+     spec=read(HERE/'protocol.json')
+-    assert seed in (1,2) and tag in ('BASE12','Warm12') and sha(__file__)==spec['analysis_sha256']
++    assert seed==2 and tag in ('backbone_silu','p2_skip') and sha(__file__)==spec['analysis_sha256']
+     for n,h in spec['dependencies_sha256'].items():assert sha(ROOT/n)==h,n
+     tools=module('native_fp_cached_tools',ROOT/'英文小论文/code/stem_init_stage_analysis_20261011_v2/compare_saved_stages.py')
+     protocol,geometry,_,_,readers=tools.prepared()
+@@ -141,7 +143,7 @@
+     observed_FP=np.array([sum(c['by_IoU'][ti]['prefixes'][-1]['FP'] for c in classes) for ti in range(10)])
+     assert observed_TP.tolist()==summary['TP_by_IoU']==flags['hits'].sum(axis=0).tolist()
+     assert observed_FP.tolist()==summary['FP_by_IoU']
+-    dest=ROOT/f'outputs/native_fp_geometry12_20261011_v1/seed{seed}_{tag}';dest.parent.mkdir(exist_ok=True);dest.mkdir(exist_ok=False)
++    dest=ROOT/f'outputs/native_fp_geometry12_20261011_v2/seed{seed}_{tag}';dest.parent.mkdir(exist_ok=True);dest.mkdir(exist_ok=False)
+     np.savez_compressed(dest/'native_FP_categories.npz',**array_records)
+     result=dict(status='NATIVE_FP_COUNTS_EXACT_GEOMETRY_LABELS_CONSERVATIVE_OUTPUT_DESCRIPTION',seed=seed,tag=tag,
+         identity=summary['identity'],classes=classes,labels=list(LABELS),images=548,
+@@ -162,5 +164,5 @@
+     print(json.dumps(dict(status=result['status'],seed=seed,tag=tag,detections=len(rows),multiple_possible_queries=result['detections_with_multiple_admissible_queries'],people50_prefix1000=next(x for x in people if x['rank']==1000))))
+ 
+ if __name__=='__main__':
+-    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--tag',choices=('BASE12','Warm12'),required=True)
++    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--tag',choices=('backbone_silu','p2_skip'),required=True)
+     args=p.parse_args();analyze(args.seed,args.tag)

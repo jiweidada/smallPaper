@@ -1,0 +1,43 @@
+229 绝对位移标度：执行前最小缓存诊断协议
+状态：仅编写供root审查。230未执行；不读heldout，不构建/加载模型或checkpoint，不作新forward、autograd、优化或训练。
+
+1. 目的与来源
+亲读227的Claude首答及226公式/调用链审查。唯一主尺度k=4真实输入像素；k=8仅预先指定的敏感性，不因结果改主尺度。只使用既有双BASE24、development batch00–07：每seed32输入曝光，共64模型-输入曝光；不是64张独立新图，不称独立验证。
+输入为DATA08/isolated_v3/{A,B}/frozen_predictions/development/batchXX_predictions.pt及对应analysis.json。沿冻结223的显式路径/SHA白名单、metadata和228 shape校验；原G0固定为原analysis保存的native_union。已知旧223在平台并列择解校验处失败，230必须使用新237冻结的votes/最高票并列/235差异名单兼容校验，不绕过、不替换saved G0；取得237最终SHA并由root审查前不可执行。230只导入定义，不调用任何旧main，不读取224/238实验结果来选择方法。
+真实输入尺寸由228锁定：batch03=512²，batch05=544²，其余640²；input SHA与预测seal相同。actual_input_sub4=min(w_GT*W,h_GT*H)<4，用保存FP32 GT提升FP64后计算。original_sub4若无明确bool标签则NA；640-equivalent只能另标，不能冒作actual cohort。
+
+2. 八臂，固定同一PMF、ref和匹配
+N；F4/F8；E4/E8；C4/C8；T2。不新增、拟合或择优其它尺度。
+记ref=(cx,cy,w,h)，R=4，up=.5，原生33节点W_j，s_x=max(w,k/W_input)、s_y=max(h,k/H_input)。F_k的四边：
+ xL=cx−w/2−dL*s_x/R，xR=cx+w/2+dR*s_x/R；y轴同理。
+其中d=Σsoftmax(corners)_j W_j，零期望返回原ref。
+逆式dL*=R(cx−w/2−gL)/s_x，dR*=R(gR−cx−w/2)/s_x；y轴同理。绝不能只把原逆式分母换s后仍减R/2。
+E_k：每边α=s/w（y用s_y/h），仅节点0、32乘α、内部31节点不动，仍按原base及w/R解码。F_k和E_k每边闭物理支持完全相同，所有支持图及其容量结果必须相同。
+C_k：把ref宽高直接变成s_x/s_y后原生解码，base半宽也变；与F_k支持一般不包含彼此。T2：全query仅原端点乘2，内部31节点不变；不是reg_scale翻倍，旧训练mixed仍保留。
+主物理运算使用真实FP32缓存数值提升FP64，使用原生FP32生成的W_j提升FP64；左/上以负号、右/下以正号转换为物理边，避免把递减坐标当递增bin。F/E的规范支持端点按同一s构造，另核独立端点公式数值差<=1e-12 normalized；canonical支持图必须逐项一致。报告端点附近1e-10*max(1,端点绝对值)的敏感边数，不据结果变容差。
+
+3. 先验实现检查与缓存身份
+先合成测试、后读真实缓存：zero-d恒等；未激活ref不变；F正逆式往返；F/E端点相同而内部节点可不同；N支持包含于F；C与F的base差；T2内31不变；目标两bin插值质量与内部目标均值复现；越界目标采用原生端点编码；非法宽高确实保留而未clamp。测试不使用真实预测，不产生梯度。
+从各FDR层真实corners，以原生Integral的FP32 softmax+linear和distance2bbox重解码N，须与同stage缓存pred_boxes在固定atol=1e-6 normalized、rtol=0内一致，逐stage报告max误差；这不是默认bitexact。主FP64诊断解码也须在同一容差内复现。此容差不得在看到结果后放宽；不通过记实现/数值待复核，无方法结论。
+核所有普通FDR ref等于本缓存pre输出，各DN层使用自己的真实DN ref；不借普通ref给DN。实际up/reg_scale/reg_max与recipe一致。GO/own/DN索引、GT多重数、输入标签及固定分母都校验；普通匹配不因新框重算，训练未来会重算，因此本诊断不是完整新模型损失回放。
+
+4. 三类报告分开，不能互相替代
+A. exact-GT可表示支持：普通final固定原GO逐槽，报告全体、actual_sub4、原IoU0且outside、原good IoU>=.5等预定组的支持内/外、双向变化、唯一GT数、GT数>300分层。原IoU0采用缓存原final框与固定GT的原生FP32 IoU，而非新解码后的权重。
+对本图全部真实GT，另报all300不限制类别的any-query支持及原全不可达→可达；再以冻结final logits argmax（并列取最低类别index）作为单独class条件敏感性。argmax类别未来可学习，不能把该class条件结果称无类别支持上界，也不是原postprocess class×query top300。
+可在这两个支持图上报告query容量1的最大matching数，all和actual_sub4各自独立匹配；这只是“GT精确可表示”的理想容量。它不是IoU.5/.75检测上界：一个GT即使不在闭支持内，近似框仍可能达到IoU阈值。本轮不做连续joint maxIoU oracle，不假装已经测过。
+F/E支持相等是自检，不是候选胜出。与C、T2按同一GT/槽给重叠和差集，不只比总数。
+B. 冻结真实PMF重解码：CPU FP32 softmax概率固定，再用共同FP64物理公式求期望；base边单独加，避免Σp的浮点误差改变base。N同时报告与缓存FP32框的差。对原GO同一GT计算IoU、normalized cxcywh/corner L1、GIoU及原5L1+2GIoU，逐对保存；报告IoU0→正/正→0、.5/.75跨阈值双向数、old-good损害、ref是否激活与GT实际尺寸交叉组。比较F/E真实均值差及目标插值差，差异本身不是收益。
+负宽高、零宽高、非有限值分别计数；不排序、不clamp、不删query。有限非法框的L1仍可记录但不冒称合法框定位损失；IoU计0，GIoU/组合损失标NA并同时报告完整分母和invalid数。native已有invalid与新生invalid分开。不能仅用删除invalid后的均值宣称改善。
+C. 编码：固定GO或DN正槽，保存各臂raw目标、两bin index/weights、超界边数、clip后期望、physical重建误差及与N目标差。t用各臂实际节点编码，不能只缩预测、不改目标。N额外调用原生bbox2distance保存实际FP32标签；八臂共同物理编码使用FP64，报告N的两条精度路径差异，不将其默认为native标签bitexact。缓存原生FP32 IoU用于主集合；冻结几何双向变化统一相对于共同FP64的N解码，另报它与原缓存FP32 IoU的差。保存原native FP32 IoU及新解码IoU；旧零权重不能沿用为候选新权重。这里不调用完整criterion，不报告伪造的完整FGL/MAL/DDF loss或共享参数梯度；目标插值变化与权重变化足够回答本轮编码前提。
+
+5. 层和DN的次要描述
+普通final为主。缓存普通aux各FDR层用同一原GO/对应own做固定配对描述；DN各FDR层按dn_positive_idx与tile(arange(N_GT),dn_num_group)的原生正槽规则描述，保留重复槽/分母，不与普通分支公平能力或AP混比。没有corners的pre/encoder不伪造FDR重解码；C_k对pre框本身的宽高变动可单报，其余F/E/T2在该缓存层不改pre/encoder输出。次要层不改变主门槛。
+受影响ref按x/y轴及query数报告，physical相邻node间距按实际输入像素报告；F缩放全部间距，E仅改变尾间距。reference两轴未激活只说明该式局部代数不变，不说明large GT或实际训练中别的query不受影响。
+
+6. 唯一主必要screen与停止语义
+在读取任何floor新结果前锁定：每seed主集合=原final GO中actual_input_sub4、原native FP32 IoU恰为0、原N物理支持外。F4使该集合至少1槽变为支持内，则该seed的必要作用面存在。两seed都非零=both；仅一seed=mixed、不通过双seed必要screen；都为0=neither，收回本精确k4对该失败组支持修复的依据。K8不救K4，不改GT/cohort或阈值。
+这是是否继续解释候选的资源筛查，不是效应幅度、显著性、独立验证、创新或训练许可。all300、容量、pre-clamp差异、冻结解码和编码结果完整描述，不另添幅度或胜率门槛，不以“达到T2一半”判断。F4与E4支持完全相同；若该缓存的框/目标也被完全复制，只能说未观察到内部标度的独立作用；不同也仅是作用变量存在。冻结几何好坏不能冒作训练/AP预判，尤其后层attention和PMF在真实新模型中会随前层框变化。
+
+7. 执行与输出约束
+仅新229/230，默认新231_BASE24_cached_displacement_floor_probe；旧文件不变。固定16 prediction cache及对应analysis，逐batch加载释放；0模型/CP/newforward/autograd/optimizer/远端/heldout。CPU线程2、interop1、affinity[13,15]、BelowNormal、空闲RAM>8GiB、MKL SEQUENTIAL。保存输入/源码/协议SHA前后及输出manifest；锁226、228、223与新237实际冻结SHA。任何来源、平台并列票数、native重解码、节点顺序、等价支持或资源检查失败都fail closed，不作为方法阴性。
+预计只含缓存张量、支持图、固定配对和小型二分匹配，按batch输出进度；不加模型实验。所有复杂未做项（真实新forward、完整criterion重放、连续joint IoU oracle、参数梯度及训练）在结果scope中明确false。代码需先经root静审，再由root调度；本作者不执行。

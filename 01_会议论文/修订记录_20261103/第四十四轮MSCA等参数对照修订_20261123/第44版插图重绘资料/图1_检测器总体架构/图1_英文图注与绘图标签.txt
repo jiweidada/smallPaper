@@ -1,0 +1,22 @@
+﻿图 1　检测器总体架构
+
+这幅图要表达什么
+顺着输入到检测框的主线，说明 MPS 和四个门控在什么位置，以及 n 模型的编码器从哪里读取两层特征。
+
+可复制的英文绘图标签
+• Input image · 3 × 640 × 640
+• HGNetv2-B0 backbone
+• MPS · 16 × 160 × 160
+• Stage 1 · ESE · 64 × 160 × 160
+• Stage 2 · SimAM · 256 × 80 × 80
+• Stage 3 · MSCA-Lite × 2 · 512 × 40 × 40
+• Stage 4 · MSCA-Dilated · 1024 × 20 × 20
+• Hybrid encoder · n: strides 16 and 32, width 128
+• Optional stride-8 input for s only (dashed) · s: strides 8, 16 and 32, width 256
+• D-FINE decoder → Boxes and scores
+
+重绘时核对
+Stage 3 既向 Stage 4 传递特征，也直接接编码器；Stage 4 另接编码器。Stage 2 到编码器的虚线只属于 s。
+
+第 44 版英文原图注
+Fig. 1. Backbone and encoder inputs at 640 × 640. The evaluated n detector uses the stride-16 and stride-32 outputs. The dashed stride-8 path belongs to the s configuration. Tensor labels give channels × height × width.

@@ -1,0 +1,205 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="167.64mm" height="70.40880mm" viewBox="0 0 960 403.2" version="1.1" role="img" aria-labelledby="fig-title fig-desc">
+  <title id="fig-title">MSCA-Dilated spatial and channel gates</title>
+  <desc id="fig-desc">Three independent branches use 3 × 3 convolutions with dilation rates 1, 2 and 4. Their concatenated context generates spatial weights. A separate global pooling path generates a channel weight for each of the 1024 channels. The original value F and both weight tensors are multiplied.</desc>
+  <metadata>Revision 44, Figure 5. Scientific sources: MSCA_Dilated.py, Figure 5 labels and revision 44 section 3.3. Layout references: MambaVision (CVPR 2025), Fig. 3 for separate branches and orthogonal connectors; the approved Figure 1 artwork. Native SVG shapes, text and connectors.</metadata>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#223D4B"/>
+    </marker>
+    <marker id="weight-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#265F64"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="403.2" fill="#FFFFFF"/>
+  <g id="connections" inkscape:label="Data flow">
+    <path d="M88 181 H142" stroke="#223D4B" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M127 181 V55 H164" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-gap" data-from="input" data-to="gap" marker-end="url(#flow-arrow)"/>
+    <path d="M127 181 V275 H846 V194" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="original-value" data-from="input" data-to="multiply" marker-end="url(#flow-arrow)"/>
+    <circle cx="127" cy="181" r="3.05" fill="#223D4B"/>
+    <path d="M142 181 V131 H159" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-d1" data-from="input" data-to="d1" marker-end="url(#flow-arrow)"/>
+    <path d="M142 181 H159" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-d2" data-from="input" data-to="d2" marker-end="url(#flow-arrow)"/>
+    <path d="M142 181 V231 H159" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="input-d4" data-from="input" data-to="d4" marker-end="url(#flow-arrow)"/>
+    <circle cx="142" cy="181" r="3.05" fill="#223D4B"/>
+    <path d="M318 131 H339 V158 H360" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="d1-concat" data-from="d1" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M318 181 H360" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="d2-concat" data-from="d2" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M318 231 H339 V204 H360" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="d4-concat" data-from="d4" data-to="concat" marker-end="url(#flow-arrow)"/>
+    <path d="M497 181 H526" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="concat-proj" data-from="concat" data-to="projection" marker-end="url(#flow-arrow)"/>
+    <path d="M656 181 H681" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="context-spatial" data-from="projection" data-to="spatial" marker-end="url(#flow-arrow)"/>
+    <path d="M811 181 H833" stroke="#265F64" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="spatial-product" data-from="spatial" data-to="multiply" marker-end="url(#weight-arrow)"/>
+    <path d="M859 181 H877" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="product-output" data-from="multiply" data-to="output" marker-end="url(#flow-arrow)"/>
+    <path d="M243 55 H263" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="gap-reduce" data-from="gap" data-to="reduce" marker-end="url(#flow-arrow)"/>
+    <path d="M401 55 H422" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="reduce-activation" data-from="reduce" data-to="relu" marker-end="url(#flow-arrow)"/>
+    <path d="M503 55 H524" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="activation-expand" data-from="relu" data-to="expand" marker-end="url(#flow-arrow)"/>
+    <path d="M663 55 H685" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="expand-sigmoid" data-from="expand" data-to="sigmoid" marker-end="url(#flow-arrow)"/>
+    <path d="M786 55 H846 V168" stroke="#265F64" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="channel-product" data-from="sigmoid" data-to="multiply" marker-end="url(#weight-arrow)"/>
+    <path d="M311 356.5 H348" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="per-branch-bn-relu" data-from="branch-reduce" data-to="branch-act" marker-end="url(#flow-arrow)"/>
+    <path d="M482 356.5 H520" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="per-branch-grouped" data-from="branch-act" data-to="grouped-conv" marker-end="url(#flow-arrow)"/>
+    <path d="M801 356.5 H842" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="per-branch-bn" data-from="grouped-conv" data-to="branch-bn" marker-end="url(#flow-arrow)"/>
+  </g>
+  <g id="input" inkscape:label="Input F">
+    <path d="M40.0 167.36 l14 -6.72 H88.0 L74.0 167.36 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M74.0 167.36 L88.0 160.64000000000001 V194.64000000000001 L74.0 201.36 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="40.0" y="167.36" width="34" height="34" fill="#C7DDDF"/>
+    <path d="M48.50 167.36 V201.36 M40.0 175.86 H74.0 M57.00 167.36 V201.36 M40.0 184.36 H74.0 M65.50 167.36 V201.36 M40.0 192.86 H74.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M78.90 165.01 V199.01" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M83.80 162.66 V196.66" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="40.0" y="167.36" width="34" height="34" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="64" y="142" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Input F</text>
+    <text x="64" y="225" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">1024 × 20 × 20</text>
+  </g>
+  <g id="output" inkscape:label="Output Y">
+    <path d="M877.0 167.36 l14 -6.72 H925.0 L911.0 167.36 Z" stroke="#4F7884" fill="#DEEBE9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M911.0 167.36 L925.0 160.64000000000001 V194.64000000000001 L911.0 201.36 Z" stroke="#4F7884" fill="#87AEB4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="877.0" y="167.36" width="34" height="34" fill="#C7DDDF"/>
+    <path d="M885.50 167.36 V201.36 M877.0 175.86 H911.0 M894.00 167.36 V201.36 M877.0 184.36 H911.0 M902.50 167.36 V201.36 M877.0 192.86 H911.0" stroke="#93B6BC" fill="none" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M915.90 165.01 V199.01" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M920.80 162.66 V196.66" stroke="#678F99" fill="none" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="877.0" y="167.36" width="34" height="34" fill="none" stroke="#4F7884" stroke-width="1.4"/>
+    <text x="901" y="142" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="19.5" text-anchor="middle" font-weight="bold">Output Y</text>
+  </g>
+  <g id="channel-heading" inkscape:label="Channel gate">
+    <path d="M164 23 V16 H404 M541 16 H786 V23" stroke="#9CAFB4" fill="none" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="472" y="22" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.2" text-anchor="middle" font-weight="bold">Channel gate</text>
+  </g>
+  <g id="gap" inkscape:label="gap">
+    <rect x="164" y="33" width="79" height="44" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="203.5" y="61" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="16.4" text-anchor="middle" font-weight="bold">GAP(F)</text>
+  </g>
+  <g id="reduce" inkscape:label="reduce">
+    <rect x="263" y="29" width="138" height="52" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="332.0" y="49" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="16.8" text-anchor="middle" font-weight="bold">1 × 1 conv</text>
+    <text x="332.0" y="71" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">1024 → 128</text>
+  </g>
+  <g id="relu" inkscape:label="relu">
+    <rect x="422" y="33" width="81" height="44" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="462.5" y="61" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="16.8" text-anchor="middle" font-weight="bold">ReLU</text>
+  </g>
+  <g id="expand" inkscape:label="expand">
+    <rect x="524" y="29" width="139" height="52" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="593.5" y="49" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="16.8" text-anchor="middle" font-weight="bold">1 × 1 conv</text>
+    <text x="593.5" y="71" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">128 → 1024</text>
+  </g>
+  <g id="sigmoid" inkscape:label="sigmoid">
+    <rect x="685" y="33" width="101" height="44" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="735.5" y="61" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="16.8" text-anchor="middle" font-weight="bold">sigmoid</text>
+  </g>
+  <text x="863" y="88" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="start" font-weight="bold" xml:space="preserve">A<tspan font-size="14.44" dy="4.18">c</tspan></text>
+  <text x="862" y="109" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.3" text-anchor="start" font-weight="normal">1024 × 1 × 1</text>
+  <text x="238" y="104" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.4" text-anchor="middle" font-weight="bold">Context branches</text>
+  <g id="d1" inkscape:label="Independent context branch, dilation 1">
+    <rect x="159" y="110" width="159" height="42" fill="#E9EEF4" stroke="#75899B" stroke-width="1.35" rx="3"/>
+    <rect x="170.575" y="114.575" width="32.85" height="32.85" fill="#FBFDFD" stroke="#9EB6B8" stroke-width="0.75"/>
+    <path d="M174.22 114.58 v32.85 M170.57 118.23 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M177.88 114.58 v32.85 M170.57 121.88 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M181.52 114.58 v32.85 M170.57 125.53 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M185.17 114.58 v32.85 M170.57 129.18 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M188.82 114.58 v32.85 M170.57 132.82 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M192.47 114.58 v32.85 M170.57 136.47 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M196.12 114.58 v32.85 M170.57 140.12 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M199.77 114.58 v32.85 M170.57 143.78 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="181.9" y="125.89999999999999" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="181.9" y="129.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="181.9" y="133.20000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="125.89999999999999" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="129.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="133.20000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="189.20000000000002" y="125.89999999999999" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="189.20000000000002" y="129.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="189.20000000000002" y="133.20000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <text x="264" y="137.5" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="19.3" text-anchor="middle" font-weight="bold">d = 1</text>
+  </g>
+  <g id="d2" inkscape:label="Independent context branch, dilation 2">
+    <rect x="159" y="160" width="159" height="42" fill="#E9EEF4" stroke="#75899B" stroke-width="1.35" rx="3"/>
+    <rect x="170.575" y="164.575" width="32.85" height="32.85" fill="#FBFDFD" stroke="#9EB6B8" stroke-width="0.75"/>
+    <path d="M174.22 164.57 v32.85 M170.57 168.22 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M177.88 164.57 v32.85 M170.57 171.88 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M181.52 164.57 v32.85 M170.57 175.52 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M185.17 164.57 v32.85 M170.57 179.17 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M188.82 164.57 v32.85 M170.57 182.82 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M192.47 164.57 v32.85 M170.57 186.47 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M196.12 164.57 v32.85 M170.57 190.12 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M199.77 164.57 v32.85 M170.57 193.77 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="178.25" y="172.25" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="178.25" y="179.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="178.25" y="186.85000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="172.25" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="179.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="186.85000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="192.85000000000002" y="172.25" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="192.85000000000002" y="179.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="192.85000000000002" y="186.85000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <text x="264" y="187.5" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="19.3" text-anchor="middle" font-weight="bold">d = 2</text>
+  </g>
+  <g id="d4" inkscape:label="Independent context branch, dilation 4">
+    <rect x="159" y="210" width="159" height="42" fill="#E9EEF4" stroke="#75899B" stroke-width="1.35" rx="3"/>
+    <rect x="170.575" y="214.575" width="32.85" height="32.85" fill="#FBFDFD" stroke="#9EB6B8" stroke-width="0.75"/>
+    <path d="M174.22 214.57 v32.85 M170.57 218.22 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M177.88 214.57 v32.85 M170.57 221.88 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M181.52 214.57 v32.85 M170.57 225.52 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M185.17 214.57 v32.85 M170.57 229.17 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M188.82 214.57 v32.85 M170.57 232.82 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M192.47 214.57 v32.85 M170.57 236.47 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M196.12 214.57 v32.85 M170.57 240.12 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M199.77 214.57 v32.85 M170.57 243.77 h32.85" stroke="#C9DADB" fill="none" stroke-width="0.48" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="170.95000000000002" y="214.95000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="170.95000000000002" y="229.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="170.95000000000002" y="244.15" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="214.95000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="229.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="185.55" y="244.15" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="200.15" y="214.95000000000002" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="200.15" y="229.55" width="2.9" height="2.9" fill="#265F64"/>
+    <rect x="200.15" y="244.15" width="2.9" height="2.9" fill="#265F64"/>
+    <text x="264" y="237.5" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="19.3" text-anchor="middle" font-weight="bold">d = 4</text>
+  </g>
+  <g id="concat" inkscape:label="Concatenation of three outputs">
+    <rect x="360" y="139" width="137" height="84" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="428.5" y="163" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.1" text-anchor="middle" font-weight="bold">Concatenate</text>
+    <rect x="389" y="173" width="26.333333333333332" height="8" fill="#648D99"/>
+    <rect x="415.3333333333333" y="173" width="26.333333333333332" height="8" fill="#92B2BB"/>
+    <rect x="441.66666666666663" y="173" width="26.333333333333332" height="8" fill="#BED1D4"/>
+    <rect x="389" y="173" width="79" height="8" fill="none" stroke="#668990" stroke-width="0.8"/>
+    <text x="428.5" y="206" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.9" text-anchor="middle" font-weight="normal">3072 channels</text>
+  </g>
+  <g id="projection" inkscape:label="projection">
+    <rect x="526" y="137" width="130" height="88" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="591.0" y="161" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="18.4" text-anchor="middle" font-weight="bold">1 × 1 conv</text>
+    <text x="591.0" y="185" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16.1" text-anchor="middle" font-weight="normal">3072 → 1024</text>
+    <text x="591.0" y="210" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="18.5" text-anchor="middle" font-weight="bold" xml:space="preserve">C<tspan font-size="14.06" dy="4.07">ctx</tspan></text>
+  </g>
+  <g id="spatial" inkscape:label="spatial">
+    <rect x="681" y="137" width="130" height="88" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="746.0" y="161" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="17.9" text-anchor="middle" font-weight="bold">Spatial gate</text>
+    <text x="746.0" y="188" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="17.4" text-anchor="middle" font-weight="normal" xml:space="preserve">A<tspan font-size="13.22" dy="3.83">s</tspan><tspan dy="-3.83"> = G(C</tspan><tspan font-size="13.22" dy="3.83">ctx</tspan><tspan dy="-3.83">)</tspan></text>
+    <text x="746.0" y="212" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">1024 × 20 × 20</text>
+    <desc>Apply the energy gate to channel-wise spatial statistics of the context projection. The spatial weights retain channel, height and width dimensions.</desc>
+  </g>
+  <g id="multiply" inkscape:label="Elementwise product">
+    <circle cx="846" cy="181" r="13" fill="#FFFFFF" stroke="#223D4B" stroke-width="1.8"/>
+    <circle cx="846" cy="181" r="3.05" fill="#223D4B"/>
+  </g>
+  <text x="459" y="267" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.4" text-anchor="middle" font-weight="bold">Original F (value path)</text>
+  <text x="940" y="300" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="20.5" text-anchor="end" font-weight="bold" xml:space="preserve">Y = F ⊙ A<tspan font-size="15.58" dy="4.51">s</tspan><tspan dy="-4.51"> ⊙ A</tspan><tspan font-size="15.58" dy="4.51">c</tspan></text>
+  <path d="M17 312 H943" stroke="#ADBEC4" fill="none" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="17" y="346" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="start" font-weight="bold">Within each</text>
+  <text x="17" y="368" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="start" font-weight="bold">dilation branch</text>
+  <g id="branch-reduce" inkscape:label="branch-reduce">
+    <rect x="168" y="327" width="143" height="59" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="239.5" y="351" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="middle" font-weight="bold">1 × 1 conv</text>
+    <text x="239.5" y="373" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">1024 → 128</text>
+  </g>
+  <g id="branch-act" inkscape:label="branch-act">
+    <rect x="348" y="327" width="134" height="59" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="415.0" y="363" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="middle" font-weight="bold">BN → ReLU</text>
+  </g>
+  <g id="grouped-conv" inkscape:label="grouped-conv">
+    <rect x="520" y="327" width="281" height="59" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="660.5" y="351" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="middle" font-weight="bold">Grouped 3 × 3 conv</text>
+    <text x="660.5" y="373" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="16" text-anchor="middle" font-weight="normal">128 → 1024 · 128 groups</text>
+  </g>
+  <g id="branch-bn" inkscape:label="branch-bn">
+    <rect x="842" y="327" width="99" height="59" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="891.5" y="363" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="17.5" text-anchor="middle" font-weight="bold">BN</text>
+  </g>
+</svg>

@@ -1,0 +1,182 @@
+Anchor Box Optimization for Object Detection
+Yuanyi Zhong∗1, Jianfeng Wang2, Jian Peng1, and Lei Zhang2
+1University of Illinois at Urbana-Champaign, 2Microsoft
+1{yuanyiz2, jianpeng}@illinois.edu, 2{jianfw, leizhang}@microsoft.com
+Abstract
+In this paper, we propose a general approach to opti-
+mize anchor boxes for object detection. Nowadays, an-
+chor boxes are widely adopted in state-of-the-art detection
+frameworks. However, these frameworks usually pre-deﬁne
+anchor box shapes in heuristic ways and ﬁx the sizes dur-
+ing training. To improve the accuracy and reduce the ef-
+fort of designing anchor boxes, we propose to dynamically
+learn the anchor shapes, which allows the anchors to au-
+tomatically adapt to the data distribution and the network
+learning capability. The learning approach can be easily
+implemented with stochastic gradient descent and can be
+plugged into any anchor box-based detection framework.
+The extra training cost is almost negligible and it has no im-
+pact on the inference time or memory cost. Exhaustive ex-
+periments demonstrate that the proposed anchor optimiza-
+tion method consistently achieves signiﬁcant improvement
+(≥ 1% mAP absolute gain) over the baseline methods on
+several benchmark datasets including Pascal VOC 07+12,
+MS COCO and Brainwash. Meanwhile, the robustness is
+also veriﬁed towards different anchor initialization methods
+and the number of anchor shapes, which greatly simpliﬁes
+the problem of anchor box design.
+1. Introduction
+Object detection plays an important role in many real
+world applications and recent years have seen great im-
+provement in speed and accuracy thanks to deep neural net-
+works [18, 16, 17, 13, 11]. Many modern deep learning
+based detectors make use of the anchor boxes (or default
+boxes), which serve as the initial guesses of the bounding
+boxes. These anchor boxes are densely distributed across
+the image, typically centered at each cell of the ﬁnal fea-
+ture map. Then the neural network is trained to predict the
+∗This work was partly performed when the ﬁrst author was interning at
+Microsoft.
+translation offsets relative to the cell center (sometimes nor-
+malized by the anchor size) and the width/height offsets rel-
+ative to the anchor box shape, as well as the classiﬁcation
+conﬁdence.
+One of the critical factors here is the design of the anchor
+width and the anchor height, and most of prior approaches
+determine these values by ad-hoc heuristic methods. For
+instance, in Faster R-CNN[18], the anchor shapes are hand-
+chosen to have 3 scales ( 1282, 2562, 5122) and 3 aspect
+ratios (1 : 1, 1 : 2, 2 : 1). When applying the general object
+detectors on speciﬁc domains, the anchor shapes have to be
+manually tweaked to improve accuracy. For text detection
+in [9], the aspect ratios also include5:1 and 1:5 , since texts
+could exhibit wider or higher ranges than generic objects.
+Once the anchor shapes are determined, the sizes will be
+ﬁxed during training. This might be sub-optimal since it
+disregards the augmented data distribution in training, the
+characteristics of the neural network structure and the task
+(loss function) itself. Improper design of the anchor shapes
+could lead to inferior performance in speciﬁc domains.
+To address the issue, we propose a novel anchor opti-
+mization approach that can automatically learn the anchor
+shapes during training. This could leave the choice of an-
+chor shapes completely in the hands of learning, such that
+the learned shapes can adapt better to the dataset, the net-
+work and the task without much human interference. The
+learning approach can be easily implemented with stochas-
+tic gradient descent (SGD) and could be plugged into any
+anchor box based detection framework. To verify the idea,
+we conduct extensive experiments on several benchmark
+datasets including Pascal VOC 07+12, MS COCO and
+Brainwash, building upon both YOLOv2 and Faster-RCNN
+frameworks. The results strongly demonstrate that optimiz-
+ing anchor boxes can signiﬁcantly improve the accuracy
+(≥ 1% mAP absolute gain with YOLOv2) over the baseline
+method. Meanwhile, the robustness is also veriﬁed towards
+different anchor box initializations and the improvement is
+consistent across different number of anchor shapes, which
+greatly simpliﬁes the problem of anchor box design.
+arXiv:1812.00469v2  [cs.CV]  26 Jan 2020
+
+---PAGE---
+
+The main contributions are summarized as follows:
+• We present a novel approach to optimize the anchor
+shapes during training, which, to the best of our knowl-
+edge, is the ﬁrst time to treat anchor shapes as trainable
+variables without modifying the inference network.
+• We demonstrate through extensive experiments that
+the anchor optimization method not only learns the ap-
+propriate anchor shapes but also boosts the detection
+accuracy of existing detectors signiﬁcantly.
+• We also verify that our method is robust towards ini-
+tialization, so the burden of handcrafting good anchor
+shapes for speciﬁc dataset is greatly lightened.
+2. Related Work
+The modern object detectors usually contain two heads:
+one for classiﬁcation and the other for localization. The
+classiﬁcation part is to predict the class conﬁdence, while
+the localization part is to predict the bounding box coordi-
+nates. Based on how the location is predicted, we roughly
+categorize the related work into two genres: relative offset
+prediction based on pre-deﬁned anchor boxes [20, 13], and
+absolute offset prediction [15, 21, 8].
+2.1. Relative Offset Prediction
+The network predicts the offset relative to the pre-deﬁned
+anchor boxes, which are also named as default boxes [13],
+and priors [20]. These boxes serve as the initial guess of
+the bounding box positions. The anchor shapes are ﬁxed
+during training and the neural network learns to regress
+the relative offsets. Assume (∆(x), ∆(y), ∆(w), ∆(h)) are
+the neural net outputs, one typical approach [18, 13] is
+to express the predicted box as (a(x) + ∆(x)a(w),a (y) +
+∆(y)a(h)),a (w)e∆(w)
+,a (h)e∆(h)
+) where a(w),a (h) are the
+pre-deﬁned anchor width and height, a(x),a (y) are the an-
+chor box center. The former two numbers represent the box
+center and the latter two represent the box width and height.
+Thus, one critical problem is to design the anchor shapes.
+In Faster R-CNN [18], the anchor shapes are chosen with
+3 scales (1282, 2562, 5122) and 3 aspect ratios (1 : 1, 1 : 2,
+2 : 1), yielding 9 different anchors at each output sliding
+window position. In Single Shot MultiBox detector (SSD)
+[13], the anchor boxes also have several scales on different
+feature map levels and aspect ratios including 1 : 3, 3 : 1 in
+addition to 1 : 1, 1 : 2, 2 : 1. In YOLOv2 [16], the anchor
+shapes are not handcrafted, but are the k-Means centroids
+with IoU as the similarity metric. With the localization re-
+gression result on top of the anchors, extra regressors can
+be used to further reﬁne the candidate bounding boxes, pos-
+sibly through multiple stages, e.g. in Cascade RCNN[2],
+ReﬁneDet[25], and Guided Anchoring[22].
+When the general object detection framework is applied
+to speciﬁc problems, the anchor sizes have to be hand-tuned
+accordingly. For example, text detection in [9] employs the
+aspect ratios 5 : 1 and 1 : 5 as well as 1 : 1, 1 : 2, 2 : 1, 1 : 3,
+3 : 1, since texts could exhibit wider or higher range than
+generic objects. For face detection in [14, 26], the aspect
+ratios only include 1 : 1 since face is roughly in a square
+shape. For pedestrian detection in [24], a ratio of 0.41 based
+on [3] is adopted for the anchor boxes. As suggested in [24],
+inappropriate anchor boxes could degrade the accuracy.
+To ease the effort of anchor shape design, the most rel-
+evant work might be MetaAnchor[23]. Leveraging neu-
+ral network weight prediction, the anchors are modeled as
+functions parameterized by an extra neural network and
+computed from customized prior boxes. The mechanism
+is shown to be robust to anchor settings and bounding box
+distributions. However, the method involves an extra net-
+work to predict the weights of another network, resulting in
+extra training effort and inference time, and also needs to
+choose a set of customized prior boxes by hand. Compara-
+tively, our method can be easily embedded into any detec-
+tion framework without extra network, and has negligible
+impact on the training time/space cost and no impact on the
+inference time/space.
+2.2. Absolute Offset Prediction
+Another research effort is to directly predict the absolute
+location values rather than its position and size relative to
+pre-deﬁned anchor boxes. The YOLO [15] belongs to this
+spectrum but was improved by YOLOv2 [16] with anchor-
+based approach. In DeNet [21], the network outputs the
+conﬁdence of each neuron belonging to one of the bound-
+ing box corners, and then collects the candidate boxes by
+Directed Sparse Sampling. More recently, CornerNet [8]
+proposed detecting objects by the top-left and bottom-right
+keypoint pairs, and introduces the corner pooling operation
+to better localize corners. While these anchor-free meth-
+ods form a promising future research direction, yet anchor-
+based methods still seem to achieve the mainstream best ac-
+curacy in the public benchmarks.
+3. Proposed Approach
+We ﬁrst present an overview of existing anchor-based ob-
+ject detection frameworks, and then describe the proposed
+anchor optimization approach.
+3.1. Object Detection Overview
+In state-of-the-art object detection frameworks, the train-
+ing is usually done by minimizing a combination of bound-
+ing box localization loss and category classiﬁcation loss.
+3.1.1 Localization Loss
+For one feature map with A different anchor shapes from
+the network, each spatial cell location could correspond to

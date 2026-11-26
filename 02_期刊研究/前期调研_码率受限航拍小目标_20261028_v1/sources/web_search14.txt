@@ -1,0 +1,276 @@
+GitHub - moonsbird29/Papers-of-Visual-Signal-Coding-for-Machine · GitHub (https://github.com/moonsbird29/Papers-of-Visual-Signal-Coding-for-Machine)
+ [wordlim: 200] Crawled: 3 weeks ago; 
+### Compress-Then-Analysis
+
+Models  | Paper  | First Author  | Note  | Venue  | Data  | Project
+--- | --- | --- | --- | --- | --- | ---
+DT-JRD  | DT-JRD: Deep Transformer based Just Recognizable Difference Prediction Model for Video Coding for Machines  | Junqi Liu  |  | TMM  | Video  | 
+FSIC  | FSIC: Frequency-separated image compression for small object detection  | Chengjie Dai  | Frequency decomposition  | Digital Signal Processing2025  | Image  | 
+SA-ICM  | Image Coding for Machines with Edge Information Learning Using Segment Anything  | Takahiro Shindo  |  | ICIP2024  | Image  | 
+ | Remote Sensing Image Coding for Machines on Semantic Segmentation via Contrastive Learning  | Junxi Zhang  | Remote Sensing  | TGRS2024  | Image  | 
+Delta-ICM  | Delta-ICM: Entropy Modeling with Delta Function for Learned Image Compression  | Takahiro Shindo  |  | PrePrint'24  | Image  | 
+### Feature-Compression
+
+Model  | Paper  | First Author  | Note  | Venue  | Data  | Project
+--- | --- | --- | --- | --- | --- | ---
+ | Distributed Semantic Segmentation with Efficient Joint Source and Task Decoding  | Danish Nazir  |  | ECCV2024  | Image  | 
+ | ComNeck: Bridging Compressed Image Latents and Multimodal LLMs via Universal Transform-Neck  | Chia-Hao Kao  | for MLLM  | PrePrint'24  | Image  | 
+ | Reconstruction-free Image Compression for Machine Vision via Knowledge Transfer  | Hanyue Tu  |  |  | Image  | 
+ | Masked Feature Compression for Object Detection  | Chengjie Dai  |  | mathematics2024  | Image  | 
+ | Texture-guided Coding for Deep Features  | Lei Xiong  |  | PrePrint'24  | Image  | 
+ | Split Computing With Scalable Feature Compression for Visual Analytics on the Edge  | Zhongzheng Yuan  |  | TMM 2024  | Image  | 
+ | Hierarchical Image Feature Compression for Machines via Feature Sparsity Learning  | Ding Ding  |  | IEEE Signal Processing 2024  | Image  | 
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection - ScienceDirect (https://www.sciencedirect.com/science/article/pii/S1051200424004470)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 months ago; 
+
+# FSIC: Frequency-separated image compression for small object detection
+
+https://doi.org/10.1016/j.dsp.2024.104822Get rights and content
+
+## Abstract
+
+The existing image compression methods are designed for the human visual system. They can achieve good compression quality for low-frequency components of the image that are important to human vision. However, for object detection models, both high and low-frequency components are essential. As a result, the detection metrics on the compressed images obtained by current methods will decline. Particularly for small object detection, the lack of high-frequency signals makes it difficult to distinguish the targets from the background. In this paper, we propose a frequency-separated image compression model, named FSIC. During the training process, the compression of low-frequency components only employs MSE loss, while the compression of high-frequency components additionally incorporates a detection loss. We validate FSIC's image compression capability for the small object detection task on the VisDrone dataset and Dota dataset. Results show that under extremely high compression rates, FSIC demonstrates a better performance compared with current compression methods. Furthermore, FSIC has the fastest encoding speed among current learning-based compression models.
+
+## Introduction
+
+Vision-based object detection is an important requirement for many cyber-physical systems like UAVs and AGVs. However, it remains challenging due to the limited computing capabilities of the edge devices. An effective way to address the issue is to transmit the image to the cloud with more powerful computing resources for object detection. Unfortunately, in normal cases, the link bandwidth for such a transmission is limited. A promising approach is to compress the image in situ and then transmit it. Standard image codecs [1], [2], [3] achieve data compression by reducing the redundancy between pixels and removing some information that is not sensitive to human eyes [4]; thus, they are not suitable for object detection, as some high-frequency signals are lost.
+
+The learning-based compression models with autoregressive context [5], [6] have surpassed the leading standard image codec—BPG (Better Portable Graphics). These methods are based on transform coding and utilize convolutional neural networks (CNNs) to learn nonlinear functions that can map images into more compressible latent representations. The whole coding framework resembles an autoencoder, consisting of an encoder that reduces the dimensionality of the images and a decoder that acts as an approximate inverse function to map the latent representations back to images. Besides the encoder and the decoder, there is an entropy model that estimates the probability distribution of latent representations. With the probability, entropy coding can be used to further compress the latents. However, while the autoregressive entropy model makes the estimated probabilities more aligned with reality, it significantly slows down the speed of encoding and decoding. Parallelizable entropy models [7], [8] have been proposed to address this issue, enhancing operational speed while ensuring compression quality. Fritsche et al. [12] proposed to separate the low-frequency components (LFC) and high-frequency components (HFC) of the input image when performing image super-resolution reconstruction with neural networks and train them in different ways. In this work, we first investigate the compression performance of existing compression networks on LFC and HFC using object detection task results as the evaluation metric. Then we propose the frequency-separated image compression model (FSIC) which extends the joint training framework by incorporating a frequency separation learning strategy to train the compression network.
+
+We conduct frequency separation on the VisDrone dataset [13] and utilize the existing learning-based compression method [6] to compress the original image, LFC, and HFC respectively. Then we use YOLOv5 [14] to perform detection on them and get the following findings:
+
+  * •
+
+Both the LFC and HFC of an image are utilized by the object detection model.
+
+  * •
+
+Existing learning-based compression methods using MSE as the loss function demonstrate favorable compression performances on LFC, but their compression performances on HFC are not satisfactory.
+In this section, we further explore the impact of LFC and HFC on the object detection task. Besides, we evaluate the performance of an existing learning-based compression model
+
+## Basic framework of learning-based image compression
+
+Lossy compression methods have a general process. First, transform the image x into another space to get the latent representation y, and quantize the latent to get a discrete-valued vector \stackrel{ˆ}{y}. Subsequently, the discrete-valued vector \stackrel{ˆ}{y} undergoes lossless compression using entropy coding methods. Following the above process, Learning-based methods consist of three components: encoder, decoder and entropy model. Encoders and decoders respectively complete the transformation of images to latent
+
+## Datasets
+
+In object detection, objects smaller than 32×32 pixels are considered small objects. To verify the compression performance of FSIC for small object detection tasks, we compare it with other image compression methods on two classic small object detection datasets, VisDrone [13] and DOTA [37]. The images in the dataset are scaled to 640×640 to avoid the impact of image resizing in the detection model.
+
+VisDrone. VisDrone dataset is a large-scale benchmark captured by drone-mounted cameras with
+
+## Ablation study
+
+
+## Conclusion & future work
+
+We find that under the existing framework of learning-based image compression models, the MSE loss is insufficient in guiding the compression of HFC. So the compression performance on small object detection tasks is poor. Therefore, we propose a compression model (FSIC) that incorporates frequency separation. It innovatively applies detection loss on the HFC of the image during the training process. This approach offers a novel solution for achieving effective compression while preserving--------------------------------------------------------------------------------
+FSIC: Frequency-Separated Image Compression for Small Object Detection | Request PDF (https://www.researchgate.net/publication/385056771_FSIC_Frequency-Separated_Image_Compression_for_Small_Object_Detection)
+ [wordlim: 200] Crawled: 5 months ago; 
+
+Article
+
+# FSIC: Frequency-Separated Image Compression for Small Object Detection
+
+  * October 2024
+  * Digital Signal Processing 156(4):104822
+
+DOI:10.1016/j.dsp.2024.104822
+
+Authors:
+
+Chengjie Dai
+
+Chengjie Dai
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Tiantian Song
+
+Tiantian Song
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Qiang Chen
+
+Qiang Chen
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Hanshen Gong
+
+Hanshen Gong
+
+  * This person is not on ResearchGate, or hasn't claimed this research yet.
+
+Show all 6 authors Hide
+
+Image: Request Full-text Paper PDF
+
+Request full-text PDF
+
+To read the full-text of this research, you can request a copy directly from the authors.
+
+Image: ResearchGate Logo
+
+Discover the world's research
+
+  * 25+ million members
+  * 160+ million publication pages
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection - researchr publication reviews (https://researchr.org/publication/DaiSCGYS25/reviews)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 weeks ago; 
+
+# External Links
+
+  * DOI
+  * DBLP
+  * Google
+  * Google Scholar
+  * MSAS
+
+# Cite Key
+
+  * DaiSCGYS25
+
+# Statistics
+
+  * References: 0
+  * Cited by: 0
+  * Reviews: 0
+  * Bibliographies: 0
+
+# PDF
+
+  * [Upload PDF for personal use]
+
+# Researchr
+
+Researchr is a web site for finding, collecting, sharing, and reviewing scientific publications, for researchers by researchers.
+
+Sign up for an account to create a profile with publication list, tag and review your related work, and share bibliographies with your co-authors.
+
+# FSIC: Frequency-separated image compression for small object detection
+
+Chengjie Dai, Tiantian Song, Qiang Chen, Hanshen Gong, Bowei Yang, Guanghua Song. FSIC: Frequency-separated image compression for small object detection. Digital Signal Processing, 156:104822, 2025. [doi]
+
+  * Abstract
+  * Authors
+  * BibTeX
+  * References
+  * Bibliographies
+  * Reviews
+  * Related
+  *   * No reviews for this publication, yet.--------------------------------------------------------------------------------
+A high-precision three-dimensional trajectory reconstruction methodology for rockfall analysis using a multi-rotor dron… (https://ouci.dntb.gov.ua/en/works/731KM0E8/)
+ [wordlim: 200] Crawled: last month; 
+  3. Chen, A lightweight rockfall detection method in complex environments based on receptive field and attention mechanism: REGM-YOLO, Landslides
+DOI: 10.1007/s10346-025-02596-7
+  4. Chen, Research on variational optical flow method for rockfall monitoring, Signal Image and Video Processing, № 18, с. 713
+DOI: 10.1007/s11760-024-03187-0
+  5. Cheng, XMem: Long-term video object segmentation with an Atkinson-Shiffrin memory model, № 13688, с. 640
+  6. Cui, Scientific challenges in disaster risk reduction for the Sichuan-Tibet Railway, Engineering Geology, № 309
+DOI: 10.1016/j.enggeo.2022.106837
+  7. Dai, FSIC: Frequency-separated image compression for small object detection, Digital Signal Processing, № 156
+DOI: 10.1016/j.dsp.2024.104822
+  8. Ding, Advancements in geological disaster monitoring and early warning systems: A deep learning and computer vision approach, Traitement Du Signal, № 40, с. 1195
+DOI: 10.18280/ts.400336
+--------------------------------------------------------------------------------
+WITHDRAWN: Optimization for High-Efficiency Compound Image Compression Using Hybrid CNN-Huffman Encoding Framework with Minimum Cross-Entropy Method (https://assets-eu.researchsquare.com/files/rs-7061363/v1_covered_343695c0-193e-4b24-bd28-8db8da617529.pdf)
+ [wordlim: 200] Published: 5 months ago; 
+15. Dai, C., Song, T., Chen, Q., Gong, H., Yang, B., and Song, G., 2025. FSIC: Frequency-separated image 
+compression 
+for 
+small 
+object 
+detection. 
+Digital 
+Signal 
+Processing, 156, 
+p.104822. 
+https://doi.org/10.1016/j.dsp.2024.104822  
+16.  Omari, M., Kaddi, M., Salameh, K. and Alnoman, A., 2025. Advancing Image Compression Through 
+Clustering 
+Techniques: 
+A 
+Comprehensive 
+Analysis. Technologies, 13(3), 
+p.123. 
+https://doi.org/10.3390/technologies13030123  
+17. Erdal, E. and Önal, A., 2025. Enhanced Framework for Lossless Image Compression Using Image 
+Segmentation and a Novel Dynamic Bit-Level Encoding Algorithm. Applied Sciences, 15(6), p.2964. 
+https://doi.org/10.3390/app15062964  
+18. Ye, Y., Wang, C., Sun, W. and Chen, Z., 2025. Map-assisted remote-sensing image compression at 
+extremely low bitrates. ISPRS Journal of Photogrammetry and Remote Sensing, 223, pp.159-172. 
+https://doi.org/10.1016/j.isprsjprs.2025.03.005  
+19. Bao, Y., Tan, W., Jia, C., Li, M., Liang, Y. and Tian, Y., 2025. ShiftLIC: Lightweight Learned Image 
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection | Article Information | J-GLOBAL (https://jglobal.jst.go.jp/en/detail?JGLOBAL_ID=202502286335317016)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 weeks ago; 
+
+, 
+
+Song Guanghua
+
+About Song Guanghua
+
+  * Search "202350000990192647"
+  * Search "Song Guanghua"
+
+(School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China)
+
+About School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China
+
+  * Search "201551000096994539"
+  * Search "School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China"
+
+Material：
+
+Digital Signal Processing  (Digit Signal Process)
+
+About Digital Signal Processing
+
+  * Search "W1600A"
+  * Search ISSN,ISBN,CODEN
+  * Detailed information
+
+Volume： 156  Issue： PB  Page： Null  Publication year： 2025 
+JST Material Number： W1600A  ISSN： 1051-2004  Document type： Article
+Article type： 原著論文  Country of issue： Netherlands (NLD)  Language： ENGLISH (EN)
+
+Abstract/Point：
+
+Abstract/Point
+Japanese summary of the article(about several hundred characters).
+All summary is available on JDreamIII(charged).
+On J-GLOBAL, this item will be available after more than half a year after the record posted. --------------------------------------------------------------------------------
+FSIC: Frequency-Separated Image Compression for Small Object Detection · 研飞ivySCI (https://www.ivysci.com/articles/5102456__FSIC_FrequencySeparated_Image_Compression_for_Small_Object_Detection)
+ [wordlim: 200] Crawled: 4 months ago; 
+
+## FSIC: Frequency-Separated Image Compression for Small Object Detection
+
+FSIC：小目标检测的频率分离图像压缩
+
+[Button: 导入到研飞]
+
+作者:Chengjie Dai, Tiantian Song, Qiang Chen, Hanshen Gong, Bowei Yang, Guanghua Song
+
+DOI: 10.1016/j.dsp.2024.104822 Image: Papermap
+
+PaperMap
+
+期刊:Digital Signal Processing
+
+摘要
+
+### 研飞AI智能解析 PDF，回答研究者问题，助你秒懂论文
+
+下载研飞
+
+## 期刊信息
+
+期刊:[Button: Digital Signal Processing]
+
+ISSN 1051-2004
+
+国际分区

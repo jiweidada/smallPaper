@@ -1,0 +1,110 @@
+Academic Editor: Nikolaos
+Mitianoudis
+Received: 26 March 2026
+Revised: 4 May 2026
+Accepted: 7 May 2026
+Published: 14 May 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+LDSNet: A Lightweight Detail-Sensitive Network for Small
+Object Detection in Low-Altitude UA V Scenarios
+Tong Tan1,2, Xianrong Peng 1,*, Jianlin Zhang 1
+ , Haorui Zuo 1, Yao Zhang 1, Yunhao Wu 1,2 and Hui Li 1,2
+1 State Key Laboratory of Optical Field Manipulation Science and Technology , Institute of Optics and Electronics,
+Chinese Academy of Sciences, Chengdu 610209, China
+2 University of Chinese Academy of Sciences, Beijing 100049, China
+* Correspondence: peng_xr@ioe.ac.cn
+Abstract
+Object detection in Unmanned Aerial Vehicle (UAV) imagery faces significant challenges
+due to the unique aerial perspective. A major bottleneck is the weak feature representation
+of small objects, which limits both detection accuracy and computational efficiency. To ad-
+dress this issue, we propose a Lightweight Detail-Sensitive Network (LDSNet). Specifically,
+LDSNet consists of three key components: (1) Lightweight Detail-Sensitive Downsampling
+(LDSDown), which combines anti-aliasing smoothing with dual-path feature extraction to
+preserve the spatial details of small objects during downsampling; (2) Shared Recursive
+Dilated Convolution (SRDC), which uses weight-shared multi-rate dilated convolutions
+to capture multi-scale context and enlarge the receptive field without introducing extra
+parameters; and (3) Deeply Decoupled Grouped Head (DGHead), which employs high-
+ratio grouped convolutions to significantly reduce the computational cost of processing
+high-resolution inputs. Extensive experiments on the VisDrone2019 and HIT-UAV datasets
+demonstrate that LDSNet achieves an excellent trade-off between accuracy and efficiency.
+Compared to the YOLOv11n baseline, LDSNet reduces parameters by 84.6% (from 2.6 M
+to 0.4 M) and FLOPs by 29.2% (from 6.5 G to 4.6 G), while improving mAP50 by 2.2% on
+VisDrone2019 and achieving 94.5% on HIT-UAV .
+Keywords: Unmanned Aerial Vehicle (UAV); small object detection; lightweight network;
+real-time inference
+1. Introduction
+The rapid development of Unmanned Aerial Vehicle (UAV) platforms and the decreas-
+ing cost of hardware have established low-altitude remote sensing as a core modality for
+geospatial data acquisition [1,2]. This technology plays an indispensable role in domains
+such as smart city traffic surveillance [3], maritime search and rescue [4], precision agricul-
+ture, and military reconnaissance [5]. Unlike stationary ground sensors or satellite imagery,
+UAVs offer superior mobility and a panoramic perspective [ 6]. While general-purpose
+object detectors, typified by the YOLO series [7,8], have achieved superlative performance
+on natural scenarios datasets [9], their direct deployment in UAV-captured aerial scenarios
+remains hindered by substantial scale disparities [10].
+Under defined low-altitude ranges (typically 30–150 m) and specific camera config-
+urations (e.g., wide-angle lenses with high-resolution sensors), the small object category
+exhibits unique physical and visual characteristics, including extremely limited pixel foot-
+prints, a complete absence of internal textural details, and a high dependency on regional
+J. Imaging 2026, 12, 209 https://doi.org/10.3390/jimaging12050209
+
+---PAGE---
+
+J. Imaging 2026, 12, 209 2 of 30
+environmental logic for disambiguation. The core scientific challenge in UAV-based detec-
+tion lies in the insufficient feature representation capability for these infinitesimal objects,
+which manifests primarily in two sub-problems:
+(1) Severe information loss during the downsampling of tiny objects: Owing to the
+elevated vantage point, objects exhibit drastically reduced pixel footprints, often
+occupying fewer than 16 × 16 pixels. This “pixel poverty” makes the geometric and
+textural structures of tiny objects extremely fragile [8,11].
+(2) Insufficient global feature representation constrained by local receptive fields: Because
+tiny objects inherently lack distinct internal visual features and often suffer from dense
+distribution and mutual occlusion, their accurate identification relies heavily on broad
+environmental co [12,13].
+Existing methodologies struggle to reconcile feature representation efficacy with com-
+putational efficiency when addressing these two sub-problems [5]. To combat the fragility of
+tiny objects, traditional downsampling operations are commonly used; however, they often
+cause coarse spatial aliasing and lead to the irreversible “semantic annihilation” of small ob-
+jects in deep layers [14,15]. Alternative downsampling strategies have also been proposed:
+SPD-Conv employs space-to-depth combined with non-strided convolution [16], and Haar
+wavelet downsampling applies wavelet decomposition while retaining the low-frequency
+component [17]. Furthermore, to address the need for global context and overcome re-
+stricted receptive fields, various context-aggregation mechanisms have been developed.
+Standard parallel architectures (such as ASPP) or complex attention mechanisms are fre-
+quently employed to expand the receptive field. Recent advancements include the AIFI
+module, which applies multi-head self-attention to high-level features for intra-scale feature
+interaction and long-range dependency modeling [18]. Similarly, modules like SPPF-LSKA
+integrate a spatial pyramid pooling structure with large separable kernel attention to cap-
+ture broader contextual cues [ 19]. As a direct architectural countermeasure to preserve
+fine-grained spatial details and improve small-object recall, recent detection networks
+frequently introduce shallower, high-resolution feature layers (e.g., the P2layer) [ 20,21].
+Unfortunately, while this explicit retention of high-resolution semantics effectively miti-
+gates the fragility of tiny objects, processing these massively scaled feature maps imposes a
+severe computational burden.
+To address these limitations, this paper propose the Lightweight Detail-Sensitive
+Network (LDSNet). LDSNet is designed as a unified architectural framework specifically
+to tackle the core challenge: the insufficient feature representation capability for tiny
+objects. This central problem is further decomposed into two interrelated sub-problems:
+the loss of fine-grained spatial information during downsampling, and the difficulty of
+capturing broad regional context at high resolutions. We perform a macro-architectural
+reconfiguration-integrating a high-resolution P2 layer while omitting the deep P5 layer
+to redirect the parameter budget toward infinitesimal targets. Within this re-engineered
+hierarchy, three synergistic modules are introduced to execute this logic:
+Firstly, to address Sub-problem 1, this paper designs the Lightweight Detail-Sensitive
+Downsampling (LDSDown) module. LDSDown synergizes an anti-aliasing preprocessing
+mechanism acting as a spatial low-pass filter with a dual-path heterogeneous extraction
+strategy. This approach explicitly safeguards the spatial integrity of tiny objects against
+decimation artefacts during downsampling while significantly minimising the computa-
+tional load. Secondly, to address Sub-problem 2, this paper proposes the Shared Recursive
+Dilated Convolution (SRDC) module. By replacing traditional deterministic pooling with
+a cascaded sequence of multi-rate dilated convolutions sharing a unified weight tensor,
+SRDC dynamically expands the effective receptive field without degrading spatial resolu-
+tion. This lightweight mechanism empowers the network to extract multi-scale regional
+https://doi.org/10.3390/jimaging12050209

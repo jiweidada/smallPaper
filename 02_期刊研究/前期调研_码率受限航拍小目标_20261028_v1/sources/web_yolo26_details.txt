@@ -1,0 +1,154 @@
+Ultralytics YOLO26 (https://docs.ultralytics.com/models/yolo26/)
+ [wordlim: 200] Crawled: today; Content type: text/html; Source: find({"ref_id":"turn69view0","pattern":"YOLO26s"}); Redirected to URL: https://docs.ultralytics.com/models/yolo26; Total lines: 267
+L106:   * Precision Pose Estimation Integrates 【43†Residual Log-Likelihood Estimation†arxiv.org】 (RLE) for more accurate keypoint localization and optimizes the decoding process for increased inference speed. The paper reports up to +7.2 AP over YOLO11 on COCO pose estimation.
+L107:   * Refined OBB Decoding Introduces a specialized angle loss to improve detection accuracy for square-shaped objects and optimizes OBB decoding to resolve boundary discontinuity issues. The paper reports up to +3.4 mAP over YOLO11 on DOTA-v1.0 oriented detection.
+L108: 
+L109: 【44†Image: Ultralytics YOLO26 End-to-End Comparison Plots†cdn.ul.run】
+L110: ## Supported Tasks and Modes【45†#】
+L111: 
+L112: YOLO26 supports the standard Ultralytics task set across five model scales:
+L113: Model  | Filenames  | Task  | Training  | Validation  | Inference  | Export
+L114: --- | --- | --- | --- | --- | --- | ---
+L115: YOLO26  | `yolo26n.pt` `yolo26s.pt` `yolo26m.pt` `yolo26l.pt` `yolo26x.pt`  | 【46†Detection】  | ✅  | ✅  | ✅  | ✅
+L116: YOLO26-seg  | `yolo26n-seg.pt` `yolo26s-seg.pt` `yolo26m-seg.pt` `yolo26l-seg.pt` `yolo26x-seg.pt`  | 【47†Instance Segmentation】  | ✅  | ✅  | ✅  | ✅
+L117: YOLO26-sem  | `yolo26n-sem.pt` `yolo26s-sem.pt` `yolo26m-sem.pt` `yolo26l-sem.pt` `yolo26x-sem.pt`  | 【48†Semantic Segmentation】  | ✅  | ✅  | ✅  | ✅
+L118: YOLO26-depth  | `yolo26n-depth.pt` `yolo26s-depth.pt` `yolo26m-depth.pt` `yolo26l-depth.pt` `yolo26x-depth.pt`  | 【49†Depth Estimation】  | ✅  | ✅  | ✅  | ✅
+L119: YOLO26-cls  | `yolo26n-cls.pt` `yolo26s-cls.pt` `yolo26m-cls.pt` `yolo26l-cls.pt` `yolo26x-cls.pt`  | 【50†Classification】  | ✅  | ✅  | ✅  | ✅
+L120: YOLO26-pose  | `yolo26n-pose.pt` `yolo26s-pose.pt` `yolo26m-pose.pt` `yolo26l-pose.pt` `yolo26x-pose.pt`  | 【51†Pose/Keypoints】  | ✅  | ✅  | ✅  | ✅
+L121: YOLO26-obb  | `yolo26n-obb.pt` `yolo26s-obb.pt` `yolo26m-obb.pt` `yolo26l-obb.pt` `yolo26x-obb.pt`  | 【52†Oriented Detection】  | ✅  | ✅  | ✅  | ✅
+L122: This unified framework covers real-time detection, instance segmentation, semantic segmentation, monocular depth estimation, classification, pose estimation, and oriented object detection with training, validation, inference, and export support.
+L123: 
+L124: Architecture-only variants
+L125: 【53†`yolo26-p2.yaml`†github.com】 and 【54†`yolo26-p6.yaml`†github.com】 add a P2 (small-object) or P6 (large-input) detection head and are shipped as YAML architectures only. No scale-specific `yolo26*-p2.pt` or `yolo26*-p6.pt` weights are released. Instantiate a scaled config from YAML (for example, `YOLO("yolo26n-p6.yaml")`) and train or fine-tune it as needed.
+L126: ## Performance Metrics【55†#】
+L127: 
+L128: Performance
+L129: 
+L130: [Button: Detection (COCO)][Button: Segmentation (COCO)][Button: Semantic Segmentation (Cityscapes)][Button: Depth Estimation (NYU Depth V2)][Button: Classification (ImageNet)][Button: Pose (COCO)][Button: OBB (DOTAv1)]
+L131: 
+L132: See 【46†Detection Docs】 for usage examples with these models trained on 【56†COCO】, which include 80 pretrained classes.
+L133: Model  | size
+L134: ^{(pixels)}  | mAP^{val
+L135: 50-95}  | mAP^{val
+L136: 50-95(e2e)}  | Speed
+L137: ^{CPU ONNX
+L138: (ms)}  | Speed
+L139: ^{T4 TensorRT10
+L140: (ms)}  | params
+L141: ^{(M)}  | FLOPs
+L142: ^{(B)}
+L143: --- | --- | --- | --- | --- | --- | --- | ---
+L144: 【57†YOLO26n†platform.ultralytics.com】  | 640  | 40.9  | 40.1  | 38.9 ± 0.7  | 1.7 ± 0.0  | 2.4  | 5.5
+L145: 【58†YOLO26s†platform.ultralytics.com】  | 640  | 48.6  | 47.8  | 87.2 ± 0.9  | 2.5 ± 0.0  | 9.5  | 20.9
+L146: 【59†YOLO26m†platform.ultralytics.com】  | 640  | 53.1  | 52.5  | 220.0 ± 1.4  | 4.7 ± 0.1  | 20.4  | 68.4
+L147: 【60†YOLO26l†platform.ultralytics.com】  | 640  | 55.0  | 54.4  | 286.2 ± 2.0  | 6.2 ± 0.2  | 24.8  | 86.8
+L148: 【61†YOLO26x†platform.ultralytics.com】  | 640  | 57.5  | 56.9  | 525.8 ± 4.0  | 11.8 ± 0.2  | 55.7  | 194.4
+L149: Params and FLOPs values are for the fused model after Conv/BatchNorm folding and removal of the unused detection branch. Speed measurements select the NMS-free head with `nms=False`. Pretrained checkpoints retain the full training architecture and may show higher counts.
+L150: ## Usage Examples【62†#】
+L151: 
+L152: This section provides simple YOLO26 training and inference examples. For full documentation on these and other 【63†modes】, see the 【64†Predict】, 【65†Train】, 【66†Val】, and 【67†Export】 docs pages.
+L153: 
+L154: Note that the example below is for YOLO26 【46†Detect】 models for 【68†object detection†www.ultralytics.com】. For additional supported tasks, see the 【47†Segment】, 【48†Semantic Segmentation】, 【49†Depth】, 【50†Classify】, 【51†Pose】, and 【52†OBB】 docs.
+L155: 
+L156: Example
+L157: 
+L158: [Button: Python][Button: CLI]
+L159: 【69†PyTorch†www.ultralytics.com】 pretrained `*.pt` models as well as configuration `*.yaml` files can be passed to the `YOLO()` class to create a model instance in Python:
+L160: 
+L161:     `from ultralytics import YOLO
+L162: 
+L163:     # Load a COCO-pretrained YOLO26n model
+L164:     model = YOLO("yolo26n.pt")
+--------------------------------------------------------------------------------
+Ultralytics YOLO26 (https://docs.ultralytics.com/models/yolo26/)
+ [wordlim: 200] Crawled: today; Content type: text/html; Source: find({"ref_id":"turn69view0","pattern":"one-to-many"}); Redirected to URL: https://docs.ultralytics.com/models/yolo26; Total lines: 267
+L91:   * Native end-to-end inference: The optional one-to-one detection head produces predictions without non-maximum suppression (NMS), simplifying deployment and reducing post-processing.
+L92:   * Lighter box regression: YOLO26 removes Distribution Focal Loss (DFL), reducing detection-head complexity while preserving an unconstrained regression range.
+L93:   * Training recipe updates: The training pipeline combines MuSGD (a hybrid Muon + SGD optimizer), Progressive Loss, and STAL (Small-Target-Aware Label Assignment) to improve optimization, shift supervision toward the inference-time head, and maintain positive label coverage for small objects. The full hyperparameters behind the released checkpoints are documented in the 【39†YOLO26 Training Recipe guide】.
+L94:   * Task-specific heads and losses: YOLO26 adds targeted designs for instance segmentation, semantic segmentation variants, pose estimation, and oriented detection while keeping a single model pipeline across tasks.
+L95: Together, these updates improve the accuracy-latency tradeoff across model scales and deployment targets.
+L96: ## Key Features【40†#】
+L97: 
+L98:   * DFL-Free Regression YOLO26 removes Distribution Focal Loss (DFL), reducing detection-head complexity and simplifying export.
+L99: 
+L100:   * End-to-End NMS-Free Inference YOLO26 supports native end-to-end inference with `nms=False`, producing predictions without a separate NMS pass. The default one-to-many path uses NMS for accuracy.
+L101:   * Progressive Loss + STAL Progressive Loss shifts training emphasis toward the inference-time head, while STAL improves positive label coverage for small objects.
+L102: 
+L103:   * MuSGD Optimizer A hybrid optimizer that combines 【41†SGD†docs.pytorch.org】 with 【42†Muon†arxiv.org】, adapting optimization ideas from large language model training to computer vision.
+L104:   * Efficient Deployment The simplified head and optional NMS-free path reduce inference overhead across export targets and hardware profiles, including the paper's reported CPU ONNX speedup for YOLO26n versus YOLO11n.
+L105:   * Instance Segmentation Enhancements Introduces semantic segmentation loss to improve model convergence and an upgraded proto module that leverages multi-scale information for superior mask quality. The paper reports gains over YOLO11 of up to +2.5 box AP and +3.7 mask AP on COCO instance segmentation.
+L150: ## Usage Examples【62†#】
+L151: 
+L152: This section provides simple YOLO26 training and inference examples. For full documentation on these and other 【63†modes】, see the 【64†Predict】, 【65†Train】, 【66†Val】, and 【67†Export】 docs pages.
+L153: 
+L154: Note that the example below is for YOLO26 【46†Detect】 models for 【68†object detection†www.ultralytics.com】. For additional supported tasks, see the 【47†Segment】, 【48†Semantic Segmentation】, 【49†Depth】, 【50†Classify】, 【51†Pose】, and 【52†OBB】 docs.
+L155: 
+L156: Example
+L157: 
+L158: [Button: Python][Button: CLI]
+L159: 【69†PyTorch†www.ultralytics.com】 pretrained `*.pt` models as well as configuration `*.yaml` files can be passed to the `YOLO()` class to create a model instance in Python:
+L160: 
+L161:     `from ultralytics import YOLO
+L162: 
+L163:     # Load a COCO-pretrained YOLO26n model
+L164:     model = YOLO("yolo26n.pt")
+L165: 
+L166:     # Run inference with the YOLO26n model on the 'bus.jpg' image
+L167:     results = model("path/to/bus.jpg")
+L168: 
+L169:     # Train the model on the COCO8 example dataset for 100 epochs
+L170:     results = model.train(data="coco8.yaml", epochs=100, imgsz=640)`
+L171: Dual-Head Architecture
+L172: 
+L173: YOLO26 detection models use a dual-head architecture that provides flexibility for different deployment scenarios:
+L174:   * One-to-Many Head (Default): Generates traditional YOLO outputs requiring NMS post-processing, outputting `(N, nc + 4, 8400)` where `nc` is the number of classes. This head typically achieves slightly higher accuracy at the cost of additional processing.
+L175:   * One-to-One Head (`nms=False`): Produces end-to-end predictions without NMS, outputting `(N, 300, 6)` with a maximum of 300 detections per image. This head is optimized for fast inference and simplified deployment.
+L176: You can switch between heads during export, prediction, or validation:
+L177: [Button: Python][Button: CLI]
+L178: 
+L179:     `from ultralytics import YOLO
+L180: 
+L181:     model = YOLO("yolo26n.pt")
+L182: 
+L183:     # Use one-to-many head (default, Ultralytics applies NMS)
+L184:     results = model.predict("image.jpg")  # inference
+L185:     metrics = model.val(data="coco.yaml")  # validation
+L186:     model.export(format="onnx")  # export
+L187: 
+L188:     # Opt into the NMS-free one-to-one head
+L189:     results = model.predict("image.jpg", nms=False)  # inference
+L190:     metrics = model.val(data="coco.yaml", nms=False)  # validation
+L191:     model.export(format="onnx", nms=False)  # export`
+L192: Prediction and validation default to the one-to-many head for accuracy. Use `nms=False` for NMS-free inference, or `nms=True` to embed NMS in a supported export. Both heads are trained regardless of this choice. See the 【70†End-to-End Detection guide】 for output formats and export compatibility.
+L193: ## YOLOE-26: Open-Vocabulary Detection and Segmentation【71†#】
+L194: YOLO26 also powers 【24†YOLOE-26】, an open-vocabulary variant that detects and segments object categories from text prompts, visual prompts, or a prompt-free mode instead of a fixed class list learned at training time. YOLOE-26 keeps YOLO26's optional NMS-free end-to-end (e2e) head, so open-vocabulary inference stays fast enough for dynamic environments where target categories change over time.
+L195: YOLOE-26x reaches 40.6 AP on LVIS minival under text prompting, 38.5 AP under visual prompting and 31.1 AP prompt-free — the paper's Non-E2E figures, which its end-to-end head trails by 1.1, 2.3 and 1.2 AP.
+L196: See the 【24†YOLOE documentation】 for per-scale performance tables, prompt-free variants, and full usage examples.
+L197: ## Citations and Acknowledgments【72†#】
+L198: 
+L199: For a complete technical description of the YOLO26 architecture, training recipe, task heads, and YOLOE-26 open-vocabulary extension, read 【34†Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models†arxiv.org】. If you use YOLO26 in your research, please cite:
+L200: 
+L201: Citation
+L202: [Button: BibTeX]
+L203: 
+L204:     `@misc{jocher2026ultralyticsyolo26unifiedrealtime,
+L205:       title = {Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models},
+L206:       author = {Glenn Jocher and Jing Qiu and Mengyu Liu and Shuai Lyu and Fatih Cagatay Akyon and Muhammet Esat Kalfaoglu},
+L207:       year = {2026},
+L208:       eprint = {2606.03748},
+L209:       archivePrefix = {arXiv},
+L210:       primaryClass = {cs.CV},
+L211:       doi = {10.48550/arXiv.2606.03748},
+L212:       url = {https://arxiv.org/abs/2606.03748},
+L213:     }`
+L214: YOLO26 code, models, and documentation are available in the 【73†Ultralytics GitHub repository†github.com】 and 【1†Ultralytics Docs】 under 【74†AGPL-3.0†github.com】 and 【75†Enterprise†www.ultralytics.com】 licenses.
+L215: ## FAQ【76†#】
+L216: 
+L217:   * ### What are the key improvements in YOLO26?
+L218: 
+L219:     * DFL-free regression: Simplifies the detection head and export path
+L220:     * End-to-end NMS-free inference: Supports NMS-free inference with `nms=False`
+L221:     * Progressive Loss + STAL: Improves training alignment and small-object label coverage
+L222:     * MuSGD optimizer: Combines SGD with Muon-inspired optimization for stable training
+L223:     * Task-specific heads and losses: Improves segmentation, pose, and oriented detection support
+

@@ -1,0 +1,118 @@
+--- v1/collect.py
++++ v2/collect.py
+@@ -1,7 +1,7 @@
+ """Collect already stopped exact12 primary artifacts; no training or evaluation."""
+ from pathlib import Path
+ import argparse,datetime,hashlib,json,sys,zipfile
+-from guards import ARMS,identity_plan,positive_terminal
++from guards import ARMS,identity_plan,positive_terminal,preflight_launch
+ 
+ def sha(path):
+     h=hashlib.sha256()
+@@ -54,7 +54,10 @@
+     rows=[json.loads(line) for line in (run/'log.txt').read_text().splitlines() if line]
+     assert [r['epoch'] for r in rows]==list(range(12))
+     assert rows[-1]['test_coco_eval_bbox']==endpoint['native_stats']
+-    output=base/'user_backbone_primary_collection12_20261011_v1'/f'seed{seed}_{arm}_v1'
++    launch=read(screen/'detector_preflight_dispatch.json')
++    preflight_launch(launch,read(screen/'detector_preflight_completion.json'),prefix,seed,bundle)
++    assert not live(launch,'pid','start_ticks')
++    output=base/'user_backbone_primary_collection12_20261011_v2'/f'seed{seed}_{arm}_v1'
+     output.mkdir(parents=True,exist_ok=False)
+     pairs={}
+     for folder,label in ((code,'code'),(bundle,'bundle'),(run,'run')):
+@@ -64,7 +67,7 @@
+             if label=='run' and p.suffix=='.pth' and relative!='last.pth':continue
+             pairs[label+'/'+relative]=p
+     for name in ('candidate_start.json','controller_start.json','candidate_completion.json','controller_completion.json',
+-                 'baseline_reuse.json','detector_preflight_start.json','detector_preflight_completion.json','training_resource_receipt.json'):
++                 'baseline_reuse.json','detector_preflight_dispatch.json','detector_preflight_completion.json','training_resource_receipt.json'):
+         pairs['screen/'+name]=screen/name
+     for p in (screen/'detector_preflight_v1').rglob('*'):
+         if p.is_file():pairs['screen/detector_preflight_v1/'+p.relative_to(screen/'detector_preflight_v1').as_posix()]=p
+--- v1/verify_primary.py
++++ v2/verify_primary.py
+@@ -1,7 +1,7 @@
+ """Verify actual component primary archives, explicitly without a saved-EMA replay claim."""
+ from pathlib import Path,PurePosixPath
+ import argparse,hashlib,importlib.util,json,stat,sys,zipfile
+-from guards import ARMS,identity_plan,positive_terminal
++from guards import ARMS,identity_plan,positive_terminal,preflight_launch
+ ROOT=Path(__file__).resolve().parents[3]
+ read=lambda p:json.loads(Path(p).read_bytes())
+ def sha(p):
+@@ -16,7 +16,7 @@
+ 
+ def verify(seed, arm):
+     assert arm in ARMS
+-    folder=ROOT/f'outputs/user_backbone_primary_collection12_20261011_v1/seed{seed}_{arm}_v1'
++    folder=ROOT/f'outputs/user_backbone_primary_collection12_20261011_v2/seed{seed}_{arm}_v1'
+     meta=read(folder/'remote_collection_metadata_v1.json')
+     executed=read(folder/'remote_collection_execution_v1.json');transport=read(folder/'remote_collection_transport_v1.json')
+     assert sha(folder/'remote_collection_execution_v1.json')==transport['sha256']
+@@ -26,7 +26,7 @@
+     assert executed['receipt']['seed']==seed and executed['receipt']['arm']==arm and not executed['receipt']['automatic_retry']
+     assert executed['receipt']['source_sha256']==sha(Path(__file__).parent/'collect.py')
+     assert executed['receipt']['protocol_sha256']==sha(Path(__file__).parent/'protocol.json')
+-    collector=ROOT/'英文小论文/code/user_backbone_primary_collection12_20261011_v1'
++    collector=ROOT/'英文小论文/code/user_backbone_primary_collection12_20261011_v2'
+     protocol=read(collector/'protocol.json')
+     assert sha(__file__)==protocol['local_verifier_sha256']
+     assert sha(collector/'guards.py')==protocol['remote_sources']['guards.py']
+@@ -95,6 +95,8 @@
+     assert start['initialization']==initialization
+     assert start['native_augmentation_and_supervision_weights_unchanged']
+     assert start['evaluator_runtime']['binding']==identity['evaluator_binding']
++    prefix={1:'/25085400120',2:'/24085403014'}[seed]
++    preflight_launch(read(destination/'screen/detector_preflight_dispatch.json'),read(destination/'screen/detector_preflight_completion.json'),prefix,seed,PurePosixPath(receipt['paths']['screen_root'])/'bundle')
+     full=read(destination/'screen/detector_preflight_v1/report.json')
+     assert full['identity']==identity and full['status']=='PASS_USER_CONFIG_FULL_AMP_LOSS_BACKWARD_NO_UPDATES'
+     assert full['optimizer_updates']==full['training_epochs']==0 and full['candidate_detector_forwards']==2
+--- v1/guards.py
++++ v2/guards.py
+@@ -34,3 +34,11 @@
+     assert trainer['child_pid'] == frozen['pid'] and trainer['child_start_ticks'] == frozen['start_ticks']
+     assert trainer['controller_pid'] == controller['pid'] == frozen['controller_pid']
+     assert controller['start_ticks'] == frozen['controller_start_ticks']
++
++
++def preflight_launch(launch, completion, prefix, seed, bundle):
++    assert seed in (1,2) and prefix=={1:'/25085400120',2:'/24085403014'}[seed]
++    assert isinstance(launch['pid'],int) and launch['pid']>0 and str(launch['start_ticks']).isdigit()
++    python=prefix+('/envs/deim/bin/python' if seed==1 else '/deim_migration_runtime/envs/deim/bin/python')
++    assert launch['command']==[python,'-B',prefix+'/DEIM/experiments/user_backbone12_20261011_v1/code/preflight.py','--bundle',str(bundle)]
++    assert completion['exit_code']==completion['training_epochs']==completion['optimizer_updates']==0
+--- v1/protocol.json
++++ v2/protocol.json
+@@ -1,7 +1,7 @@
+ {
+-  "schema": "user_backbone_read_only_primary_collection12_v1",
+-  "collector_sha256": "83b540acf225ca6022a887bbd765de3cc86f149cbc4ba6de0245a8bc2660a5a9",
+-  "local_verifier_sha256": "9a42daf0db72550033a630b46f675cedca2cca2a7c11ef72807986d7a8801637",
++  "schema": "user_backbone_read_only_primary_collection12_v2",
++  "collector_sha256": "7a26435c9ef2c6d045a31d04d821ae9a8a24b1c4b310d3b5721958c0ca9178e1",
++  "local_verifier_sha256": "278b1c2c74202f7452ca80df6d061fd371747396d3e6d9bf26bb80cc238cf66d",
+   "user_files_sha256": {
+     "closeout_protocol.json": "939e1cfbabc42cfab43c59b00eb90e4370f1c071874d5aea9b20e411032dbd7f",
+     "collect_terminal.py": "f21834a60771f715d92b8b97d238812e941897ed35ff2d15496dd90c90f7ea82",
+@@ -90,9 +90,9 @@
+     ]
+   },
+   "remote_sources": {
+-    "collect.py": "83b540acf225ca6022a887bbd765de3cc86f149cbc4ba6de0245a8bc2660a5a9",
+-    "wait_stopped.py": "95bdab568c8b7a428bf67ff9449a8d6ebea8c0d57a136bb3fbf9ca50d7b0eea0",
+-    "guards.py": "69e3ecc8d0e4492e2dccc0a362d5160672a6bd21fdae6a5ed60beeb18d2a90e7"
++    "collect.py": "7a26435c9ef2c6d045a31d04d821ae9a8a24b1c4b310d3b5721958c0ca9178e1",
++    "wait_stopped.py": "a81eb67d10208b16cd14fac2cc3ea12d2ee3bb50f56e7fc595e553156f284d3b",
++    "guards.py": "3f3a9d52ef37b1fe6b2924f5fea8b0ed9ee0d6f3e11c8002dbe4d7d6047f0b35"
+   },
+   "adaptation_source_sha256": {
+     "Warm_collect.py": "465c037b57f91239190c185282ded254658ad0cc0c725eead816e2a4d2ba7085",
+@@ -107,5 +107,6 @@
+   "new_training_epochs": 0,
+   "existing_process_signals": 0,
+   "automatic_retry": false,
+-  "scope": "Read-only archival of existing three user configurations only, not new model/BASE evaluation or training. Pending formal saved-EMA replay remains a separate gate."
++  "scope": "Read-only archival of existing three user configurations only, not new model/BASE evaluation or training. Pending formal saved-EMA replay remains a separate gate.",
++  "repair_scope": "v1 requested nonexistent detector_preflight_start.json; native dispatcher writes detector_preflight_dispatch.json. Require actual dispatch command and positive zero-update completion. Preserve v1 failure and empty partial folder, exact original training and all endpoint gates. v2 starts no training, evaluator or model."
+ }

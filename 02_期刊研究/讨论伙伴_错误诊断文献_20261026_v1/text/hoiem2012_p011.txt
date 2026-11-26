@@ -1,0 +1,41 @@
+Diagnosing Error in Object Detectors 11
+4 Conclusion
+4.1 Diagnosis
+We have analyzed the patterns of false and missed detections made by currently top-
+performing detectors. The good news is that egregious errors are rare. Most false posi-
+tives are due to misaligned detection windows or confusion with similar objects (Fig. 2).
+Most missed detections are atypical in some way – small, occluded, viewed from an
+unusual angle, or simply odd looking. Detectors seem to excel at latching onto the
+common modes of object appearance and avoiding confusion with miscellaneous back-
+ground patches. For example, detectors more easily detect lightly occluded objects for
+categories that are typically occluded, such as bicycles and tables. Airplanes in the
+stereotypical direct side-view are detected by FGMR with almost double the accuracy
+of the average airplane.
+Further progress, however, is likely to be slow, incremental, and to require careful vali-
+dation. Localization error is not easily handled by detectors because determining object
+extent often requires looking well outside the window. A box around a cat face could
+be a perfect detection in one image but only a small part of the visible cat in another
+(Figs. 1, 8). Gradient histogram-based models, designed to accommodate moderate po-
+sitional slop, may be too coarse for differentiation of similar objects, such as cows and
+horses or cats and dogs. Although detectors fare well for common views of objects,
+there are many types of deviations that may require different solutions. Solving only
+one problem will lead to small gains. For example, even if occluded objects could be
+detected as easily as unoccluded ones, the overall AP would increase by 0.05 or less
+(Fig. 6). Better detection of small objects could yield large gains (roughly 0.17 AP), but
+the smallest objects are intrinsically difﬁcult to detect. Our biggest concern is that suc-
+cessful attempts to address problems of occlusion, size, localization, or other problems
+could look unpromising if viewed only through the lens of overall performance. There
+may be a gridlock in recognition research: new approaches that do not immediately ex-
+cel at detecting objects typical of the standard datasets may be discarded before they
+are fully developed. One way to escape that gridlock is through more targeted efforts
+that speciﬁcally evaluate gains along the various dimensions of error.
+4.2 Recommendations
+Detecting Small/Large Objects: An object’s size is a good predictor of whether it will
+be detected. Small objects have fewer visual features; large objects often have unusual
+viewpoints or are truncated. Current detectors make a weak perspective assumption that
+an object’s appearance does not depend on its distance to the camera. This assumption
+is violated when objects are close, making the largest objects difﬁcult to detect. When
+objects are far away, only low resolution template models can be applied, and contextual
+models may be necessary for disambiguation. There are interesting challenges in how
+to beneﬁt from the high resolution of nearby objects while being robust to near-ﬁeld
+perspective effects. Park et al. [24] offer one simple approach of combining detectors

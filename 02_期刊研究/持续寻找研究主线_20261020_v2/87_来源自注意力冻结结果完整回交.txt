@@ -1,0 +1,35 @@
+2026-10-21 America/Los_Angeles。83事前协议、84执行代码、85完整实测。无新增训练。
+
+固定原16图每增强seed前2图，共4图：902GT、原sub4曝光453，保留N>Q图。all_count RGB/GT/300query/初始框不变，来源由实际topk原网格anchor中心映射真实occurrence mask，不按GT或预测框给身份。三臂同一PyTorchMHA后端，普通原臂、同初始来源query mask、相同5组大小的固定随机query mask；来源0为单独填充组。每query对角可见，不改cross-attention/encoder/matcher/loss。两个BASE24 online原CP、state_dict/BN和CP SHA前后不变，原臂与77缓存boxes/logits误差恰好0，8项覆盖也完全一致。
+共6次CPU batch4 forward，约7.55秒；无backward/optimizer/训练/heldout/远端/监测，未写checkpoint。
+
+覆盖计数，不是AP：
+model1                 原注意力      真来源mask     等组大小随机
+全GT真类.5               270           274             267
+原sub4真类.5              22            25              22
+全GT真类.75              143           146             142
+原sub4真类.75              2             5               3
+全GT几何.5               302           309             300
+全GT几何.75              147           152             148
+
+model2
+全GT真类.5               282           289             271
+原sub4真类.5              25            23              21
+全GT真类.75              159           162             153
+原sub4真类.75              4             5               3
+全GT几何.5               309           318             306
+全GT几何.75              165           165             160
+
+83事前要求两模型全GT真类.5均胜原/随机，且sub4不低于原。model1通过，model2因sub4=23<25未通过，整体不通过，停止这项精确硬mask版本。不把全GT正结果隐藏，也不删除sub4下降来改判。不据此否定所有source-conditioned设计；更不能把这版再加软门控直接说创新成立。
+记录的原首层异source自注意力平均质量逐图约.43–.56，但高权重不是干扰有害的因果证明。最终真类.5存在性，绝大多数合格query与GT为相同初始source，另源贡献model1仅1个GT、model2为0；有填充来源query对GT合格。各种存在性集合可重叠，不相加作最大匹配覆盖数。
+双线性/encoder RF等仍可混合来源，此mask不证明独立图像处理；来源0单独成组也影响交互，随机控制只保证组大小，不保证被删注意力质量。
+
+86是直接从85缓存追加的初始来源分配描述，无新前向：
+事件(增强seed1,pos255)，GT[19,23,62,42]，query模型1[79,42,66,113]，模型2[67,43,90,100]；各源初始Q>=N。
+事件(增强seed1,pos306)，总GT280：GT[19,60,174,27]，query模型1[44,100,127,23]、填充6；模型2[42,109,122,27]、填充0。第三源初始query少于GT47/52，第四源仅model1少4。
+事件(增强seed2,pos102)，总GT418本身超Q300：GT[53,200,108,57]，query模型1[22,68,89,117]、填充4；模型2[25,74,79,118]、填充4。
+事件(增强seed2,pos204)，GT[7,5,20,26]，query模型1[24,62,77,137]、模型2[19,58,70,153]；各源Q>=N。
+原query可跨源移动，所以上述不是原算法漏检下界，也不能据Ns>Qs就推出挤占原因。总query/GT平均值不能解释哪个源失败。
+
+当前软件圆桌A/B新提出固定300预算的专属+共享query及source资格匹配，尚未核查：r_s=min(n_s,floor300/S)、source内top-r、剩余global填补；专属只匹配本源、共享任意，强对照同token自由匹配与同配额几何重新归属。必须进一步明确为何r上限75能触及174GT源初始query127的实际缺口；不能只用保证匹配可行替代机制。原代码content=enc_topk_memory.detach()，普通decoder loss不会直接经content回传selected memory；cross-attention和enc_aux路径另有梯度，需分别写准。
+这些新候选还没有实质创新或训练价值结论。原文packing和GT/query预算相关先例需按实际作用变量比较；总研究目标仍继续，不以本版失败结束，也不新增训练。

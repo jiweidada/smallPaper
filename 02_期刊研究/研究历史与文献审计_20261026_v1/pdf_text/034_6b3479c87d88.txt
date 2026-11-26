@@ -1,0 +1,111 @@
+Academic Editors: Changqing Luo,
+Xiaojun Wang and Yifei Wei
+Received: 19 January 2026
+Revised: 27 March 2026
+Accepted: 28 March 2026
+Published: 1 April 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+HMF-DEIM: High-Fidelity Multi-Domain Fusion Transformer
+for UA V Small Object Detection
+Lan Ma *,†
+ , Yun Luo †
+ and Jiajun Xu
+College of International Studies, National University of Defense Technology, Nanjing 210012, China
+* Correspondence: malan17@nudt.edu.cn
+† These authors contributed equally to this work.
+Abstract
+Unmanned aerial vehicle (UAV) small object detection faces critical challenges including
+irreversible geometric detail loss during multi-level downsampling, cross-scale feature dis-
+tortion from interpolation blur and aliasing, and limited long-range dependency modeling
+due to constrained receptive fields. To address these limitations, we propose HMF-DEIM
+(High-Fidelity Multi-Domain Fusion Transformer for UAV Small Object Detection), an end-
+to-end architecture tailored for UAV small object detection. First, we design a lightweight
+hierarchical differentiation backbone that removes redundant deepest-layer features (P5) to
+prevent tiny object information loss, employing Multi-Domain Feature Blending (MDFB)
+in shallow layers for geometric detail preservation and a Hierarchical Attention-guided
+Feature Modulation Block (HAFMB) in deep layers for global semantic modeling. Sec-
+ond, we develop a full-chain high-fidelity feature transformation framework comprising
+Channel-Adaptive Shift Upsampling (CASU) for interpolation-free resolution recovery,
+Multi-scale Context Alignment Fusion (MCAF) for bridging deep–shallow semantic gaps
+via bidirectional gating, and Diversified Residual Frequency-aware Downsampling (DRFD)
+for aliasing suppression through a three-branch parallel architecture. Finally, we devise
+the FocusFeature module that aligns multi-scale features to a unified scale and employs
+parallel multi-scale large-kernel depthwise convolutions to capture cross-scale long-range
+dependencies, generating dual-scale (P3/P4) features balancing details and semantics. Ex-
+periments demonstrate that HMF-DEIM outperforms DEIM on VisDrone2019 test by 0.405
+mAP50 (+2.1%) and 0.235 mAP50–95 (+1.6%), with a remarkable 21.3% relative improvement
+in APs for tiny objects, while maintaining real-time inference (465 FPS with TensorRT FP16)
+on an NVIDIA A100 GPU with only 11.87M parameters and 34.1 GFLOPs. Further valida-
+tion on AI-TOD v2 and DOTA v1.5 datasets confirms robust generalization across diverse
+aerial scenarios, making it a practical solution for resource-constrained UAV applications.
+Keywords: UAV imagery; small object detection; end-to-end transformer detection;
+multi-scale feature fusion; real-time detection; hierarchical feature differentiation;
+cross-scale contextual aggregation
+1. Introduction
+Unmanned Aerial Vehicles (UAVs) have evolved from simple flight platforms into
+intelligent systems equipped with onboard edge computing capabilities. These systems
+can process complex algorithms in real time without continuous ground station com-
+munication, enabling critical applications such as traffic monitoring, disaster relief, tac-
+tical reconnaissance, and automated surveillance [ 1–4]. However, UAV vision systems
+Sensors 2026, 26, 2187 https://doi.org/10.3390/s26072187
+
+---PAGE---
+
+Sensors 2026, 26, 2187 2 of 31
+face severe challenges in dense urban environments as follows: object detection must
+simultaneously achieve high accuracy and real-time performance. The unique charac-
+teristics of aerial imagery—including extreme scale variations, complex backgrounds,
+and diverse viewpoints—pose fundamental technical barriers to conventional computer
+vision frameworks.
+In complex UAV aerial scenarios, small object detection faces multiple technical chal-
+lenges. Traditional convolutional neural networks often cause irreversible loss of small
+object geometric details during multiple downsampling operations, while fixed receptive
+field designs cannot simultaneously accommodate feature extraction for objects of differ-
+ent scales [5]. Although attention mechanisms show potential in global modeling, their
+effectiveness in shallow network layers is limited [ 6,7], and conventional feature maps
+often carry significant redundant information, leading to higher computational overhead.
+Particularly, the P5 layer (stride 32) of standard backbone networks causes complete loss
+of tiny object information [8]. To address this feature degradation problem, we design
+a lightweight backbone network specifically tailored for UAV scenarios, adopting a hi-
+erarchical differentiation strategy and removing redundant deepest-layer features. In
+shallow layers (P2/P3), the Multi-Domain Feature Blending (MDFB) module maximizes
+feature reuse through dense connections and split–merge strategies; in deep layers (P4),
+the Hierarchical Attention-guided Feature Modulation Block (HAFMB) employs chan-
+nel splitting strategies, utilizing single-head self-attention mechanisms to enhance global
+semantic modeling.
+Meanwhile, due to dramatic variations in flight altitude and viewing angles, objects
+of the same category may exhibit vastly different scale distributions [9,10], posing severe
+challenges for cross-scale feature transformation. Existing feature pyramids employ sim-
+ple interpolation methods during upsampling stages, which cannot reconstruct sub-pixel
+level details; during downsampling stages, aliasing effects caused by strided convolutions
+convert high-frequency details into low-frequency noise [ 11,12]. To address this infor-
+mation distortion problem, we propose a high-fidelity feature transformation framework
+encompassing both upsampling and downsampling processes. In the upsampling stage,
+Channel-Adaptive Shift Upsampling (CASU), employs a channel cyclic shift mechanism to
+avoid interpolation blur; subsequently, the Multi-scale Context Alignment Fusion (MCAF)
+module utilizes bidirectional gating mechanisms to dynamically coordinate deep and
+shallow layer features, ensuring semantic alignment; in the downsampling stage, Diver-
+sified Residual Frequency-aware Downsampling (DRFD) adopts a three-branch parallel
+architecture to suppress high-frequency aliasing effects from multiple dimensions.
+More critically, the effective receptive field of traditional convolutional networks is far
+smaller than the theoretical value, lacking sufficient long-range dependency modeling capa-
+bility for tiny objects [5,13,14], which constitutes a fundamental bottleneck for contextual
+reasoning. To overcome this limitation, we develop the FocusFeature module as the core ag-
+gregation node. This module first aligns multi-scale features to a unified scale, and it then
+employs parallel multi-scale large-kernel depthwise convolutions to significantly expand
+the effective receptive field, collaboratively capturing cross-scale long-range dependencies.
+The module ultimately generates semantically rich P3 and P4 features. This dual-scale
+feature generation strategy (P3/P4) fully leverages the high-resolution advantage of P3 and
+the semantic abstraction capability of P4, significantly reducing decoder computational
+complexity while maintaining detection accuracy.
+From the perspective of detection framework evolution, traditional methods are
+mainly divided into CNN-based single-stage detectors (such as RetinaNet [ 15] and the
+YOLO series [ 16–18]) and two-stage detectors (such as Faster R-CNN [ 19]). Although
+these CNN methods perform well in general scenarios, they face significant challenges
+https://doi.org/10.3390/s26072187

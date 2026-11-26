@@ -1,0 +1,19 @@
+来源：本对话原生专家通道 /root/astra_design_b，请求模型gpt-6-astra、reasoning_effort=xhigh、fork_turns=none。用户明确授权三Codex+Claude讨论；仅只读专家，主助手执行代码。软件原B调用5分钟超时回执25保留，不伪称以下内容由那次失败产生。
+
+B建议核查：用固定查询预算下的真实解码收益，监督encoder候选入选；共享几何辅助只作可拆分的配套项。这是未验证设计，尚不具备训练资格。
+
+1. 事实与问题。16号摘要中，短边＜4的全池encoder几何覆盖比TopK仅多4.56/6.08pp；因此不能预设大批好框被排序挡住。但它只比较encoder框，未测未入选token经过原decoder后的贡献。可失败问题是：某些被排除的真实token，能否在不增加300预算、不提供GT框初始化时，恢复遗漏目标且不牺牲原覆盖？若不能，先停此线。
+
+2. 具体方法。原集合为S。训练时选一个未入选的GT近中心位点i，用其原memory与原enc_bbox_head预测，替换低分槽j，得到S'=S-{j}+{i}。两集合分别经过同一decoder，计算几何最大一对一覆盖C_.5、C_.75。仅当C_.5不下降且至少一项增加，记为有效替换，并使用
+L_admit=sg(w_ij)*log[1+exp(s_j-z_{i,y_g})], w_ij=ΔC_.5+ΔC_.75。
+s_j是原选择规则的最大类别logit，z_{i,y_g}是真类logit。监督的是相同预算下的解码后新增价值。有效位点再可加Claude的5L1+2LGIoU，但须做“几何／入选／两者”拆分，不能把联合收益都归给新增项。推理保留原TopK；额外decoder前向仅训练使用，训练成本必须报告。
+
+3. 作用点。已读冻结dfine_decoder.py约825–850行：在_select_topk后构造替换集合，替换content与预测reference的一整对；两者保持原detach规则。排序损失回到enc_score_head及encoder，几何辅助回到共享enc_bbox_head。GT只用于候选训练标签和收益评估，不能把GT坐标塞进reference，否则检验的是更强oracle。
+
+4. 近邻与剩余区别。本轮亲读Co-DETR §3.2–3.3、DDQ §4.1–4.4和Sparse-DETR §3.3：Co-DETR已有密集监督和额外正坐标queries；DDQ已有NMS筛选distinct queries及被过滤位点辅助监督；Sparse-DETR已有decoder注意力反馈学习token选择。RT-DETRv3也已处理encoder密集监督。剩余待证明的区别仅是：用实际替换引起的集合检测增益监督入选，而非位置正标签、框间重叠或注意力大小。不能概括成首次decoder反馈或首次监督未选token。
+
+5. 最强简单替代。同样预算的DDQ式NMS筛选；Claude中心纯几何；同位点分类＋几何。这些都应保留。若普通密集分类＋几何复制收益，复杂反事实训练没有必要。
+
+6. 最低成本首检。无需反传：两个seed固定development00/01，缓存encoder，每图按固定GT编号取首个最终未覆盖tiny GT，选择P3最近有效未选位点，替换原最低分槽；完整运行decoder。对照用同一槽替换成原rank301，另测DDQ式选择。事前要求两个seed都出现实际新增IoU≥.5覆盖，尝试目标恢复率均≥10%，全图几何覆盖均不下降，并优于rank301扰动；失败便停此精确版。通过仅说明存在可利用的入选机会，再做跨批完整历史Adam虚拟步，评价自然TopK后的真实输出，而非排序loss。
+
+最关键异议：此首检只能识别被选入是否有用，不能证明历史稀疏监督造成排除，更不能保证单token分类分数能学会依赖整个集合的替换价值。若有oracle恢复却不能迁移到自然TopK，应该放弃该排序实现，不能把oracle上限当方法收益。

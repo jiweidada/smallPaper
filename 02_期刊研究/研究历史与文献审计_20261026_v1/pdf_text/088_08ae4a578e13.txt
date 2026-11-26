@@ -1,0 +1,78 @@
+A Universal Structure of YOLO Series Small
+Object Detection Models
+Shengchao Hu1,2, Xiao Liu1,2, Weijun Wang1,2, Tianlun Huang1,2, and Wei
+Feng∗1,2
+1 ShenZhen Institute of Advanced Technology, Chinese Academy of Sciences,
+Shenzhen, China
+2 University of Chinese Academy of Sciences, Beijing, China
+sc.hu@siat.ac.cn, xiao.liu1@siat.ac.cn, wj.wang@giat.ac.cn,
+{tl.huang1,wei.feng}@siat.ac.cn
+Abstract. The YOLO series detection models play a crucial role in
+target detection tasks. However, these models are typically trained on
+datasetswithstandardangles.FordatasetslikeVisdron2021andTinyper-
+son, there are challenges related to small, dense, and numerous objects
+that conventional object detection models struggle to detect effectively.
+Therefore,weproposeauniversalstructureforallYOLOseriesmodelsto
+enhance their capability to detect small objects. We first use a large-scale
+feature map as a new detection branch to address the issue of feature
+loss with small objects. Secondly, we have developed a detail-guide-block
+(DGB) to enhance the model’s ability in detailed detection, along with a
+feature-refine-module (FRM) aimed at mitigating the problem of feature
+flattening caused by upsampling. Finally, we removed the fourth detec-
+tion branch that did not significantly improve detection accuracy, which
+can to some extent improve the execution speed of the model and reduce
+its complexity. We have ported our structure on YOLOX, YOLOv7, and
+YOLOv8, and conducted extensive experiments on Visdrone2021 and
+Tinypeson datasets. The experimental data demonstrate that our im-
+proved models consistently outperform the original model in terms of
+performance.
+Keywords: YOLO Series Model · Small Object Detection · Universal
+Structure
+1 Introduction
+Object detection is an important research direction in the field of computer
+vision and is also the foundation for other complex visual tasks. In some high-
+levelvisualtaskssuchassceneunderstanding,objecttracking,imagedescription,
+and event detection, the application of object detection is often involved. Despite
+significant breakthroughs in object detection algorithms, the detection of small
+objects still needs improvement. Compared to conventional-sized targets, small
+objects often lack sufficient visual information, making distinguishing them from
+background or similar targets difficult.
+This ACCV 2024 paper, provided here by the Computer Vision Foundation, is the author-created version.
+The content of this paper is identical to the content of the officially published ACCV 2024
+LNCS version of the paper as available on SpringerLink: https://link.springer.com/conference/accv
+3706
+
+
+---PAGE---
+
+2 Hu. Author et al.
+Figure 1/8 result 1/16 result 1/32 result
+(a) (b)
+Fig. 1: (a). Explanation of the characteristics of the dataset. (b). From left to right,
+represent the predicted results of feature maps with 8-fold downsampling, 16-fold down-
+sampling, and 32-fold downsampling, respectively.
+In recent years, deep convolutional neural networks have made significant
+progress in object detection tasks. Some benchmark datasets such as MS COCO
+[22] and PASCALVOC [6] have greatly promoted the development of object de-
+tection applications. These datasets are usually based on the human perspective,
+and many excellent detection models [21,25,29,32,41] have been proposed based
+on the above datasets. However, these models are not suitable for some spe-
+cial scenarios, such as drone aerial photography [2] and satellite remote-sensing
+images [35]. In these datasets, the following challenges are often faced: 1). Few
+available features. Small targets occupy too little size in the image, lacking suffi-
+cient visual information. Low-resolution small target visualization information is
+limited, making it difficult to extract discriminative features and easily affected
+by environmental factors, which in turn makes it difficult for detection models to
+accurately locate and recognize small targets. 2). High positioning accuracy re-
+quirement. Due to the small coverage area in the image, even a single pixel offset
+in the prediction boundary box during the prediction process can have a signif-
+icant impact on the location of small targets. 3). Object aggregation. In these
+datasets, the probability of object clustering is high. When object aggregation
+occurs, the small targets adjacent to the aggregation region will be aggregated
+into one point after repeated downsampling to the deep feature map, resulting
+in an indistinct detection result. Which are intuitively illustrated by some cases
+in Fig. 1(a).
+Looking back on the history of object detection models, the YOLO series
+of detection models [1,8,13,14,29–31,34] has played an indelible role of great
+significance. The core idea of YOLO [29] is to transform object detection into a
+3707

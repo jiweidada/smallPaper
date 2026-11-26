@@ -1,0 +1,183 @@
+Measuring the Impact of Rotation Equivariance on Aerial Object Detection
+Xiuyu Wu1 Xinhao Wang1 Xiubin Zhu1 Lan Yang1 Jiyuan Liu2 Xingchen Hu2*
+1Xidian University 2National University of Defense Technology
+{xiuyuwu, xhaowang}@stu.xidian.edu.cn, xbzhu@mail.xidian.edu.cn, yanglan@xidian.edu.cn,
+liujiyuan13@nudt.edu.cn, xhu4@ualberta.ca
+Abstract
+Due to the arbitrary orientation of objects in aerial im-
+ages, rotation equivariance is a critical property for aerial
+object detectors. However , recent studies on rotation-
+equivariant aerial object detection remain scarce. Most de-
+tectors rely on data augmentation to enable models to learn
+approximately rotation-equivariant features. A few detec-
+tors have constructed rotation-equivariant networks, but
+due to the breaking of strict rotation equivariance by typ-
+ical downsampling processes, these networks only achieve
+approximately rotation-equivariant backbones. Whether
+strict rotation equivariance is necessary for aerial image
+object detection remains an open question. In this pa-
+per , we implement a strictly rotation-equivariant backbone
+and neck network with a more advanced network structure
+and compare it with approximately rotation-equivariant
+networks to quantitatively measure the impact of rotation
+equivariance on the performance of aerial image detectors.
+Additionally, leveraging the inherently grouped nature of
+rotation-equivariant features, we propose a multi-branch
+head network that reduces the parameter count while
+improving detection accuracy. Based on the aforemen-
+tioned improvements, this study proposes theMulti-branch
+head rotation-equivariantsingle-stageDetector (MessDet),
+which achieves state-of-the-art performance on the chal-
+lenging aerial image datasets DOTA-v1.0, DOTA-v1.5 and
+DIOR-R with an exceptionally low parameter count.
+1. Introduction
+The primary difference between aerial object detection
+[3, 7, 65] and general object detection [18, 39, 66] lies
+in the bird’s-eye view perspective of aerial images, which
+causes objects to appear in arbitrary orientations. If hori-
+zontal bounding boxes (commonly used in general object
+detection) are applied to aerial images, they may encom-
+*Corresponding author.
+Code page:https://github.com/Nu1sance/MessDet
+Inputs Baseline Appr. MessDet Str. MessDetT
+ T′
+Error! Error!
+Figure 1. Visualization of features extracted by different meth-
+ods. When the input is rotated, features extracted by conventional
+CNNs are easily affected, leading to degraded detection perfor-
+mance. In contrast, our MessDet framework includes both approx-
+imately rotation-equivariant (Appr. MessDet) and strictly rotation-
+equivariant (Str. MessDet) variants. While Appr. MessDet re-
+duces rotation error during training, Str. MessDet eliminates such
+errors entirely, resulting in more robust detection performance.
+pass excessive background and make it difficult to local-
+ize the target objects accurately. In recent years, several
+datasets [27, 33, 42, 50] have been introduced that utilize
+oriented bounding boxes (OBB) for annotating aerial im-
+ages, which can more tightly enclose the target objects.
+However, bounding boxes now include angle information,
+increasing the data dimensionality from 4 to 5 when this
+approach is applied, which makes detection more challeng-
+ing. When objects appear in arbitrary orientations, the
+detector should produce consistent outputs for classifica-
+tion tasks, regardless of orientation, requiring rotation in-
+variance. In contrast, the detector needs to correctly ad-
+just the output angles, necessitating rotation equivariance
+for bounding box regression. Most aerial object detec-
+tors implicitly learn rotation equivariance by increasing
+model parameters [12, 37, 44], enhancing data augmenta-
+tion [5, 6, 14, 21, 51, 56, 57], proposing new bounding box
+representation methods [19, 24, 28, 45, 54, 55] or introduc-
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+7329
+
+
+---PAGE---
+
+ing customized loss functions [4, 58, 59, 61].
+Cohenet al.[8] explicitly implement group-equivariant
+neural networks using group theory, which is further ad-
+vanced in subsequent works such as [9, 46]. These de-
+velopments lead to the creation of rotation-equivariant net-
+works (RE-Nets) that are particularly well-suited for aerial
+object detection tasks. Some previous studies have ap-
+plied RE-Nets to aerial object detection. ReDet [20] is the
+first to adopt a RE-Net as a backbone and neck. FRED
+[26] combines the anchor-free point-set representation from
+RepPoints [62] with RE-Nets to achieve a fully rotation-
+equivariant detector. Both ReDet and FRED achieved state-
+of-the-art performance at the time and have demonstrated
+the effectiveness of RE-Nets in aerial object detection.
+However, most object detectors use typical downsam-
+pling as a trade-off between computational efficiency and
+accuracy, performing 2x downsampling with stride-2 con-
+volutional kernels during forward propagation. Addition-
+ally, the object detection pipeline often resizes image di-
+mensions to multiples of two to facilitate mapping pre-
+dicted bounding box coordinates back to the original im-
+age. Mohamedet al.[36] has shown that applying stride-2
+convolutional kernels to feature maps with even spatial di-
+mensions breaks strict rotation equivariance. Previous re-
+search on RE-Nets in aerial object detection has not ex-
+plored how strict rotation equivariance impacts model per-
+formance. For instance, ReDet only achieves approximate
+rotation equivariance. FRED ensures strict rotation equiv-
+ariance by padding even-dimensional feature maps with ze-
+ros to make them odd-dimensional before downsampling.
+However, this approach may introduce misalignment issues.
+This study proposes a new downsampling process that
+avoids single-sided padding. Instead, an additional tuning
+layer is introduced before the stride-2 downsampling layer
+to convert even-dimensional feature maps to odd dimen-
+sions to ensure strict rotation equivariance (see Fig. 1). Ad-
+ditionally, Edixhovenet al.[16] have shown that approxi-
+mately rotation-equivariant models may relax strict equiv-
+ariance constraints during training in image classification
+tasks. In certain scenarios, both strict and approximate rota-
+tion equivariance have their advantages and disadvantages.
+However, the impact of strict versus approximate rotation
+equivariance on model performance in aerial detection tasks
+remains an open question. This study will control the strict-
+ness of rotation equivariance by determining whether to
+include tuning layers in the network, thus comparing the
+effects of strict and approximate rotation equivariance on
+model performance. And we track the rotation equivari-
+ance error during training of the approximately rotation-
+equivariant model on the aerial object detection dataset to
+assess the importance of rotation equivariance.
+Among the state-of-the-art CNN-based object detectors
+[48, 53] that have emerged in recent years, the channel
+attention mechanism proposed by SENet [25] is a com-
+monly used component. However, applying channel atten-
+tion mechanisms in RE-Nets can break rotation equivari-
+ance. In this study, we implement a rotation-equivariant
+channel attention mechanism and develop a more advanced
+backbone and neck network based on RTMDet [35]. Due
+to the inherent grouping properties of rotation-equivariant
+features, the proposed model inputs feature maps from dif-
+ferent orientation dimensions into separate branches of the
+head network, which are then combined for output. Thanks
+to the higher degree of weight sharing in RE-Nets and the
+multi-branch head network, the model proposed in this pa-
+per has an exceptionally low number of parameters. To our
+knowledge, it is currently the model with the fewest param-
+eters while maintaining state-of-the-art performance. The
+multi-branch head rotation-equivariant single-stage object
+detector (MessDet) we propose achieves advanced perfor-
+mance on DOTA-v1.0 [15], DOTA-v1.5 [15] and DIOR-R
+[27].
+In summary, the contributions of this study are as fol-
+lows:
+• A novel downsampling process is proposed and inte-
+grated with RE-Nets, enabling control over whether
+the network exhibits strict or approximate rotation
+equivariance.
+• A rotation-equivariant channel attention mechanism is
+proposed to enable the implementation of rotation-
+equivariant backbone and neck networks with more
+advanced architectures. A multi-branch head network
+is introduced to make more efficient use of rotation-
+equivariant features.
+• The variation of rotation equivariance error during
+training is quantitatively analyzed in the aerial de-
+tection task, highlighting the importance of rotation
+equivariance for aerial detection performance.
+2. Related Work
+This section briefly reviews the most pertinent studies and
+methodologies that have shaped the field with the aim of
+providing a foundation for the contributions of this work.
+2.1. Aerial Object Detection
+Due to the potential for objects in aerial images to appear
+at arbitrary angles, the detector’s output must include not
+only the bounding box position, width, height, and class
+as in general object detection but also the angle informa-
+tion of the bounding box. This distinction allows research
+on aerial image object detectors to be roughly divided into
+the following categories. First, some studies focus on im-
+proving network structures or adding specialized modules
+to enable the model to better learn features related to orien-
+tation and enhance rotation equivariance. R 3Det [57] and
+DRN [37] improve feature accuracy by adding feature re-
+7330

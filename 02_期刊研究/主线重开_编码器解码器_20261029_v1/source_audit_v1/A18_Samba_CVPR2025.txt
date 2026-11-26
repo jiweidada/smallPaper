@@ -1,0 +1,896 @@
+                         This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+                                      Except for this watermark, it is identical to the accepted version;
+                                the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+Samba: A Unified Mamba-based Framework for General Salient Object Detection
+
+                        Jiahao He1 Keren Fu1,3,∗ Xiaohong Liu2 Qijun Zhao1,3
+       1
+         College of CS, Sichuan University 2 John Hopcroft Center, Shanghai Jiao Tong University
+           3
+             National Key Lab of Fundamental Science on Synthetic Vision, Sichuan University
+
+
+                           Abstract                                                   (a)
+
+                                                                                      (b)
+Existing salient object detection (SOD) models primarily
+resort to convolutional neural networks (CNNs) and Trans-                             (c)
+formers. However, the limited receptive fields of CNNs and
+                                                                                      (d)
+quadratic computational complexity of transformers both
+                                                                                            Guide           Continuous
+constrain the performance of current models on discover-
+ing attention-grabbing objects. The emerging state space           Figure 1. Comparison between existing scanning strategies and
+model, namely Mamba, has demonstrated its potential to             our scanning strategy. (a) Sequential scanning of patches in a
+                                                                   “Z” pattern [43]. (b) Sequential scanning of patches in diagonal
+balance global receptive fields and computational complex-
+                                                                   directions [60, 84]. (c) Sequential scanning of patches in an “S”
+ity. Therefore, we propose a novel unified framework based         pattern [76]. (d) Compared to (a/b/c), our spatial neighboring
+on the pure Mamba architecture, dubbed saliency Mamba              scanning (SNS) can preserve spatial continuity of salient patches.
+(Samba), to flexibly handle general SOD tasks, including
+RGB/RGB-D/RGB-T SOD, video SOD (VSOD), and RGB-D                   RGB/RGB-D/RGB-T SOD [4, 23, 40, 62, 63, 72], video
+VSOD. Specifically, we rethink Mamba’s scanning strategy           SOD (VSOD) [21, 80, 85], and RGB-D VSOD [36, 39, 53].
+from the perspective of SOD, and identify the importance of        While CNN-based backbones are known for their scalability
+maintaining spatial continuity of salient patches within scan-     and linear computational complexity, they suffer from lim-
+ning sequences. Based on this, we propose a saliency-guided        ited receptive fields, making it challenging to capture global
+Mamba block (SGMB), incorporating a spatial neighboring            dependencies. In contrast, transformer-based backbones
+scanning (SNS) algorithm to preserve spatial continuity of         offer superior visual modeling by leveraging global recep-
+salient patches. Additionally, we propose a context-aware          tive fields. However, their self-attention mechanism incurs
+upsampling (CAU) method to promote hierarchical feature            quadratic complexity, raising efficiency concerns. Although
+alignment and aggregations by modeling contextual depen-           efficient transformer architectures, such as Swin transformer
+dencies. Experimental results show that our Samba outper-          [44] and MobileViT [50], have been proposed, they typically
+forms existing methods across five SOD tasks on 21 datasets        sacrifice some global modeling capability for efficiency, fail-
+with lower computational cost, confirming the superiority of       ing to achieve an optimal balance between the two.
+introducing Mamba to the SOD areas. Our code is available              Recently, Mamba [16], a novel state space model (SSM),
+at https://github.com/Jia-hao999/Samba.                            has emerged as a highly promising backbone to balancing
+                                                                   global receptive fields and computational efficiency. Mamba
+                                                                   employs a selective scanning algorithm to model long-range
+1. Introduction                                                    dependencies while preserving linear complexity. Besides,
+                                                                   with a specially designed hardware-aware algorithm, Mamba
+Salient object detection (SOD) is an essential vision task that
+                                                                   achieves efficient training on GPUs. Building on this foun-
+aims to identify and segment the most visually prominent
+                                                                   dation, visual Mamba backbones [43, 92], with task-specific
+objects within a scene. This technique plays a crucial role in
+                                                                   models [6, 68, 78, 87, 91] based on them, have been rapidly
+various applications such as object tracking [90], semantic
+                                                                   developed. Given Mamba’s success across various vision
+segmentation [14], image enhancement [51], autofocus [28]
+                                                                   tasks and its absence in SOD areas, we seek to explore its
+and evaluation of large models [29].
+                                                                   potential for efficient global modeling in SOD tasks.
+   Current state-of-the-art (SOTA) SOD methods are pri-
+                                                                       In this paper, we propose a novel unified model, saliency
+marily dominated by convolutional neural networks (CNNs)
+                                                                   Mamba (Samba), to flexibly handle general SOD tasks. Ow-
+and transformers, addressing various SOD tasks, including
+                                                                   ing to the strong performance of visual Mamba backbones,
+  * Corresponding author: Keren Fu (fkrsuper@scu.edu.cn).          many task-specific models [49, 68, 78, 91] have leveraged
+
+
+
+                                                              25314
+them to extract global cues. Inspired by this, we adopt             tions of shallow features, and then are expanded to the same
+Vmamba [43] as our backbone, and attempt to design a                shapes as shallow features for fusion. To flexibly handle
+Mamba-based decoder to produce elaborated results. In               general SOD tasks, we also propose a multi-modal fusion
+our approach, we refer to existing Mamba-based decoders             Mamba (MFM) to explore the interaction and integration of
+[20, 49, 68, 74, 76, 84], and identify two crucial issues for       multi-modal information.
+designing Mamba-based SOD decoders:                                    In a nutshell, this paper provides four main contributions:
+    Spatial continuity issue. In the workflow of visual                • To the best of our knowledge, we are the first to adapt
+Mamba models, 2D feature maps are first divided into                     state space models to SOD tasks, and propose a novel
+patches and then scanned into 1D sequences before being                  unified framework based on the pure Mamba architec-
+fed to SSMs. Since SSMs are designed to provide continu-                 ture to flexibly handle general SOD tasks.
+ous predictions for 1D causal sequences, the prediction of             • We propose a saliency-guided Mamba block (SGMB),
+a current image patch heavily relies on preceding patches,               incorporating a spatial neighboring scanning (SNS)
+especially the nearest ones. Therefore, continuous (or suc-              algorithm, to maintain spatial continuity of salient
+cessive) salient patches within 1D sequences can help SSMs               patches, thus enhancing feature representation.
+accurately locate complete salient regions, enhancing fea-             • We propose a context-aware upsampling (CAU) method
+ture representation. However, previous scanning strategies               to promote hierarchical feature alignment and aggrega-
+[43, 60, 76, 84] neglect this issue and fail to maintain spatial         tions by modeling contextual dependencies.
+continuity of salient patches (as shown in Fig. 1 (a), (b) and         • Our Samba achieves SOTA results across five SOD
+(c)), hindering SSMs to generate high-quality features.                  tasks on 21 datasets, validating its effectiveness as well
+    Feature alignment issue. Existing Mamba-based de-                    as the potential of introducing Mamba to the SOD areas.
+coders [49, 68, 91] typically employ nearest-neighbor inter-
+polation to upsample low-resolution (i.e., high-level) fea-
+                                                                    2. Related Work
+tures before incorporating them with high-resolution (i.e.,         2.1. Deep Learning based SOD
+low-level) features. However, this approach leads to two           RGB SOD. Initially, SOD researches focus solely on the
+limitations: 1) it lacks learnability; 2) it neglects the con-     RGB modality, and design various methods, such as bound-
+textual dependencies between hierarchical features. These          ary enhancement [31, 83], feature refinement [73, 86] and
+issues result in misalignment during feature fusion, causing       attention mechanism [72, 86]. Recently, transformer-based
+deviations in the final prediction. Although previous works        methods [40, 48, 93] have become mainstream, offering
+[42, 64] have proposed learnable upsampling methods, they          superior performance due to their powerful global model-
+still fail to model the contextual dependencies between hier-      ing. However, these methods fail to tackle some challenging
+archical features during the upsampling process.                   scenes, such as complex and low-contrast backgrounds.
+    To address the first issue, we propose a novel saliency-       RGB-D and RGB-T SOD. To address the challenging
+guided Mamba block (SGMB), which emphasizes spa-                   scenes, some works introduce depth [3, 12, 23, 24, 32, 63,
+tial continuity of salient patches, and leverage SSM’s             88] or thermal images [2, 4, 25, 65, 81, 82] to assist saliency
+global modeling capability to enhance feature representa-          detection. For example, Fu et al. [12, 13] utilize a Siamese
+tion. Specifically, we design a spatial neighboring scanning       network to extract shared information from RGB and depth
+(SNS) algorithm to generate scanning paths, which are ap-          inputs for more accurate detection in complex scenes. Tu et
+plied to flatten 2D feature maps into 1D sequences while           al. [65] propose a novel dual-decoder architecture to inte-
+preserving spatial continuity of salient patches (Fig. 1 (d)).     grate the multi-type interactions between RGB and thermal.
+These 1D sequences are then processed by SSMs to gener-            VSOD. In contrast to static images, dynamic video scenarios
+ate high-quality features. Notably, compared to commonly           present considerable difficulties due to the diversity of mo-
+fixed scanning strategies (Fig. 1 (a/b/c), SNS can dynami-         tion patterns. Therefore, leveraging temporal contexts within
+cally tune scanning directions to handle various scenarios,        video sequences is crucial for VSOD methods. Some studies
+offering insights for future designs of scanning strategies.       [19, 21, 80, 85] use the interaction between video frames
+To tackle the second issue, we propose a context-aware up-         to extract motion cues. Other researches [26, 35, 41, 59]
+sampling (CAU) method, with a novel patch pairing and              precompute optical flow maps between adjacent frames, and
+ordering scheme, to promote hierarchical feature alignment         then extract complementary motion information from them.
+and aggregations during decoding. First, patches from shal-        RGB-D VSOD. The effectiveness of integrating depth into
+low and deep features are paired as subsequences to model          VSOD models has been demonstrated in [46], giving rise to
+the contextual dependencies between hierarchical features.         a potential research direction: RGB-D VSOD. As acquiring
+These paired subsequences are then concatenated and in-            RGB-D videos becomes easier, RGB-D video datasets have
+put to SSMs. By leveraging powerful causal prediction of           been introduced [36, 39, 53]. At the same time, RGB-D
+SSMs, deep features can progressively learn data distribu-         VSOD methods such as DCTNet+ [53] and ATFNet [39]
+
+
+
+                                                               25315
+                                                                                                                              Saliency-guided Mamba Block
+                                                                                Pred                                                                                                                 Supervision
+         RGB SOD
+                                          VSS       VSS       VSS       VSS                              RGB SOD
+
+
+
+
+                                                                                                                   Context-aware Upsampling
+
+
+
+
+                                                                                                                                              Context-aware Upsampling
+
+
+
+
+                                                                                                                                                                          Context-aware Upsampling
+                                        Layer 1   Layer 2   Layer 3   Layer 4                                                                                                                               GT
+
+
+
+
+                                                                                                                      VSS Decoder Layer
+
+
+
+
+                                                                                                                                                 VSS Decoder Layer
+
+
+
+
+                                                                                                                                                                             VSS Decoder Layer
+                                                                            RGBX(Y) SOD
+  RGB-D SOD        VSOD   Siamese Encoder                                                                                                                                                                          Supervsion
+
+
+
+
+                                                                                          Fusion Mamba
+                                                                                           Multi-modal
+                                                                                                                                                                                                         Pred
+
+        RGB-D VSOD
+
+
+
+
+          Input                                   Encoder                                  Convertor                                                            Decoder
+
+                           Figure 2. Overall architecture of the proposed Samba model for general SOD tasks.
+have shown encouraging potential in detection performance.                             This process allows the discrete-time SSM to be ex-
+2.2. Visual Mamba                                                                   pressed in a recurrent form, mapping the input sequence
+                                                                                    {x1 , x2 , ..., xk } to the output sequence {y1 , y2 , ..., yk }:
+Motivated by the success of Mamba in language modeling,
+Zhu et al. [92] transfer this success to vision, and design an                                             yk = Chk + Dxk , hk = Ahk−1 + Bxk .                                                                            (3)
+efficient visual backbone, vision Mamba (Vim), which incor-
+porates the bidirectional SSMs for global context modeling.                             SSMs efficiently handle long-range dependencies with
+Liu et al. [43] design visual state space blocks, and based                         linear complexity, but their time-invariance limits capturing
+on them, a novel visual Mamba backbone (Vmamba) is de-                              dynamic context. To address this, the recent advancement,
+veloped and demonstrates promising performance across                               Mamba [16], introduce an input-dependent selection mecha-
+a range of vision tasks, including semantic segmentation                            nism (S6) that relaxes the time-invariance constraint. Mamba
+[68, 91] and object detection [6, 87]. Due to the impact of                         allows the system parameters, specifically B, C, ∆, to vary
+the SSM’s selective scanning direction on effective receptive                       based on the input, thereby enhancing the model’s flexibil-
+fields, Zhao et al. [84] expand on VMamba’s four-directional                        ity in capturing complex interactions within long sequences.
+scanning by adding four additional diagonal directions, i.e.,                       Mamba also employs a new parallel scanning algorithm,
+Fig. 1 (b), to extract large spatial features from multiple                         enabling efficient training and inference on GPUs.
+directions. Yang et al. [76] propose PlainMamba, with a                             3.2. Big Picture
+continuous 2D scanning approach, i.e., Fig. 1 (c), ensuring
+                                                                                   In this section, we present an overview of the proposed
+that the scanning sequences are spatially continuous.
+                                                                                   Samba model for general SOD tasks, as shown in Fig. 2.
+3. Methodology                                                                     The “Input” encompasses various SOD tasks that Samba can
+                                                                                   adapt to, with the “...” indicating other potential tasks not
+3.1. Preliminaries
+                                                                                   explicitly listed, such as RGB-T SOD. The “Encoder” em-
+SSMs [17, 18, 61] are sequence-to-sequence models de-                              ploys a Siamese backbone that contains four visual state
+signed to capture long-range dependencies using linear time-                       space (VSS) layers [43], to extract multi-level features from
+invariant (LTI) systems. These systems map an input se-                            the inputs. The “Convertor” integrates information from
+quence x (t) ∈ R to an output sequence y (t) ∈ R via a                             different modalities through a multi-modal fusion Mamba
+latent state h (t) ∈ RN , represented by the following ordi-                       (MFM). For the “Decoder”, we mainly propose a novel
+nary differential equations (ODEs):                                                saliency-guided Mamba block (SGMB) and a context-aware
+                                                                                   upsampling (CAU) method. SGMB employs a novel scan-
+      y(t) = Ch(t) + Dx(t), h′ (t) = Ah(t) + Bx(t),                   (1)
+                                                                                   ning strategy to maintain spatial continuity of salient patches,
+where A ∈ RN ×N , B ∈ RN ×1 , C ∈ R1×N , and D ∈ R1                                thereby enhancing feature representation. CAU is designed
+are system parameters. h′ (t) is the time derivative of h(t).                      to facilitate the alignment and aggregations of hierarchical
+    The discretization of this continuous-time system is essen-                    features by modeling contextual dependencies. In the subse-
+tial for integrating SSMs into deep learning frameworks. A                         quent sections, we will provide detailed descriptions of the
+common method for discretization is zero-order hold (ZOH)                          “Encoder”, “Convertor”, and “Decoder”.
+[17], which can be formulated as:                                                   3.3. Encoder
+   A = exp(∆A), B = (∆A)          −1
+                                       (exp(A) − I) · ∆B,             (2)          To address general SOD tasks, we implement a Siamese
+                                                                                   encoder based on VSS layers. The encoder begins by parti-
+where ∆ ∈ RD is a predefined timescale parameter.                                  tioning the input images into patches. Then four VSS layers,
+
+
+
+                                                                          25316
+                                                                                                                             Spatial Neighboring Scanning (SNS) Algorithm
+                            Visual State Space (VSS) Block
+                     Linear                        SiLU
+ 1                                                                                      1
+
+
+
+                                      DWConv
+                  Linear
+
+
+
+
+                                                                       Linear
+                                                           SS2D
+                                                 SiLU
+ 2                         Reshape                                                      2
+         LN
+
+
+
+
+                                                                  LN
+ 3                          1 2                                                         3            6   7 11 10 1                  2   3   4   5     8      9 12 13 14 15 16
+                            3 4                                                                                                                                                              S6 Block
+ 4                                                                                      4
+
+
+
+
+                                                                                                                                                                                                        Merge
+                                                                                                     11 10 6             7 16 15 14 13 12 9                  8   5         4   3    2   1    S6 Block
+                                                                                                     1   2       3       4      5   8   9 12 13 14 15 16 6                     7 11 10       S6 Block
+                             Selective Scan (SS2D) Module                                            16 15 14 13 12 9                   8   5   4     3      2   1 11 10 6              7    S6 Block
+              1      2      3     4            Embedding                                1
+
+
+
+
+                                                                                                                                                    DWConv
+                                                                                                                                 1 2 3 4
+
+
+
+
+                                                                                                                                                                 SG-SS2D
+                                                                                Merge
+
+
+
+
+                                                                                                                                                                                              Linear
+                                                                                                             Linear
+ 1   2        1      3      2     4              Linear                                 2                                        5 6 7 8
+
+
+
+
+                                                                                                                                                                                   LN
+                                                                                                                      Reshape
+
+ 3   4        4      3      2     1              Linear
+                                                                                        3                                        9 10 11 12
+                                                                                        4                                       13 14 15 16
+              4      2      3     1                         S6 Block
+
+Figure 3. Diagram of the visual state space (VSS) block and selec-                                  Figure 4. Diagram of the saliency guided Mamba block (SGMB).
+tive scan (SS2D) module.                                                                         split into two outputs, which are summed and processed by
+each containing multiple VSS blocks and a downsampling                                           a Linear projection. This process can be formulated as:
+operation, are cascaded to extract multi-level features fim ,
+where m ∈ [r, d, f, t] represent RGB, depth, optical flow and                                                                f¯4r = DW Conv (Linear (f4r )) ,
+thermal modalities, respectively, and i ∈ [1, 2, 3, 4] denotes                                                               f¯x = DW Conv (Linear (f x )) ,
+                                                                                                                                4                                                       4
+the layer index. Fig. 3 provides a detailed illustration of the                                                              f˜4r , f˜4x = Split S6 Cat f¯4r , f¯4x
+                                                                                                                                                                                            
+                                                                                                                                                                                                  ,      (4)
+VSS block and its core selective scan (SS2D) module.                                                                                                
+VSS. The input first undergoes a layer normalization (LN),                                                                   f4 = Linear f˜4r + f˜4x .
+after which it is split into two information flows. The first
+flow is processed by a sequence of operations: a linear pro-                                     Building upon the dual-modal convertor, we can seamlessly
+jection (Linear), a reshape operation (Reshape), a depth-wise                                    extend it to a tri-modal convertor.
+convolution (DWConv) and a SiLU activation function [7].                                         3.5. Decoder
+Next, an SS2D module is applied to model global depen-
+                                                                                                As discussed in Sec. 1, two crucial issues remain in designing
+dencies, followed by another LN layer. The second flow, by
+                                                                                                Mamba-based SOD decoders. To address them, we propose a
+contrast, only passes through a Linear and a SiLU activation
+                                                                                                novel saliency-guided Mamba block (SGMB) and a context-
+function. After that, the two flows are multiplied and pro-
+                                                                                                aware upsampling (CAU) method.
+cessed by a Linear layer for an output. Finally, the original
+input is added to the output via a residual connection.                                          3.5.1. Saliency-guided Mamba Block
+SS2D. The input 2D feature is first flattened into four 1D                                      As shown in Fig. 2, the extracted RGB features fir , where
+sequences by scanning along four distinct directions. Then                                      i ∈ [1, 2, 3], and a coarse saliency map Sc predicted from
+the four sequences are processed by S6 blocks [16] to cap-                                      f4r are fed to SGMB, aiming to enhance the RGB features.
+ture long-range dependencies. Lastly, the sequences are re-                                     As emphasized in Sec. 1, maintaining spatial continuity of
+ordered into the same direction, and then summed to merge                                       salient patches within 1D sequences is crucial for accurate
+information.                                                                                    prediction by SSM. To this end, we design a spatial neigh-
+                                                                                                boring scanning (SNS) algorithm that flattens 2D feature
+3.4. Convertor                                                                                  maps into 1D sequences while preserving spatial continuity
+To facilitate flexible extension from single-modal SOD                                          of salient patches, as illustrated in Fig. 4. Specifically, we
+(RGB SOD) to dual-modal (RGB-D/T SOD, VSOD) and                                                 transfer maintaining spatial continuity of salient patches to a
+tri-modal SOD (RGB-D VSOD), we design a multi-modal                                             shortest path traversal problem of salient patches. In other
+fusion Mamba (MFM) as the convertor and insert it between                                       words, during scanning, the next salient patch to be scanned
+the encoder and decoder. When handling the RGB SOD task,                                        should be spatially close to the current salient patch. In order
+the convertor remains empty, and f4r is directly fed to the de-                                 to reduce computational complexity and keep the traver-
+coder. Within the dual-modal convertor, f4r ∈ RH4 ×W4 ×C4                                       sal path as short as possible, SNS scans each salient patch
+and f4x ∈ RH4 ×W4 ×C4 , where x ∈ [d, f, t], are first pro-                                     through an approximate shortest path. The core process of
+cessed by a Linear and a DWConv, respectively. The outputs                                      SNS is detailed in Algorithm 1.
+are then flattened into RL×C4 , where L = H4 × W4 , and                                             The input is Sc , where each salient patch is assigned an
+concatenated along the L dimension. To explore the interac-                                     index representing its position in the map. The output is a
+tion of multi-modal information, we utilize an S6 block to                                      list Is that stores the indexes of all salient patches, reflecting
+process the concatenated sequence. Finally, the sequence is                                     the scanning path of salient regions. Starting from the first
+
+
+
+                                                                                            25317
+Algorithm 1 Core process of SNS                                                   (HW,C)                                             1   2   5   6   1                   (HW,C)
+
+
+
+
+                                                                                                DWConv
+
+
+
+
+                                                                                                                                                         S6 Block
+                                                                             Linear
+                                                                                                                                     3   4   7   8   2
+                                                                                                                                                                                                                         (4HW,C/2)
+                                                                                      Reshape                      (H,W,C)                                          Sample
+Input: 2D coarse saliency map Sc with shape = (h, w)
+
+
+
+
+                                                                                                                                                                                  Merge & Linear
+                                                                                                                                     9   10 13 14    3
+                                                                                                                                                                                                   (HW,2C)
+
+
+
+
+                                                                                                                                                                                                             Rearrange
+Output: 1D array Is that stores the indexes of all salient patches                                       1
+
+                                                                                                         5
+                                                                                                              1
+                                                                                                                  2
+
+                                                                                                                  6
+                                                                                                                       3
+                                                                                                                       7
+                                                                                                                            2
+                                                                                                                                4
+                                                                                                                                8
+                                                                                                                                     11 12 15 16     4
+
+ 1: Initialize the current scanning row of Sc as the first row (cur =                                    9
+                                                                                                              3
+                                                                                                                  10   11
+                                                                                                                            4
+                                                                                                                                12
+                                                                                                                                     1   2   5   6   1
+
+
+
+
+                                                                                                DWConv
+
+
+
+
+                                                                                                                                                         S6 Block
+                                                                                                         13       14   15       16
+    1), the scanning direction of cur from left to right (dir = l →
+
+
+
+
+                                                                             Linear
+                                                                                      Reshape                                        9   10 13 14    3              Sample
+
+    r) and 1D array Is as empty (Is = ∅).                                                                     (2H,2W,C)
+                                                                                                                                     3   4   7   8   2
+
+
+ 2: while cur <= h do                                                        (4HW,C/2)
+                                                                                                                                     11 12 15 16     4
+                                                                                                                                                                         (HW,C)
+
+ 3:    Scan the salient patches in the current row according to the
+       direction dir, and append their indexes to Is .                   Figure 6. Diagram of the context-aware upsampling (CAU) method.
+ 4:    Calculate the distances between the last salient patch in Is     scanning paths of salient regions as the “S” pattern. Thus, to
+       and both the leftmost (distlef t ) and rightmost (distright )    confirm the necessity of SNS, we count the number of images
+       salient patches in the next row.
+                                                                        where scanning paths of salient regions are different from the
+ 5:    if distlef t <= distright then
+ 6:        Set the scanning direction from left to right (l → r).
+                                                                        “S” pattern, and its proportion across all images is found to be
+ 7:    else                                                             ∼31%. Besides, some visual examples are provided in Fig.
+ 8:        Set the scanning direction from right to left (r → l).       5. (2) Notably, from another perspective, the proposed SNS
+ 9:    end if                                                           can be deemed as a novel approach to inject information of
+10:    Jump to the next row(cur = cur + 1).                             a prior map into the processed features, by changing patch
+11: end while                                                           orders according to the map. Such an approach could provide
+    Return: Is                                                          insights for future designs of Mamba-based infrastructures.
+                                                                        3.5.2. Context-aware Upsampling Method
+                                                                        Previous upsampling methods lack learnability and fail to
+                                                                        model the contextual dependencies between hierarchical
+                                                                        features, leading to misalignment during feature fusion. To
+                                                                        tackle this, we propose a learnable context-aware upsampling
+ Figure 5. Scanning paths of salient regions generated by SNS.          (CAU) method, and integrate it into the decoder.
+row, SNS scans all salient patches row by row. Since salient                Fig. 6 shows the diagram of CAU. Firstly, two input
+patches within the same row are almost continuous, we can               features fi+1 ∈ RHW ×C and fir ′ ∈ R4HW ×C/2 , where
+approximate that two adjacent patches within the same row               i ∈ [1, 2, 3], are processed by a Linear, a Reshape and a DW-
+are the closest to each other. Thus, we can scan the salient            Conv, yielding fˆi+1 ∈ RH×W ×C and fˆir′ ∈ R2H×2W ×C .
+patches within each row either from left to right or right to           To align fˆi+1 with fˆir′ after upsampling, we propose lever-
+left. After scanning the current row, the algorithm moves to            aging the patch information of fˆir′ to guide the upsampling
+the next row. To maintain spatial continuity and minimize               process. Due to the neighborhood correlation of patches
+computation time, we compare the distance between the last              between hierarchical features, each patch in fˆi+1 can be as-
+salient patch in the current row and both the leftmost and              sociated with four most relevant patches within fˆir′ . Based
+rightmost salient patches in the next row. The patch with               on this, we can model the contextual dependencies between
+the smaller distance is selected as the starting patch in the           fˆi+1 and fˆir′ . Specifically, we first group the patches of fˆir′
+next row. These steps are repeated until all rows have been             using 2 × 2 windows. Then, we sample the patches from
+scanned, and the final Is is generated. Once Is is obtained,            fˆi+1 one by one, and sequentially pair them with the patch
+we store the indexes of all non-salient patches sequentially            groups of fˆir′ . Next, we concatenate the paired subsequences
+in a list Ins , and then concatenate it to Is , generating a            into a long sequence, and input it to an S6 block. By ex-
+complete scanning path for 2D feature maps. To enhance                  ploiting the causal prediction capabilities of the S6 block,
+the robustness of SNS, we generate three variants of the                each patch from fˆi+1 can progressively simulates the feature
+scanning path by altering the directions: 1) concatenate Is to          distribution of its corresponding patch group from fˆir′ . To
+Ins ; 2) reverse Is , Ins and concatenate Ins to Is ; 3) reverse        enhance this simulation process, we alter the connection
+Is , Ins and concatenate Is to Ins . These scanning paths are           order of the paired subsequences to generate a new long
+then applied to the RGB features, flattening them into 1D               sequence, and input it to the other S6 block. Afterward, we
+sequences. The remaining steps of SGMB are similar to                   sample the patches belonging to fˆi+1 from the processed
+those in the VSS block. Finally, the input RGB features fir             long sequences, and restore them to the same order, yielding
+are enhanced into high-quality features fir ′ .                         two features shaped as RHW ×C . Then they are merged and
+    Discussions of SNS. (1) Compared to the “S” pattern in              processed by a Linear layer to generate a new feature shaped
+Fig. 1, our SNS requires extra computation to determine the             as RHW ×2C . To reorganize its feature distribution, we use a
+scanning direction for each row to preserve spatial continuity.         rearrange function to expand its length fourfold and reduce
+However, in certain cases, SNS could generate the similar               its channels to a quarter of the original, obtaining an upsam-
+
+
+
+                                                                    25318
+Table 1. Quantitative comparison of our Samba against other SOTA RGB SOD methods on five benchmark datasets. “-” indicates the result
+is not available. “↑” denotes that the larger value is better. The best two results are stressed in red and blue.
+                Params MACs        DUTS [71]        DUT-O [77]            HKU-IS [34]         PASCAL-S [38]      ECSSD [75]
+    Method
+                  (M)   (G) Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑                    S m ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑
+                                                         CNN-based
+ GateNet-R [86] 128.63 162.22 0.891 0.874 0.932 0.840 0.782 0.878 0.921 0.926 0.959         0.863   0.836   0.886   0.924   0.935   0.955
+ CSF-R2 [15]     36.53 18.96 0.890 0.869 0.929 0.838 0.775 0.869        -     -       -     0.863   0.839   0.885   0.931   0.942   0.960
+ EDN [73]        42.85 20.41 0.892 0.893 0.933 0.849 0.821 0.884 0.924 0.940 0.963          0.864   0.879   0.907   0.927   0.950   0.957
+ ICON-R [93]     33.09 20.91 0.890 0.876 0.931 0.845 0.799 0.884 0.920 0.931 0.960          0.862   0.844   0.888   0.928   0.943   0.960
+ MENet [72]      27.83 94.62 0.905 0.895 0.943 0.850 0.792 0.879 0.927 0.939 0.965          0.871   0.848   0.892   0.927   0.938   0.956
+                                                      Transformer-based
+ EBM [79]       118.96 53.38 0.909 0.900 0.949 0.858 0.817 0.900 0.930 0.943 0.971          0.877   0.856   0.899   0.941   0.954   0.972
+ ICON-S [93]     94.30 52.59 0.917 0.911 0.960 0.869 0.830 0.906 0.936 0.947 0.974          0.885   0.860   0.903   0.941   0.954   0.971
+ BBRF [48]       74.40 48.60 0.908 0.905 0.951 0.855 0.820 0.898 0.935 0.946 0.936          0.871   0.884   0.925   0.939   0.957   0.972
+ VST-S ++ [40] 74.90 32.73 0.909 0.897 0.947 0.859 0.813 0.890 0.932 0.941 0.969            0.880   0.859   0.901   0.939   0.951   0.969
+ VSCode-S [47] 74.72 93.76 0.926 0.922 0.960 0.877 0.840 0.912 0.940 0.951 0.974            0.887   0.864   0.904   0.949   0.959   0.974
+ Samba           49.59 46.68 0.932 0.930 0.966 0.889 0.859 0.922 0.945 0.956 0.978          0.892   0.896   0.931   0.953   0.965   0.978
+         Table 2. Quantitative comparison of our Samba against other SOTA RGB-D SOD methods on five benchmark datasets.
+                Params MACs        NJUD [30]         NLPR [56]          SIP [9]                STERE [54]      DUTLF-D [58]
+    Method
+                  (M)   (G) Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑                    Sm ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑
+                                                         CNN-based
+ BBSNet [11]     49.77 31.20 0.921 0.919 0.949 0.931 0.918 0.961 0.879 0.884 0.922          0.908   0.903   0.942   0.882   0.870   0.912
+ JL-DCF [12]    143.52 211.06 0.877 0.892 0.941 0.931 0.918 0.965 0.885 0.894 0.931         0.900   0.895   0.942   0.894   0.891   0.927
+ SP-Net [88]     67.88 175.29 0.925 0.928 0.957 0.927 0.919 0.962 0.894 0.904 0.933         0.907   0.906   0.949   0.895   0.899   0.933
+ DCF [27]        53.92 108.60 0.904 0.905 0.943 0.922 0.910 0.957 0.874 0.886 0.922         0.906   0.904   0.948   0.925   0.930   0.956
+ SPSN [32]         -     -    0.918 0.921 0.952 0.923 0.912 0.960 0.892 0.900 0.936         0.907   0.902   0.945     -       -       -
+                                                      Transformer-based
+ SwinNet-B [45] 199.18 122.20 0.920 0.924 0.956 0.941 0.936 0.974 0.911 0.927 0.950         0.919   0.918   0.956   0.918   0.920   0.949
+ CATNet [63]    262.73 172.06 0.932 0.937 0.960 0.938 0.934 0.971 0.910 0.928 0.951         0.920   0.922   0.958   0.952   0.958   0.975
+ VST-S ++ [40] 143.15 45.41 0.928 0.928 0.957 0.935 0.925 0.964 0.904 0.918 0.946           0.921   0.916   0.954   0.945   0.950   0.969
+ CPNet [23]     216.50 129.34 0.935 0.941 0.963 0.940 0.936 0.971 0.907 0.927 0.946         0.920   0.922   0.960   0.951   0.959   0.974
+ VSCode-S [47] 74.72 93.76 0.944 0.949 0.970 0.941 0.932 0.968 0.924 0.942 0.958            0.931   0.928   0.958   0.960   0.967   0.980
+ Samba           54.94 71.64 0.949 0.956 0.975 0.947 0.941 0.976 0.931 0.949 0.966          0.935   0.933   0.963   0.956   0.964   0.976
+
+pled feature shaped as R4HW ×C/2 . Finally, the original fir ′        sure (Em ) [5]. To assess model computational complexity
+is added to the upsampled feature for feature aggregation.            and model size, we also report the multiply accumulate op-
+3.5.3. VSS Decoder Layers                                             erations (MACs) and the number of parameters (Params).
+We implement VSS decoder layers based on VSS blocks,                  4.2. Implementation Details
+aiming to decode the aggregated features from CAU. To                Our Samba is implemented in PyTorch trained on an
+explore inter-channel dependencies, we introduce a channel           NVIDIA 4090 GPU. Following previous works, we have
+attention mechanism (CAM) [22] following SS2D, forming               arranged the training sets for each task as follows: the train-
+our VSS decoder layers. The process of these layers mainly           ing set of DUTS for RGB SOD, the training sets of NJUD,
+follows a LN → Linear → DW Conv → SS2D →                             NLPR and DUTLF-D for RGB-D SOD, the training set
+CAM → LN → Linear flow with a residual connection.                   of VT5000 for RGB-T SOD, the training sets of DAVIS
+                                                                     and DAVSOD for VSOD. Due to the lack of a benchmark
+4. Experiments                                                       training set for RGB-D VSOD, we train and test Samba on
+4.1. Datasets and Metrics                                            RDVS, DVisal and ViDSOD separately. In the training pro-
+                                                                     cess, we adopt AdamW optimizer with an initial learning
+For RGB SOD, we evaluate Samba on five commonly used
+                                                                     rate of 1e − 4 and the batch size of 2. All input images are
+benchmark datasets, i.e., DUTS [71], DUT-O [77], HKU-IS
+                                                                     uniformly resized to 448 × 448 for training and testing, and
+[34], PASCAL-S [38] and ECSSD [75]. As for RGB-D
+                                                                     are also augmented using various strategies like random flip-
+SOD, we use five benchmark datasets, including NJUD [30],
+                                                                     ping, random cropping and random rotating during training.
+NLPR [56], SIP [9], STERE [54] and DUTLF-D [58]. Re-
+                                                                     The model converges after 30 training epochs.
+garding RGB-T SOD, we employ three benchmark datasets:
+VT821 [69], VT1000 [67] and VT5000 [66]. For VSOD,                   4.3. Comparison with State-of-the-Art Methods
+we utilize five widely used benchmark datasets: DAVIS [57],           Quantitative Evaluation. Since our Samba is a unified
+DAVSOD-easy [10], FBMS [55], SegV2 [33] and VOS [37].                 model to handle general SOD tasks, we present comparative
+In terms of RGB-D VSOD, three public datasets are con-                experiments of Samba against existing SOTA methods across
+sidered, including RDVS [53], DVisal [36] and ViDSOD                  five SOD tasks, including 10 models for RGB SOD, 10 mod-
+[39]. We adopt three saliency metrics to evaluate model               els for RGB-D SOD, 10 models for VSOD, 10 models for
+performance, i.e., structure-measure (Sm ) [8], maximum F-            RGB-T SOD, 3 models for RGB-D VSOD, as shown in Ta-
+measure (Fm ) [1] and maximum enhanced-alignment mea-                 ble 1, 2, 3, 4 and 5. The comprehensive results illustrate that
+
+
+
+                                                                 25319
+              Table 3. Quantitative comparison of our Samba against other SOTA VSOD methods on five benchmark datasets.
+                Params MACs       DAVIS [57]     DAVSOD-easy [10]      FBMS [55]                   SegV2 [33]         VOS [37]
+     Method
+                  (M)   (G) Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑ Sm ↑ Fm ↑ Em ↑                        Sm ↑ F m ↑ E m ↑ S m ↑ F m ↑ E m ↑
+                                                        CNN-based
+MGAN [35]        91.51 123.57 0.913 0.894 0.965 0.740 0.611 0.778 0.909 0.903 0.946             0.902    0.869   0.950    0.797   0.725   0.829
+PCSA [19]          -     -    0.900 0.877 0.960 0.725 0.590 0.759 0.872 0.844 0.917             0.886    0.848   0.938    0.802   0.699   0.816
+FSNet [26]       83.41 35.32 0.922 0.909 0.972 0.760 0.637 0.796 0.875 0.867 0.918              0.849    0.773   0.920    0.678   0.621   0.755
+DCFNet [80]      69.56 93.27 0.914 0.899 0.970 0.729 0.612 0.781 0.883 0.853 0.910              0.903    0.870   0.953    0.838   0.773   0.861
+UGPL [59]          -     -    0.911 0.895 0.968 0.732 0.602 0.771 0.897 0.884 0.939             0.867    0.828   0.938    0.751   0.685   0.811
+MMNet [85]       50.81 82.63 0.911 0.895 0.968 0.732 0.602 0.771 0.897 0.884 0.939              0.867    0.828   0.938    0.751   0.685   0.811
+                                                     Transformer-based
+MGTNet [52]     150.91 265.21 0.925 0.919 0.976 0.765 0.653 0.800 0.900 0.881 0.929             0.903    0.861   0.946 0.814 0.727 0.819
+UFO [21]         55.92 248.80 0.918 0.906 0.978 0.747 0.626 0.799 0.858 0.868 0.911             0.888    0.850   0.951   -     -     -
+CoSTFormer [41]    -     -    0.923 0.906 0.978 0.779 0.667 0.819 0.869 0.861 0.913             0.874    0.813   0.943 0.791 0.708 0.811
+VSCode-S [47]    74.72 93.76 0.936 0.922 0.973 0.800 0.710 0.835 0.905 0.902 0.939              0.946    0.937   0.984   -     -     -
+Samba            54.94 71.64 0.943 0.936 0.985 0.813 0.734 0.856 0.925 0.922 0.954              0.943    0.938   0.987 0.870 0.820 0.898
+        Table 4. Quantitative comparison of our Samba against other SOTA RGB-T SOD methods on three benchmark datasets.
+      Method                                      CNN-based                                               Transformer-based
+             MIDD [65] ECFFNet [89] CGFNet [70] CSRNet [25] MGAI [62] TNet [4] CGMDR [2] SPNet [82] SwinNet-B [45] VSCode-S [47] Samba
+   Params (M) 52.43         -         69.92        1.01      87.09     87.04       -       104.03       199.18         74.72     54.94
+     MACs (G) 217.13        -         382.63       5.76      78.37     54.90       -       67.59        122.20         93.76     71.64
+        Sm ↑ 0.871        0.877       0.881       0.885      0.891     0.899     0.894      0.913        0.904         0.926     0.934
+VT821 Fm ↑ 0.847          0.835       0.866       0.855      0.870     0.885     0.872      0.900        0.877         0.910     0.927
+[69]    Em ↑ 0.916        0.911       0.920       0.920      0.933     0.936     0.932      0.949        0.937         0.954     0.965
+        Sm ↑ 0.916        0.924       0.923       0.919      0.929     0.929     0.931      0.941        0.938         0.952     0.953
+VT1000 Fm ↑ 0.904         0.919       0.923       0.901      0.921     0.921     0.927      0.943        0.933         0.947     0.956
+[67]    Em ↑ 0.956        0.959       0.959       0.952      0.965     0.965     0.966      0.975        0.974         0.981     0.983
+        Sm ↑ 0.868        0.876       0.883       0.868      0.884     0.895     0.896      0.914        0.912         0.925     0.928
+VT5000 Fm ↑ 0.834         0.850       0.852       0.821      0.846     0.864     0.877     0.905         0.885         0.900     0.919
+[66]    Em ↑ 0.919        0.922       0.926       0.912      0.930     0.936     0.939      0.954        0.944         0.959     0.963
+
+Table 5. Quantitative comparison of our Samba against other SOTA
+RGB-D VSOD methods on three public datasets.
+         Method               CNN-based
+                 DCTNet+ [53] DVSOD [36] ATFNet [39] Samba
+      Params (M)    90.69        97.34     124.07    60.28
+       MACs (G)    117.94       276.46     54.36     96.60
+           Sm ↑     0.869        0.689      0.741    0.883
+ RDVS      Fm ↑     0.814        0.574      0.592    0.834
+ [53]      Em ↑     0.914        0.733      0.785    0.936
+           Sm ↑     0.814        0.729      0.723    0.847
+ DVisal Fm ↑        0.807        0.648      0.659    0.825
+ [36]      Em ↑     0.909        0.813      0.809    0.914              RGB    GT    Samba   VSCode-S   VST++    BBRF    ICON-S   EBM     MENet
+           Sm ↑     0.877        0.770      0.875    0.923
+ ViDSOD Fm ↑        0.820        0.687      0.832    0.895             Figure 7. Visual comparison against SOTA RGB SOD methods.
+ [39]      Em ↑     0.901        0.846      0.911    0.944           prompt-based scheme, while Samba is only trained on indi-
+                                                                     vidual SOD sub-tasks separately. In this regard, VSCode-S
+Samba outperforms existing SOTA CNN- and transformer-
+                                                                     has been fed with more training data than Samba.
+based SOD models across 21 datasets, with a comparable
+                                                                     Qualitative Evaluation. To clearly demonstrate the supe-
+number of Params and relatively low MACs, demonstrat-
+                                                                     riority of our Samba, we display visual comparison results
+ing the superior performance of Samba. Specifically, for
+                                                                     among the top-performing RGB SOD models in Fig. 7.
+RGB SOD, the Params and MACs of Samba are lower than
+                                                                     The 1st row showcases a large object with hollow parts. In
+those of transformer-based methods (except VST-S++ [40]),
+                                                                     comparison to other models, Samba can accurately detect
+while Samba also achieves best results on the given datasets.
+                                                                     hollow parts and produce more reliable results. In the 2nd
+Although some CNN-based methods (ICON-R [93], EDN
+                                                                     and 3rd rows, we present two scenes with multiple salient
+[73] and CSF-R2 [15]) are more efficient than our Samba,
+                                                                     objects. From the comparison results, it can be observed that
+their performance is substantially inferior to Samba. Re-
+                                                                     Samba effectively locates all salient objects and segments
+garding RGB-D/T SOD, VSOD and RGB-D VSOD, most
+                                                                     them more accurately than the other models. The last row
+methods (except BBSNet [11], VST-S++ [40], FSNet [26],
+                                                                     depicts a scene with cluttered backgrounds and object oc-
+SPNet [82], TNet [4], CSRNet [25], ATFNet [39]) exhibit
+                                                                     clusion, where Samba successfully detects the salient object
+higher computational complexity than Samba, regardless of
+                                                                     while other models misidentify non-salient regions.
+whether they are CNN- or transformer-based. Nevertheless,
+Samba still outperforms these methods on the given datasets.         4.4. Ablation Study
+It should be noted that VSCode-S has received joint train-           To verify the relative contribution of different components in
+ing data from all SOD sub-tasks, since it aims at a general          Samba, we conduct thorough ablation studies by removing
+
+
+
+                                                               25320
+ Table 6. Ablation study of Samba on three RGB SOD, three RGB-D SOD and one RGB-D VSOD datasets. Bolded results are the best.
+           DUTS[71]          ECSSD[75]         DUT-O[77]         NJUD[30]          NLPR[56]        DUTLF-D[58]         RDVS[53]
+Settings
+       Sm ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑ S m ↑ F m ↑ E m ↑ Sm ↑ F m ↑ E m ↑ S m ↑ F m ↑ E m ↑
+  Ours 0.932 0.930 0.966 0.889 0.859 0.922 0.953 0.965 0.978 0.949 0.956 0.975 0.947 0.941 0.976 0.956 0.964 0.976 0.883 0.834 0.936
+   A1 0.922 0.916 0.950 0.881 0.843 0.909 0.946 0.954 0.966 0.940 0.941 0.961 0.942 0.932 0.965 0.947 0.952 0.963 0.876 0.822 0.929
+   A2 0.926 0.919 0.952 0.882 0.846 0.914 0.946 0.952 0.964 0.941 0.945 0.966 0.945 0.933 0.962 0.949 0.957 0.968 0.878 0.827 0.930
+   A3 0.929 0.924 0.961 0.884 0.852 0.917 0.950 0.961 0.973 0.945 0.949 0.970 0.944 0.937 0.974 0.949 0.959 0.971 0.880 0.829 0.931
+   A4 0.928 0.927 0.963 0.886 0.853 0.917 0.947 0.960 0.971 0.943 0.948 0.965 0.943 0.938 0.972 0.947 0.956 0.972 0.879 0.831 0.932
+   A5 0.930 0.928 0.963 0.886 0.857 0.918 0.951 0.962 0.973 0.946 0.952 0.972 0.945 0.940 0.973 0.949 0.961 0.972 0.881 0.831 0.933
+   A6 0.928 0.926 0.963 0.886 0.856 0.918 0.948 0.960 0.971 0.947 0.954 0.973 0.945 0.940 0.972 0.952 0.962 0.975 0.880 0.830 0.933
+   B1 0.927 0.923 0.960 0.887 0.856 0.912 0.952 0.961 0.976 0.941 0.952 0.966 0.942 0.939 0.972 0.953 0.957 0.969 0.879 0.828 0.932
+   B2 0.921 0.918 0.952 0.877 0.848 0.905 0.949 0.955 0.970 0.936 0.944 0.962 0.939 0.933 0.965 0.947 0.954 0.961 0.874 0.819 0.928
+   B3 0.923 0.924 0.956 0.884 0.855 0.913 0.946 0.959 0.968 0.937 0.946 0.966 0.938 0.933 0.963 0.950 0.955 0.966 0.878 0.826 0.933
+   B4 0.931 0.928 0.964 0.887 0.857 0.921 0.951 0.965 0.974 0.947 0.955 0.972 0.946 0.939 0.971 0.955 0.963 0.974 0.882 0.834 0.934
+   B5 0.929 0.926 0.964 0.888 0.854 0.920 0.950 0.964 0.976 0.948 0.953 0.971 0.944 0.936 0.973 0.955 0.962 0.971 0.879 0.832 0.931
+   B6 0.926 0.922 0.963 0.888 0.853 0.916 0.949 0.961 0.974 0.945 0.952 0.971 0.940 0.934 0.972 0.952 0.959 0.972 0.877 0.833 0.928
+   C1 0.932 0.930 0.966 0.889 0.859 0.922 0.953 0.965 0.978 0.944 0.954 0.970 0.945 0.936 0.973 0.952 0.961 0.969 0.878 0.831 0.926
+   C2 0.929 0.926 0.965 0.886 0.857 0.918 0.951 0.962 0.973 0.946 0.953 0.973 0.944 0.938 0.972 0.953 0.963 0.972 0.881 0.833 0.932
+
+or replacing them from Samba. As shown in Table 6, we per-           alternative upsampling methods. In the CAU module, we
+form a range of experiments on three RGB SOD (DUTS, EC-              introduce a novel patch pairing and ordering scheme, which
+SSD, DUT-O), three RGB-D SOD (NJUD, NLPR, DUTLF-                     plays a central role in the upsampling process. To validate
+D) and one RGB-D VSOD datasets (RDVS).                               the effectiveness of this design, we shift the original pairing
+Effectiveness of SGMB. To validate the effectiveness of              sequences by one patch, three patches, and five patches, re-
+SGMB, we first delete the SGMB module, denoted as vari-              sulting in variants “B4”, “B5” and “B6”. The performance of
+ant “A1” in Table 6, and then utilize an SS2D module to              these variants shows a clear degradation with the increased
+replace the SG-SS2D module of SGMB, denoted as variant               shifting of the original pairing order, indicating the effective-
+“A2”. From the comparison results, it is evident that our            ness of the proposed patch pairing and ordering scheme.
+model performs better than “A1” and “A2”, which indicates            Effectiveness of MFM. In order to validate the proposed
+the significant contribution of SGMB in boosting detection           MFM module, we replace it with a simple concatenation
+performance. Since the core idea of SGMB lies in the SNS             followed by a convolution, denoted as variant “C1”. Be-
+algorithm, which is used to maintain spatial continuity of           sides, we re-implement the convertor using the RFM module
+salient patches. To evaluate its contribution, we apply three        proposed in [53], denoted as variant “C2”. The compari-
+other scanning manners to salient regions, i.e., Fig. 1 (a), (b)     son results clearly demonstrate the superiority of MFM in
+and (c), which fail to preserve spatial continuity of salient        facilitating the interaction of multi-modal information.
+patches. We denote these evaluations as “A3”, “A4” and
+“A5”. Compared to these variants, our model consistently
+outperforms them on the evaluated datasets, highlighting             5. Conclusion
+the importance of preserving spatial continuity of salient
+patches. In the SNS algorithm, we generate three variants of         In this paper, we are the first to adapt state space models to
+the scanning path by changing the directions to enhance the          SOD tasks, proposing a new unified framework based on the
+robustness of SNS. To validate the contribution of the three         pure Mamba architecture, named saliency Mamba (Samba),
+paths, we create three copies of the initial scanning path           which can flexibly handle general SOD tasks. We iden-
+to replace them, denoted as “A6”. The comparison results             tify spatial continuity of salient patches within scanning se-
+between “Ours” and “A6” demonstrate the effectiveness of             quences, and propose a novel saliency-guided Mamba block
+using multiple paths with varying directions.                        (SGMB). Central to SGMB is a spatial neighboring scan-
+Effectiveness of CAU. The proposed CAU module achieves               ning (SNS) algorithm, which dynamically adjusts scanning
+learnable upsampling by modeling contextual dependencies             directions to maintain spatial continuity of salient patches.
+between hierarchical features, which facilitates the alignment       Furthermore, we propose a context-aware upsampling (CAU)
+and aggregations of these features. To evaluate its effective-       to promote hierarchical feature alignment and aggregations
+ness, we compare it with three other upsampling methods.             by modeling contextual dependencies. Extensive experimen-
+Firstly, we utilize nearest-neighbor interpolation to replace        tal results demonstrate that our Samba outperforms existing
+the upsampling operation in the CAU module, denoted as               SOTA CNN- and transformer-based models across five SOD
+variant “B1”. Besides, we investigate two other learnable            tasks on 21 datasets, with lower computational cost.
+upsampling methods: DUpsampling [64] and DySample                    Acknowledgments. This work was supported by the National
+[42], and apply them separately for feature upsampling, de-          Natural Science Foundation of China, under No. 62176169,
+noted as “B2” and “B3”. Comparing “B1”, “B2” and “B3”                62301310, 62176170, and the Sichuan Science and Technology
+with our full model, it is clear that CAU outperforms all            Program (2025ZNSFSC0469, 2024NSFSC1426).
+
+
+
+
+                                                               25321
+References                                                                  modeling with selective state spaces.           arXiv preprint
+                                                                            arXiv:2312.00752, 2023. 1, 3, 4
+ [1] Radhakrishna Achanta, Sheila Hemami, Francisco Estrada,           [17] Albert Gu, Karan Goel, and Christopher Ré. Efficiently mod-
+     and Sabine Susstrunk. Frequency-tuned salient region detec-            eling long sequences with structured state spaces. arXiv
+     tion. In CVPR, pages 1597–1604. IEEE, 2009. 6                          preprint arXiv:2111.00396, 2021. 3
+ [2] Gang Chen, Feng Shao, Xiongli Chai, Hangwei Chen, Qi-             [18] Albert Gu, Isys Johnson, Karan Goel, Khaled Saab, Tri Dao,
+     uping Jiang, Xiangchao Meng, and Yo-Sung Ho. Cgmdrnet:                 Atri Rudra, and Christopher Ré. Combining recurrent, convo-
+     Cross-guided modality difference reduction network for rgb-            lutional, and continuous-time models with linear state space
+     t salient object detection. IEEE TCSVT, 32(9):6308–6323,               layers. In NeurIPS, volume 34, pages 572–585, 2021. 3
+     2022. 2, 7                                                        [19] Yuchao Gu, Lijuan Wang, Ziqin Wang, Yun Liu, Ming-Ming
+ [3] Qian Chen, Zhenxi Zhang, Yanye Lu, Keren Fu, and Qijun                 Cheng, and Shao-Ping Lu. Pyramid constrained self-attention
+     Zhao. 3-d convolutional neural networks for rgb-d salient              network for fast video salient object detection. In AAAI,
+     object detection and beyond. IEEE TNNLS, 35(3):4309–4323,              volume 34, pages 10869–10876, 2020. 2, 7
+     2024. 2                                                           [20] Hang Guo, Jinmin Li, Tao Dai, Zhihao Ouyang, Xudong Ren,
+ [4] Runmin Cong, Kepu Zhang, Chen Zhang, Feng Zheng, Yao                   and Shu-Tao Xia. Mambair: A simple baseline for image
+     Zhao, Qingming Huang, and Sam Kwong. Does thermal                      restoration with state-space model. In ECCV, pages 222–241.
+     really always matter for rgb-t salient object detection? IEEE          Springer, 2024. 2
+     TMM, 25:6971–6982, 2022. 1, 2, 7                                  [21] Ruohao Guo, Xianghua Ying, Yanyu Qi, and Liao Qu. Unitr:
+ [5] Yang Cao Bo Ren Ming-Ming Cheng Ali Borji Deng-                        A unified transformer-based framework for co-object and
+     Ping Fan, Cheng Gong. Enhanced-alignment measure for                   multi-modal saliency detection. IEEE TMM, 2024. 1, 2, 7
+     binary foreground map evaluation. In IJCAI, 2018. 6               [22] Jie Hu, Li Shen, and Gang Sun. Squeeze-and-excitation
+ [6] Wenhao Dong, Haodong Zhu, Shaohui Lin, Xiaoyan Luo,                    networks. In CVPR, pages 7132–7141, 2018. 6
+     Yunhang Shen, Xuhui Liu, Juan Zhang, Guodong Guo, and             [23] Xihang Hu, Fuming Sun, Jing Sun, Fasheng Wang, and Haojie
+     Baochang Zhang. Fusion-mamba for cross-modality object                 Li. Cross-modal fusion and progressive decoding network for
+     detection. arXiv preprint arXiv:2404.09146, 2024. 1, 3                 rgb-d salient object detection. IJCV, pages 1–19, 2024. 1, 2,
+ [7] Stefan Elfwing, Eiji Uchibe, and Kenji Doya. Sigmoid-                  6
+     weighted linear units for neural network function approxima-      [24] Nianchang Huang, Yang Yang, Dingwen Zhang, Qiang Zhang,
+     tion in reinforcement learning. Neural networks, 107:3–11,             and Jungong Han. Employing bilinear fusion and saliency
+     2018. 4                                                                prior information for rgb-d salient object detection. IEEE
+ [8] Deng-Ping Fan, Ming-Ming Cheng, Yun Liu, Tao Li, and Ali               TMM, 24:1651–1664, 2021. 2
+     Borji. Structure-measure: A new way to evaluate foreground        [25] Fushuo Huo, Xuegui Zhu, Lei Zhang, Qifeng Liu, and Yu
+     maps. In ICCV, pages 4548–4557, 2017. 6                                Shu. Efficient context-guided stacked refinement network for
+ [9] Deng-Ping Fan, Zheng Lin, Zhao Zhang, Menglong Zhu, and                rgb-t salient object detection. IEEE TCSVT, 32(5):3111–3124,
+     Ming-Ming Cheng. Rethinking rgb-d salient object detection:            2021. 2, 7
+     Models, data sets, and large-scale benchmarks. IEEE TNNLS,        [26] Ge-Peng Ji, Keren Fu, Zhe Wu, Deng-Ping Fan, Jianbing
+     32(5):2075–2089, 2020. 6                                               Shen, and Ling Shao. Full-duplex strategy for video object
+[10] Deng-Ping Fan, Wenguan Wang, Ming-Ming Cheng, and                      segmentation. In ICCV, pages 4922–4933, 2021. 2, 7
+     Jianbing Shen. Shifting more attention to video salient object    [27] Wei Ji, Jingjing Li, Shuang Yu, Miao Zhang, Yongri Piao,
+     detection. In CVPR, pages 8554–8564, 2019. 6, 7                        Shunyu Yao, Qi Bi, Kai Ma, Yefeng Zheng, Huchuan Lu,
+[11] Deng-Ping Fan, Yingjie Zhai, Ali Borji, Jufeng Yang, and               et al. Calibrated rgb-d salient object detection. In CVPR,
+     Ling Shao. Bbs-net: Rgb-d salient object detection with                pages 9471–9481, 2021. 6
+     a bifurcated backbone strategy network. In ECCV, pages            [28] Yao Jiang, Xin Li, Keren Fu, and Qijun Zhao. Transformer-
+     275–292. Springer, 2020. 6, 7                                          based light field salient object detection and its application to
+[12] Keren Fu, Deng-Ping Fan, Ge-Peng Ji, and Qijun Zhao. Jl-dcf:           autofocus. IEEE TIP, 33:6647–6659, 2024. 1
+     Joint learning and densely-cooperative fusion framework for       [29] Yao Jiang, Xinyu Yan, Ge-Peng Ji, Keren Fu, Meijun Sun,
+     rgb-d salient object detection. In CVPR, pages 3052–3062,              Huan Xiong, Deng-Ping Fan, and Fahad Shahbaz Khan. Effec-
+     2020. 2, 6                                                             tiveness assessment of recent large vision-language models.
+[13] Keren Fu, Deng-Ping Fan, Ge-Peng Ji, Qijun Zhao, Jianbing              Visual Intelligence, 2(1):17, 2024. 1
+     Shen, and Ce Zhu. Siamese network for rgb-d salient object        [30] Ran Ju, Ling Ge, Wenjing Geng, Tongwei Ren, and Gangshan
+     detection and beyond. IEEE TPAMI, 44(9):5541–5559, 2022.               Wu. Depth saliency based on anisotropic center-surround
+     2                                                                      difference. In ICIP, pages 1115–1119. IEEE, 2014. 6, 8
+[14] Keren Fu, Yao Jiang, Ge-Peng Ji, Tao Zhou, Qijun Zhao, and        [31] Yun Yi Ke and Takahiro Tsubono. Recursive contour-saliency
+     Deng-Ping Fan. Light field salient object detection: A review          blending network for accurate salient object detection. In
+     and benchmark. Computational Visual Media, 8(4):509–534,               WACV, pages 2940–2950, 2022. 2
+     2022. 1                                                           [32] Minhyeok Lee, Chaewon Park, Suhwan Cho, and Sangyoun
+[15] Shang-Hua Gao, Yong-Qiang Tan, Ming-Ming Cheng,                        Lee. Spsn: Superpixel prototype sampling network for rgb-d
+     Chengze Lu, Yunpeng Chen, and Shuicheng Yan. Highly                    salient object detection. In ECCV, pages 630–647. Springer,
+     efficient salient object detection with 100k parameters. In            2022. 2, 6
+     ECCV, pages 702–721. Springer, 2020. 6, 7                         [33] Fuxin Li, Taeyoung Kim, Ahmad Humayun, David Tsai, and
+[16] Albert Gu and Tri Dao. Mamba: Linear-time sequence
+
+
+
+
+                                                                  25322
+     James M Rehg. Video segmentation by tracking many figure-               hancement. In CVPR, pages 186–194, 2023. 1
+     ground segments. In ICCV, pages 2192–2199, 2013. 6, 7              [52] Dingyao Min, Chao Zhang, Yukang Lu, Keren Fu, and Qijun
+[34] Guanbin Li and Yizhou Yu. Visual saliency based on multi-               Zhao. Mutual-guidance transformer-embedding network for
+     scale deep features. In CVPR, pages 5455–5463, 2015. 6                  video salient object detection. IEEE SPL, 29:1674–1678,
+[35] Haofeng Li, Guanqi Chen, Guanbin Li, and Yizhou Yu. Mo-                 2022. 7
+     tion guided attention for video salient object detection. In       [53] Ao Mou, Yukang Lu, Jiahao He, Dingyao Min, Keren Fu, and
+     ICCV, pages 7274–7283, 2019. 2, 7                                       Qijun Zhao. Salient object detection in rgb-d videos. IEEE
+[36] Jingjing Li, Wei Ji, Size Wang, Wenbo Li, et al. Dvsod: Rgb-            TIP, 33:6660–6675, 2024. 1, 2, 6, 7, 8
+     d video salient object detection. In NeurIPS, volume 36, 2024.     [54] Yuzhen Niu, Yujie Geng, Xueqing Li, and Feng Liu. Leverag-
+     1, 2, 6, 7                                                              ing stereopsis for saliency analysis. In CVPR, pages 454–461.
+[37] Jia Li, Changqun Xia, and Xiaowu Chen. A benchmark                      IEEE, 2012. 6
+     dataset and saliency-guided stacked autoencoders for video-        [55] Peter Ochs, Jitendra Malik, and Thomas Brox. Segmentation
+     based salient object detection. IEEE TIP, 27(1):349–364,                of moving objects by long term video analysis. IEEE TPAMI,
+     2017. 6, 7                                                              36(6):1187–1200, 2013. 6, 7
+[38] Yin Li, Xiaodi Hou, Christof Koch, James M Rehg, and               [56] Houwen Peng, Bing Li, Weihua Xiong, Weiming Hu, and
+     Alan L Yuille. The secrets of salient object segmentation. In           Rongrong Ji. Rgbd salient object detection: A benchmark
+     CVPR, pages 280–287, 2014. 6                                            and algorithms. In ECCV, pages 92–109. Springer, 2014. 6, 8
+[39] Junhao Lin, Lei Zhu, Jiaxing Shen, Huazhu Fu, Qing Zhang,          [57] Federico Perazzi, Jordi Pont-Tuset, Brian McWilliams, Luc
+     and Liansheng Wang. Vidsod-100: A new dataset and a                     Van Gool, Markus Gross, and Alexander Sorkine-Hornung.
+     baseline model for rgb-d video salient object detection. IJCV,          A benchmark dataset and evaluation methodology for video
+     pages 1–19, 2024. 1, 2, 6, 7                                            object segmentation. In CVPR, pages 724–732, 2016. 6, 7
+[40] Nian Liu, Ziyang Luo, Ni Zhang, and Junwei Han. Vst++: Ef-         [58] Yongri Piao, Wei Ji, Jingjing Li, Miao Zhang, and Huchuan
+     ficient and stronger visual saliency transformer. IEEE TPAMI,           Lu. Depth-induced multi-scale recurrent attention network
+     2024. 1, 2, 6, 7                                                        for saliency detection. In ICCV, pages 7254–7263, 2019. 6, 8
+[41] Nian Liu, Kepan Nan, Wangbo Zhao, Xiwen Yao, and Junwei            [59] Yongri Piao, Chenyang Lu, Miao Zhang, and Huchuan Lu.
+     Han. Learning complementary spatial–temporal transformer                Semi-supervised video salient object detection based on
+     for video salient object detection. IEEE TNNLS, 2023. 2, 7              uncertainty-guided pseudo labels. In NeurIPS, volume 35,
+[42] Wenze Liu, Hao Lu, Hongtao Fu, and Zhiguo Cao. Learning                 pages 5614–5627, 2022. 2, 7
+     to upsample by learning to sample. In ICCV, pages 6027–            [60] Yuan Shi, Bin Xia, Xiaoyu Jin, Xing Wang, Tianyu Zhao,
+     6037, 2023. 2, 8                                                        Xin Xia, Xuefeng Xiao, and Wenming Yang. Vmambair:
+[43] Yue Liu, Yunjie Tian, Yuzhong Zhao, Hongtian Yu, Lingxi                 Visual state space model for image restoration. arXiv preprint
+     Xie, Yaowei Wang, Qixiang Ye, and Yunfan Liu. Vmamba:                   arXiv:2403.11423, 2024. 1, 2
+     Visual state space model. arXiv preprint arXiv:2401.10166,         [61] Jimmy TH Smith, Andrew Warrington, and Scott W Linder-
+     2024. 1, 2, 3                                                           man. Simplified state space layers for sequence modeling.
+[44] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng                  arXiv preprint arXiv:2208.04933, 2022. 3
+     Zhang, Stephen Lin, and Baining Guo. Swin transformer:             [62] Kechen Song, Liming Huang, Aojun Gong, and Yunhui Yan.
+     Hierarchical vision transformer using shifted windows. In               Multiple graph affinity interactive network and a variable
+     ICCV, pages 10012–10022, 2021. 1                                        illumination dataset for rgbt image salient object detection.
+[45] Zhengyi Liu, Yacheng Tan, Qian He, and Yun Xiao. Swinnet:               IEEE TCSVT, 33(7):3104–3118, 2022. 1, 7
+     Swin transformer drives edge-aware rgb-d and rgb-t salient         [63] Fuming Sun, Peng Ren, Bowen Yin, Fasheng Wang, and
+     object detection. IEEE TCSVT, 32(7):4486–4497, 2021. 6, 7               Haojie Li. Catnet: A cascaded and aggregated transformer
+[46] Yukang Lu, Dingyao Min, Keren Fu, and Qijun Zhao. Depth-                network for rgb-d salient object detection. IEEE TMM, 2023.
+     cooperated trimodal network for video salient object detection.         1, 2, 6
+     In ICIP, pages 116–120. IEEE, 2022. 2                              [64] Zhi Tian, Tong He, Chunhua Shen, and Youliang Yan. De-
+[47] Ziyang Luo, Nian Liu, Wangbo Zhao, Xuguang Yang, Ding-                  coders matter for semantic segmentation: Data-dependent de-
+     wen Zhang, Deng-Ping Fan, Fahad Khan, and Junwei Han.                   coding enables flexible feature aggregation. In CVPR, pages
+     Vscode: General visual salient and camouflaged object detec-            3126–3135, 2019. 2, 8
+     tion with 2d prompt learning. In CVPR, pages 17169–17180,          [65] Zhengzheng Tu, Zhun Li, Chenglong Li, Yang Lang, and Jin
+     2024. 6, 7                                                              Tang. Multi-interactive dual-decoder for rgb-thermal salient
+[48] Mingcan Ma, Changqun Xia, Chenxi Xie, Xiaowu Chen, and                  object detection. IEEE TIP, 30:5678–5691, 2021. 2, 7
+     Jia Li. Boosting broader receptive fields for salient object       [66] Zhengzheng Tu, Yan Ma, Zhun Li, Chenglong Li, Jieming Xu,
+     detection. IEEE TIP, 32:1026–1038, 2023. 2, 6                           and Yongtao Liu. Rgbt salient object detection: A large-scale
+[49] Xianping Ma, Xiaokang Zhang, and Man-On Pun. Rs 3                       dataset and benchmark. IEEE TMM, 25:4163–4176, 2022. 6,
+     mamba: Visual state space model for remote sensing image                7
+     semantic segmentation. IEEE GRSL, 2024. 1, 2                       [67] Zhengzheng Tu, Tian Xia, Chenglong Li, Xiaoxiao Wang,
+[50] Sachin Mehta and Mohammad Rastegari. Mobilevit: Light-                  Yan Ma, and Jin Tang. Rgb-t image saliency detection via
+     weight, general-purpose, and mobile-friendly vision trans-              collaborative graph learning. IEEE TMM, 22(1):160–173,
+     former. In ICLR, 2022. 1                                                2019. 6, 7
+[51] S Mahdi H Miangoleh, Zoya Bylinskii, Eric Kee, Eli Shecht-         [68] Zifu Wan, Yuhao Wang, Silong Yong, Pingping Zhang, Si-
+     man, and Yağiz Aksoy. Realistic saliency guided image en-
+
+
+
+
+                                                                   25323
+     mon Stepputtis, Katia Sycara, and Yaqi Xie. Sigma: Siamese      [84] Sijie Zhao, Hao Chen, Xueliang Zhang, Pengfeng Xiao, Lei
+     mamba network for multi-modal semantic segmentation.                 Bai, and Wanli Ouyang. Rs-mamba for large remote sensing
+     arXiv preprint arXiv:2404.04256, 2024. 1, 2, 3                       image dense prediction. arXiv preprint arXiv:2404.02668,
+[69] Guizhao Wang, Chenglong Li, Yunpeng Ma, Aihua Zheng,                 2024. 1, 2, 3
+     Jin Tang, and Bin Luo. Rgb-t saliency detection benchmark:      [85] Xing Zhao, Haoran Liang, Peipei Li, Guodao Sun, Dongdong
+     Dataset, baselines, analysis and a novel approach. In IGTA,          Zhao, Ronghua Liang, and Xiaofei He. Motion-aware mem-
+     pages 359–369. Springer, 2018. 6, 7                                  ory network for fast video salient object detection. IEEE TIP,
+[70] Jie Wang, Kechen Song, Yanqi Bao, Liming Huang, and                  2024. 1, 2, 7
+     Yunhui Yan. Cgfnet: Cross-guided fusion network for rgb-        [86] Xiaoqi Zhao, Youwei Pang, Lihe Zhang, Huchuan Lu, and
+     t salient object detection. IEEE TCSVT, 32(5):2949–2961,             Lei Zhang. Suppress and balance: A simple gated network
+     2021. 7                                                              for salient object detection. In ECCV, pages 35–51. Springer,
+[71] Lijun Wang, Huchuan Lu, Yifan Wang, Mengyang Feng,                   2020. 2, 6
+     Dong Wang, Baocai Yin, and Xiang Ruan. Learning to detect       [87] Minghang Zhou, Tianyu Li, Chaofan Qiao, Dongyu Xie, Guo-
+     salient objects with image-level supervision. In CVPR, pages         qing Wang, Ningjuan Ruan, Lin Mei, and Yang Yang. Dmm:
+     136–145, 2017. 6, 8                                                  Disparity-guided multispectral mamba for oriented object de-
+[72] Yi Wang, Ruili Wang, Xin Fan, Tianzhu Wang, and Xiangjian            tection in remote sensing. arXiv preprint arXiv:2407.08132,
+     He. Pixels, regions, and objects: Multiple enhancement for           2024. 1, 3
+     salient object detection. In CVPR, pages 10031–10040, 2023.     [88] Tao Zhou, Huazhu Fu, Geng Chen, Yi Zhou, Deng-Ping
+     1, 2, 6                                                              Fan, and Ling Shao. Specificity-preserving rgb-d saliency
+[73] Yu-Huan Wu, Yun Liu, Le Zhang, Ming-Ming Cheng, and                  detection. In ICCV, pages 4681–4691, 2021. 2, 6
+     Bo Ren. Edn: Salient object detection via extremely-            [89] Wujie Zhou, Qinling Guo, Jingsheng Lei, Lu Yu, and Jenq-
+     downsampled network. IEEE TIP, 31:3125–3136, 2022. 2, 6,             Neng Hwang. Ecffnet: Effective and consistent feature fusion
+     7                                                                    network for rgb-t salient object detection. IEEE TCSVT,
+[74] Xinyu Xie, Yawen Cui, Tao Tan, Xubin Zheng, and Zitong Yu.           32(3):1224–1235, 2021. 7
+     Fusionmamba: Dynamic feature enhancement for multimodal         [90] Zikun Zhou, Wenjie Pei, Xin Li, Hongpeng Wang, Feng
+     image fusion with mamba. Visual Intelligence, 2(1):37, 2024.         Zheng, and Zhenyu He. Saliency-associated object tracking.
+     2                                                                    In ICCV, pages 9866–9875, 2021. 1
+[75] Qiong Yan, Li Xu, Jianping Shi, and Jiaya Jia. Hierarchical     [91] Enze Zhu, Zhan Chen, Dingkai Wang, Hanru Shi, Xiaoxuan
+     saliency detection. In CVPR, pages 1155–1162, 2013. 6, 8             Liu, and Lei Wang. Unetmamba: Efficient unet-like mamba
+[76] Chenhongyi Yang, Zehui Chen, Miguel Espinosa, Linus Er-              for semantic segmentation of high-resolution remote sensing
+     icsson, Zhenyu Wang, Jiaming Liu, and Elliot J Crowley.              images. arXiv preprint arXiv:2408.11545, 2024. 1, 2, 3
+     Plainmamba: Improving non-hierarchical mamba in visual          [92] Lianghui Zhu, Bencheng Liao, Qian Zhang, Xinlong Wang,
+     recognition. arXiv preprint arXiv:2403.17695, 2024. 1, 2, 3          Wenyu Liu, and Xinggang Wang. Vision mamba: Efficient
+[77] Chuan Yang, Lihe Zhang, Huchuan Lu, Xiang Ruan, and                  visual representation learning with bidirectional state space
+     Ming-Hsuan Yang. Saliency detection via graph-based mani-            model. In ICML, volume 235, pages 62429–62442. PMLR,
+     fold ranking. In CVPR, pages 3166–3173, 2013. 6, 8                   2024. 1, 3
+[78] Yuhuan Yang, Chaofan Ma, Jiangchao Yao, Zhun Zhong,             [93] Mingchen Zhuge, Deng-Ping Fan, Nian Liu, Dingwen Zhang,
+     Ya Zhang, and Yanfeng Wang. Remamber: Referring                      Dong Xu, and Ling Shao. Salient object detection via integrity
+     image segmentation with mamba twister. arXiv preprint                learning. IEEE TPAMI, 45(3):3738–3752, 2022. 2, 6, 7
+     arXiv:2403.17839, 2024. 1
+[79] Jing Zhang, Jianwen Xie, Nick Barnes, and Ping Li. Learning
+     generative vision transformer with energy-based latent space
+     for saliency prediction. In NeurIPS, volume 34, pages 15448–
+     15463, 2021. 6
+[80] Miao Zhang, Jie Liu, Yifei Wang, Yongri Piao, Shunyu Yao,
+     Wei Ji, Jingjing Li, Huchuan Lu, and Zhongxuan Luo. Dy-
+     namic context-sensitive filtering network for video salient
+     object detection. In ICCV, pages 1553–1563, 2021. 1, 2, 7
+[81] Qiang Zhang, Tonglin Xiao, Nianchang Huang, Dingwen
+     Zhang, and Jungong Han. Revisiting feature fusion for rgb-
+     t salient object detection. IEEE TCSVT, 31(5):1804–1818,
+     2020. 2
+[82] Zihao Zhang, Jie Wang, and Yahong Han. Saliency prototype
+     for rgb-d and rgb-t salient object detection. In ACM MM,
+     pages 3696–3705, 2023. 2, 7
+[83] Jia-Xing Zhao, Jiang-Jiang Liu, Deng-Ping Fan, Yang Cao,
+     Jufeng Yang, and Ming-Ming Cheng. Egnet: Edge guidance
+     network for salient object detection. In ICCV, pages 8779–
+     8788, 2019. 2
+
+
+
+
+                                                                25324
+

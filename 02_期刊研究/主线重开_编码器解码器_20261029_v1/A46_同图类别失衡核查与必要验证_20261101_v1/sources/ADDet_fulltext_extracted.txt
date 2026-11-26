@@ -1,0 +1,1038 @@
+                                   Article
+
+                                   AD-Det: Boosting Object Detection in UAV Images with Focused
+                                   Small Objects and Balanced Tail Classes
+                                    Zhenteng Li 1 , Sheng Lian 1,2,3, * , Dengfeng Pan 1 , Youlin Wang 1 and Wei Liu 4
+
+                                                                             1   College of Computer and Data Science, Fuzhou University, Fuzhou 350108, China
+                                                                             2   Engineering Research Center of Big Data Intelligence, Ministry of Education, Fuzhou 350002, China
+                                                                             3   Key Laboratory of Intelligent Metro of Universities in Fujian, Fuzhou 350108, China
+                                                                             4   School of Software and Information Engineering, East China Jiaotong University, Nanchang 330013, China;
+                                                                                 weiliu@ecjtu.edu.cn
+                                                                             *   Correspondence: shenglian@fzu.edu.cn
+arXiv:2504.05601v2 [cs.CV] 27 Apr 2025
+
+
+
+
+                                                                             Abstract: Object detection in unmanned aerial vehicle (UAV) images poses significant
+                                                                             challenges due to complex scale variations and class imbalance among objects. Existing
+                                                                             methods often address these challenges separately, overlooking the intricate nature of UAV
+                                                                             images and the potential synergy between them. In response, this paper proposes AD-Det,
+                                                                             a novel framework employing a coherent coarse-to-fine strategy that seamlessly integrates
+                                                                             two pivotal components: adaptive small object enhancement (ASOE) and dynamic class-
+                                                                             balanced copy–paste (DCC). ASOE utilizes a high-resolution feature map to identify and
+                                                                             cluster regions containing small objects. These regions are subsequently enlarged and pro-
+                                                                             cessed by a fine-grained detector. On the other hand, DCC conducts object-level resampling
+                                                                             by dynamically pasting tail classes around the cluster centers obtained by ASOE, main-
+                                                                             taining a dynamic memory bank for each tail class. This approach enables AD-Det to not
+                                                                             only extract regions with small objects for precise detection but also dynamically perform
+                                                                             reasonable resampling for tail-class objects. Consequently, AD-Det enhances the overall
+                                                                             detection performance by addressing the challenges of scale variations and class imbalance
+                                                                             in UAV images through a synergistic and adaptive framework. We extensively evaluate our
+                                                                             approach on two public datasets, i.e., VisDrone and UAVDT, and demonstrate that AD-Det
+                                                                             significantly outperforms existing competitive alternatives. Notably, AD-Det achieves a
+                                                                             37.5% average precision (AP) on the VisDrone dataset, surpassing its counterparts by at
+                                    Academic Editor: Ming-Der Yang
+                                                                             least 3.1%.
+                                    Received: 6 February 2025
+                                    Revised: 21 April 2025                   Keywords: object detection; UAV images; scale variations; class imbalance
+                                    Accepted: 25 April 2025
+                                    Published: 27 April 2025
+
+                                    Citation: Li, Z.; Lian, S.; Pan, D.;
+                                   Wang, Y.; Liu, W. AD-Det: Boosting        1. Introduction
+                                    Object Detection in UAV Images with
+                                    Focused Small Objects and Balanced
+                                                                                  Unmanned aerial vehicles (UAVs) have experienced widespread adoption in recent
+                                    Tail Classes. Remote Sens. 2025, 17,     years, driven by their cost-effectiveness and adaptability. Outfitted with cameras and
+                                   1556. https://doi.org/10.3390/            various sensors, UAVs find application in diverse scenarios such as surveillance, rescue
+                                    rs17091556                               operations, agriculture, express delivery, and more. The effectiveness of these applications
+                                    Copyright: © 2025 by the authors.        relies heavily on the seamless and robust recognition of objects within the UAV’s field of
+                                    Licensee MDPI, Basel, Switzerland.       view, as noted in recent comprehensive reviews [1–3].
+                                    This article is an open access article        Solutions including R-CNN series [4,5], YOLO series [6,7] and, most recently, a
+                                    distributed under the terms and
+                                                                             query-based series [8–10] have shown leading performance on public datasets such as
+                                    conditions of the Creative Commons
+                                                                             MS COCO [11]. Despite these accomplishments, when applied to UAV images, particularly
+                                    Attribution (CC BY) license
+                                    (https://creativecommons.org/
+                                                                             for datasets like VisDrone [12], generic detectors’ performance falls short of satisfactory in
+                                    licenses/by/4.0/).
+
+
+
+
+                                    Remote Sens. 2025, 17, 1556                                                                                      https://doi.org/10.3390/rs17091556
+Remote Sens. 2025, 17, 1556                                                                                            2 of 19
+
+
+
+                              terms of accuracy and efficiency. Challenges arise due to hardware limitations, complexities
+                              in the imaging environment, and flight trajectory intricacies, leading to the following issues.
+                                    Scale variations: Owing to variations in flight altitudes and complex object distri-
+                              bution in UAV images, object sizes differ by distance from camera exposure, exhibiting
+                              a broad range of scales, with a predominance of small-scale objects. As illustrated in
+                              Figure 1a, within the VisDrone dataset, the proportion of small objects (object size < 322
+                              pixels) reaches 60.5%, which is 19.1% higher than that in the COCO dataset. On the other
+                              hand, the percentage of large objects (object size > 962 pixels) accounts for only 5.5%. The
+                              limited feature representation of small objects poses a considerable challenge, which leads
+                              to decreased accuracy and reliability in detecting smaller objects, thus significantly affecting
+                              the overall detection performance.
+                                    Class imbalance: UAV images collected in urban environments exhibit a long-tailed
+                              class imbalance characteristic; a small subset of head classes (e.g., car and people) dominates
+                              the dataset, collectively representing over 70% of object instances, while numerous tail
+                              classes (e.g., bicycle and van) are severely underrepresented, constituting only 1% to 7% of
+                              instances (Figure 1b). This skewed distribution creates a model bias towards head classes
+                              during training—detectors prioritize optimizing features for high-frequency categories at
+                              the expense of tail classes. Consequently, tail classes suffer from poor localization accuracy
+                              and high false-negative rates due to insufficient discriminative feature learning.
+                                    To address these challenges, researchers have made many attempts. For scale varia-
+                              tions, ref. [13–16] focuses on multi-scale feature fusion, and ref. [17–19] emphasizes hard
+                              sample mining. Nevertheless, due to the input scale limitation, there is still room for im-
+                              provement in accuracy. Another direct method involves cropping the image into subregions
+                              before applying detection, such as in uniform cropping. However, these cropping strategies
+                              cannot adaptively adjust based on the semantic information in UAV images, potentially
+                              including extensive background areas. Li et al. [20] utilize a density map to guide the
+                              cropping of images, enhancing the semantics of the resulting subregions. However, this
+                              approach involves a density map generation network, which increases model complexity
+                              and requires ground truth density map generation. Compared to the scale variations, the
+                              challenge of class imbalance is often neglected in UAV images. In recent years, research in
+                              the field of long-tailed detection has primarily been categorized into three types: (1) resam-
+                              pling and data augmentation techniques [21]; (2) loss function reweighting methods [17,22];
+                              and (3) decoupled optimization strategies [23]. However, existing approaches still face
+                              challenges in dynamically adapting to changes in the distribution of tail classes. Zhang
+                              et al. [24] employ a multi-model fusion (MMF) strategy to tackle the head and tail classes
+                              distinctly, effectively enhancing the detection performance of tail classes. However, this ap-
+                              proach results in the discarding of a substantial amount of valuable data during the training
+                              of each model, which could potentially compromise the model’s representational capacity.
+                                    In this paper, for object detection in UAV images, we propose a novel framework
+                              called AD-Det, which adopts a coarse-to-fine strategy and mainly consists of two key
+                              components: adaptive small object enhancement (ASOE) and dynamic class-balanced
+                              copy–paste (DCC). Specifically, ASOE employs a high-resolution feature map from the
+                              classification head to pinpoint small objects. As shown in Figure 1c, most small objects in
+                              the image show significant activation in the high-resolution feature map. These positions
+                              of interest are clustered into N subregions, which are then enlarged and processed by a
+                              fine-grained detector, thereby enhancing the detection performance of small objects. DCC,
+                              on the other hand, performs object-level resampling through a dynamic copy-and-paste
+                              strategy specifically tailored for tail-class objects. It leverages the clustering cues from
+                              ASOE to dynamically search for suitable pasting positions around the cluster center and
+                              maintain a dynamic memory bank for each tail class. Additionally, data augmentation is
+Remote Sens. 2025, 17, 1556                                                                                                  3 of 19
+
+
+
+                              conducted to avoid overfitting. In this way, the proposed AD-Det can extract regions with
+                              small objects for fine-grained detection and dynamically perform reasonable resampling
+                              for tail-class objects, thereby improving overall detection performance.
+
+
+
+
+                                                    (a)                                              (b)
+
+
+
+
+                                                                             (c)
+                              Figure 1. (a) Comparison of scale distribution between VisDrone and COCO. (b) Class distribution of
+                              VisDrone and UAVDT. (c) Visualization of high-resolution feature map (P3 ) in GFL [25] for VisDrone.
+                              It can be seen that the high-resolution feature map mainly focuses on small objects. The masked areas
+                              on the left indicate regions that contain large objects, which are easier to handle and can be ignored
+                              in the fine-grained detection stage.
+
+                                   Compared to existing coarse-to-fine solutions, our approach is a plug-and-play, unsu-
+                              pervised scheme. The advantages lie in leveraging the inherent properties of the detector
+                              to focus on small object regions that truly contribute to accuracy gains, thereby enhancing
+                              the precision of small object detection without extra learnable parameters. Additionally,
+                              we propose a training-only image augmentation technique for tail classes, which helps to
+                              alleviate class imbalance issues.
+                                   We summarize four main contributions of this work as follows.
+                              •    We propose AD-Det, a novel object detection framework that addresses two key chal-
+                                   lenges in UAV image object detection—complex scale variations and class imbalance—
+                                   ultimately enhancing detection performance.
+                              •    To enhance small object detection, we propose ASOE, which uses a high-resolution
+                                   feature map to cluster regions containing small objects, followed by processing them
+                                   for fine-grained detection.
+                              •    To enhance tail-class object detection, we propose DCC, which performs reasonable
+                                   object-level resampling by dynamically pasting tail classes around clustering centers
+                                   obtained by ASOE.
+                              •    We conduct extensive experiments on VisDrone and UAVDT, which demonstrate that
+                                   our approach significantly outperforms existing competitive alternatives.
+Remote Sens. 2025, 17, 1556                                                                                           4 of 19
+
+
+
+                              2. Related Works
+                                   In object detection tasks, unlike traditional solutions that rely on handcrafted features
+                              and classifiers, DL-based solutions can automatically learn discriminative features and
+                              achieve promising results. Here, we briefly review object detection solutions in the deep
+                              learning era, including (1) generic object detection (in Section 2.1) that focuses on natural
+                              images such as MS COCO [11]; (2) object detection in aerial images (in Section 2.2) that
+                              focuses on aerial images such as VisDrone [12] and DOTA [26]; and (3) long-tailed object
+                              detection (in Section 2.3) that focuses on long-tail scenarios such as LVIS [27].
+
+                              2.1. Generic Object Detection
+                                   Sparked by impressive success in image classification tasks [28], DL-based methods
+                              have dominated generic object detection. The existing DL-based detection solutions, when
+                              analyzed according to their pipeline, can be roughly grouped into two-stage and one-
+                              stage methods. The two-stage detectors are represented by R-CNN [4], Fast R-CNN [29],
+                              Faster R-CNN [5], and Mask R-CNN [30]. These detectors first reduce the search space
+                              significantly by extracting candidate region proposals. The extracted proposals are then
+                              classified into specific categories and refined to proper locations. Such a pipeline leads to
+                              relatively higher accuracy but lower efficiency. Different from the above methods, one-
+                              stage methods, on the other hand, directly predict objects’ categories and locations without
+                              region proposals. The representative approaches include the YOLO series [6,7,31], SSD [32],
+                              and RetinaNet [17]. Such a design leads to relatively higher efficiency but at the cost
+                              of accuracy. Recently, studies into CornerNet [33] and FCOS [34] bypassed the anchor
+                              boxes mechanism and corresponding hyperparameter setting and presented promising
+                              alternatives for one-stage methods. DETR [35] pioneered a fully end-to-end object detector
+                              that employed a transformer-based architecture, eliminating reliance on anchor generation
+                              and non-maximum suppression (NMS). Although these detectors achieved impressive
+                              progress in generic object detection, their performance on UAV images is far from satisfying
+                              due to problems of scale variations and class imbalance.
+
+                              2.2. Object Detection in Aerial Images
+                                    Compared with generic objects that are mostly captured in ground view, object detec-
+                              tion in UAV images presents heightened challenges due to object scale and object/category
+                              distribution problems.
+                                    Many studies focus on multi-scale/tiny-scale object problems in aerial images. Most
+                              of the early research focuses on the migration of classical generic object detection algo-
+                              rithms. Yang et al. [36] proposed a novel query mechanism, which effectively and efficiently
+                              incorporates an additional high-resolution layer to promote small object detection. In the
+                              realm of knowledge distillation, Zhu et al. [37] costlessly enhanced the performance of
+                              lightweight models by incorporating scale-aware knowledge from more complex ones. To
+                              detect small weak objects in UAV images, Han et al. [38] presented a context–scale-aware
+                              detector, combining the strengths of context-aware learning and multi-scale feature extrac-
+                              tion. Cao et al. [39] introduced a self-reconstructed difference map approach to enhance
+                              feature visibility for challenging tiny object detection tasks. DQ-DETR [40] specialized in
+                              tiny object detection by employing dynamic query selection and counting-guided feature
+                              enhancement, boosting detection performance. SDPDet [41] employed scale-separated
+                              dynamic proposals and activation pyramids to enhance the efficiency and accuracy of
+                              object detection in UAV views. Zhang et al. [42] enabled detectors to focus on discrimi-
+                              native features while reducing false-positives in cluttered backgrounds. Zhang et al. [43]
+                              proposed IMPR-Det, which can integrally mix multi-scale pyramid representations for
+                              different components of an instance.
+Remote Sens. 2025, 17, 1556                                                                                         5 of 19
+
+
+
+                                   Besides object scale problems, many studies focus on object/category distribution
+                              problems. Inspired by research into crowd counting, Li et al. [20] injected estimation
+                              of density maps into a conventional object detection framework, which was utilized to
+                              predict object distribution, reduce the influence of background, and generate more balanced
+                              candidate proposals. Duan et al. [44] further adopted a coarse-grained density map to
+                              identify subregions more accurately. Similar observations regarding the object distribution
+                              issues led [45] to improved RPN in order to cluster region proposals. GLSAN [46] utilized
+                              a scale-aware algorithm to fuse global and local detection results. CZDet [47] enhanced
+                              cascade detection by innovatively incorporating high-density subregion labels into the
+                              repurposed detector. YOLC [48] employed a local scale module and deformable convolu-
+                              tions to enhance accuracy in aerial small object detection. Zhang [49] proposed structured
+                              adversarial self-supervised pretraining to strengthen both clean accuracy and adversarial
+                              robustness. On the other hand, Yu et al. [50] investigated long-tail category distribution
+                              issues, where they designed dedicated samplers and detection heads to address the distinct
+                              characteristics of tail and head classes.
+                                   Such excellent works have indeed facilitated aerial image object detection. Never-
+                              theless, when addressing scale variations and class imbalance challenges, the majority of
+                              preceding studies treat these essential issues rigidly and separately, not only ignoring the
+                              complexity of UAV images but also neglecting their potential synergy.
+
+                              2.3. Long-Tail Object Detection
+                                   Much like the paradigm of long-tail classification, research in the domain of long-tail
+                              object detection predominantly adheres to two distinctive methodologies: resampling and
+                              reweighting. Commonly employed techniques in resampling involve either oversampling
+                              the minority classes or undersampling the majority classes during the training process,
+                              aimed at mitigating the issue of imbalanced class distribution. Repeat factor sampling
+                              (RFS) [27] involves an image-level sampling approach following the resampling paradigm.
+                              SimCal [51] proposed a bi-level class balanced sampling approach to alleviate classification
+                              head bias. In the context of reweighting, the fundamental concept lies in the assignment
+                              of diverse weights to training samples, with a focus on enhancing the training of tail
+                              samples. Cui et al. [52] introduced a novel loss function that significantly improves class
+                              imbalance handling by dynamically adjusting the weights of training samples based on
+                              their effective numbers.
+                                   Besides the aforementioned strategies, many researchers have endeavored to handle
+                              the long-tail problem from other perspectives. Kang et al. [23] advocated for a decoupled
+                              training paradigm that disentangles the learning process into distinct phases: representa-
+                              tion learning and classifier training. BAGS [53] grouped classes based on their instance
+                              frequency and subsequently applied softmax loss among each group. ROG [54] proposed a
+                              multi-task learning approach that concurrently optimizes both object-level classification
+                              and global-level score ranking. Hyun et al. [55] introduced effective class-margin loss
+                              (ECM) as a novel surrogate objective through which to optimize margin-based binary
+                              classification error on the imbalanced training set.
+                                   Many earlier coarse-to-fine counterparts pinpoint regions of interest by relying on
+                              extra learnable modules or by post-processing sparse boxes. Our method, however, differs
+                              by incorporating dense indicators from a high-resolution feature map. This map is adept
+                              at preserving extensive information about small objects, facilitating adaptive region gen-
+                              eration. Additionally, we enhance this framework by addressing class imbalance issues
+                              through the integration of object-level copy–paste techniques. This novel combination
+                              effectively tackles two distinct challenges, which are overlooked in existing solutions.
+Remote Sens. 2025, 17, 1556                                                                                                                                                                6 of 19
+
+
+
+                              3. Methodology
+                                   In this section, we elaborate on the design of AD-Det, including the overall frame-
+                              work of AD-Det in Section 3.1, the ASOE module in Section 3.2, and the DCC module in
+                              Section 3.3, along with the training and inference details of AD-Det in Section 3.4.
+
+                              3.1. Framework Overview
+                                    To tackle the key challenges of object detection in UAV images, i.e., scale variations
+                              and class imbalance, a novel approach namely AD-Det is proposed. Designed in a coarse-
+                              to-fine manner, AD-Det mainly consists of the following two key components. Adaptive
+                              small object enhancement (ASOE) utilizes the coarse detector cues to roughly locate small
+                              objects, and cluster the region of interest for later fine-grained detection. Dynamic class-
+                              balanced copy–paste (DCC) performs reasonable object-level resampling by dynamically
+                              pasting tail classes around the cluster centers obtained by ASOE. The prediction given
+                              by the coarse-to-fine strategy is fused through non-maximum suppression (NMS). We
+                              illustrate the overall framework of AD-Det in Figure 2.
+
+                                        original UAV img                          coarse stage
+                                                                                                                                  global coarse
+                                                                                                                                  detection results
+
+
+
+                                                                                                feature map from P3:
+                                                                                                focus on small targets
+                                                           subregion
+                                memory bank
+                                                                                                                                  cluster
+                                                                                                                                                            NMS
+                                                                                                                   (𝒙𝟏𝟏 , 𝒚𝟏𝟏 )
+
+                                                                                          𝒙𝟏𝟏 , 𝒚𝟏𝟏 , 𝒙𝟏𝟐 , 𝒚𝟏𝟐
+                                                                                                   …
+                                                                                          𝒙𝒏𝟏 , 𝒚𝒏𝟏 , 𝒙𝒏𝟐 , 𝒚𝒏𝟐                                                       detection result
+                                instances from
+                                                                                                                                  (𝒙𝟏𝟐 , 𝒚𝟏𝟐)
+                                  tail classes dynamically paste tail instances                Coordinates of :       N subregions
+                                                                                                                                                                  1   update
+                               Dynamic Class-balanced Copy-paste (DCC)                 Adaptive Small Object Enhancement (ASOE)
+                                                                                                                                                                  2   sample and augment
+                                                                                                                                                                      ASOE cluster center
+                                                                                                                                                                      BFS search
+                                                                                                                                                                      existing instances
+                                                                                                                                  local detection results
+                                               class-balanced subregions                                                          on subregions                       Instances from tail
+                                               regarding small targets                                                                                                classes for pasting
+                                                                                  fine stage
+
+                              Figure 2. The framework overview of the proposed AD-Det. The network adopts a coarse-to-fine
+                              strategy and integrates two key modules, i.e., an adaptive small object enhancement (ASOE) module
+                              for excavating regions containing small objects and a dynamic class-balanced copy–paste (DCC)
+                              module for balancing class distribution. The final results are obtained by fusing global results and
+                              local results using non-maximum suppression (NMS). The dashed line between ASOE and DCC
+                              indicates training-only.
+
+                              3.2. Adaptive Small Object Enhancement (ASOE)
+                                   In UAV images, small objects constitute a large proportion and are sparsely distributed
+                              (Figure 1a,c), resulting in unsatisfactory detection performance. Such small objects are
+                              typically detected from high-resolution low-level feature maps, for example, P3 in FPN [56].
+                              As shown in Figure 3, the image is passed through the backbone to extract multi-scale
+                              features, which are subsequently fused in the FPN. These fused features are then passed to
+                              the detection head. Due to varying convolutional strides in different layers, the feature map
+                              sizes decrease from P3 to P5 . The lower layers, having undergone fewer downsampling
+                              operations, not only retain more local information but also have a receptive field better
+                              aligned with small objects. As observed from the heatmap comparison, small objects are
+                              primarily detected at the P3 layer. Specifically, the human visual system excels at object
+                              detection by quickly scanning the entire image to acquire information on large objects and
+                              gain valuable clues in challenging areas with small objects.
+Remote Sens. 2025, 17, 1556                                                                                                7 of 19
+
+
+
+                                   Inspired by these factors, we propose adaptive small object enhancement (ASOE),
+                              which utilizes a high-resolution feature map to pinpoint regions with small, difficult-
+                              to-detect objects for fine-grained detection. Unlike [20], which relies on an additional
+                              density network to obtain the position of the foreground object, the proposed ASOE
+                              module employs a hierarchical approach, seamlessly integrating coarse-to-fine strategies to
+                              overcome the inherent challenges of identifying small objects in UAV images.
+
+
+
+
+                                P5, 1/32                                                          Head
+
+
+
+
+                                P4, 1/16                                                          Head
+
+
+
+
+                                 P3, 1/8                                                         Head
+
+
+
+
+                                 Level           Backbone                     FPN                        Head & Heatmap
+
+                              Figure 3. Detector workflow and corresponding heatmap visualizations at different network layers.
+
+                                   In the first stage, a detector Coarse(·) captures the global context and produces pre-
+                              liminary detection results. Meanwhile, the feature map Fl ∈ RC× H ×W (Figure 2 coarse
+                              stage red layer), targeting semantic details pertinent to small objects, is extracted from the
+                              classification head enriched with high-resolution and low-level features (Figure 3), akin to
+                              the methodology employed by RetinaNet [17]. Here, l represents the layer index of Pl , while
+                              C, H, and W represent the channel count, height, and width of the feature map. As shown
+                              in Figure 4, we compute a position-wise activation map Vl ∈ R1× H ×W by applying the Sig-
+                              moid function independently to each channel of Fl , followed by averaging across channels:
+
+                                                                                1 C
+                                                                                C c∑
+                                                                         Vl =         σ( Fl ),                                (1)
+                                                                                   =1
+
+                              where Vl (i, j) indicates the probability of the grid(i, j) containing a small object, and σ is the
+                              Sigmoid function. To suppress background noise, we retain only positions where Vl (i, j)
+                              exceeds a threshold γ = 0.5, and by multiplying with the downsampling factor 2l , these
+                              positions can be mapped to the corresponding locations in the original image:
+
+                                                              Tl = {(i × 2l , j × 2l ) | Vl (i, j) > γ};                      (2)
+
+                              these identified positions approximate the small objects’ locations, which are prone to being
+                              overlooked or inaccurately estimated.
+
+
+
+                                              Normalization                     Filter & Map                   Cluster
+
+
+
+
+                                    F                                V                             T                      N
+                              Figure 4. The process of subregion generation in ASOE.
+Remote Sens. 2025, 17, 1556                                                                                             8 of 19
+
+
+
+                                   To address the non-uniform distribution of small objects in UAV images, the ASOE
+                              module utilizes the K-means algorithm to cluster Tl into N distinct clusters. The K-
+                              means algorithm achieves effective performance gains through K-value optimization,
+                              requiring only minimal parameter adaptation for cross-dataset deployment. This balances
+                              deterministic region control with adaptability to diverse data distributions, avoiding the
+                              parameter sensitivity of DBSCAN and the computational overhead of the mean-shift in
+                              real-time UAV applications. The cluster process can be represented as
+
+                                                            {C1 , . . . , CN } = K-means( Tl , N ),                        (3)
+
+                              where Ck = (i, j) ∈ Tl | k = arg minm ∥x − µm ∥2 . By determining the top-left and
+                                            
+
+                              bottom-right coordinates of each cluster, we crop N subregions from the original image,
+                              defined as
+                                                         {Si , . . . , SN } = CropByTLBR(C ).                     (4)
+
+                              Subsequently, we upscale the extracted N subregions and input them into a fine-grained
+                              detector, thereby enhancing the detection performance of small objects.
+
+                              3.3. Dynamic Class-Balanced Copy–Paste (DCC)
+                                   To address the challenge of class imbalance in UAV images, resampling techniques like
+                              class-balanced sampling and repeat factor sampling are commonly employed. However,
+                              these image-level resampling solutions elevate training costs. In contrast, the copy–paste
+                              method offers object-level resampling by copying and pasting objects and has shown
+                              significantly advanced object detection with ordinary images. However, its application
+                              to UAV images has been less effective, which is attributed to their complexity. Therefore,
+                              we propose dynamic class-balanced copy–paste (DCC), which differs from traditional
+                              copy–paste solutions in considering both the diversity and position rationality of objects.
+                                   Firstly, to mitigate overfitting caused by repetitive resampling of specific instances, we
+                              introduce a diversity augmentation (DA) strategy, leveraging dynamic memory banks with
+                              data augmentation techniques to ensure diverse and balanced training batches. Specifically,
+                              each tail class is assigned a memory bank with a capacity of 10 to store instance info:
+
+                                                         Q = {{( xi , bi )}10                           10
+                                                                           i = 1 , · · · , {( xi , bi )}i = 1 },           (5)
+
+                              where xi denotes a tail-class instance image, and bi represents its bounding box coordi-
+                              nates. During training, when the ASOE identifies a subregion S containing small ob-
+                              jects, all tail-class instances within this region are enqueued via a first-in-first-out (FIFO)
+                              replacement policy:
+                                                                      Q = FIFO( Q, S),                                     (6)
+
+                              where each instance image is cropped with 1.5× bounding box expansion to preserve
+                              contextual semantics. Object-level resampling involves strategically pasting tail-class
+                              instances into subregions. We first sample an instance ( x, b) from Q and then apply data
+                              augmentation techniques:
+                                                                   ( x ′ , b′ ) = A( x, b),                          (7)
+
+                              where A(·) denotes data augmentation techniques such as shift–scale–rotate and random
+                              brightness contrast, and ( x ′ , b′ ) is the augmented instance for pasting.
+                                   Secondly, to make the pasting position more reasonable, we utilize a dynamic search
+                              (DS) strategy combined with ASOE clustering cues. Specifically, in ASOE, besides obtaining
+                              a subregion S for fine-grained detection, we can also obtain its clustering center ( X, Y ),
+                              which represents the distribution center of objects in each subregion. The ideal paste
+                              position should be closer to the cluster center and maintain no overlap with existing
+Remote Sens. 2025, 17, 1556                                                                                                   9 of 19
+
+
+
+                              objects, so DCC dynamically searches a suitable position for ( x ′ , b′ ) by performing the BFS
+                              algorithm [57] from the cluster center:
+
+                                                             ( X P , Y P ) = BFS(S, ( X, Y ), mask, b′ ),                        (8)
+                                                              
+                                                              1, if GT object exists at position (i, j)
+                                                mask (i, j) =                                                         ∀i, j      (9)
+                                                              0, otherwise
+
+                              where the width and height of b′ are employed as the adaptive search step size, and the
+                              binary mask enables rapid validation of an object’s presence in S. Afterward, x ′ is pasted
+                              into the subregion S, and the label set is expanded with b′ . Through these operations,
+                              we can dynamically and appropriately enhance both the quantity and quality of tail-class
+                              instances, effectively balancing their contribution during training.
+
+                              3.4. Training and Inference Details
+                                    In the training process, AD-Det integrates ASOE and DCC to independently train the
+                              coarse and fine-grained detectors. To achieve coarse detection and extract the small object
+                              feature map, the coarse detector is first trained using all original images, with its training
+                              loss function defined as in Equation (10).
+
+                                                                                        g                     g
+                                                            Lcoarse = Lcls ( x g , ycls ) + Lreg ( x g , yreg ),                (10)
+
+                              where Lcls and Lreg denote classification loss and regression loss, and { x g , y g } denote the
+                              original training set. Then, we conduct the coarse detector to traverse the original training
+                              set. For each sample, ASOE extracts small object subregions and combines with DCC to
+                              augment tail classes. This process yields the fine-grained training set { x l , yl }; the detailed
+                              algorithm is illustrated in Algorithm 1, and the training loss function for the fine-grained
+                              detector can be represented as Equation (11).
+
+                                                                                                             l
+                                                              L f ine = Lcls ( x l , ylcls ) + Lreg ( x l , yreg ),             (11)
+
+
+                                Algorithm 1: The generation of fine-grained subregions
+                                  Input: Normalized high-resolution heatmap V, threshold γ, the number of
+                                         subregions N , the state of Training
+                                  Output: Subregions S
+                                 1 Q ← {};
+                                 2 T ← Filter(V, γ);
+                                 3 for (i, j ) in T do
+                                 4      (i, j) ← (i × 2l , j × 2l );
+                                 5 end
+                                 6 C1 ...C N ← Kmeans(T, N );
+                                 7 for Ci in C do
+                                 8      Si ← CropByTLBR(Ci );
+                                 9      if Training is True then
+                                10           Si ← DCC(Si , Q);
+                                11      end
+                                12 end
+                                13 S ←
+                                          S
+                                             Si ;
+                                14 return S;
+Remote Sens. 2025, 17, 1556                                                                                           10 of 19
+
+
+
+                                   In the inference process, due to the fine-grained detector’s ability to detect subregions
+                              with small objects and long-tail distributions, AD-Det exclusively relies on ASOE to acquire
+                              related subregions. Let G denote the input UAV image, and the final detection result D f inal
+                              can be formulated as in Equation (12).
+
+                                                                                        N
+                                                                                        [
+                                                        D f inal = N MS( Coarse( G ),          Fine(Si )),               (12)
+                                                                                        i =1
+
+                              where Coarse(·) and Fine(·) denote coarse and fine-grained detector, respectively. Si
+                              represents the subregions extracted by ASOE, and NMS stands for non-maximum suppres-
+                              sion operation.
+
+                              4. Experiments
+                              4.1. Experimental Setup
+                                   Datasets. We evaluate our AD-Det on two publicly available datasets for UAV image
+                              object detection: VisDrone [12] and UAVDT [58]. We summarize the details on these two
+                              datasets in Table 1.
+                                   VisDrone is a challenging large-scale dataset captured by various camera devices
+                              using multiple UAVs. This dataset contains data collected from several Chinese cities,
+                              covering different weather conditions and scenarios. Ten predefined categories, including
+                              pedestrian, car, van, etc., are manually annotated with bounding boxes. There are 6471
+                              images in the VisDrone for training, complemented by 548 images in the validation set, and
+                              a total of 3190 images for testing. The maximal resolution for each image is 2000 × 1500
+                              pixels. Given that the testing set is not publicly available, we follow ClusDet [45] and
+                              DMNet [20] to train the model on the training set while evaluating it on the validation set.
+
+                              Table 1. Dateset description of VisDrone and UAVDT.
+
+                                   Dataset              Train              Test                 Resolution    Classes
+                                  VisDrone               6471              548                  2000 × 1500      10
+                                  UAVDT                 23258             15069                 1080 × 540        3
+
+
+                                    UAVDT is a large-scale vehicle detection and tracking dataset for UAV scenarios, which
+                              is released by UCAS. This dataset contains data collected from complex environments with
+                              different weather conditions, occlusion, and flying heights. Bounding boxes have been
+                              manually annotated for three predefined categories, including car, truck, and bus. It
+                              contains 23,258 and 15,069 images for training and testing, respectively, and the resolution
+                              is 1080 × 540 pixels for each image.
+                                    Evaluation metrics. Following the evaluation protocols outlined in MS COCO [11],
+                              we employ average precision (AP) as our primary metric, spanning various categories and
+                              IoU thresholds. The metrics are succinctly outlined as follows:
+                              •    AP: average precision calculated across all categories, considering IoU values within
+                                   the range of [0.5, 0.95] at intervals of 0.05.
+                              •    AP_50, AP_75: average precision computed across all categories using individual IoU
+                                   thresholds of 0.5 and 0.75, respectively.
+                              •    AP_S, AP_M, AP_L: average precision calculated on object sizes small (less than 322 ),
+                                   medium (from 322 to 962 ), and large (greater than 962 ).
+                                  Implementation details. We implement AD-Det using the MMDetection toolbox [59]
+                              with PyTorch [60] as the basic framework. The model is trained on a system equipped
+Remote Sens. 2025, 17, 1556                                                                                        11 of 19
+
+
+
+                              with 2*Intel Silver 4210R CPU and 2*NVIDIA A4000 GPU. The baseline detection network
+                              employed is GFL [25] with four uniform cropping parts.
+                                   Training phase: For the training procedure on VisDrone and UAVDT, as [61] does,
+                              the input image size is configured as 1333 × 800 pixels for VisDrone and 1024 × 540 pixels
+                              for UAVDT, with both coarse and fine-grained detectors. Concerning hyperparameters
+                              in the ASOE, the maximum subregion number (N ) is set to 4 and 3 on VisDrone and
+                              UAVDT, respectively (as discussed in Section 4.4). In the DCC module, all categories except
+                              pedestrian, people, and car are considered tail classes on VisDrone, while truck and bus are
+                              considered tail classes on UAVDT. All models undergo 12 epochs of training using an SGD
+                              optimizer, with momentum = 0.9, weight decay = 0.0001, and initial learning rate = 0.01.
+                              AD-Det is trained with a linear warm-up strategy and undergoes decay by a factor of 10 at
+                              epochs 8 and 11.
+                                   In the testing phase, the input image size and hyperparameters in the ASOE remain
+                              consistent with the training phase unless otherwise specified. In the process of fusing
+                              detection, the non-max suppression (NMS) threshold and max detection number are set to
+                              0.5 and 500, respectively, across all datasets.
+
+                              4.2. Comparison with Representative Solutions
+                                   Results on VisDrone. We compare AD-Det with other SOTA solutions on VisDrone,
+                              and the results on AP, AP_50, and AP_75 are listed in Table 2. Our baseline method employs
+                              GFL with ResNet-50 / 101, and ResNeXt-101 as backbones. From the table, we have the
+                              following observations.
+                                   (1) Our proposed method achieves consistent improvement upon all the compared
+                              solutions.Our model improves the detection performance to 37.5%, 60.9%, and 39.2% in
+                              terms of AP, AP_50, and AP_75, surpassing all compared methods. Among the compared
+                              solutions, ClusDet, DMNet, CDMNet, GLSAN, CZDet, AMRNet, and YOLC employ a
+                              coarse-to-fine strategy, which is similar to our approach. Even compared to CZDet, the best
+                              solution within them, our model also increases performance by 3.1%, 1.2%, and 4.6% in AP,
+                              AP_50, and AP_75, respectively.
+                                   (2) Despite using weaker backbones, our method surpasses or rivals the perfor-
+                              mance of all compared methods. As illustrated at the bottom of Table 2, although we
+                              employed a relatively weak and lightweight backbone ResNet-50, our model continues
+                              to be highly competitive. Our method exhibits substantial improvements in AP metrics
+                              compared to other methods, even with stronger backbones. For example, compared to
+                              YOLC, which used ResNeXt-101 as the backbone, our method, with ResNet-50 as the
+                              backbone, nonetheless managed to increase performance by 2.2%, 1.4%, and 3.4% in AP,
+                              AP_50, and AP_75, respectively.
+                                   To further evaluate the accuracy and computational complexity of AD-Det, we present
+                              a comparison with existing solutions based on AP, parameter counts (Params), floating-
+                              point operations (FLOPs), and inference speed (s/img), as shown in Table 3. Under the
+                              same backbone architecture of ResNeXt-101, AD-Det demonstrates superior improvements
+                              in AP, Params, FLOPs, and inference speed compared to ClusDet, DMNet, and GLSAN.
+                              Although our method exhibits marginally higher FLOPs and slightly slower inference speed
+                              than CZDet and YOLC, it achieves higher detection accuracy and a significant reduction
+                              in Params. These results highlight that our approach delivers competitive performance
+                              with a better accuracy–speed trade-off, fulfilling practical engineering requirements for
+                              real-world deployment.
+Remote Sens. 2025, 17, 1556                                                                                                  12 of 19
+
+
+
+                                Table 2. Comparison of AD-Det with SOTA approaches using AP, AP_50, and AP_75 on the validation
+                                set of VisDrone. The results of comparative experiments are drawn from the corresponding literature.
+                                “*” denotes flip augment inference and bold values indicate the best results.
+
+                                        ResNet-50                       ResNet-101                          ResNeXt-101
+ Method
+                              AP          AP_50     AP_75        AP        AP_50      AP_75         AP          AP_50      AP_75
+ Faster R-CNN [5]             21.4         40.7     19.9        21.4        40.7        20.3        21.8        41.8        20.1
+ ClusDet [45]                 26.7         50.6     24.7        26.7        50.4        25.2        28.4        53.2        26.4
+ DMNet [20]                   28.2         47.6     28.9        28.5        48.1        29.4        29.4        49.3        30.6
+ CDMNet [44]                  29.2         49.5     29.8        29.7        50.0        30.9        30.7        51.3        32.0
+ GLSAN [46]                   30.7         55.4     30.0        30.7        55.6        29.9         -           -           -
+ AMRNet [62]                  31.7         52.7     33.1        31.7        52.6        33.0        32.1        53.0        33.2
+ CZDet [47]                   33.2         58.3     33.2        34.4        59.7        34.6         -           -           -
+ YOLC [48]                    31.8         55.0     31.7         -           -           -          33.7        57.4        33.8
+ AD-Det                       35.3         57.9     36.6        36.1        58.9        37.6        37.0        60.3        38.3
+ AD-Det *                     35.9         58.8     37.2        36.6        59.7        38.2        37.5        60.9        39.2
+
+
+                                 Table 3. Comparison of accuracy and complexity with existing solutions using AP, Params, FLOPs,
+                                 and s/img on the validation set of VisDrone.
+
+                                     Method             Backbone             AP        Params(M)      FLOPs (G)           s/img
+                                     ClusDet [45]       ResNeXt-101         28.4          180.95           1647.25        0.759
+                                     DMNet [20]         ResNeXt-101         29.4          228.43           4492.18        0.957
+                                     GLSAN [46]         ResNet-101          30.7          590.86           2186.76        0.812
+                                     CZDet [47]         ResNet-101          34.4          120.32           1329.03        0.593
+                                     YOLC [48]          ResNeXt-101         33.7          125.32           1245.25        0.657
+                                                        ResNet-50           35.3           64.10           1072.05        0.514
+                                     AD-Det             ResNet-101          36.1          102.10           1471.40        0.615
+                                                        ResNeXt-101         37.0          101.36           1491.00        0.701
+
+
+                                      Results on UAVDT. Similar situations occur when our method is evaluated on UAVDT,
+                                 and the detection accuracy compared with SOTA methods on the testing set of UAVDT
+                                 is shown in Table 4. To facilitate comparison, we utilize GFL with ResNet-50 backbone
+                                 as our baseline. Compared with other SOTA methods, our method attains a new SOTA
+                                 performance even with relatively weaker ResNet-50 as the backbone, achieving 20.1% in
+                                 AP, 34.2% in AP_50, and 21.9% in AP_75. In comparison with the GLSAN, our model
+                                 demonstrates increases of 3.1%, 6.1%, and 3.1% in AP, AP_50, and AP_75, respectively.
+
+                                 Table 4. Comparison of AD-Det with SOTA approaches using AP, AP_50, and AP_75 on the testing
+                                 set of UAVDT. The results of comparative experiments are drawn from the corresponding literature.
+                                 The best results are highlighted in bold.
+
+                                     Method                 Backbone                   AP             AP_50             AP_75
+                                     Faster R-CNN [5]       ResNet-50                 11.0               23.4             8.4
+                                     ClusDet [45]           ResNet-50                 13.7               26.5             12.5
+                                     DMNet [20]             ResNet-50                 14.7               24.6             16.3
+                                     CDMNet [44]            ResNet-50                 16.8               29.1             18.5
+                                     GLSAN [46]             ResNet-50                 17.0               28.1             18.8
+                                     AMRNet [62]            ResNet-50                 18.2               30.4             19.8
+                                     CZDet [47]             ResNet-50                 18.9               30.2             20.3
+                                     YOLC [48]              HRNet                     19.3               30.9             20.1
+                                     AD-Det                 ResNet-50                 20.1               34.2             21.9
+Remote Sens. 2025, 17, 1556                                                                                            13 of 19
+
+
+
+                              4.3. Qualitative Analysis
+                                   To qualitatively contrast the performance, Figure 5 depicts the detection results for
+                              both the baseline detector and our AD-Det. It is evident that our method surpasses the
+                              baseline detector and reaches a satisfactory detection accuracy. Specifically, as depicted in
+                              the dashed area of Figure 5 and the corresponding zoom-in views, our approach excels
+                              in detecting small objects and tail categories. This superiority can be attributed to the
+                              contributions of ASOE and DCC, which collectively enhance UAV image object detection
+                              from two distinct perspectives.
+
+
+
+
+                                            GT                           Baseline                         Ours
+                              Figure 5. Visualization of qualitative comparison between the baseline detector and our proposed
+                              method on VisDrone. The areas marked by the dashed boxes indicate that our approach excels in
+                              detecting small objects and tail categories.
+
+                              4.4. Ablation Study
+                                   We conduct extensive studies on VisDrone to validate the effectiveness of our key
+                              design, including (1) the effectiveness of ASOE and DCC modules, (2) the choice of key
+                              hyperparameters, (3) the selection of the base detector, (4) the design of the ASOE module,
+Remote Sens. 2025, 17, 1556                                                                                              14 of 19
+
+
+
+                              and (5) the design of the DCC module. For all ablation studies, we employ ResNet-50 as
+                              our backbone.
+                                    The effectiveness of ASOE and DCC modules: As the key components of our method,
+                              ASOE and DCC are systematically incorporated into the model to evaluate their respective
+                              efficacies. Simultaneously, we demonstrate the improvements resulting from the integra-
+                              tion of ASOE and DCC, emphasizing their mutual complementarity. A comprehensive
+                              presentation of the ablation study is provided in Table 5 and Figure 6, which illustrate the
+                              accuracy improvements across different metrics after integrating our key components.
+
+                              Table 5. The impacts of the proposed modules on detection performance in VisDrone. ASOE and DCC
+                              indicate our proposed adaptive small object enhancement and dynamic class-balanced copy–paste
+                              method. The best results are highlighted in bold.
+
+                               Method                          AP      AP_50     AP_75     AP_S     AP_M      AP_L      s/img
+                               Baseline                       33.1      55.0      34.0      24.3     44.1      44.9     0.706
+                               Baseline + ASOE                35.3      58.0      36.5      27.5     44.8      45.4     0.758
+                               Baseline + ASOE + DCC          35.9      58.8      37.2      28.0     45.7      45.2     0.758
+
+
+                                    As illustrated in Table 5, the incorporation of ASOE results in a notable improvement
+                              of 2.2% in AP and 3.0% in AP_S over the baseline method. Similarly, DCC contributes to an
+                              enhancement in detection performance, elevating it from 35.3% to 35.9% in AP. Compared
+                              to baseline with identical parameter settings, our method achieves a notable increase in
+                              accuracy, but only increases time consumption slightly.
+
+
+
+
+                              Figure 6. Ablation for ten fine-grained categories with AP. Ped. and Awn. denote Pedestrian and
+                              Awning-tricycle. ASOE and DCC indicate our proposed adaptive small object enhancement and
+                              dynamic class-balanced copy-paste method.
+
+                                   As illustrated in Figure 6, a noteworthy observation is the consistent enhancement
+                              in results for objects in the tail categories, especially for bicycles, tricycles, awn., and buses,
+                              which improved by 0.9%∼1.9%, underscoring the ability of DCC to augment detection
+                              performance reliably. Significantly, the addition of complementary samples through DCC
+                              does not adversely affect the performance of other categories.
+                                   The choice of key hyperparameters: We analyze the impact of two key hyperparame-
+                              ters herein—the number of subregions N in Figure 7a and the confidence threshold γ in
+                              Figure 7b.
+                                   The number of subregions N is a pivotal parameter that significantly influences the
+                              detection speed and accuracy. The effects of different values of N on detection time and
+                              accuracy are summarized in Figure 7a. This subfigure indicates that as the number of
+                              subregions increases, the network’s detection accuracy improves, but with an associated
+                              increase in detection time. Considering the trade-off between accuracy and efficiency, this
+                              study selects N = 4 as the optimal number of subregions. We conduct a similar experiment
+                              on UAVDT and find that N = 3 is the optimal choice for UAVDT.
+Remote Sens. 2025, 17, 1556                                                                                                  15 of 19
+
+
+
+                                                  VisDrone                                             VisDrone
+
+
+
+
+                                                    (a)                                                  (b)
+                              Figure 7. (a) AP, AP_S and inference time curves on different numbers of subregions N on the
+                              validation set of VisDrone. (b) AP and sample point curves on different confidence thresholds’ γ
+                              values in Equation (2) on the validation set of VisDrone. The sample points denote the points utilized
+                              for clustering in ASOE.
+
+                                   The confidence threshold γ determines the quality of the subregions (Equation (2)).
+                              We experiment with different γ values in {0.1, 0.3, 0.5, 0.7}. In particular, we quantify
+                              sample points and their corresponding detection accuracy. As depicted in Figure 7b,
+                              with an increase in γ, the number of sample points decreases, facilitating a proportional
+                              acceleration in clustering speed. However, the accuracy benefits are not linear with higher γ
+                              values. When γ = 0.7, an excessive number of points are disregarded, leading to a significant
+                              decline in detection accuracy. Therefore, we select γ = 0.5 as the threshold parameter.
+                                   The selection of a base detector: In Table 6, we present a comparison of GFL with
+                              several leading base detectors, where GFL achieves superior performance. As indicated
+                              by AP_S, both GFL and CenterNet are effective in small object detection, but GFL exhibits
+                              more balanced accuracy across various object scales. In contrast to FCOS and YOLOv8,
+                              GFL outperforms both in AP and AP_S. Therefore, we choose GFL as the base detector of
+                              AD-Det.
+
+                              Table 6. Comparison of GFL with leading base detectors. The best results are highlighted in bold.
+
+                               Method                  AP         AP_50         AP_75         AP_S         AP_M          AP_L
+                               FCOS [34]              26.7          45.2         27.1          17.4            38.8       45.1
+                               CenterNet [63]         27.2          49.8         25.8          19.4            38.7       39.2
+                               YoloV8 [7]             26.1          43.9         26.4          15.8            39.2       52.1
+                               GFL [25]               29.3          48.2         30.2          19.4            42.1       45.2
+
+
+                                   The design of the ASOE module: In our ASOE module, we empirically select the
+                              lowest layer of the feature maps, namely P3 , as our primary focus [56]. In Figure 8, we
+                              visualize the regions of interest selected by ASOE using different feature maps. The
+                              visualization shows that the P3 layer focuses more on small object regions, while higher
+                              layers such as P4 and P5 gradually focus on larger objects. To substantiate its efficacy, we
+                              conduct a straightforward comparison with the higher adjacent layer P4 as an alternative
+                              focus. We summarize the results in Table 7. Experimental results indicate that the P3
+                              layer yields the highest performance, while clustering from higher-level layers such as P4
+                              would lead to performance degradation. Note that AP and AP_S undergo a sharp decrease
+                              from P3 to P4 , highlighting our approach’s effectiveness in detecting small objects within
+                              higher-resolution layers.
+Remote Sens. 2025, 17, 1556                                                                                                 16 of 19
+
+
+
+                                   The design of the DCC module: DCC comprises two major components—diversity
+                              augmentation (DA) and dynamic search (DS). Based on ASOE, we verify these two com-
+                              ponents step by step. As shown in Table 8, when DA is applied to tail-class instances, the
+                              AP_S and AP_M are increased by 0.4% and 0.7%, respectively. When further combined
+                              with DS, the AP is increased to 35.9%, which proves its effectiveness.
+
+                              Table 7. Ablation for our ASOE module. P3 denotes the lowest layer of the feature maps, and P4 is
+                              the higher adjacent layer. The best results are highlighted in bold.
+
+                               Method                AP          AP_50         AP_75         AP_S         AP_M             AP_L
+                               Baseline              33.1          55.0         34.0             24.3       44.1           44.9
+                               with P4               30.4          50.9         30.9             21.3       42.2           45.4
+                               with P3 (ours)        35.3          58.0         36.5             27.5       44.8           45.4
+
+
+
+
+                                        img                       P3                        P4                        P5
+
+                              Figure 8. Visualization of interesting regions selected by ASOE using different feature maps. Arrows
+                              point to small objects.
+
+                              Table 8. Ablation for our DCC module. DA and DS indicate diversity augmentation for tail classes
+                              and dynamic position search for tail classes, respectively. The best results are highlighted in bold.
+
+                               Method                     AP        AP_50        AP_75           AP_S      AP_M            AP_L
+                               ASOE                      35.3          58.0        36.5           27.5       44.8          45.4
+                               ASOE + DA                 35.6          58.5        36.9           27.9       45.5          45.3
+                               ASOE + DA + DS            35.9          58.8        37.2           28.0       45.7          45.2
+
+
+                              5. Conclusions
+                                   In this paper, we propose AD-Det, a novel object detection framework for UAV images,
+                              which addresses the challenges of scale variations and class imbalance. AD-Det consists
+                              of two key components: adaptive small object enhancement (ASOE) and dynamic class-
+                              balanced copy–paste (DCC). ASOE employs a high-resolution feature map to cluster regions
+                              containing small objects, followed by processing them for fine-grained detection. DCC
+                              performs reasonable object resampling by dynamically pasting tail classes around clustering
+                              centers obtained by ASOE. We conduct extensive experiments on VisDrone and UAVDT and
+                              demonstrate that our approach significantly outperforms existing competitive alternatives.
+                                   Although our proposed approach achieves satisfactory results in UAV image object
+                              detection, several limitations remain to be addressed in our future endeavors. (1) ASOE
+                              achieves precise detection of small objects by leveraging global location cues, but the
+                              usage of global features is still limited. ASOE ignores the feature interaction between
+Remote Sens. 2025, 17, 1556                                                                                                         17 of 19
+
+
+
+                                   the global image and the local regions, which may help to better understand the scene’s
+                                   semantic knowledge. (2) DCC conducts uniform sampling copy–paste, but there is room
+                                   for improvement by considering instance-specific metrics and the complex relationships
+                                   between classes for more effective hard example mining. In the future, we plan to explore
+                                   more effective ways of handling UAV images under complex scenarios, including occlusion
+                                   and background clutter issues.
+
+                                   Author Contributions: Conceptualization, Z.L. and S.L.; methodology, Z.L.; software, D.P. and Y.W.;
+                                   validation, Z.L., S.L. and D.P.; formal analysis, Z.L. and S.L.; investigation, Z.L. and Y.W.; resources,
+                                   Z.L.; data curation, Z.L.; writing—original draft preparation, Z.L. and S.L.; writing—review and
+                                   editing, S.L. and W.L.; visualization, Z.L.; supervision, S.L. All authors have read and agreed to the
+                                   published version of the manuscript.
+
+                                   Funding: This research was funded by the Natural Science Foundation of Fujian Province of China
+                                   youth project (No. 2023J05117); the Education and Scientific Research Project for Middle-aged and
+                                   Young Teachers in Fujian Province (No. JAT220017); the National Natural Science Foundation of China
+                                   (No. 62461026); and the Natural Science Foundation of Jiangxi Province (No. 20232BAB203057).
+
+                                   Data Availability Statement: The datasets used in this study are all open-source: VisDrone is
+                                   available at https://github.com/VisDrone/VisDrone-Dataset (accessed on 17 January 2025), and
+                                   UAVDT can be accessed at https://sites.google.com/view/grli-uavdt (accessed on 17 January 2025).
+
+                                   Conflicts of Interest: The authors declare no conflicts of interest.
+
+References
+1.    Osco, L.P.; Junior, J.M.; Ramos, A.P.M.; de Castro Jorge, L.A.; Fatholahi, S.N.; de Andrade Silva, J.; Matsubara, E.T.; Pistori, H.;
+      Gonçalves, W.N.; Li, J. A review on deep learning in UAV remote sensing. Int. J. Appl. Earth Obs. Geoinf. 2021, 102, 102456.
+      [CrossRef]
+2.    Zuo, Z.; Liu, C.; Han, Q.L.; Song, J. Unmanned aerial vehicles: Control methods and future challenges. IEEE/CAA J. Autom. Sin.
+      2022, 9, 601–614. [CrossRef]
+3.    Kurunathan, H.; Huang, H.; Li, K.; Ni, W.; Hossain, E. Machine Learning-Aided Operations and Communications of Unmanned
+      Aerial Vehicles: A Contemporary Survey. IEEE Commun. Surv. Tutor. 2024, 26, 496–533. [CrossRef]
+4.    Girshick, R.; Donahue, J.; Darrell, T.; Malik, J. Rich Feature Hierarchies for Accurate Object Detection and Semantic Segmentation.
+      In Proceedings of the IEEE International Conference on Computer Vision and Pattern Recognition, Columbus, OH, USA, 23–28
+      June 2014.
+5.    Ren, S.; He, K.; Girshick, R.; Sun, J. Faster r-cnn: Towards real-time object detection with region proposal networks. In Proceedings
+      of the Advances in Neural Information Processing Systems, Montreal, QC, Canada, 7–12 December 2015.
+6.    Redmon, J.; Divvala, S.; Girshick, R.; Farhadi, A. You only look once: Unified, real-time object detection. In Proceedings of the
+      IEEE International Conference on Computer Vision and Pattern Recognition, Las Vegas, NV, USA, 27–30 June 2016.
+7.    Wang, C.Y.; Bochkovskiy, A.; Liao, H.Y.M. YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object
+      detectors. In Proceedings of the IEEE International Conference on Computer Vision and Pattern Recognition, Vancouver, BC,
+      Canada, 17–24 June 2023.
+8.    Gao, Z.; Wang, L.; Han, B.; Guo, S. Adamixer: A fast-converging query-based object detector. In Proceedings of the IEEE
+      International Conference on Computer Vision and Pattern Recognition, New Orleans, LA, USA, 18–24 June 2022.
+9.    Li, Y.; Wang, S. R(Det)2: Randomized Decision Routing for Object Detection. In Proceedings of the IEEE International Conference
+      on Computer Vision and Pattern Recognition, New Orleans, LA, USA, 18–24 June 2022.
+10.   Jia, D.; Yuan, Y.; He, H.; Wu, X.; Yu, H.; Lin, W.; Sun, L.; Zhang, C.; Hu, H. DETRs With Hybrid Matching. In Proceedings of the
+      IEEE International Conference on Computer Vision and Pattern Recognition, Vancouver, BC, Canada, 17–24 June 2023.
+11.   Lin, T.Y.; Maire, M.; Belongie, S.; Hays, J.; Perona, P.; Ramanan, D.; Dollár, P.; Zitnick, C.L. Microsoft COCO: Common Objects in
+      Context. In Proceedings of the European Conference on Computer Vision, Zurich, Switzerland, 6–12 September 2014.
+12.   Zhu, P.; Wen, L.; Du, D.; Bian, X.; Fan, H.; Hu, Q.; Ling, H. Detection and tracking meet drones challenge. IEEE Trans. Pattern
+      Anal. Mach. Intell. 2021, 44, 7380–7399. [CrossRef]
+13.   Gao, T.; Niu, Q.; Zhang, J.; Chen, T.; Mei, S.; Jubair, A. Global to local: A scale-aware network for remote sensing object detection.
+      IEEE Trans. Geosci. Remote Sens. 2023, 61, 1–14. [CrossRef]
+14.   Chen, Z.; Ji, H.; Zhang, Y.; Zhu, Z.; Li, Y. High-resolution feature pyramid network for small object detection on drone view. IEEE
+      Trans. Circuits Syst. Video Technol. 2023, 34, 475–489. [CrossRef]
+Remote Sens. 2025, 17, 1556                                                                                                               18 of 19
+
+
+
+15.   Liu, W.; Kang, Z.; Liu, J.; Lin, Y.; Yu, Y.; Li, J. A Multitask CNN-Transformer Network for Semantic Change Detection From
+      Bi-temporal Remote Sensing Images. IEEE Trans. Geosci. Remote Sens. 2024.
+16.   Liu, W.; Lin, Y.; Liu, W.; Yu, Y.; Li, J. An attention-based multiscale transformer network for remote sensing image change
+      detection. ISPRS J. Photogramm. Remote Sens. 2023, 202, 599–609. [CrossRef]
+17.   Lin, T.Y.; Goyal, P.; Girshick, R.; He, K.; Dollár, P. Focal loss for dense object detection. In Proceedings of the IEEE International
+      Conference on Computer Vision, Venice, Italy, 22–29 October 2017.
+18.   Biswas, D.; Tešić, J. Small object difficulty (sod) modeling for objects detection in satellite images. In Proceedings of the International
+      Conference on Computational Intelligence and Communication Networks, Al-Khobar, Saudi Arabia, 4–6 December 2022.
+19.   Biswas, D.; Tešić, J. Unsupervised domain adaptation with debiased contrastive learning and support-set guided pseudo labeling
+      for remote sensing images. IEEE J. Sel. Top. Appl. Earth Obs. Remote Sens. 2024, 17, 3197–3210. [CrossRef]
+20.   Li, C.; Yang, T.; Zhu, S.; Chen, C.; Guan, S. Density Map Guided Object Detection in Aerial Images. In Proceedings of the IEEE
+      International Conference on Computer Vision and Pattern Recognition Workshops, Seattle, WA, USA, 14–19 June 2020.
+21.   Ghiasi, G.; Cui, Y.; Srinivas, A.; Qian, R.; Lin, T.Y.; Cubuk, E.D.; Le, Q.V.; Zoph, B. Simple Copy-Paste Is a Strong Data
+      Augmentation Method for Instance Segmentation. In Proceedings of the IEEE International Conference on Computer Vision and
+      Pattern Recognition, Nashville, TN, USA, 20–25 June 2021.
+22.   Li, B.; Liu, Y.; Wang, X. Gradient Harmonized Single-Stage Detector. Proc. AAAI Conf. Artif. Intell. 2019, 33, 8577–8584. [CrossRef]
+23.   Kang, B.; Xie, S.; Rohrbach, M.; Yan, Z.; Gordo, A.; Feng, J.; Kalantidis, Y. Decoupling representation and classifier for long-tailed
+      recognition. arXiv 2019, arXiv:1910.09217.
+24.   Zhang, X.; Izquierdo, E.; Chandramouli, K. Dense and Small Object Detection in UAV Vision Based on Cascade Network. In
+      Proceedings of the IEEE International Conference on Computer Vision Workshops, Seoul, Republic of Korea, 27–28 October 2019.
+25.   Li, X.; Wang, W.; Wu, L.; Chen, S.; Hu, X.; Li, J.; Tang, J.; Yang, J. Generalized Focal Loss: Learning Qualified and Distributed
+      Bounding Boxes for Dense Object Detection. In Proceedings of the Advances in Neural Information Processing Systems, Virtual,
+      6–12 December 2020.
+26.   Ding, J.; Xue, N.; Xia, G.S.; Bai, X.; Yang, W.; Yang, M.; Belongie, S.; Luo, J.; Datcu, M.; Pelillo, M.; et al. Object Detection in
+      Aerial Images: A Large-Scale Benchmark and Challenges. IEEE Trans. Pattern Anal. Mach. Intell. 2021, 44, 7778–7796. [CrossRef]
+      [PubMed]
+27.   Gupta, A.; Dollar, P.; Girshick, R. Lvis: A dataset for large vocabulary instance segmentation. In Proceedings of the IEEE
+      International Conference on Computer Vision and Pattern Recognition, Long Beach, CA, USA, 15–20 June 2019.
+28.   Krizhevsky, A.; Sutskever, I.; Hinton, G.E. Imagenet classification with deep convolutional neural networks. Commun. ACM 2017,
+      60, 84–90. [CrossRef]
+29.   Girshick, R. Fast r-cnn. In Proceedings of the IEEE International Conference on Computer Vision, Santiago, Chile, 7–13 December
+      2015.
+30.   He, K.; Gkioxari, G.; Dollár, P.; Girshick, R. Mask r-cnn. In Proceedings of the IEEE International Conference on Computer Vision,
+      Venice, Italy, 22–29 October 2017.
+31.   Redmon, J.; Farhadi, A. YOLO9000: Better, faster, stronger. In Proceedings of the IEEE International Conference on Computer
+      Vision and Pattern Recognition, Honolulu, HI, USA, 21–26 July 2017.
+32.   Liu, W.; Anguelov, D.; Erhan, D.; Szegedy, C.; Reed, S.; Fu, C.Y.; Berg, A.C. Ssd: Single shot multibox detector. In Proceedings of
+      the European Conference on Computer Vision, Amsterdam, The Netherlands, 11–14 October 2016.
+33.   Law, H.; Deng, J. Cornernet: Detecting objects as paired keypoints. In Proceedings of the European Conference on Computer
+      Vision, Munich, Germany, 8–14 September 2018.
+34.   Tian, Z.; Shen, C.; Chen, H.; He, T. Fcos: Fully convolutional one-stage object detection. In Proceedings of the IEEE International
+      Conference on Computer Vision, Seoul, Republic of Korea, 27 October–2 November 2019.
+35.   Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; Zagoruyko, S. End-to-end object detection with transformers. In
+      Proceedings of the European Conference on Computer Vision, Glasgow, UK, 23–28 August 2020.
+36.   Yang, C.; Huang, Z.; Wang, N. QueryDet: Cascaded Sparse Query for Accelerating High-Resolution Small Object Detection. In
+      Proceedings of the IEEE International Conference on Computer Vision and Pattern Recognition, New Orleans, LA, USA, 18–24
+      June 2022.
+37.   Zhu, Y.; Zhou, Q.; Liu, N.; Xu, Z.; Ou, Z.; Mou, X.; Tang, J. ScaleKD: Distilling Scale-Aware Knowledge in Small Object Detector.
+      In Proceedings of the IEEE International Conference on Computer Vision and Pattern Recognition, Vancouver, BC, Canada, 17–24
+      June 2023.
+38.   Han, W.; Li, J.; Wang, S.; Wang, Y.; Yan, J.; Fan, R.; Zhang, X.; Wang, L. A context-scale-aware detector and a new benchmark for
+      remote sensing small weak object detection in unmanned aerial vehicle images. Int. J. Appl. Earth Obs. Geoinf. 2022, 112, 102966.
+      [CrossRef]
+39.   Cao, B.; Yao, H.; Zhu, P.; Hu, Q. Visible and Clear: Finding Tiny Objects in Difference Map. In Proceedings of the European
+      Conference on Computer Vision, Milan, Italy, 29 September–4 October 2024.
+Remote Sens. 2025, 17, 1556                                                                                                             19 of 19
+
+
+
+40.   Huang, Y.X.; Liu, H.I.; Shuai, H.H.; Cheng, W.H. Dq-detr: Detr with dynamic query for tiny object detection. In Proceedings of
+      the European Conference on Computer Vision, Milan, Italy, 29 September–4 October 2024.
+41.   Yin, N.; Liu, C.; Tian, R.; Qian, X. SDPDet: Learning Scale-Separated Dynamic Proposals for End-to-End Drone-View Detection.
+      IEEE Trans. Multimed. 2024, 26, 7812–7822. [CrossRef]
+42.   Zhang, C.; Liu, T.; Xiao, J.; Lam, K.M.; Wang, Q. Boosting Object Detectors via Strong-Classification Weak-Localization Pretraining
+      in Remote Sensing Imagery. IEEE Trans. Instrum. Meas. 2023, 72, 1–20. [CrossRef]
+43.   Zhang, C.; Xiao, J.; Yang, C.; Zhou, J.; Lam, K.M.; Wang, Q. Integrally Mixing Pyramid Representations for Anchor-Free Object
+      Detection in Aerial Imagery. IEEE Geosci. Remote Sens. Lett. 2024, 21, 1–5. [CrossRef]
+44.   Duan, C.; Wei, Z.; Zhang, C.; Qu, S.; Wang, H. Coarse-grained density map guided object detection in aerial images. In
+      Proceedings of the IEEE International Conference on Computer Vision Workshops, Montreal, BC, Canada, 11–17 October 2021.
+45.   Yang, F.; Fan, H.; Chu, P.; Blasch, E.; Ling, H. Clustered object detection in aerial images. In Proceedings of the IEEE International
+      Conference on Computer Vision, Seoul, Republic of Korea, 27 October–2 November 2019.
+46.   Deng, S.; Li, S.; Xie, K.; Song, W.; Liao, X.; Hao, A.; Qin, H. A Global-Local Self-Adaptive Network for Drone-View Object
+      Detection. IEEE Trans. Image Process. 2021, 30, 1556–1569. [CrossRef]
+47.   Meethal, A.; Granger, E.; Pedersoli, M. Cascaded Zoom-In Detector for High Resolution Aerial Images. In Proceedings of the
+      IEEE International Conference on Computer Vision and Pattern Recognition Workshops, Vancouver, BC, Canada, 17–24 June 2023.
+48.   Liu, C.; Gao, G.; Huang, Z.; Hu, Z.; Liu, Q.; Wang, Y. YOLC: You Only Look Clusters for Tiny Object Detection in Aerial Images.
+      IEEE Trans. Intell. Transp. Syst. 2024, 25, 13863–13875. [CrossRef]
+49.   Zhang, C.; Lam, K.M.; Liu, T.; Chan, Y.L.; Wang, Q. Structured Adversarial Self-Supervised Learning for Robust Object Detection
+      in Remote Sensing Images. IEEE Trans. Geosci. Remote Sens. 2024, 62, 1–20. [CrossRef]
+50.   Yu, W.; Yang, T.; Chen, C. Towards Resolving the Challenge of Long-Tail Distribution in UAV Images for Object Detection. In
+      Proceedings of the IEEE Winter Conference on Applications of Computer Vision, Waikoloa, HI, USA, 3–8 January 2021.
+51.   Wang, T.; Li, Y.; Kang, B.; Li, J.; Liew, J.; Tang, S.; Hoi, S.; Feng, J. The devil is in classification: A simple framework for long-tail
+      instance segmentation. In Proceedings of the European Conference on Computer Vision, Glasgow, UK, 23–28 August 2020.
+52.   Cui, Y.; Jia, M.; Lin, T.Y.; Song, Y.; Belongie, S. Class-balanced loss based on effective number of samples. In Proceedings of the
+      IEEE International Conference on Computer Vision and Pattern Recognition, Long Beach, CA, USA, 15–20 June 2019.
+53.   Li, Y.; Wang, T.; Kang, B.; Tang, S.; Wang, C.; Li, J.; Feng, J. Overcoming classifier imbalance for long-tail object detection with
+      balanced group softmax. In Proceedings of the IEEE International Conference on Computer Vision and Pattern Recognition,
+      Seattle, WA, USA, 13–19 June 2020.
+54.   Zhang, S.; Chen, C.; Peng, S. Reconciling Object-Level and Global-Level Objectives for Long-Tail Detection. In Proceedings of the
+      IEEE International Conference on Computer Vision, Paris, France, 1–6 October 2023.
+55.   Hyun Cho, J.; Krähenbühl, P. Long-tail detection with effective class-margins. In Proceedings of the European Conference on
+      Computer Vision, Tel Aviv, Israel, 23–27 October 2022.
+56.   Lin, T.Y.; Dollár, P.; Girshick, R.; He, K.; Hariharan, B.; Belongie, S. Feature pyramid networks for object detection. In Proceedings
+      of the IEEE International Conference on Computer Vision and Pattern Recognition, Honolulu, HI, USA, 21–26 July 2017.
+57.   Bundy, A.; Wallen, L. Breadth-first search. Cat. Artif. Intell. Tools 1984, 1, 13. [CrossRef]
+58.   Du, D.; Qi, Y.; Yu, H.; Yang, Y.; Duan, K.; Li, G.; Zhang, W.; Huang, Q.; Tian, Q. The unmanned aerial vehicle benchmark: Object
+      detection and tracking. In Proceedings of the European Conference on Computer Vision, Munich, Germany, 8–14 September 2018.
+59.   Chen, K.e.a. MMDetection: Open MMLab Detection Toolbox and Benchmark. arXiv 2019, arXiv:1906.07155.
+60.   Paszke, A.; Gross, S.; Massa, F.; Lerer, A.; Bradbury, J.; Chanan, G.; Killeen, T.; Lin, Z.; Gimelshein, N.; Antiga, L.; et al. Pytorch:
+      An imperative style, high-performance deep learning library. Adv. Neural Inf. Process. Syst. 2019, 32, 8026–8037.
+61.   Du, B.; Huang, Y.; Chen, J.; Huang, D. Adaptive Sparse Convolutional Networks With Global Context Enhancement for Faster
+      Object Detection on Drone Images. In Proceedings of the IEEE International Conference on Computer Vision and Pattern
+      Recognition, Vancouver, BC, Canada, 17–24 June 2023.
+62.   Wei, Z.; Duan, C.; Song, X.; Tian, Y.; Wang, H. Amrnet: Chips augmentation in aerial images object detection. arXiv 2020,
+      arXiv:2009.07168.
+63.   Zhou, X.; Wang, D.; Krähenbühl, P. Objects as points. arXiv 2019, arXiv:1904.07850.
+
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.
+

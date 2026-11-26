@@ -1,0 +1,31 @@
+第二服务器并行执行记录（准备中，FULL尚未启动）
+
+用户随后要求显存允许时并行实验，并提供第二台服务器，说明“另一个服务器 你可以跑其他的”。本次将既有授权的FULL首次训练放到第二台，BASE原进程继续；总共仍只有BASE/FULL两组，seed0、batch4、FP32、320实际轮次。没有增加实验组、种子或调参。
+
+一、已经确认
+端口30166为BASE原服务器，GPU UUID为GPU-85eca9af-10f3-4279-d72a-05ff1ecdcd3a；端口30989为独立GPU，UUID为GPU-ca8d11de-f221-f2b9-82bf-d389523dd71a。两卡均为RTX3090 24GB，驱动550.100。第二台初查空闲。密码只在SSH进程内存中，不保存在本记录或脚本。
+第二台原本没有第一台的/25085400120目录、数据缓存或deim环境。已在独立新目录/25085400120/mpsma_fair_20261103_v1部署冻结输入，缓存为/tmp/mpsma_fair_20261103_data。
+secondary_inputs_status.json确认247个冻结文件和全部7021个数据文件SHA一致，包含6471训练图、548验证图和两份标注。复制的是原有冻结初始权重与前100批预检记录，不把原服务器预检冒充成第二台重新预检。
+
+二、正在进行与不得重复启动
+第一台环境打包进程PID281890/start_ticks42491895，其tar子进程PID281891/start_ticks42491910。只读原环境，排除瞬时pyc缓存，不加载模型。环境包完成后由本地relay_environment_secondary.py传入第二台，并在第二台重新计算哈希。
+当前本地SSH控制session：第一台51908，第二台22872；环境relay为94088。它们可能随控制端重置失效，远程原BASE和打包进程独立存在；先查原句柄和/proc身份，观察失败不等于任务失败，不能因此重启训练。
+环境未通过核验前，不执行reserve_primary_full.py，不启动supervise_secondary_full.py。第一台旧队列此时仍维持原BASE→FULL计划。
+
+三、已经准备并测试的队列转移方式
+parallel_execution_addendum.json补充执行位置，冻结训练协议SHA仍为8d495467c5ec74ac57f8e97f730cd345bf72360a2ee2ce30197880c05079902b。训练驱动、网络、配置、端点、预算和初始权重均不修改。
+第二台准备通过后，reserve_primary_full.py将核对原BASE和监督器身份，并以独占方式创建第一台FULL.train.log预留文件，记录FULL已转移到第二台。利用原supervise.py在启动每组前使用open('x')的原生检查，阻止重复FULL。
+BASE及其原监督器不接收信号、不重启、不重定父进程；原监督器继续保留BASE的真实退出码和最终回执。BASE成功后，原排队器会因已预留的FULL.train.log产生预期FileExistsError，在创建任何FULL训练进程之前退出。旧queue.json顶层RUNNING不会自动更新，不能将它误读为仍有训练运行，也不能伪造为完成。
+该行为已用未修改的原监督器和合成假进程验证，见queue_reservation_test_receipt.json。测试没有模型执行或optimizer更新；不属于实验结果。
+第二台由supervise_secondary_full.py仅启动一次FULL，保持原7天兜底超时、固定训练预算和不自动重试策略。两台的真实队列分别保留，最新状态由remote_parallel_status.py和record_parallel_snapshot.py核查并写parallel_execution_ledger.json。
+
+四、后续步骤
+1. 等原环境打包与传输完成；上传secondary_environment_transfer.json，执行secondary_prepare.py runtime。核对全部101个包、Python、Torch/CUDA/cuDNN、Torch编译信息、GPU型号/驱动。
+2. 下载实际secondary_preparation.json和secondary_runtime.json；将前者以secondary_preparation_verified.json上传第一台。执行一次reserve_primary_full.py，下载预留证据并上传第二台。
+3. 在第二台启动一次supervise_secondary_full.py，保存启动PID/start_ticks。随后实际读取两台/proc和训练回执，核验FULL实际前100批与冻结记录及BASE相同。
+4. 两组完成后，各自在其真实服务器运行已有audit_saved_endpoint.py，核对terminal/best四个最终端点。下载为分离的primary/secondary证据根，保留原始队列、运行环境和调度预留记录。
+5. 采用summarize_split_pair.py核对跨主机证据；它复用原串行审计的逐组核验，且通过AST确认逐组审计逻辑未变。split_audit_prelaunch_check.json只证明未完成/重复组等输入被拒绝，不代替真实最终审计。原summarize_completed_pair.py仅适用于原串行队列，不能直接用于本次分机结果。
+6. 原排队器退出后，需保留解析后的primary_terminal_status.json，并核对旧队列SHA、原监督器已退出、BASE真实exit0、FULL预留哈希及无第一台FULL目录；不能把意外BASE失败归入预期调度结束。
+
+五、论文状态
+仍为第七轮修订稿，未写入中途训练指标。尚不能投稿。完成后的单seed对照只能评价完整组合，不支持独立模块归因、显著性或稳定性宣称。

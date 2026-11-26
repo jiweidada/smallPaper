@@ -1,0 +1,32 @@
+__include__: [
+  '../../deimv2/deimv2_hgnetv2_n_coco.yml',
+  '../../dataset/visdrone_detection.yml',
+  './_base_ov_deimv2.yml',
+]
+
+output_dir: ./outputs/ov/deimv2/ov_deimv2_hgnetv2_n_visdrone
+
+OVDEIM:
+  img_dim: 128
+
+OVDEIMV2Transformer:
+  feat_channels: [128, 128]
+  feat_strides: [16, 32]
+  hidden_dim: 128
+  num_levels: 2
+  num_points: [6, 6]
+  num_layers: 3
+
+DEIMCriterion:
+  matcher:
+    matcher_change_epoch: 136
+
+print_freq: 2000
+checkpoint_freq: 200
+text_cache_file: text_embedding/tips_v2_visdrone_text_cache.pth
+
+train_dataloader:
+  total_batch_size: 4
+
+val_dataloader:
+  total_batch_size: 4

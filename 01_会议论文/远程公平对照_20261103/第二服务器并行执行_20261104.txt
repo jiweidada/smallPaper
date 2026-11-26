@@ -1,0 +1,76 @@
+第二服务器并行执行已启动（2026-11-04）
+
+远程公平对照：当前双服务器恢复入口
+更新：2026-11-04。两组已在不同RTX3090上实际训练，不能再按旧BASE→FULL串行计划启动。并行前说明保存在操作恢复说明_并行前留档_20261104.txt。
+
+一、当前唯一的两组正式训练
+BASE：172.17.120.160:30166；原监督器PID1193/start_ticks39931198；原训练PID1194/start_ticks39931668。GPU-85eca9af-10f3-4279-d72a-05ff1ecdcd3a。
+FULL：172.17.120.160:30989；新监督器PID564/start_ticks42790973；训练PID567/start_ticks42791005。GPU-ca8d11de-f221-f2b9-82bf-d389523dd71a。
+两边目录都叫/25085400120/mpsma_fair_20261103_v1，但属于不同服务器。数据缓存均为/tmp/mpsma_fair_20261103_data。解释器为/25085400120/envs/deim/bin/python，基础解释器位于/25085400120/envs/pybase。
+本地SSH控制session当前分别为51908、22872，仅是控制连接。失效后使用remote_session.py和remote_session_secondary.py重新连对应端口；密码不写文件或命令行。重新连接不代表重启训练。
+最新权威状态为parallel_execution_ledger.json引用的两份快照，每次必须实际核对/proc的PID、start_ticks和活状态，不能依靠本说明或锁文件判断。首次并行快照为primary_parallel_launch_snapshot.json、secondary_parallel_launch_snapshot.json。
+
+二、查询与禁止重复操作
+两台各发送op=python，python=/25085400120/envs/deim/bin/python，script为本目录remote_parallel_status.py的本地绝对路径，save分别为primary_parallel_live.json、secondary_parallel_live.json的本地绝对路径。通过helper输入JSON后用回车结束。
+收到两份新快照后，用本地bundled Python运行record_parallel_snapshot.py。它要求接收时间距现在不超过180秒，核查进程、协议、预留文件、硬件、批次前缀和无重复组。
+观察超时或连接失败不是任务失败；先重连查看原句柄，不自动重启。真实错误先保留回执和日志，不追加替代训练。仍是seed0、batch4、FP32、320实际轮次、每组517440次更新尝试；每组7天兜底超时，无自动重试、延长、续训、额外组别或种子。
+不得重新运行launch_training.py、supervise.py、reserve_primary_full.py、supervise_secondary_full.py、已执行的准备或冻结脚本；不得修改fair_runner.py、冻结源码/配置/初始权重/执行协议。
+
+三、原队列的预期调度退出
+第一台FULL.train.log现为独占预留JSON，不是训练日志，不得删除或覆盖。primary_full_reservation.json SHA256为bcb6c75cdd80c1f8fd5391f02a2c10a61779108d1c6ef1c3b741e9d53f76bb34；预留文件SHA为e6a21c33d5ff7b131a246718d42ff5158d59f2815f5978123b06155207f9e39d。
+BASE继续由原父进程监督，未接收停止信号、未重启。BASE成功后，原监督器先把真实exit0和最终回执写入queue.json，再因FULL.train.log已存在而在open(x)处产生FileExistsError，阻止创建重复FULL。旧queue.json顶层RUNNING届时过时，不能解释为仍有训练，也不能改成COMPLETED。
+仅当BASE真实完成exit0、预留哈希正确、第一台没有runs/FULL、日志确为该FileExistsError时，才属于预定调度退出；BASE错误仍是实验失败。第二台FULL由secondary_queue.json记录，最终核对两份真实队列，不伪造合并队列。
+
+四、冻结与新位置证据
+原执行协议SHA仍为8d495467c5ec74ac57f8e97f730cd345bf72360a2ee2ce30197880c05079902b，247个冻结文件未改。parallel_execution_addendum.json仅补充用户授权的执行位置，SHA为2e0f28dfb90c7f9f7bc9ab20f824774d8b266e26250fec32d94ea864e286b014。
+两台均核验7021个数据文件：6471训练图、548验证图和两份标注。两卡均为RTX3090 24GB，驱动550.100；Python、Torch/CUDA/cuDNN、Torch编译信息及实际安装的101个依赖包一致。
+第二台实际runtime SHA为019d797b71b0e13a4199792ff90671fd63acbe608a247d8dfba382b086b88d7b；准备通过回执SHA为dca9d93af746355985824aae1975368ecfd0c47151cd7299ba81defc7fec425b。新监督器SHA为2df1c11e6b5356b92e892683ce261c2bc46d90628b4f3f64b4abb56f858dc895。
+原environment.current.json和preflight记录仍是第一台准备过程的证据，不冒充第二台实测环境；第二台实际记录为secondary_runtime.json及secondary_preparation.json（本地下载名secondary_preparation_verified.json）。初始化权重完整复用；FULL实际前100批核验看最新并行账本。
+准备时发现pybase解释器依赖和setuptools内置元数据重复枚举，两次均在训练前停止。已复制原基础解释器，两台相同探针证明安装包和导入解析相同；见metadata_discovery_resolution.json及两台metadata_order_probe.json。临时导入目录随机名称不同，已明确保留。没有升级、降级或调参；失败记录已保留。
+
+五、完成后的证据核对
+各组完成后，在其真实服务器用原audit_saved_endpoint.py核对terminal/best已保存端点，不执行模型推理或评价器重跑。四个最终端点均须通过。主端点为实际epoch319回滚前EMA，辅助端点为320行中AP最高的整行，平局最早；保留原生晚期回滚及实际更新计数。
+下载成分离的primary/secondary证据根，包含全部冻结文件、各自真实运行目录和队列、监督器日志、位置补充、预留记录、实际环境、四端点审计和逐步LR。
+跨主机最终审计用summarize_split_pair.py --primary <primary证据根> --secondary <secondary证据根> --output <新结果文件>。其逐组核验与原串行审计一致，另查真实双队列、硬件、实际环境、预留链。原summarize_completed_pair.py不能直接用于分机队列。
+原监督器退出后另保存解析后的primary_terminal_status.json（remote_parallel_status.py的stdout对象，不含工具包装）。它须绑定最终第一台queue.json的SHA，显示原监督器退出、BASE完成、预留匹配且无重复FULL。合成调度测试和分析门禁测试只验证工具，不是实验结果。
+包括负值和混合结果，不更换预定端点。真实最终审计完成后，按结果并入与验收清单.txt修订论文并逐页渲染检查。
+
+六、稿件
+当前第十一轮修订稿MPSMA-DEIM_conference_EN_revised.docx SHA为06c51c534c640fe35348bd88ed6c9a2a45c540b35521e378f008fe5a93126809。尚未写入中途训练指标，尚不能投稿。单seed对照仅支持完整组合，不支持独立模块归因、显著性、稳定性或旧速度优势。
+
+2026-11-04 FULL首轮证据链核验
+FULL已完成实际epoch0的1617次更新与548图验证，并进入epoch1。未修改训练协议或稿件结论。
+已用原audit_saved_endpoint.py对FULL_best_epoch0000做一次保存文件审计，PID6292/start_ticks42855681已完成退出。该分析未实例化或执行模型，未重新运行评价器，也未更新优化器。
+权重EMA规范化张量、预测和评价数组均与同一行指标绑定；548图共164400条预测，保存数组汇总12项指标与该行全部差值为0。五份审计文件下载后SHA核验通过，见early_full_evidence_download_audit.json及secondary_evidence/evidence_audits/FULL_best_epoch0000。
+该项只验证第一轮记录完整性，不支持方法收益，也不替代320轮主端点或最终best端点。不得重复运行早期FULL审计启动器；若最终best仍为epoch0，仅在最终文件和指标与现有审计完全一致时复用，否则核查实际最终端点。
+两组原训练句柄仍经/proc核实存活，目标active。仍待完整训练、四个最终端点核验和相应论文修订，尚不能投稿。
+
+2026-11-04 第八轮稿件入口：仅补直接引用与统一文献编号；10页核验通过，第七轮备份保留。详见修订记录_20261103/引用补核_20261104。稿件SHA为37026584852e657c15bce14d522d261762acf2695c7bd681948b56ff0ccc66ac；完整训练结果尚未写入，尚不能投稿。
+
+2026-11-04 FULL首次增强轮次检查
+FULL已记录完整实际轮次0—4，实际epoch4是冻结配置启用Mosaic/MixUp后的首个轮次；当前已进入epoch5。下载的5行日志连续、每轮更新尝试数为1617的整数倍、损失及12项验证指标均有限，协议与配置SHA匹配。
+详见FULL_first_augmented_phase_audit.json和secondary_parallel_FULL_completed0005.json。本次仅读取已有日志和原进程状态，没有模型执行或评价器重跑；只覆盖该前缀，不代表增强阶段或320轮预算全部完成。此阶段检查已做，不重复启动早期审计或训练。
+两组原句柄仍经/proc身份核查存活，目标active；第八轮稿件保持，完整对照和最终端点尚待完成。
+
+2026-11-04 第九轮稿件入口：增强时序、Mosaic条件及固定输入说明已核对，10页逐页核验通过。当前SHA为41cbe7bd9c42fda9ab5fac813207209d591250076e15d62f3097647d1716fc2f；第八轮备份保留。详见修订记录_20261103/增强时序核查_20261104。训练协议不变，完整对照仍待完成，尚不能投稿。
+
+2026-11-04 第十轮稿件入口：完整聚合投影路径及图3图注已明确，10页核验通过；第九轮备份保留。当前SHA为2dea983b748b1002f372d138c591db2845a36d000c890275ea750499ce09b0e0。训练协议与验收端点不变，完整对照尚待完成，尚不能投稿。
+
+2026-11-04 BASE到达epoch156边界
+最新原进程观测：BASE已完成156轮（0—155），进入0起算actual_loop_epoch=156并推进了601次本轮更新；同窗口FULL完成82轮。见BASE_epoch0156_boundary_observation.json及其固定SHA的两份快照，FULL文件名明确为at_BASE_epoch0156，不能当成FULL自身达到156轮。
+按原冻结设置和所核查源码，Mosaic选择器与批次MixUp的区间是4—155；从156起停用这两项，其他指定强增强可延续到295。该观测只证明原进程身份、实际轮次和更新次数已到达规则边界，没有直接审计每次随机增强，也不证明新阶段或整组训练完成。未改训练设置、未新增模型或评价器执行；当前第十轮稿件不变，完整320轮和最终端点仍待完成。
+
+2026-11-04 第十一轮稿件入口：top300后处理与class-aware maxDets上限已区分，10页核验通过；第十轮备份保留。当前SHA为06c51c534c640fe35348bd88ed6c9a2a45c540b35521e378f008fe5a93126809。服务器评价器1.8.0与既有CPU重评1.6.5分别记录；训练协议、预算和验收端点不变，完整对照尚未完成，尚不能投稿。
+
+【2026-11-04 时钟偏差观测】
+本机时间2026-11-04 23:49附近的只读观测，用本机请求前后11.883秒包络两台远端快照。BASE远端时钟减本机时钟的界限为[-959.882, -947.999]秒；FULL为[-959.385, -947.502]秒，即此次两端均比本机约慢15分47秒至16分00秒。通信与调度延迟已包含在区间中。这只说明当次相对本机的时钟读数，不能当作NTP校准，也不能把该偏差直接套用于过去或将来的时间戳。
+源码与实际进程核对表明两组监督器以各自time.monotonic()计算604800秒硬超时；现行状态新鲜度判断使用本机接收文件的修改时间，远端UTC另行记录。最终配对核验以轮次、更新次数、保存权重及指标绑定为依据；这些检查不能替代最终结果审计，也不证明其他未检查过程不受时钟变化影响。
+观测和范围见clock_observation_20261104.json，SHA256：5541b3546e23d0a1ac1a534bb9e04d3f10472c2614dc59f7e288ab86f9a27031；两份原始快照及其哈希见该文件。最终配对审计还引用summarize_completed_pair.py，当前SHA256：3dee0beb969c698efdf7a64b796155672ca29224dd2eb844be2e4d9c4c546615。首次捕获前的本地脚本因次服务器监督器哈希常量多写一位，在创建包络或发送远端请求前被断言阻止；核对本地文件与远端快照一致后纠正常量，才完成本次观测。没有校时、改训练设置或执行新模型、评价器。
+
+2026-11-04 观察连接中断：两台原SSH会话均失效，重连时均未完成SSH标识交换；端口只读探测见connection_observation_20261104.json。最后一次经PID/启动ticks核验的本机接收时间为2026-11-05T07:50:35.903685+00:00，BASE/FULL分别完成224/128轮。当前远程训练状态未知，不能据此判断已停止或已完成。原始状态和两份快照已按哈希留存，当前ledger标记为观察不可用；重连后须核验原进程，不自动重启或恢复训练。
+
+2026-11-05 实验中断核查：重连后原训练及监督器进程身份均不在当前环境，GPU UUID均变化；基线磁盘保留225轮，25份文件已下载并核验，最后完整AP发生骤降，原因未确定；第二端原目录缺失，最后本地确认128轮，外部备份待查。旧RUNNING字段不能作为当前状态。详情见实验中断与证据保全_20261105.txt及interrupted_runs_report_20261105.json；未启动或恢复训练，公平主对照仍不完整，尚不能投稿。
+
+2026-11-05 异常范围与数据补核：基线已保存评价数组显示10个类别AP均下降，548张验证图各自的最高预测分数均下降；旧N0–N4和S1日志同索引区间未下降，但实验条件不匹配，不能据此归因。主服务器原数据压缩包SHA与原记录一致，临时解压缓存不存在。只读核对见实验中断与证据保全_20261105.txt及其引用证据。已拟定基线骤降最小诊断方案_待授权_20261105.txt；其为新实验，尚未授权或运行。公平主对照仍缺失，尚不能投稿。
+
+2026-11-05 内核环境补核：两端当前暴露相同boot_id、采样时运行约44分钟；旧监督器最后活进程快照记载两个任务分别运行约29.9和22.0小时。该差异与原运行环境重启、迁移或替换一致，但不能据此确定原因或证明此前物理机相同。详情见kernel_epoch_comparison_20261105.json，SHA256 9a24f1a0ca8e6652813b0b476146cd6d9695a3f15a9f14b9d6e015929ea1b5f2。日后重试需先确认可靠持久存储及运行时长，任何新训练仍须明确授权。

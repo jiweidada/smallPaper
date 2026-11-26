@@ -1,0 +1,193 @@
+BDNet:Bio-Inspired Dual-Backbone Small Object Detection Network
+Wenchao Guan1 , Chuan Lin1∗ , Sihan Huang1 , Xiongzhen Wang1 , Xintao Pang2∗
+1School of Automation, Guangxi University of Science and Technology
+2Faculty of Applied Sciences, Macao Polytechnic University
+Abstract
+In remote sensing images, small objects often exhibit low
+color contrast and blurred edges, leading to suboptimal
+feature extraction. Physiological studies indicate that the
+LGN/V1–V2–V4 pathway provides color-opponent sensitiv-
+ity and hierarchical enhancement for color information ex-
+traction, whereas the V1–V4 pathway exhibits strong ori-
+entation selectivity for edge extraction. Integrating these
+complementary visual signals in the V4 region can substan-
+tially improve target discrimination. Motivated by these
+findings, we propose a dual-backbone network (BDNet) to
+enhance feature extraction for small objects. BDNet adopts
+a parallel architecture to capture fine-grained features from
+color and edge cues. Specifically, the color-extraction back-
+bone simulates the color-opponent mechanism in LGN/V1
+via a Color Antagonism Module (CAM) to amplify color
+differences, and further mimics the chromatic processing
+hierarchy in V2 using a Visual Cortex Hue Enhancement
+Module (VCHM) to enrich hue representations. Together,
+these two modules alleviate low color contrast. The edge-
+extraction backbone simulates the orientation selectivity of
+receptive fields in V1 through an Orientation Selective Mod-
+ule (OrSM) to select and enhance salient edges, thereby
+reducing edge blurring from fragmented edge responses.
+Finally, the two feature types are fused via a Feature Fu-
+sion Module (FFM) that emulates integration in V4, yield-
+ing a comprehensive feature representation. Experiments
+demonstrate that BDNet outperforms state-of-the-art meth-
+ods on the VisDrone2019, NWPU VHR-10, and AI-TODv2
+datasets, providing a bio-inspired solution for small-object
+detection in remote sensing images.
+1. Introduction
+Remote Sensing Object Detection (RSOD) aims to local-
+ize and recognize targets in high-resolution remote sensing
+imagery. However, small objects in remote sensing im-
+ages often exhibit limited visual cues, such as low color
+∗Corresponding authors. Chuan Lin (chuanlin@gxust.edu.cn)
+Xintao Pang (p2424471@mpu.edu.mo)
+contrast and blurred edges, and their features are further
+degraded by downsampling in feature-extraction networks,
+which severely limits detection accuracy [4].
+To enhance the representation of fine-grained cues like
+color and edges, existing feature-enhancement methods
+have achieved notable gains [23]. However, they are of-
+ten limited because they focus on a single type of fea-
+ture. For example, COSE [22] improves color consis-
+tency in low-contrast regions through color-shift correction,
+DCFL [49] enhances edge textures by combining super-
+resolution and detail compensation, and SET [42] strength-
+ens high-frequency details via spectral enhancement. Multi-
+backbone networks typically aim to complement differ-
+ent characteristics within the same feature space. For in-
+stance, TransFuse [53] combines parallel CNN and Trans-
+former backbones to integrate local and global cues, while
+DSOD++ [41] employs dual paths to enhance information
+from different receptive fields, and DCAL [55] introduces
+bidirectional guidance to improve cross-attention comple-
+mentarity. However, research on multi-branch networks
+that explicitly target multi-dimensional low-level cues (e.g.,
+color and edges) remains scarce. In contrast, studies of bi-
+ological vision provide a well-established theoretical basis
+for understanding low-level visual processing.
+Physiological studies suggest the visual system inte-
+grates multiple features through hierarchical processing.
+The Lateral Geniculate Nucleus (LGN), Primary Visual
+Cortex (V1), and Secondary Visual Cortex (V2) process
+color and luminance [39, 40], while orientation-selective
+neurons in V1 extract edges [18]. These two streams
+converge in visual area V4, improving object representa-
+tion [14, 36]. Motivated by these observations, we propose
+a bio-inspired dual-backbone detection network, termed
+BDNet. BDNet simulates the LGN/V1–V2–V4 and V1–
+V4 pathways to enhance and complement color and edge
+cues, resulting in a dual-backbone architecture with a color-
+enhancement branch and an edge-reinforcement branch.
+This design enables multi-dimensional enhancement and hi-
+erarchical fusion of small-object features, improving the de-
+tectability of weak targets in remote sensing imagery. Our
+main contributions are:
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+32724
+
+
+---PAGE---
+
+• We propose a “color enhancement–edge reinforcement–
+hierarchical fusion” detection framework that leverages
+the biological color-processing pathway (LGN/V1–V2–
+V4) and edge-processing pathway (V1–V4) to achieve
+complementary enhancement across a color-extraction
+backbone and an edge-extraction backbone for remote-
+sensing small-object detection.
+• In the color-extraction backbone, we design a Color An-
+tagonism Module (CAM) and a Visual Cortex Hue En-
+hancement Module (VCHM) to synergistically enhance
+color cues and improve hue representation. In the edge-
+extraction backbone, we introduce an Orientation Selec-
+tive Module (OrSM) to strengthen edge and contour de-
+tails. Finally, a Feature Fusion Module (FFM) integrates
+these features to yield a more comprehensive representa-
+tion, thereby addressing insufficient feature extraction.
+• Extensive experiments on the VisDrone2019, NWPU
+VHR-10, and AI-TODv2 remote-sensing small-object
+datasets show that BDNet achieves state-of-the-art perfor-
+mance, demonstrating the effectiveness of the proposed
+bio-inspired design.
+2. Related Work
+2.1. Remote Sensing Image Small Object Detection
+The core challenge in detecting small objects in remote
+sensing images lies in their small pixel footprint, which
+can cause feature attenuation and information loss dur-
+ing downsampling in deep networks. In recent years, re-
+search has gradually shifted from adapting general detec-
+tion frameworks to designing architectures that explicitly
+account for small-object characteristics. For instance, Xu
+et al. [49] addressed scale mismatch in tiny-object detec-
+tion through multi-stage feature refinement. Wu et al. [48]
+improved localization accuracy across multiple remote-
+sensing categories by integrating spatial- and frequency-
+domain features. Liu et al. [24] proposed a progressive
+context-reasoning framework with multi-branch structures,
+and Hou et al. [15] employed multi-path designs to cope
+with the complexity of remote-sensing imagery. Although
+these methods demonstrate notable performance, most op-
+timize features in a holistic manner without explicitly de-
+coupling and enhancing the low-level cues that are critical
+for small objects. Consequently, fine-grained information
+can gradually diminish as features propagate through deep
+networks. Furthermore, many architectures are not explic-
+itly grounded in visual information-processing mechanisms
+and therefore struggle to establish structured, prior-guided
+pathways akin to those in biological vision.
+2.2. Bio-Inspired Small Object Detection Models
+Bio-inspired models provide valuable insights for small-
+object detection in aerial imagery. Several representative
+approaches address these challenges. ClusterNet [20] im-
+proves localization for low-pixel targets by simulating a
+two-stage strategy that combines wide-field perception with
+foveal focus. Brstd [17], inspired by visual modulation, in-
+troduces antagonistic receptive fields and feedback inhibi-
+tion to strengthen small-object features while suppressing
+background interference. Magno-VTOD [44] draws on the
+retinal magnocellular pathway to improve detection of tiny
+moving targets in infrared scenes. VSTDet [32] mimics
+hierarchical processing in the ventral pathway to preserve
+fine details with lightweight computation, and EVMNet [3]
+emulates dual foveal and tectal pathways to progressively
+extract semantics and enhance contextual modeling. Nev-
+ertheless, these works primarily emphasize single percep-
+tual mechanisms or functional separation. Building upon
+these studies, we systematically simulate the LGN/V1–V2–
+V4 pathway to support collaborative processing of color and
+edge cues, and construct a dual-backbone network that more
+directly addresses feature degradation in small objects.
+3. Methods
+3.1. Network Architecture
+As shown in Fig. 1, BDNet simulates the hierarchical pro-
+cessing mechanism of the biological visual system for color
+and edge information, constructing a “dual-path feature ex-
+traction - hierarchical fusion” detection framework to ad-
+dress the core issue of ineffective feature extraction for
+small objects in remote sensing images. The network
+consists of three components: the Color Information Path
+(CIP), the Edge Information Path (EIP), and the Feature Fu-
+sion Module (FFM).
+The CIP focuses on enhancing color contrast. It first em-
+ploys the Color Antagonism Module (CAM) and then the
+Visual Cortex Hue-enhancement Module (VCHM). CAM
+mimics the color antagonism mechanism of the LGN/V1
+areas to enhance color representation, while VCHM simu-
+lates the hierarchical chromatic processing structure of the
+V2 area to adjust hue levels.
+The EIP focuses on preserving edge direction informa-
+tion for small targets. It consists of the Enhanced Learnable
+Laplacian Operator Module (ELLOM) and the Orientation
+Selection Module (OrSM). ELLOM first extracts edge in-
+formation from the RGB image, which is then passed to
+OrSM. OrSM simulates the orientation selectivity of neu-
+rons in V1/V2 areas to reinforce the contour integrity of
+small targets.
+Features from the CIP and EIP paths undergo hierarchi-
+cal fusion across different dimensions via the Feature Fu-
+sion Module (FFM), which simulates the information inte-
+gration mechanism of the V4 area. A feature pyramid net-
+work then aggregates multi-scale features, and the detection
+head predicts target categories and locations.
+32725

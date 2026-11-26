@@ -1,0 +1,136 @@
+be as follows:
+− ∂ log p1
+∂b c
+i
+=
+
+
+
+
+
+
+
+Kii− 1, if i∈ Y, c = gt
+Kii exp{bc
+i }
+∑
+c′̸=0 exp{bc′
+i } , if i̸∈ Y, c ̸= 0
+0 otherwise
+(5)
+where Kii = Lii/ det(L + I). Therefore, minimizing the
+negative log-likelihood increases the scores of representative
+boxes in their ground-truth label and background boxes in
+background label. Similarly, according to the deﬁned
+Φi’s
+in Eq. (4), the gradient of p2 = log Pα(B|X) w.r.t bc
+i is:
+∂ log p2
+∂b c
+i
+=
+
+
+
+
+
+
+
+− Kii, if i̸∈ B, c = gt
+− (Kii− 1) exp{bc
+i }
+∑
+c′̸=0 exp{bc′
+i } , if i∈ B, c ̸= 0
+0 otherwise
+(6)
+Consequently, the gradient of the above log-likelihood
+function with respect to bc
+i
+will be added to the gradient of the
+other two loss functions in the backward pass while end-to-
+end training of parameters of the network. The proof for the
+above gradient derivations is provided in the supplemental.
+2.2. Inference with Diverse Proposals
+Given the prediction scores and bounding box offsets
+from the learned network, we model the selection problem
+for unseen images as a maximum a posteriori (MAP) in-
+ference scheme where the probability of inclusion of each
+candidate box depends on the determinant of a kernel matrix.
+We deﬁne this kernel or similarity matrix such that it captures
+all spatial and contextual information between boxes all at
+once. We use the same kernel matrix L as in Eq. (2) where
+X is the list of all candidate proposals per image over all K
+non-background categories with a score above an speciﬁc
+threshold (e.g. 0.05).
+We capture quality of boxes, Φ, by their per class predic-
+tion scores:
+Φi = exp{W T
+c fi}∑
+c′ exp{W T
+c′ fi} for c∈{ 0,···, K}
+Similarly, we employ the spatial information by IoU and the
+semantic similarity between box labels by simij as shown in
+Eq. (2).
+Thus, our kernel deﬁnition allows selection of a set of
+candidate boxes which have minimum possible overlapping
+as well as highest detection scores. In other words, the
+boxes with less location- and label-level similarity and higher
+detection scores would be more probable to be selected. To
+ﬁgure out which boxes should be selected, similar to [ 10],
+we use a greedy optimization algorithm, Alg. 2, which keeps
+the box with the highest probability found by Eq. (2) at each
+iteration.
+3. Related Work
+Several works [ 2, 15, 12] have proposed a replacement
+for the conventional non-maximum suppression to optimally
+select among detection proposals. Desai et al. [ 2] proposed
+a uniﬁed model for multi-class object detection that both
+learns optimal NMS parameters and infers boxes by cap-
+turing different structured contextual interactions between
+object and their categories. In contrast to [
+2], the contex-
+tual information used in our model captures ﬁxed label-level
+semantic similarities based on WordNet hierarchy as well
+as learned proposal probability scores. We also use IoU to
+capture spatial layout within a similarity kernel, while there
+is no strong notion of quality or overlap among boxes in [ 2]
+and only a thresholded value is used in a (0/1) loss function.
+Unlike this method, the learnable deep features in our full
+end-to-end framework improve bounding box locations and
+category speciﬁcations through our proposed differentiable
+loss function.
+Mrowca et al . [ 15] proposed a large-scale multi-class
+afﬁnity propagation clustering (MAPC) [ 5] to improve both
+the localization and categorization of selected detected pro-
+posals, which simultaneously optimizes across all categories
+and all proposed locations in the image. Similar to our se-
+mantic similarity metric, they use WordNet relationships to
+capture highly related ﬁne-grained categories in a large-scale
+detection setting. Lee et al. [12] use individualness to mea-
+sure quality and similarity scores in a determinantal point
+process inference scheme focusing on the “binary” pedes-
+trian detection problem. However, these methods are only
+applied for the inference paradigm and can neither improve
+proposal representations nor impose diversity among object
+bounding boxes while training the model.
+4. Experiments
+We demonstrate the signiﬁcant improvement obtained
+from our model on the representation of detected bounding
+boxes via a set of quantitative and qualitative experiments
+on Pascal VOC2007 and MS COCO benchmark data sets
+as explained in the following sections. We use the caffe
+deep learning framework [ 8] in all our experiments. We use
+one image per iteration with mini-batch of 128 proposals.
+We replaced the semantic similarity matrix in Eq. (2) with
+its fourth power during LDDP inference as we observed
+improvement on detection performance on the validation
+sets.
+Our baseline in all experiments is the state-of-the-art ob-
+ject detection Faster R-CNN approach used as our training
+model. Moreover, ﬁnal detections are inferred by the NMS
+scheme applied on top of the deep trained network, denoted
+as our inference baseline. We use two different NMS IoU
+threshold values for within class and across class suppres-
+sions: First, proposals labeled similarly are suppressed by
+7153

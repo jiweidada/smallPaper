@@ -1,0 +1,200 @@
+AGGC: Adaptive Group Gradient Clipping for Stabilizing Large Language
+Model Training
+Zhiyuan Li1, Yuan Wu1*, Yi Chang1,2,3
+1 School of Artificial intelligence, JiLin University
+2 Engineering Research Center of Knowledge-Driven Human-Machine Intelligence, JiLin University
+3 International Center of Future Science, JiLin University
+Correspondence:yuanwu@jlu.edu.cn
+Abstract
+To stabilize the training of Large Language
+Models (LLMs), gradient clipping is a nearly
+ubiquitous heuristic used to alleviate exploding
+gradients. However, traditional global norm
+clipping erroneously presupposes gradient ho-
+mogeneity across different functional modules,
+leading to an adverse"spill-over"effect where
+volatile parameters force unnecessary scaling
+on stable ones. To overcome this, we pro-
+pose Adaptive Group-wise Gradient Clipping
+(AGGC). AGGC partitions parameters into
+groups based on functional types and regulates
+each according to its historical behavior us-
+ing an Exponential Moving Average (EMA).
+Specifically, it constructs an adaptive interval to
+simultaneously mitigate gradient explosion and
+vanishing, while employing a time-dependent
+scheduling mechanism to balance exploration
+and convergence. Experiments on LLaMA 2-
+7B, Mistral-7B, and Gemma-7B models show
+that AGGC consistently outperforms LoRA
+and frequently surpasses Full Fine-Tuning. On
+the GSM8K benchmark, Mistral-7B fine-tuned
+with AGGC achieves an accuracy of 72.93%,
+exceeding LoRA’s 69.5%. AGGC also ef-
+fectively stabilizes Reinforcement Learning
+with Verifiable Rewards (RLVR), enhancing
+the logic deduction of Qwen 2.5 and Llama
+3.2 models. Experimental results demonstrate
+that AGGC effectively addresses the limitations
+of traditional gradient clipping methods, par-
+ticularly in overcoming gradient heterogeneity,
+by utilizing a modular, adaptive clipping strat-
+egy to stabilize the training process. Due to its
+lightweight design, AGGC can be seamlessly
+integrated into existing post-training pipelines
+with negligible overhead1.
+1 Introduction
+The relentless scaling of Large Language Mod-
+els (LLMs) in terms of parameter count and
+*Corresponding author
+1Code is available at: https://github.com/
+ZhiyuanLi218/AGGC
+depth has fundamentally reshaped the deep learn-
+ing landscape, enabling unprecedented capabili-
+ties across diverse tasks (Naveed et al., 2025).
+However, this scaling progression has simultane-
+ously exacerbated foundational challenges in opti-
+mization, particularly concerning training stabil-
+ity. During both pre-training and post-training
+pipelines, such as Supervised Fine-Tuning (SFT)
+and Reinforcement Learning with Human Feed-
+back (RLHF), LLMs frequently encounter catas-
+trophic loss spikes (Wang et al., 2025; Takase et al.,
+2023; Ma et al., 2025). These spikes indicate tran-
+sient or persistent numerical instability, which un-
+dermines training efficiency and compromises the
+quality of the resultant model convergence.
+Gradient-based optimization necessitates a so-
+phisticated trade-off between rapid convergence
+and numerical stability. As a canonical technique
+for safeguarding training stability, gradient clipping
+was originally developed to alleviate the critical is-
+sue of exploding gradients (Pascanu et al., 2013).
+By capping the magnitude of gradient updates, this
+method constrains the parameter updates of gradi-
+ent descent within a rational range. Owing to its
+validated effectiveness as a regularization strategy,
+gradient clipping, particularly in the form of global
+norm clipping, has evolved into a nearly ubiquitous
+and indispensable heuristic for the training of con-
+temporary deep neural networks (Koloskova et al.,
+2023; Liu et al., 2022; Bu et al., 2023; Kenfack
+et al., 2022).This assumption leads to the "spill-
+over" effect, where gradients from volatile mod-
+ules with large magnitudes unnecessarily scale
+stable modules, disrupting the stability of the
+training process.
+Despite its ubiquity, conventional global gradi-
+ent clipping bears inherent limitations rooted in
+transformer-based LLMs’ architectural traits. This
+standard method computes a unifiedℓ2 norm across
+all parameters and erroneously presupposes gra-
+dient homogeneity—i.e., comparable magnitudes
+1
+arXiv:2601.11864v1  [cs.LG]  17 Jan 2026
+
+---PAGE---
+
+0 200 400 600 800 1000 1200 1400 16000.000.020.040.060.080.10
+0 20 40 60 80 1000.020.030.04Gradient ValueThe First 100 Steps.
+Gradient ValueLoRA
+ LoRA AGGC
+Figure 1: Grad norm of Up module over training steps.
+and variances across all functional modules (Wu
+et al., 2025; Zhao et al., 2025; You and Liu, 2025).
+LLMs exhibit marked architectural heterogene-
+ity: parameter groups (Query/Key/Value projec-
+tions, Layer Normalization, Feed-Forward Net-
+works) possess divergent gradient dynamics (Wang
+et al., 2025; Tomihari and Sato, 2025). Empirically,
+gradient magnitudes vary drastically across compo-
+nents, with certain modules generating dominant
+large gradients (Wu et al., 2025), rendering univer-
+sal clipping inherently suboptimal—especially for
+models with heterogeneous loss curvatures (Zhao
+et al., 2025).
+To address the inherent limitations of static
+global gradient clipping strategies, we propose a
+novel method termed Adaptive Group-wise Gradi-
+ent Clipping (AGGC). The core design principle of
+AGGC lies in disentangling the optimization con-
+straints across distinct functional components of
+the model.
+Specifically, the gradient regulation mechanism
+for each component group is formulated as a dy-
+namic process. AGGC leverages an Exponential
+Moving Average (EMA) to track the historical
+gradient norms of individual groups, generating
+a smoothed scaling statistic denoted as S(t)
+j , where
+j represents the group and t denotes the training
+step.
+Furthermore, AGGC introduces a bidirectional
+admissible interval defined by [L(t)
+j ,U (t)
+j ] for each
+group j at training step t. The upper bound U(t)
+j
+is designed to suppress gradient explosion, while
+the lower bound L(t)
+j proactively alleviates the risks
+of gradient vanishing and premature stagnation of
+parameter updates. Critically, the width of this in-
+terval is modulated by a time-dependent scheduling
+strategy. Specifically, the bounds L(t)
+j and U(t)
+j are
+controlled by the multiplicative coefficients α(t)
+low
+and α(t)
+high, which define the lower and upper limits
+of the gradient norm at each training step t. In
+the early training phase, these coefficients are set
+relatively high to allow for sufficient parameter ex-
+ploration, and they gradually decrease to stabilize
+the model’s convergence in later stages. As illus-
+trated in Figure 1, AGGC maintains a smoother
+and more stable optimization trajectory compared
+to the fluctuations observed in LoRA.
+The AGGC framework contributes significantly
+to the field of optimization by providing a robust,
+nuanced control mechanism tailored for LLMs:
+1. Functional Grouping and Localized Reg-
+ulation:We formalize aGroup-wisegradi-
+ent regulation strategy, partitioning parame-
+ters based on functional module type to align
+optimization control with architectural hetero-
+geneity. This design successfully eliminates
+the adverse spill-over effect inherent in global
+clipping, ensuring efficient and unbiased uti-
+lization of small-scale gradient signals.
+2. Adaptive and Bi-directional Control:
+AGGC leverages EMA to dynamically
+estimate group-specific gradient scales, es-
+tablishing an adaptive, two-sided admissible
+interval [L(t)
+j ,U (t)
+j ]. This approach actively
+mitigates both exploding gradients and
+update collapse, a capability largely absent in
+standard clipping methods.
+3. Integration of Magnitude Scheduling:We
+introduce a time-dependent, linear scheduling
+mechanism for the multiplicative coefficients
+(α(t)
+low, α(t)
+high) that define the bounds. This pro-
+vides a principled, dedicated method for gra-
+dient magnitude control scheduling, optimally
+balancing exploratory dynamics early in train-
+ing with stable convergence in later stages.
+2 Related Work
+The theoretical foundation of traditional gradient
+clipping originated from the in-depth analysis of
+training difficulties in recurrent neural networks
+(RNNs). (Pascanu et al., 2013) presented a seminal
+work that systematically explored gradient vanish-
+ing and explosion issues from analytical, geomet-
+ric, and dynamic system perspectives. They pro-
+posed gradient norm clipping to mitigate exploding
+2

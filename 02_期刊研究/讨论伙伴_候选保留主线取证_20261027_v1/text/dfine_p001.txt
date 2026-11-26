@@ -1,0 +1,38 @@
+Published as a conference paper at ICLR 2025
+D-FINE: R EDEFINE REGRESSION TASK IN DETR S AS
+FINE -GRAINED DISTRIBUTION REFINEMENT
+Yansong Peng1, Hebei Li1, Peixi Wu1, Yueyi Zhang1∗, Xiaoyan Sun1, 2∗, Feng Wu1, 2
+1University of Science and Technology of China
+2Institute of Artificial Intelligence, Hefei Comprehensive National Science Center
+{pengyansong, lihebei, wupeixi }@mail.ustc.edu.cn
+{zhyuey, sunxiaoyan, fengwu }@ustc.edu.cn
+Figure 1: Comparisons with other detectors in terms of latency (left), model size (mid), and compu-
+tational cost (right). We measure end-to-end latency using TensorRT FP16 on an NVIDIA T4 GPU.
+ABSTRACT
+We introduce D-FINE, a powerful real-time object detector that achieves out-
+standing localization precision by redefining the bounding box regression task in
+DETR models. D-FINE comprises two key components: Fine-grained Distri-
+bution Refinement (FDR) and Global Optimal Localization Self-Distillation
+(GO-LSD). FDR transforms the regression process from predicting fixed coor-
+dinates to iteratively refining probability distributions, providing a fine-grained
+intermediate representation that significantly enhances localization accuracy. GO-
+LSD is a bidirectional optimization strategy that transfers localization knowledge
+from refined distributions to shallower layers through self-distillation, while also
+simplifying the residual prediction tasks for deeper layers. Additionally, D-FINE
+incorporates lightweight optimizations in computationally intensive modules and
+operations, achieving a better balance between speed and accuracy. Specifically,
+D-FINE-L / X achieves 54.0% / 55.8% AP on the COCO dataset at 124 / 78 FPS
+on an NVIDIA T4 GPU. When pretrained on Objects365, D-FINE-L / X attains
+57.1% / 59.3% AP, surpassing all existing real-time detectors. Furthermore, our
+method significantly enhances the performance of a wide range of DETR models
+by up to 5.3% AP with negligible extra parameters and training costs. Our code
+and models: https://github.com/Peterande/D-FINE.
+1 I NTRODUCTION
+The demand for real-time object detection has been increasing across various applications (Arani
+et al., 2022). Among the most influential real-time detectors are the YOLO series (Redmon et al.,
+2016a; Wang et al., 2023a;b; Glenn., 2023; Wang & Liao, 2024; Wang et al., 2024a; Glenn., 2024),
+widely recognized for their efficiency and robust community ecosystem. As a strong competitor, the
+Detection Transformer (DETR) (Carion et al., 2020; Zhu et al., 2020; Liu et al., 2021; Li et al., 2022;
+Zhang et al., 2022) offers distinct advantages due to its transformer-based architecture, which allows
+∗Corresponding authors
+1

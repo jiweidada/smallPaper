@@ -1,0 +1,53 @@
+A56结束后的下一候选初筛与源码纠错
+2026-11-02。单助手定向筛查；非系统综述。0次新增模型前向、0次优化器更新、0个新训练任务。总目标保持active。
+
+结论
+A56的固定12轮裁决仍为停止，详见14文件。本次没有批准下一组训练，也没有找到已验证的新主线。新增价值是纠正MambaSOD的旧访问失败记录、取得固定版本代码，并提出一个尚待判别的具体结构问题。代码可获取与创新成立分别记账。
+
+初筛的三类结构
+1. 高分辨率局部输入+全局上下文：UHR-DETR已有稀疏区域路由和全局/局部解码器。此次读摘要、引言与方法节选；不是新增完整复现。不能把双路输入、选择性高分辨率或双cross-attention直接作为新意。旧D011、A6/A8、D007的裁决仍各自保留。
+https://arxiv.org/html/2604.21435v1
+
+2. 跨模态query交互：MDQF已有筛选与adapter交换；GAAT已有几何可靠性指导的稀疏交互。此次读MDQF§2.1–2.3，GAAT摘要及§IV-A节选；没有通读全部实验或取得新的数据。A45已有RGB-T筛查，“再加门控/双路/对齐”没有新的重开依据。本次不切换数据集、不训练。
+https://arxiv.org/html/2601.08458v1
+https://arxiv.org/html/2608.27971v1
+
+3. Mamba query交互：已存在直接无人机检测先例MambaSOD；需要研究具体结构限制，不能仅将attention替换成Mamba。
+作者主页确认题名、DOI与源码入口。出版社/DOI公开全文未取得，论文全文未读。作者仓库README、完整model.py和Cross_mamba.py，以及其他文件的具名片段已读；不等于整篇论文或整个项目已复现。
+https://wbwang2020.github.io/Publications.html
+https://doi.org/10.1142/S2301385028500343
+
+MambaSOD访问纠错〔可核事实〕
+A17的旧记录指向smallobject，未分开small-object。旧链接当时的404不改写为方法阴性；现作者链接含small-object，能访问。固定commit dc5ca8b18d917a32205bb7e63c8d1882c30f91d9；归档9个代码/README/许可证文件，逐文件Git blob SHA1与SHA256均已核对。未import或执行其源码。
+https://github.com/LeoHoW6/MambaSOD-Drone-view-small-object-detection-via-a-Mamba-based-query-feature-interaction-framework/tree/dc5ca8b18d917a32205bb7e63c8d1882c30f91d9
+
+静态观察〔代码事实，不能替代论文或任务验证〕
+model.py:121–179：MQI先在原feature序列上做Mamba refinement，再对齐到sqrt(Nq)网格；较细尺度用平均池化，较粗尺度用插值。Nq需为平方数。Cross_mamba.py用query生成C，context生成输入与动态参数；这是已有query条件读出。
+model.py:417–431：reference logits在层循环外建立，未逐层更新，也未作为MQI的显式几何输入。不能据此编造“已更新参考框和旧memory坐标错位”的缺陷。
+代码树有必需本地导入缺口：ablation_modules、vim_pretrained_loader未提供，vim包未随树发布；Linux文件大小写与部分import也不一致。修复打包/导入不属于算法创新；尚无本机24GB容量或可训基线证明。
+
+待验证问题〔假设〕
+把memory的空间长度绑定到query数量，是否会限制细小目标证据进入query条件读出的能力？先行的全分辨率Mamba可能已经传播了细节，因此“池化必然导致任务漏检”并未成立。低维映射存在信息损失，不足以证明可获得AP增益。
+
+可能的操作差异〔草案，未批准为候选增量〕
+将细尺度context的状态推进与query读出位置/数量分离：保留context网格推进，query在几何锚点读取状态，而非先把整个context缩到query网格。query只读、不改写context状态的实现可以检查，但“交错query”“query生成C”“线性复杂度”均不得单独宣称新颖。
+必须比较普通Mamba特征增强后采样、普通几何条件采样/attention等强简单答案；不能只用不适配检测query排序的固定槽位网格作弱对照。尚未固定B/M/Q配方、资源或训练预算。
+
+旧线逐项边界
+D008/A56是对比/去常量读出；本问题是memory长度与读出数量的绑定，不能靠改差分增益挽救A56。
+D025是尺度/尺度内归一化；这里没有将权重归一化重命名。
+N关注非因果共享状态的实例干扰，未完成有效基线；P是网格变化时的状态系数校准，已降级。这里不重启A22，也不将相同扫描/分辨率缩放公式包装成新算法。
+A42定位专用读出、A51跨分辨率交换、A54尺度场的具体12轮失败不改写。仅迁移这些模块到MambaSOD不是新依据。
+A1关于普遍细节丢失的广义解释不获支持，不能用简单池化代数直接推翻它或外推到所有编码器。
+
+最近先例及下一步边界
+BIMBA已有双向扫描和交错query，搜索读到CVPR官方主文/补充的相关摘要片段；未通读方法或源码。跨任务先例必须继续比较，不能只因它做VideoQA就忽略。
+https://openaccess.thecvf.com/content/CVPR2025/papers/Islam_BIMBA_Selective-Scan_Compression_for_Long-Range_Video_Question_Answering_CVPR_2025_paper.pdf
+
+本次留下一个问题，不留下已成立的新算法。下一步仅需围绕上述读出分离草案核对少数最接近方法和实现成本，给出可区分的强简单对照；若仍只是普通采样、线性注意力或既有交错query的同一操作，立即退出，不继续添加模块。若差异足以支持一次有限判别，再冻结不超过12轮的协议；无需先证明所有已有方法无效。
+
+证据
+post_terminal_source_screen/MambaSOD_source_receipt.json：固定commit、逐文件哈希。
+post_terminal_source_screen/MambaSOD_git_tree.json：实际文件树。
+post_terminal_source_screen/web_records_v1.json：9次已捕获搜索/打开响应，包括不可达记录；聚合页仅作线索。最初一轮宽检索未完整序列化，不把本记录称为穷尽检索日志。
+14_固定12轮终点与裁决.txt：当前最后完成的训练裁决，不受本次文献初筛改变。

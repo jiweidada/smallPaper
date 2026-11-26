@@ -1,0 +1,143 @@
+Citation: Kong, Y.; Shang, X.; Jia, S.
+Drone-DETR: Efficient Small Object
+Detection for Remote Sensing Image
+Using Enhanced RT-DETR Model.
+Sensors 2024, 24, 5496. https://
+doi.org/10.3390/s24175496
+Academic Editors: Boyang Li and
+Chihyung Wen
+Received: 3 July 2024
+Revised: 17 August 2024
+Accepted: 19 August 2024
+Published: 24 August 2024
+Copyright: © 2024 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+sensors
+Article
+Drone-DETR: Efficient Small Object Detection for Remote
+Sensing Image Using Enhanced RT-DETR Model
+Yaning Kong, Xiangfeng Shang and Shijie Jia *
+College of Computer and Communication Engineering, Dalian Jiaotong University, Dalian 116028, China;
+kyn@djtu.edu.cn (Y.K.); shxf@djtu.edu.cn (X.S.)
+* Correspondence: jsj@djtu.edu.cn; Tel.: +86-138-9861-1651
+Abstract: Performing low-latency, high-precision object detection on unmanned aerial vehicles
+(UAVs) equipped with vision sensors holds significant importance. However, the current limitations
+of embedded UAV devices present challenges in balancing accuracy and speed, particularly in
+the analysis of high-precision remote sensing images. This challenge is particularly pronounced
+in scenarios involving numerous small objects, intricate backgrounds, and occluded overlaps. To
+address these issues, we introduce the Drone-DETR model, which is based on RT-DETR. To overcome
+the difficulties associated with detecting small objects and reducing redundant computations arising
+from complex backgrounds in ultra-wide-angle images, we propose the Effective Small Object
+Detection Network (ESDNet). This network preserves detailed information about small objects,
+reduces redundant computations, and adopts a lightweight architecture. Furthermore, we introduce
+the Enhanced Dual-Path Feature Fusion Attention Module (EDF-FAM) within the neck network. This
+module is specifically designed to enhance the network’s ability to handle multi-scale objects. We
+employ a dynamic competitive learning strategy to enhance the model’s capability to efficiently fuse
+multi-scale features. Additionally, we incorporate the P2 shallow feature layer from the ESDNet into
+the neck network to enhance the model’s ability to fuse small-object features, thereby enhancing the
+accuracy of small object detection. Experimental results indicate that the Drone-DETR model achieves
+an mAP50 of 53.9% with only 28.7 million parameters on the VisDrone2019 dataset, representing an
+8.1% enhancement over RT-DETR-R18.
+Keywords: UAV object detection; RT-DETR; small object detection; feature fusion; visual sensors
+1. Introduction
+The versatility and maneuverability of unmanned aerial vehicles (UAVs) enable them
+to efficiently conduct wide-area object detection in various and demanding settings. With
+advanced high-definition vision sensors, UAVs have been widely utilized in numerous
+applications such as disaster rescue operations [1], urban traffic [2], aerial surveying [3],
+military reconnaissance [4], and other critical fields.
+As depicted in Figure 1, UAV aerial images display notable distinctions when com-
+pared to ground-level images, characterized by several key features: (1) the image scene
+covers a relatively large area, including extensive background elements; (2) the primary
+shooting angle is from an overhead perspective, often resulting in occlusions; (3) there is
+a significant variation in object scale within the images—for example, a car in the fore-
+ground may appear up to five times larger than a car in the background; (4) individual
+object sizes are relatively small in relation to the overall image dimensions; (5) objects are
+frequently densely packed, with numerous similar items overlapping in certain scenes; and
+(6) various lighting effects, such as overexposure and insufficient illumination, are present
+in some images.
+Sensors 2024, 24, 5496. https://doi.org/10.3390/s24175496 https://www.mdpi.com/journal/sensors
+
+---PAGE---
+
+Sensors 2024, 24, 5496 2 of 18
+Sensors 2024, 24, x FOR PEER REVIEW 2 of 19 
+ 
+ 
+ 
+Figure 1. Sample images taken from a drone: (a) daytime aerial view of boulevard pedestrians and 
+vehicles; (b) densely arranged trucks and cars; (c) crowd at a ballpark; ( d) street scene with strong 
+sun. 
+UAV object detection technology encounters two signi ﬁcant challenges. Firstly, in 
+terms of model deployment, the constrained embedded resources of UAVs necessitate the 
+utilization of lightweight real-time object detection models. This demand poses a crucial 
+challenge in a ttaining an optimal equilibrium between model accuracy and processing 
+speed [5]. Secondly, in the domain of aerial  image recognition, UAV remote sensing im-
+ages predominantly feature small objects with signi ﬁcant scale variations and diverse 
+backgrounds. Additionally, visual sensors ma y introduce aberrations, causing objects to 
+appear stretched or deﬂated to varying degrees. These factors pose signiﬁcant challenges 
+to object recognition and detection [6]. Therefore, the problem of object detection in UAV 
+aerial images mainly lies in how to design a high-performance lightweight UAV small 
+object detection model with low parameter count, high accuracy, and low inference delay. 
+Currently, object detection methods for UAV aerial images primarily use deep learn-
+ing techniques. Deep learning-based object detection algorithms are mainly categorized 
+into two-stage R-CNN improvement series [7 –11] and single-stage YOLO series [12–16], 
+as well as DETR improvement [17–20]. Am ong them, one-stage object detection tech-
+niques have signiﬁcant advantages in real-time detection. Currently, Convolutional Neu-
+ral Network (CNN)-based one-stage object detection  techniques demonstrate good per-
+formance under typical viewing angles, especially the improved algorithm after YOLOv5 
+[14], which achieves higher detection accuracy and faster detection speed in natural image 
+detection through a series of improvements in the network model structure, activation 
+function, loss function, network training strategy, etc. However, it does not perform well 
+in the object detection of UAV aerial images. On the one hand, current CNN-based algo-
+rithms frequently utilize non-maximum suppression (NMS) for post-processing. In real-
+time detection tasks, when there are a large number of objects in the image, this will lead 
+to a signiﬁcant increase in computational complexity, potentially aﬀecting the stability of 
+detection speed. On the other hand, drone aerial images mostly consist of large-scale im-
+ages captured from a bird’s-eye view with small objects, overlapping multi-scale objects, 
+and complex backgrounds, which makes it diﬃcult to capture the object details and spa-
+tial relationships by completely using a convolutional kernel, thus reducing detection ac-
+curacy. The Transformer [21] has a natural advantage over traditional CNN in processing 
+sequential data by capturing global  dependencies through multi-head self-a ttention, 
+which enables it to be tter capture complex relationship s between objects [22]. The ViT 
+Figure 1. Sample images taken from a drone: (a) daytime aerial view of boulevard pedestrians and
+vehicles; (b) densely arranged trucks and cars; (c) crowd at a ballpark; (d) street scene with strong sun.
+UAV object detection technology encounters two significant challenges. Firstly, in
+terms of model deployment, the constrained embedded resources of UAVs necessitate the
+utilization of lightweight real-time object detection models. This demand poses a crucial
+challenge in attaining an optimal equilibrium between model accuracy and processing
+speed [ 5]. Secondly, in the domain of aerial image recognition, UAV remote sensing
+images predominantly feature small objects with significant scale variations and diverse
+backgrounds. Additionally, visual sensors may introduce aberrations, causing objects to
+appear stretched or deflated to varying degrees. These factors pose significant challenges
+to object recognition and detection [6]. Therefore, the problem of object detection in UAV
+aerial images mainly lies in how to design a high-performance lightweight UAV small
+object detection model with low parameter count, high accuracy, and low inference delay.
+Currently, object detection methods for UAV aerial images primarily use deep learning
+techniques. Deep learning-based object detection algorithms are mainly categorized into
+two-stage R-CNN improvement series [7–11] and single-stage YOLO series [12–16], as well
+as DETR improvement [17–20]. Among them, one-stage object detection techniques have
+significant advantages in real-time detection. Currently, Convolutional Neural Network
+(CNN)-based one-stage object detection techniques demonstrate good performance under
+typical viewing angles, especially the improved algorithm after YOLOv5 [ 14], which
+achieves higher detection accuracy and faster detection speed in natural image detection
+through a series of improvements in the network model structure, activation function,
+loss function, network training strategy, etc. However, it does not perform well in the
+object detection of UAV aerial images. On the one hand, current CNN-based algorithms
+frequently utilize non-maximum suppression (NMS) for post-processing. In real-time
+detection tasks, when there are a large number of objects in the image, this will lead to
+a significant increase in computational complexity, potentially affecting the stability of
+detection speed. On the other hand, drone aerial images mostly consist of large-scale
+images captured from a bird’s-eye view with small objects, overlapping multi-scale objects,
+and complex backgrounds, which makes it difficult to capture the object details and spatial
+relationships by completely using a convolutional kernel, thus reducing detection accuracy.
+The Transformer [21] has a natural advantage over traditional CNN in processing sequential
+data by capturing global dependencies through multi-head self-attention, which enables
+it to better capture complex relationships between objects [22]. The ViT model [23] is the
+first model to use a pure Transformer structure for image classification, and it outperforms
+CNN networks when the amount of training data is large enough. The DETR (DEtection

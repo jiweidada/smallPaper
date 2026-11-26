@@ -1,0 +1,111 @@
+Academic Editor: Miaohui Wang
+Received: 30 June 2026
+Revised: 3 August 2026
+Accepted: 4 August 2026
+Published: 6 August 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+PFE-Det: Progressive Feature Evolution for Small Object
+Detection in UA V Aerial Images
+Aolin Fang 1
+ , Yongzi Zhang 1
+ , Xiaotong Dong 2, Liuyang Gu 2, Shengshi Li 2
+ , Daoheng Zhu 2,*
+and Xiuchun Xiao 2,*
+1 College of Mathematics and Computer Science, Guangdong Ocean University, Zhanjiang 524088, China;
+aolinf777@163.com (A.F.); 13699876922@stu.gdou.edu.cn (Y.Z.)
+2 College of Electronics and Information Engineering, Guangdong Ocean University, Zhanjiang 524088, China;
+dongxiaotong@stu.gdou.edu.cn (X.D.); guliuyang@stu.gdou.edu.cn (L.G.); lishengshi@gdou.edu.cn (S.L.)
+* Correspondence: dhzhu911@163.com (D.Z.); xiaoxc@gdou.edu.cn (X.X.)
+Abstract
+Object detection in UAV aerial images remains fundamentally constrained by extremely
+small object scales, strong background interference, and progressive structural information
+degradation along the feature extraction pipeline. Current small-object detection methods
+suffer from two fundamental deficiencies rooted in their convolutional feature extraction
+pipelines: the smoothing effect of strided convolutions in early layers, which attenuates
+fine-grained details before backbone processing, and the feature overwriting phenomenon,
+where sequential transformations progressively erase structural information from earlier
+layers. We propose PFE-Det (Progressive Feature Evolution Detector), built upon the DEIM
+framework and constructing a continuous optimization pathway across three stages. A Fea-
+ture Adaptive Enhancement Network (FAENet) is adopted as a front-end preprocessor to
+decouple high- and low-frequency components via a Laplacian pyramid at the input stage,
+mitigating early-layer smoothing at the input. A Multi-Receptive-Field Adaptive Fusion
+Module (MFAM) is designed to reorganize single-path features into structure-retaining
+and progressive enhancement paths and is further coupled with hierarchical receptive-
+field modeling, suppressing feature overwriting through multi-scale context modeling.
+A Multi-Path Gated State Space Modeling Block (MG-SSM Block) couples HSM-SSD-based
+long-range dependency extraction with Convolutional Gated Linear Units (CGLU) for
+adaptive feature selection in the encoder. Experiments on VisDrone2019 demonstrate
+an AP of 0.225 and an APs of 0.134, yielding a 13.5% relative improvement in small-object
+precision over the baseline. Cross-dataset evaluations on DIOR and UAVVaste, each under
+independent training and testing, further support the effectiveness of progressive feature
+evolution for UAV small-object detection.
+Keywords: UAV object detection; small object detection; progressive feature evolution;
+state space model; multi-scale feature fusion; receptive field modeling; gated nonlinear
+selection; aerial image analysis
+1. Introduction
+Unmanned Aerial Vehicles (UAVs), owing to their flexible maneuverability, rapid
+deployability, and low operational cost, have been widely adopted in civilian domains such
+as traffic surveillance, agricultural management, and disaster response [1]. As intelligent
+perception demands grow in these scenarios, object detection has become the foundational
+Sensors 2026, 26, 5003 https://doi.org/10.3390/s26155003
+
+---PAGE---
+
+Sensors 2026, 26, 5003 2 of 33
+task of UAV vision systems, directly determining their overall performance [2]. However,
+UAV aerial images fundamentally differ from ground-level camera captures in their visual
+characteristics: constrained by flight altitude and wide-angle optics, objects in such images
+typically appear with extremely small pixel footprints, are densely distributed across
+texturally complex backgrounds, and exhibit drastic scale variations with changes in
+altitude [2,3]. Taking the widely used VisDrone2019 benchmark [ 2] as a representative
+example, small-object instances (normalized area a < 0.01) account for approximately
+97–98% of all annotations [ 4]. The dense object distribution and intense background
+interference together constitute extremely harsh detection conditions, driving UAV aerial
+small-object detection to emerge as a critical research frontier in computer vision [3,5].
+These characteristics make reliable small-object perception indispensable for practical
+UAV intelligence. Missed or fragmented detections of distant vehicles, pedestrians, or de-
+bris can directly degrade traffic-monitoring accuracy, agricultural inspection completeness,
+and post-disaster search effectiveness. Consequently, preserving fine-grained structural
+cues—rather than attempting to recover them only after severe early degradation—is a pre-
+requisite for deploying detectors under the dense, scale-varying, and clutter-dominated
+conditions typical of aerial sensing.
+Over the past decade, deep learning has driven successive paradigm shifts in object
+detection—from two-stage detectors (Faster R-CNN [ 6]), through multi-scale feature pyra-
+mids (FPN [7]) and single-stage real-time frameworks (the YOLO series, including the
+UAV-oriented TPH-YOLOv5 [8]), to end-to-end Transformer detectors. Among the latter,
+RT-DETR [9] first achieved real-time end-to-end detection, D-FINE [10] refined localization
+through fine-grained distribution modeling, and DEIM [11] accelerated convergence via
+dense one-to-one matching with 50% training time reduction, collectively representing the
+current real-time detection frontier. However, despite notable achievements on general
+benchmarks, these methods still exhibit systematic deficiencies when applied to UAV aerial
+small-object detection, rooted in two long-neglected fundamental defects in convolutional
+network architectures [5,12,13].
+The first is the smoothing effect inherent in early convolutional layers. Strided con-
+volutions and pooling layers, standard designs in the vast majority of convolutional net-
+works, inevitably cause systematic loss of high-frequency detail information during spatial
+downsampling [14]. This mechanism has negligible impact in general scenarios, but in
+low-resolution small-object settings, its attenuation of fine-grained edge and structural
+information is disproportionately amplified, causing extremely small objects with sparse
+pixel representations to suffer irreversible feature degradation before even entering the
+backbone network [5,14]. The second is the feature overwriting phenomenon prevalent
+in deep feature propagation. As features are updated layer by layer along a single path,
+the continuous transformations applied by successive layers persistently overwrite the
+feature representations from earlier layers, causing the physical structural information
+contained in early layers to be progressively erased as network depth increases [ 12]. In-
+formation bottleneck theory indicates that, as the number of forward-propagation layers
+accumulates, the mutual information loss between the network input and the target task
+prediction gradually accumulates, and fine-grained structures progressively vanish in deep-
+layer features, severely undermining the semantic discriminability of small objects amid
+dense background interference [5,12,13]. These two fundamental defects compound each
+other in a cascading manner: the smoothing effect degrades fine-grained features at the en-
+try point, while feature overwriting prevents recovery of this lost information in subsequent
+layers, collectively constraining further breakthroughs in UAV aerial small-object detection.
+Nevertheless, most existing methods still lack systematic solutions that target both defects.
+This work is motivated by a concrete gap: although early-layer smoothing and deep-layer
+https://doi.org/10.3390/s26155003

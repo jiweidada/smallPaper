@@ -1,0 +1,43 @@
+Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS 3
+The current solutions to the misalignment problem in DETR-like methods typically ad-
+dress either the first misalignment issue [15, 21, 46] or the second [26, 45]. To tackle both
+simultaneously, we introduce a novel approach called Align-DETR. It makes use of the stan-
+dard focal loss [24] with an IoU-aware target on foreground samples, which we term the
+Align Loss. To overcome the first misalignment problem, Align Loss dynamically adjusts
+the target for foreground samples according to their classification confidence and regression
+precision thus they are aligned during optimization [26]. For the second problem, Align-
+DETR enlarges the range of positive samples by adopting a mixed-matching strategy. This
+approach allows multiple candidates to be considered for each ground truth. Subsequently,
+to mitigate conflicts arising from this expanded range of positive samples, the targets of the
+additional positive samples are smoothed using an exponential weight decay. By incorpo-
+rating these mechanisms, Align-DETR aims to effectively address both misalignment issues
+encountered in DETR-based detectors.
+Overall, Align-DETR offers a straightforward yet effective solution to the misalignment
+problem, enhancing DETR with aligned training targets. Equipped with a ResNet-50 [11]
+backbone and a H-DETR [14] baseline, our method achieves +0.6% AP gain. We also com-
+bine it with the strong baseline DINO [45] and establish a new state-of-the-art performance
+with 50.5% AP in the 1× and 51.7% AP in 2× setting on the COCO [23] validation set.
+2 Related Work
+2.1 Label Assignment in Object Detection
+As the CNN-based object detectors develop from the anchor-based framework to the anchor-
+free one, many works realize the importance of label assignment (which is previously hidden
+by anchor and IoU matching) during training. Some works [9, 16, 48] identify positive
+samples by measuring their dynamic prediction quality for each object. Others [7, 20, 21, 53]
+learn the assignment in a soft way and achieve better alignment on prediction quality by
+incorporating IoU [21, 46] or a combination of IoU and confidence [7, 20, 53].
+The misalignment problem in object detection has been addressed by various tradi-
+tional solutions, such as incorporating an additional IoU branch to fine-tune the confidence
+scores [15] or integrating the IoU prediction branch into classification losses [21]. In con-
+trast, the misalignment problem in DETR is under-explored, despite it sharing some ideas
+from CNN-based detectors. However, the optimization target between many-to-one and one-
+to-one is the key difference as we will illustrate in the next section.
+2.2 End-to-end Object Detection
+The pursuit of end-to-end object detection or segmentation dates back to several early efforts
+[32, 35, 36]. They rely on recurrent neural network (RNN)[35] to remove duplicates or adopt
+complex subnets [32, 36] to replace NMS. Different from them, DETR [1] has established a
+set-prediction framework based on the transformer [38]. Compared to previous work, DETR
+is rather simpler but still suffers from the downside of slow convergence with a number of
+subsequent DETR variants [6, 8, 17, 25, 37, 45] working on this issue. Some methods make
+improvements on the cross-attention in decoders [6, 29]. Deformable DETR [54] presents a
+deformable-attention module that only scans a small set of points near the reference point,
+while AdaMixer[8] further extends the 2D offset to 3D for better multi-scale feature fusion.

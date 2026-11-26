@@ -1,0 +1,113 @@
+Input : B = {b1,. . ,bN }, S = {s1,. . ,sN }, Nt
+B is the list of initial detection boxes
+S contains corresponding detection scores
+Nt is the NMS threshold
+begin
+D ← {}
+while B 6 = empty do
+m ← argmax S
+M ← bm
+D ← D S M; B ← B − M
+for bi in B do
+if iou(M,b i) ≥ Nt then
+B ← B − bi; S ← S − si
+end
+si ← sif (iou(M,b i))
+end
+end
+return D, S
+end
+NMS
+Soft-NMS
+Figure 2. The pseudo code in red is replaced with the one in green
+in Soft-NMS. We propose to revise the detection scores by scaling
+them as a linear or Gaussian function of overlap.
+[
+16, 24]. Another parallel regression sub-network reﬁnes
+the position of these proposals. This reﬁnement process im-
+proves localization for objects, but also leads to cluttered
+detections as multiple proposals often get regressed to the
+same region of interest (RoI). Hence, even in state-of-the-art
+detectors, non-maximum suppression is used to obtain the
+ﬁnal set of detections as it signiﬁcantly reduces the number
+of false positives.
+Non-maximum suppression starts with a list of detection
+boxes B with scores S. After selecting the detection with
+the maximum score M, it removes it from the set B and
+appends it to the set of ﬁnal detections D. It also removes
+any box which has an overlap greater than a threshold Nt
+with M in the set B. This process is repeated for remain-
+ing boxes B. A major issue with non-maximum suppres-
+sion is that it sets the score for neighboring detections to
+zero. Thus, if an object was actually present in that overlap
+threshold, it would be missed and this would lead to a drop
+in average precision. However, if we lower the detection
+scores as a function of its overlap with M, it would still
+be in the ranked list, although with a lower conﬁdence. We
+show an illustration of the problem in Fig
+1.
+Using this intuition, we propose a single line modiﬁca-
+tion to the traditional greedy NMS algorithm in which we
+decrease the detection scores as an increasing function of
+overlap instead of setting the score to zero as in NMS. Intu-
+itively, if a bounding box has a very high overlap with M,
+it should be assigned a very low score, while if it has a low
+overlap, it can maintain its original detection score. This
+Soft-NMS algorithm is shown in Figure
+2. Soft-NMS leads
+to noticeable improvements in average precision measured
+over multiple overlap thresholds for state-of-the-object de-
+tectors on standard datasets like PASCAL VOC and MS-
+COCO. Since Soft-NMS does not require any extra-training
+and is simple to implement, it can be easily integrated in the
+object detection pipeline.
+2. Related Work
+NMS has been an integral part of many detection algo-
+rithms in computer vision for almost 50 years. It was ﬁrst
+employed in edge detection techniques [
+25]. Subsequently,
+it has been applied to multiple tasks like feature point de-
+tection [
+19, 12, 20], face detection [29] and object detection
+[4, 8, 10]. In edge detection, NMS performs edge thinning
+to remove spurious responses [ 25, 1, 31]. In feature point
+detectors [12], NMS is effective in performing local thresh-
+olding to obtain unique feature point detections. In face de-
+tection [
+29], NMS is performed by partitioning bounding-
+boxes into disjoint subsets using an overlap criterion. The
+ﬁnal detections are obtained by averaging the co-ordinates
+of the detection boxes in the set. For human detection, Dalal
+and Triggs [
+4] demonstrated that a greedy NMS algorithm,
+where a bounding box with the maximum detection score
+is selected and its neighboring boxes are suppressed us-
+ing a pre-deﬁned overlap threshold improves performance
+over the approach used for face detection [
+29]. Since then,
+greedy NMS has been the de-facto algorithm used in object
+detection [8, 10, 24, 16].
+It is surprising that this component of the detection
+pipeline has remained untouched for more than a decade.
+Greedy NMS still obtains the best performance when av-
+erage precision (AP) is used as an evaluation metric and is
+therefore employed in state-of-the-art detectors [
+24, 16]. A
+few learning-based methods have been proposed as an alter-
+native to greedy NMS which obtain good performance for
+object class detection [
+5, 26, 21]. For example, [ 26] ﬁrst
+computes overlap between each pair of detection boxes. It
+then performs afﬁnity propagation clustering to select ex-
+emplars for each cluster which represent the ﬁnal detection
+boxes. A multi-class version of this algorithm is proposed in
+[
+21]. However, object class detection is a different problem,
+where object instances of all classes are evaluated simulta-
+neously per image. Hence, we need to select a threshold for
+all classes and generate a ﬁxed set of boxes. Since differ-
+ent thresholds may be suitable for different applications, in
+generic object detection, average precision is computed us-
+ing a ranked list of all object instances in a particular class.
+Therefore, greedy NMS performs favourably to these algo-
+5562

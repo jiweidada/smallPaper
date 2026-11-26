@@ -1,0 +1,28 @@
+尚未计算本候选任何完整decoder替换结果。依据26/27/28登记；不是训练资格或AP结论。
+
+真实问题：旧A4只比较dense encoder预测框，未让被排除source过完整decoder。现有几何覆盖余量小，不预设有大批好候选。问题是原真实source在同300预算下是否能救回原漏检，而非增加框数/提供GT坐标。
+
+数据：BASE24 online seed1/2、原development00/01（每批4张共享640增强输入），原严格加载model。固定train-mode/同一原BN缓冲/同DN整数seed；不追溯历史CUDA随机流。原始输入和checkpoint SHA核对。可缓存完整encoder输出，重复同一decoder，首次split pipeline与原DEIM.forward代码逐项一致；同一选择原样重放baseline框/类别必须逐值一致，否则停止实现，不放宽门槛。
+
+队列/训练/GPU/远端/heldout全不操作；模型无反传、无参数更新、无optimizer状态改写。只读历史文件，输出独立31目录。CPU2线程BelowNormal，>8GiB可用RAM，15分钟仅此新进程上限。
+
+先只生成两seed baseline，随后按每图固定GT索引递增，选择两seed共同满足“shortside640<4且300最终普通框均无IoU>=.5”的首个GT。最多8个/seed，共享同GT；无合格图跳过、不补搜、不增数据追门槛。N>300图保留并报告容量；不是独立GT抽样验证。
+
+动作均保持普通Q=300、DN及原targets不变：
+1 original：原source集合，不修改。
+2 GTcenter_source：在P3有效未选位点中取距指定GT中心最近者，距离并列按source编号；替换原max-class score最小source（原topK最后槽）。使用该source实际memory+原enc_bbox_head预测reference，不能用GT框、手调宽高或回归目标改变reference。
+3 rank301：同槽替换为原分类排序第301名有效source。
+4 DDQ_initial_NMS：全有效encoder原预测框、原max-class score作类别无关NMS，阈值.8（DDQ DETR原§4.4）；取300，不足按原score补齐并报告。仅初始选择的启发式控制，不是复现DDQ训练/逐层DQS。
+5 fixed_random_source：从同图有效未选P3位点按seed-independent固定随机序列选1个（种子20261021+batch*4+image），同槽替换，不用GT。描述性强简单扰动，不新增正式门槛。
+各图动作在batch内可并行实施，因为解码器不跨image注意力；其他无合格图original不变。选source/rank/GT/meta写清，不能从多个候选结果中挑最好。
+
+指标：全GT最大一对一几何覆盖C_.5、C_.75（只算数不依赖GT匹配身份）；逐GT存在任一预测框的覆盖mask用于新增/丢失和目标恢复，避免最大匹配任意ID分配。每臂fresh自然class×query展开top300后，按真类/IoU另报目标是否入预算及0.001/0.3分数口径；不是COCO AP。输出所有图、所有阈值和所有对照，不沿用原槽号对齐评估。
+记录GTcenter source原分类排名、encoder自身IoU、替换后decoder IoU、是否原rank301–364池；这是C的固定自然候选池适用范围，不把池外oracle成功当部署证据。只给GT选择source是训练/诊断oracle，不能当部署选法。
+
+首检资源门槛保持B/C口径：每seed目标恢复率>=10%（整数10*recovered>=attempts，attempts0为NA）；聚合尝试图的C_.5总数不下降；每seed恢复数严格多于rank301。C_.75单独完整报告，不加事后双阈值不降门槛；原已覆盖GT丢失数逐图报告，不用C_.5不降冒充一个都没丢。
+DDQ/随机是否复制机会另作明确方法取舍：即使首检通过，若简单规则已复制所得恢复而无额外原覆盖代价，仍不能称交换价值方法有独立依据，需要后续真正有判别力的设计；不把这句改成数据后调整的数值硬门槛。
+
+首检失败：不申请训练这个精确source入选机会版本、不挑另一个GT/阈值救方案，完整交回四专家；不外推所有query改造无效，活动目标继续。
+首检通过：只支持该开发样本有可利用入选机会；还需C所述集合条件/交互与强简单对照、近邻原文和后续自然TopK效果验证，不能立即说创新成立或交付完成。本轮暂不跑四集合/反传/训练。
+
+数学检查先于模型：最大匹配计数对槽置换不变；两个GT共享同一框不能当2个一对一检出；展开top300允许一个query多类别，保留原推理规则；baseline重放无差；NMS只使用原预测与score，不读取GT。

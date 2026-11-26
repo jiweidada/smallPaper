@@ -1,0 +1,189 @@
+Enhancing DETR’s Variants through Improved Content Query and Similar
+Query Aggregation
+Yingying Zhang , Chuangji Shi , Xin Guo , Jiangwei Lao , Jian Wang, Jiaotuan
+Wang, Jingdong Chen
+Ant Group
+{qichu.zyy, chuanji.scj, wenshuo.ljw,bobblair.wj,jingdongchen.cjd}@antgroup.com
+Abstract
+The design of the query is crucial for the perfor-
+mance of DETR and its variants. Each query con-
+sists of two components: a content part and a po-
+sitional one. Traditionally, the content query is ini-
+tialized with a zero or learnable embedding, lack-
+ing essential content information and resulting in
+sub-optimal performance. In this paper, we intro-
+duce a novel plug-and-play module, Self-Adaptive
+Content Query (SACQ), to address this limitation.
+The SACQ module utilizes features from the trans-
+former encoder to generate content queries via self-
+attention pooling. This allows candidate queries to
+adapt to the input image, resulting in a more com-
+prehensive content prior and better focus on tar-
+get objects. However, this improved concentration
+poses a challenge for the training process that uti-
+lizes the Hungarian matching, which selects only a
+single candidate and suppresses other similar ones.
+To overcome this, we propose a query aggregation
+strategy to cooperate with SACQ. It merges similar
+predicted candidates from different queries, easing
+the optimization. Our extensive experiments on the
+COCO dataset demonstrate the effectiveness of our
+proposed approaches across six different DETR’s
+variants with multiple configurations, achieving an
+average improvement of over 1.0 AP.
+1 Introduction
+Object detection is essential in various applications, such as
+autonomous driving, video surveillance, and robotic manip-
+ulation. Over the past few decades, convolutional architec-
+tures have driven significant advancements in detection meth-
+ods [Girshick, 2015; Ren et al. , 2015; Tian et al. , 2019;
+He et al. , 2017; Redmon et al. , 2016; Liu et al. , 2016;
+Lin et al., 2017]. These algorithms typically require a hand-
+designed module to generate anchors, which serve as pre-
+liminary candidates for object detection. Furthermore, non-
+maximum suppression (NMS) [Hosang et al., 2017] is indis-
+pensable for preventing duplicate detections. Recently, Car-
+ion et al. proposed a fully end-to-end object detection ap-
+proach named DEtection TRansfomer (DETR) [Carion et al.,
+2020]. In contrast to previous detection algorithms, DETR
+Deformable-DETRw/o SACQDeformable-DETRw/ SACQ
+low
+high
+Figure 1: Comparison of multi-scale deformable attention of the first
+decoder layer between vanilla Deformable-DETR and Deformable-
+DETR with SACQ. We draw the sampling points and attention
+weights from multi-scale feature maps in one picture. Each sam-
+pling point is marked as a filled circle whose color indicates its at-
+tention weight. The red rectangle is the predicted bounding box of
+correspoinding query.
+employs learned queries to predict objects uniquely, eliminat-
+ing the need for anchor generation and NMS. This approach
+simplifies and unifies the detection pipeline but suffers from
+slow training convergence.
+Numerous variants of DETR have been proposed to ad-
+dress its convergence issues by enhancing its query design.
+Within the decoders, each query is composed of two com-
+ponents: a content part and a positional one. The majority
+of existing research has concentrated on improving the po-
+sitional part. These methods are dedicated to providing a
+comprehensive positional prior for each query, enabling the
+cross-attention module to focus on a specific region related
+to the target object. In contrast, the content part has been
+arXiv:2405.03318v1  [cs.CV]  6 May 2024
+
+---PAGE---
+
+largely neglected and is typically initialized as either a zero
+or a learnable embedding. This offers no substantial informa-
+tion to the cross-attention module in the initial decoder layer.
+In this paper, we focus on the content query, an aspect that
+has rarely been considered in previous works. We introduce
+a novel plug-and-play module called Self-Adaptive Content
+Query (SACQ) to enhance the performance of DETR’s vari-
+ants. Our SACQ comprises two main components: 1) glob-
+ally pooled features for content query initialization, and 2)
+locally pooled features for further enhancement of the con-
+tent query. Traditionally, the content query in a decoder is
+initialized with either a zero tensor or a learnable embed-
+ding, which remains static and lacks any input prior. Car-
+ion et al. [Carion et al. , 2020] pointed out that the encoder
+in DETR already separates instances through global atten-
+tion, while the decoder focuses on extremities to extract class
+and object boundaries. Building on this insight, we propose
+a self-attention pooling module (SAPM) capable of dynam-
+ically pooling features from the encoder to serve as a more
+effective initial content query for the decoder’s first layer.
+To validate our assumption, we visualize the learned sam-
+pling points with high attention weights from the first decoder
+layer of the original Deformable-DETR, as depicted in Fig-
+ure.1. The visualization indicates that these points tend to
+either congregate in a narrow area of the predicted object or
+spread over the vicinity of the target. After incorporating
+the SAPM module, the sampling points with high weights
+more uniformly cover the entire predicted object, and there
+are significantly fewer points outside the object. This sug-
+gests that our content query supplements the content prior for
+each query, enabling the cross-attention module to focus bet-
+ter on the target object.
+The improved object queries are inclined to concentrate on
+target objects, causing a cluster of highly similar candidate
+queries generated for target objects. It poses additional chal-
+lenge for the training process through conventional Hungar-
+ian one-to-one matching. Jia et al. [Jia et al. , 2022 ] have
+pointed out that this matching strategy reduces the training
+efficiency of positive samples due to few queries assigned
+as positive samples. To alleviate this issue, we propose a
+straightforward solution: merging similar predicted results
+from different queries into a single one before conducting set
+matching. The similarity of the queries is determined by the
+Kullback-Leibler (KL) divergence [Joyce, 2011] of category
+predictions and the Intersection over Union (IoU) between the
+bounding box predictions. As demonstrated in Figure.5, our
+SACQ module tends to produce more similar bounding boxes
+for target objects due to its improved initialization. By im-
+plementing the Query Aggregation (QA) strategy, we further
+capitalize on the benefits of SACQ by combining the outputs
+of these potential queries and maximizing their utility.
+In summary, our technical contributions are twofold:
+• We propose a novel method for content query optimiza-
+tion, which has been overlooked in previous works. It
+consists of two complementary modules: the SACQ
+and QA. The SACQ generates improved content query
+for the decoder by introducing input priors. Addition-
+ally, the QA module preserves high-quality candidates
+generated by the SACQ and reduces instability associ-
+ated with one-to-one matching by aggregating candidate
+boxes. Both modules can be easily integrated into exist-
+ing DETR’s variants.
+• Through extensive experiments on the COCO dataset
+and qualitative analysis, we validate the effectiveness
+of our proposed method, achieving an average improve-
+ment of over 1.0 AP across six different DETR’s variants
+with multiple configurations.
+2 Related work
+2.1 CNN-based Object Detection Methods
+Classical CNN-based object detectors can be divided into
+two categories: two-stage and one-stage methods. Two-
+stage methods initially generate a set of box proposals, then
+determine whether each proposal corresponds to an object,
+and finally perform bounding box regression based on the
+proposals. Typical methods include RCNN [Girshick et al. ,
+2014], Fast-RCNN [Girshick, 2015 ], Faster-RCNN [Ren et
+al., 2015 ], etc. In contrast, one-stage models directly pre-
+dict the bounding box of objects based on predefined anchors
+or reference points. Examples of one-stage methods include
+SSD [Liu et al., 2016], YOLO series [Redmon et al., 2016;
+Redmon and Farhadi, 2018], and others.
+2.2 DETR and Its Variants
+DETR [Carion et al. , 2020 ] is the pioneering work that in-
+troduces transformer to object detection. Unlike previous
+detection methods, DETR is a true fully end-to-end detec-
+tor that does not rely on hand-designed components such
+as anchor proposal and NMS. However, it suffers from ex-
+tremely slow training convergence due to the decoder’s cross-
+attention [Sun et al., 2020]. Many subsequent methods have
+attempted to address this issue. Dai et al. [Dai et al. ,
+2021a] improve the encoder and decoder in DETR by in-
+corporating dynamic attention to overcome the problems of
+low feature resolution and slow training convergence. An-
+chor DETR[Wang et al., 2021b] and DAB-DETR [Liu et al.,
+2022a] formulate positional queries as dynamic anchor points
+and anchor boxes respectively, which bridge the gap between
+classical anchor-based detectors and DETR-based ones.
+Some variants improve the training performance by opti-
+mizing the structure of transformer head. Sparse DETR [Roh
+et al. , 2022 ] and PnP-DETR [Wang et al. , 2021a ] address
+the excessive computation of the transformer network in a
+DETR model caused by the spatial redundancy issue of the
+feature map. Deformable-DETR [Zhu et al., 2021] proposes
+a more efficient attention module, which attends to a small set
+of sampling locations around a reference point as a pre-filter
+for prominent key elements.
+Some other works have improved upon the the query in
+the decoder. SAM-DETR [Zhang et al. , 2022 ] uses query
+embeddings to align and reweight RoI-Aligned encoded im-
+age features and generate enhanced queries, which exhibits
+similarity to our query feature enhancement to some extent.
+Nevertheless, the main objectives of our approach and SAM-
+DETR are considerably different. SAM-DETR uses zero-
+initialized content query and primarily enhances the query

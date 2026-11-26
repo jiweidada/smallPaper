@@ -1,0 +1,87 @@
+arXiv:2608.07616v2  [cs.CV]  11 Aug 2026
+LIU ET AL.: HSMLA1
+HSMLA: Hierarchical Softmax Multi-scale
+Linear Attention for Efficient Vision
+Transformers
+Dong Liu 1,*
+pikeliu@ucla.edu
+Y anxuan Y u2,*
+yy3523@columbia.edu
+Renata Borovica-Gajic3
+renata.borovica@unimelb.edu.au
+T ong Geng4
+tony .geng@rice.edu
+Ying Nian Wu 1,†
+ywu@stat.ucla.edu
+1 University of California, Los Angeles,
+USA
+2 Columbia University , USA
+3 The University of Melbourne, Australia
+4 Rice University , USA
+Abstract
+Vision transformers face significant computational overheads in high-resolution dense
+prediction due to the quadratic complexity of self-attention. Linear attention offers
+efficiency but sacrifices local context modeling. We proposeHSMLA (Hierarchical
+Softmax Multi-scale Linear Attention), which combines ReLU-based linear attention
+for global context, selective softmax refinement for critical local features, and multi-
+scale token representations via depthwise convolutions. HSMLA achieves superior ac-
+curacy–efficiency trade-offs: up to 4.2×inference-time speedup across dense prediction
+tasks, 87.3% Dice with 3.2×speedup on CT organ segmentation, and 94.2% AUC with
+4.1×speedup on pathology WSI.
+1 Introduction
+Vision Transformers (ViTs) have achieved remarkable results across a wide range of vision
+tasks [14, 31, 41], but the quadratic complexity of self-attention limits their applicability to
+high-resolution dense prediction [15, 31, 47]. Linear attention [11, 18] offersO(N)com-
+plexity but produces flatter attention distributions, weakening local context modeling (Fig-
+ure 1(a)). This is particularly critical in medical imaging, where organ boundaries and tumor
+margins require sharp, localized attention.
+We proposeHSMLA (Hierarchical Softmax Multi-scale Linear Attention)(see Fig-
+ure 1(a)), which combines multi-scale ReLU-based linear attention for efficient global con-
+text aggregation with query-dependent selective softmax attention on a sparse set of critical
+tokens for local refinement. Multi-scale token representations via depthwise convolutions
+© 2026. The copyright of this document resides with its authors.
+It may be distributed unchanged freely in print or electronic forms.
+∗ Equal contribution. † Corresponding author.
+
+---PAGE---
+
+2LIU ET AL.: HSMLA
+and an FFN–DWConv sandwich structure further enhance representational diversity and lo-
+cal modeling. By routing only a small fraction of queries to full softmax attention while the
+remaining queries use linear attention, HSMLA achieves approximately 3×inference-time
+speedup over standard self-attention while maintaining accuracy.
+Compared to EfficientViT [4], which employs multi-scale linear attention but applies
+it uniformly across tokens, HSMLA introduces content-aware selective softmax refinement
+that recovers sharp local structures important for dense prediction. Unlike dynamic or sparse
+ViTs that focus on token pruning for classification [8, 37, 50], HSMLA is designed for
+high-resolution dense prediction and medical imaging, combining query-sparse softmax with
+multi-scale linear attention.
+High-resolution vision tasks make these constraints particularly severe. Semantic seg-
+mentation in autonomous driving typically operates on megapixel-scale street scenes; single-
+image super-resolution often uses large 4K inputs; and biomedical applications such as CT,
+MRI, and whole-slide imaging (WSI) involve volumetric or gigapixel data. In many of these
+settings, especially for portable and intraoperative systems, models must run under tight la-
+tency and memory budgets on edge devices (e.g., Jetson-class GPUs) while preserving fine
+structural details. This motivates an attention mechanism that allocates full softmax compu-
+tation only where it is most beneficial, and relies on efficient linear attention elsewhere.
+Experiments on Cityscapes [12], DIV2K [40], and multiple biomedical imaging bench-
+marks show that HSMLA achieves up to 4×inference-time speedup with state-of-the-art
+accuracy. Our main contributions are: (i) an analysis of the limitations of linear attention for
+dense prediction; (ii) HSMLA, a hierarchical attention module that combines multi-scale lin-
+ear attention with query-sparse selective softmax gating; (iii) extensive experiments demon-
+strating superior accuracy–efficiency trade-offs on semantic segmentation, super-resolution,
+and clinical imaging tasks.
+2 Related Work
+Transformers for vision have rapidly evolved along several complementary directions, in-
+cluding efficient architectures for high-resolution inputs, linear and sparse attention mecha-
+nisms, and multi-scale or dynamic routing strategies. In this section, we first review efficient
+Vision Transformers that target reduced computational and memory cost, then discuss linear
+attention variants and their limitations for dense prediction, and finally summarize multi-
+scale and dynamic attention methods that adapt computation across tokens and resolutions.
+2.1 Efficient Vision Transformers
+ViTs [14] achieve state-of-the-art performance with long-range modeling [31, 32, 41], but
+quadratic complexity limits high-resolution dense prediction [46]. Swin [31] uses shifted
+window attention (O(W2N)); SegFormer [47] adopts hierarchical MLP decoders; PVT [46]
+employs spatial-reduction; MobileViT [33] integrates local convolutions; EfficientViT [4],
+FasterViT [17], and VMamba [30] explore hardware-efficient designs. Most still face bottle-
+necks from softmax and tensor reshaping on edge hardware.

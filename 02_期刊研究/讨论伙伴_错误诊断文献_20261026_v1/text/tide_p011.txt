@@ -1,0 +1,44 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 11
+prior. While the primary motivation for this design choice was simplicity, getting rid of
+anchor boxes has other tangible beneﬁts. For instance, an anchor-based detector is at the
+mercy of its priors: if there is no applicable prior for a given object, then the detector is
+likely to completely miss it. FCOS on the other hand doesn’t impose any prior-based
+restriction on its detections, leading to it having one of the lowest missed detection errors
+of all the models we consider (Fig. 4a). Note that it also has the highest duplication error
+because it uses an NMS threshold of 0.6 instead of the usual 0.5.
+Real-Time Methods YOLACT [3] is a real-time instance segmentation method that
+uses a modiﬁed version of RetinaNet as its backbone detector without focal loss.
+YOLACT++ [2] iterates on the former and additionally includes mask scoring (dis-
+cussed in Tab. 2). Observing the distribution of errors in Fig. 3, it appears that design
+choices employed to speed up the model result in a completely different distribution
+of errors w.r.t. RetinaNet. Observing the raw magnitudes in Fig. 4a, this is largely due
+to YOLACT having much higher localization and missed detection error. However,
+the story changes when we look at instance segmentation, where it localizes almost as
+well as Mask R-CNN despite the bad performance of its detector (see Appendix). This
+substantiates their claim that YOLACT is more conducive to high quality masks and that
+its performance is likely limited by a poor detector.
+A Note on Ablations To demonstrate the potential usefulness of this toolkit for isolating
+error contribution and debugging, we showcase how an ablation over error types instead
+of only over mAP provides meaningful insights while still being compact. As an
+example, consider the trend of rescoring a mask’s conﬁdence based on its predicted
+IoU with a ground truth, as in Mask Scoring R-CNN [ 16] and YOLACT++ [2]. This
+modiﬁcation is intended to increase the score of good quality masks and decrease the
+score of poor quality masks, which intuitively should result in better localization. In
+order to justify their claims, the authors of both papers provide qualitative examples
+where this is the case, but limit quantitative support to the change to an observed increase
+inmAP . Unfortunately, a change inmAP alone does not illuminate the cause of that
+change, and some ablations may show little change inmAP despite the method working.
+By adding the error types that were affected by the change to ablation tables (e.g., see
+Tab. 2) we not only provide quantitative evidence for the design choice, but also reveal
+side effects (such that classiﬁcation calibration error went up), which were previously
+hidden by the raw increase inmAP .
+3.2 Comparing Object Attributes for Fine Analysis
+In order to compare performance across object attributes such as scale or aspect ratio,
+the typical approach is to computemAP on a subset of the detections and ground truth
+that have the speciﬁed attributes (with effective comparison requiring normalizedmAP
+[14]). While we offer this mode of analysis in our toolkit, this doesn’t describe the
+effect of that attribute on overall performance, just how well a model performs on that
+attribute. Thus, we propose an additional approach based on the tools we deﬁned earlier
+for summarizing error’s affect on overall performance: simply ﬁx errors and observe
+∆mAP as before, but only those whose associated prediction or ground truth have the
+desired attribute.

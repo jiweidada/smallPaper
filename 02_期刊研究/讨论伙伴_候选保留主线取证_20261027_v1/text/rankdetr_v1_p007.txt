@@ -1,0 +1,49 @@
+Method Backbone #epochs AP AP 50 AP75 APS APM APL
+H-Deformable-DETR R50 12 48.7 66 .4 52 .9 31 .2 51 .5 63 .5
+Ours R50 12 50.2 67 .7 55 .0 34 .1 53 .6 64 .0
+H-Deformable-DETR Swin-T 12 50.6 68 .9 55 .1 33 .4 53 .7 65 .9
+Ours Swin-T 12 52.7 70 .6 57 .8 35 .3 55 .8 67 .5
+H-Deformable-DETR Swin-L 12 55.9 75 .2 61 .0 39 .1 59 .9 72 .2
+Ours Swin-L 12 57.3 75 .9 62 .9 40 .8 61 .3 73 .2
+H-Deformable-DETR R50 36 50.0 68 .3 54 .4 32 .9 52 .7 65 .3
+Ours R50 36 51.2 68 .9 56 .2 34 .5 54 .9 64 .9
+H-Deformable-DETR Swin-T 36 53.2 71 .5 58 .2 35 .9 56 .4 68 .2
+Ours Swin-T 36 54.7 72 .5 60 .0 37 .7 58 .5 69 .5
+H-Deformable-DETR Swin-L 36 57.1 76 .2 62 .5 39 .7 61 .4 73 .4
+Ours Swin-L 36 58.2 76 .7 63 .9 42 .4 62 .2 73 .6
+Table 2: Improving object detection results based on H-DETR.
+Method Backbone #epochs AP AP 50 AP75 APS APM APL
+DINO-DETR R50 12 49.0 66 .6 53 .5 32 .0 52 .3 63 .0
+Ours R50 12 50.4 67 .9 55 .2 33 .6 53 .8 64 .2
+DINO-DETR Swin-L 12 56.8 75 .4 62 .3 41 .1 60 .6 73 .5
+Ours Swin-L 12 57.6 76 .0 63 .4 41 .6 61 .4 73 .8
+Table 3: Improving object detection results based on DINO-DETR.
+Improving DINO-DETR [61]. Table 3 shows the results of applying our approach to improve the
+DINO-DETR [61]. Notably, our method demonstrates an increase of + 1.4% with the ResNet-50
+backbone and + 0.8% with the Swin-Large backbone. Under the higher IoU setting, our method
+further obtains +1.8% AP75 improvement with ResNet-50 and +1.1% with Swin-Large. These results
+provide evidence for the generalization ability of our approach across different DETR-based models.
+4.3 Ablation Study and Analysis
+We conduct a systematic analysis to assess each proposed component’s influence within our method.
+We followed a step-by-step approach, progressively adding modules on top of the baseline (Table 4a),
+incorporating each module into the baseline (Table 4b), and subsequently removing each module from
+our method (Table 4c). This procedure allowed us to understand the contribution of each individual
+component to the final performance. Furthermore, we conducted statistical and qualitative analyses to
+comprehensively assess the functionality of each component. We mark the best-performing numbers
+with ■ colored regions in each table along each column.
+Effect of Adding Each Component Progressively. We choose H-DETR with ResNet-50 backbone
+as our baseline method. By progressively adding the proposed mechanisms on top of the baseline
+model, it is observed that the performance is steadily increasing, and the best performance is achieved
+by using all the proposed components (Table 4a). It is also observed that the lowest false negative
+rate (oLRPFN) is achieved when only using the rank-oriented architecture designs.
+Rank-adaptive Classification Head (RCH). Tables 4b and 4c demonstrate that rank-adaptive
+classification head can slightly improve the AP ( +0.2% when adding RCH to the H-DETR base-
+line, comparing row1 and row2 in Table 4b; +0.4% when adding RCH to complete our methods,
+comparing row1 and row2 in Table 4c). Furthermore, RCH improves AP75 more than AP.
+Query Ranking Layer (QRL). The proposed QRL mechanism effectively integrates ranking
+information into the DETR architecture, compensating for the absence of sequential handling of
+queries in attention layers. The detector’s performance is also consistently improved by utilizing QRL
+(+0.3% when adding QRL to the H-DETR baseline; +0.7% to complete our method). We further
+compute the cumulative probability distribution of classification scores of positive and negative
+queries. QRL yields enhanced classification confidence for matched positive queries (Figure 3b),
+7

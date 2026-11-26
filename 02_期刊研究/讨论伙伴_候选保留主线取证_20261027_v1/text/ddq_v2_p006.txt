@@ -1,0 +1,104 @@
+5.2. Setting
+COCO ResNet-50 [10] is the default backbone in this study
+if not specified. Most models adopt the 1x(12 epochs) train-
+ing protocol in MMDetection [3]. AdamW [20] optimizer
+is used. For DDQ FCN, we set the initial learning rate to
+5 × 10−5 and weight decay to 0.1. For DDQ R-CNN, we
+used a learning rate of 10−4 and weight decay of 0.05. The
+learning rate for both two CNN-based detectors decayed
+with a ratio of 0.1 at epoch 9 and epoch 12. For DDQ
+DETR, we utilized a learning rate of 2 × 10−4 and a weight
+decay of 0.05, and the learning rate decayed with a ratio
+of 0.1 at epoch 12 only. To ensure a fair comparison with
+other studies, we classified our data augmentation into three
+types : Normal, Multi-Scale, and DETR. Normal augmen-
+tation rescaled images to a short side of 800 pixels, with
+only random flips applied. For Multi-Scale augmentation,
+we used the classic multi-scale training range (480–800).
+Finally, the DETR augmentation followed that of the study
+by Carion et al. [2].
+CrowdHuman ResNet-50 [10] is the default backbone.
+All conventional detectors and DDQ adopt the 3x (36
+epochs) schedule with multi-scale training (480-800). All
+optimizer-related parameters are consistent with the setting
+on COCO. For end-to-end detectors with sparse queries, we
+follow the schedule(50 epochs) in Sparse R-CNN due to
+their slow convergence. The max detected instance number
+is changed to 500 for all conventional detectors following
+the [28]. For a fair comparison, We increase the number of
+queries to 500 for DDQ FCN/R-CNN, Sparse R-CNN, and
+Deform DETR. For DDQ DETR, we just keep the same 900
+queries as COCO.
+5.3. Evolving to DDQ
+In this section, we show how detectors of different archi-
+tectures evolve to DDQ. We can validate the importance of
+both density and distinctness from such a progressive devel-
+opment.
+From FCOS* to DDQ FCN In Table. 1, We start from
+an FCOS equipped with the bipartite matching algorithm
+in DETR [2] and our main loss components mentioned in
+Sec. 4.1, which is denoted as FCOS*. We adopt the normal
+augmentation that is mentioned in 5.2 and train the model
+for 12 epochs. Due to the lack of cross-level interaction, its
+performance is quite unstable and fluctuates between 24.5
+AP and 36.5 AP in a few successful experiments. We select
+the best result 36.5 as our baseline. After adding pyramid
+shuffle operations to interact with cross-level queries, the
+training becomes stable and gets 1.1 AP improvement with
+only 0.2 G flops and 0.2 ms latency increase. Adding a
+distinct queries selection operation boosts the performance
+from 37.6 AP to 40.6 AP with only 0.3 ms latency. Such
+a 3 AP improvement demonstrates that the distinctness of
+queries is vital for the one-to-one assignment. After adding
+an auxiliary loss for dense queries following DeFCN [28],
+we get DDQ FCN with a state-of-the-art performance of
+41.5 AP. DQS on the strong baseline (equipped with pyra-
+mid shuffle and auxiliary loss) can be found in Table. 14.
+DQS still improves 2 AP (from 39.5 to 41.5).
+Table 1. From FCOS* to DDQ FCN.PS stands for pyramid shuf-
+fle, and DQS means distinct queries selection operation. We also
+report the latency(L) and the flops(F).
+Method AP AP50 AP75 L(ms) F(G)
+FCOS* 36.5 54.4 40.3 21.9 200.5
++ PS 37.6 56.3 41.3 22.1 200.7
++DQS 40.6 60.3 44.5 22.4 200.7
+DDQ FCN 41.5 60.9 45.4 22.4 200.7
+From Sparse R-CNN to DDQ R-CNN Table. 2 shows a
+progressive development from Sparse R-CNN to DDQ R-
+CNN. Sparse R-CNN with 300 queries achieves 39.4 AP
+within 12 epochs using the normal augmentation that is
+mentioned in Sec.5.2. Increasing the number of queries to
+7000 improves the performance to 40.6 AP, at the cost of a
+quite heavy detector. Applying a distinct queries selection
+at the beginning of each stage boosts the performance by
+2.5 AP to 43.1 AP. At last, by replacing the first four refin-
+ing stages with our DDQ FCN, which not only makes the
+structure more light-weighted but also allows even denser
+input queries, the performance further increases to 44.6 AP.
+Table 2. From Sparse R-CNN to DDQ R-CNN . Q means the
+query, and DQS stands for the distinct queries selection
+Method AP AP50 AP75 L(ms) F(G)
+Sparse R-CNN 39.4 57.7 42.5 31.0 160.2
++7000Q 40.6 58.7 44.0 135.0 781.0
++DQS 43.1 62.6 47.1 135.0 781.0
+DDQ R-CNN 44.6 63.0 48.8 31.3 248.5
+From Deformable DETR* to DDQ DETR Table 3 il-
+lustrates the progressive development from Deformable
+DETR* to DDQ DETR. Deformable DETR* achieves 45.4
+AP with 900 queries within 12 epochs using the DETR aug-
+mentation mentioned in Sec.5.2. By employing a linear
+layer to process the dense queries on the feature pyramid
+and constructing content parts with feature embeddings, the
+performance increases to 48.5 AP. However, initializing the
+content part as Two-Stage Deformable DETR(TS D-DETR)
+with mapped coordinates only achieves 46.7 AP, which is
+due to the lack of distinctness in the coordinates compared
+to the feature embedding. Adding an auxiliary loss for the
+decoder improves performance to 50.0 AP. Furthermore, by
+adding DQS before each refining stage, the performance
+further increases to 50.7 AP. Finally, by adding the P2 fea-
+ture and 100 CDN queries as in DINO [33], we achieve an
+impressive 52.1 AP, surpassing all detectors in the same set-
+ting. We show distinctness can be complementary to CDN
+in Table. 14 and analyze the reason in our supplementary
+6

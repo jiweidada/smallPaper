@@ -1,0 +1,167 @@
+EASE-DETR: Easing the Competition among Object Queries
+Yulu Gao1,2 Yifan Sun3 Xudong Ding1,2 Chuyang Zhao3 Si liu1,2†
+1Institute of Artificial Intelligence, Beihang University
+2Hangzhou Innovation Institute, Beihang University 3Baidu VIS
+{gyl97, zy2342107, liusi }@buaa.edu.cn {zhaochuyang,sunyifan01}@baidu.com
+Abstract
+This paper views the DETR’s non-duplicate detection
+ability as a competition result among object queries.
+Around each object, there are usually multiple queries,
+within which only a single one can win the chance to be-
+come the final detection. Such a competition is hard: while
+some competing queries initially have very close predic-
+tion scores, their leading query has to dramatically enlarge
+its score superiority after several decoder layers. To help
+the leading query stands out, this paper proposes EASE-
+DETR, which eases the competition by introducing bias that
+favours the leading one. EASE-DETR is very simple: in ev-
+ery intermediate decoder layer, we identify the “leading /
+trailing” relationship between any two queries, and encode
+this binary relationship into the following decoder layer
+to amplify the superiority of the leading one. More con-
+cretely, the leading query is to be protected from mutual
+query suppression in the self-attention layer and encour-
+aged to absorb more object features in the cross-attention
+layer, therefore accelerating to win. Experimental results
+show that EASE-DETR brings consistent and remarkable
+improvement to various DETRs.
+1. Introduction
+The non-duplicate detection ability is an important charac-
+teristic shared by DEtection Transformer (DETR) [3] and
+its variants [6, 18, 21, 26, 30, 34, 35, 38, 39, 42]. More con-
+cretely, DETR uses plenty of queries ( e.g., 300 in DETR
+[3] and 900 in DINO [39]) in the decoder to search for the
+objects. Though the queries are redundant, the predictions
+made by them are expected to be non-duplicate, i.e., only
+one query predicts each ground-truth object. This charac-
+teristic is known as being related to the one-to-one label as-
+signment, which sets up the training objective. In contrast,
+we are interested in the mechanism DETR employs to reach
+this objective.
+†Corresponding author.
+This paper views the non-duplicate detection ability of
+DETR as the result of a competition among object queries.
+We explain this viewpoint through a revisit into the DETR
+decoder. Before the first decoder layer, there are mul-
+tiple queries around each object, as shown in Figure 1.
+Some queries become even closer after the first decoder,
+because they are attracted by the same object through cross-
+attention. Such closeness regards not only the position,
+but also the predicted scores. Within these close queries,
+only a single one can win the chance of detecting the ob-
+ject and makes high prediction score at the final decoder
+layer. All the other competing queries are suppressed as the
+background and make low prediction scores. Therefore, a
+leading query (that usually has only subtle superiority at the
+beginning) has to dramatically enlarge its score gap against
+the trailing queries after several decoder layers.
+We argue that helping the leading query to win the above
+competition easier can benefit the training efficiency and
+improve the detection accuracy. To achieve this, we propose
+EASE-DETR, which eases the competition by introducing
+bias that favours the leading query. EASE-DETR is very
+simple: given any two competing queries in the intermedi-
+ate decoder layers, we identify their relationship of “leading
+/ trailing” and further amplify the superiority of the leading
+query in the following layer. The superiority amplification
+can be conducted in both the following self-attention and
+cross-attention layers.
+• The self-attention layer facilitates global interaction
+among all queries for suppressing duplicate detections [14,
+26]. However, any two queries in the self-attention are in
+symmetric position, and both receive suppression from each
+other. We aim to decay the suppression upon the leading
+query while maintaining the suppression upon the trailing
+queries, so as to enlarge their gap. Instead of hand-crafted
+decay, we encode the binary “leading / trailing” relationship
+into a decay weight through a trainable projection (MLP, in
+practice). Empirically, we find the learned decay weights
+protect the leading query from mutual suppression and thus
+enlarge its superiority against the trailing one.
+• The cross-attention layer enables each query to absorb
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+17282
+
+
+---PAGE---
+
+(a) ground truth (b) before decoder (c) after first decoder layer
+Figure 1. DETR decoder has multiple queries competing for each ground-truth object. These competing queries have close position and
+similar prediction scores at their initial status. (a) the ground truth; (b) multiple queries are around the same object before input into the
+decoder; (c) after the first decoder, some queries are attracted by the object through cross-attention. Correspondingly, they become even
+closer and have close prediction scores.
+features. Particularly, the competing queries absorb object
+features from the same object and thus tend to make du-
+plicate predictions. To ease the competition in the cross-
+attention layer, we aim to decay the feature absorption of the
+trailing queries while maintaining that of the leading query.
+We use another trainable projection to encode the binary re-
+lationship into a decay weight, which enforce stronger de-
+cay upon the trailing queries. Consequently, the leading
+query increases its priority for learning object feature and
+enlarges its superiority.
+In both the self-attention layer and cross-attention layer,
+the operation of EASE-DETR is very simple and similar,
+i.e., multiplying the original attention score with an addi-
+tional decay weight projected from the binary “leading /
+trailing” relationship. It adds virtually no computational
+cost to training and inference. In practice, we develop an-
+other variant that combines the spatial relationship (i.e. the
+IoU) with the score relationship for generating the decay
+weight, because we want the impact of easing competi-
+tion is to be within local regions. This variant brings fur-
+ther improvement. No matter using IoU or not, there is
+no hand-crafted hyper-parameter. All additional projections
+are learned in the end-to-end DETR training.
+We conduct extensive experiments with popular DETR
+baselines on MS-COCO [19] dataset. Experimental re-
+sults show that our EASE-DETR brings remarkable im-
+provement to DETRs. For example, on the Deformable++
+DETR [16] baseline (ResNet-50 [13] backbone), EASE-
+DETR achieves 1.3 AP improvement under the 12-epoch
+training scheme. Importantly, EASE-DETR, with focus
+on competition under the one-to-one supervision, manifest
+good cooperation with the one-to-many supervision strat-
+egy: the one-to-one branch uses the EASE-DETR attention
+while the one-to-many branch uses the standard attention.
+Such a simple combination achieves competitive accuracy,
+e.g., 50.8 AP on ResNet-50 [13] DINO [39] baseline and
+57.8 AP on Swin-Large [25] DINO [39].
+The contributions of our work are summarized as fol-
+lows: First, we conduct an in-depth investigation of the
+DETR decoder, uncovering how attention weights influ-
+ence the suppression process of similar queries. Sec-
+ond, we introduce explicit relationships between queries
+into the decoder, proposing the MSelf-attention layer and
+MCross-attention layers to enhance the suppression pro-
+cess of queries. Third, through empirical experiments, we
+demonstrate that EASE-DETR achieves performance im-
+provements across various popular DETR baselines and ul-
+timately surpasses the state-of-the-art results.
+2. Related Work
+2.1. DETR-base Detectors
+The landscape of object detection has been fundamentally
+altered with the advent of the original DEtection TRans-
+former (DETR) [3]. Introduced as a pioneering approach,
+DETR offered an end-to-end framework that mitigated the
+reliance on hand-crafted components prevalent in previ-
+ous methodologies, such as Non-maximum Suppression
+(NMS). While DETR set a new paradigm, it still suffers
+from its comparatively slow training convergence and sub-
+optimal performance on detecting smaller objects. To solve
+these problems, a series of innovative works have emerged.
+Deformable DETR [42] introduces multi-scale features and
+thus proposes a deformable attention module to detect small
+objects and speed up training. Further adaptations, such as
+the DAB-DETR [21], enhance the DETR’s performance by
+integrating anchor boxes into queries explicitly and update
+them continuously. DN-DETR [18] introduces denoising
+part to stabilize the bipartial matching, and DINO [39] and
+its successor Stable DINO [22], offer refined optimization
+techniques that stabilize the training process and enhance
+the convergence speed. The recent DAC-DETR [14] di-
+vides the cross-attention out from this contrary for better
+conquering thus accelerates convergence and improves its
+17283

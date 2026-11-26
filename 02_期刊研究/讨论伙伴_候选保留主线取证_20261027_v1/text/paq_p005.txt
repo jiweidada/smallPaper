@@ -1,0 +1,106 @@
+intermediate decoder layers to enhance optimization robust-
+ness, while preserving standard one-to-one matching in the
+final layer for efficient inference. For loss computation, we
+adopt the IoU-aware Varifocal Loss [41], which adaptively
+weights positive samples by the quality scores, providing
+smoother gradients and more balanced supervision across
+varying sample difficulties.
+3.4. Overall Loss Function
+Our training objective consists of three parts: a quality-
+aware one-to-many assignment loss, a diversity regulariza-
+tion loss over shared patterns, and standard auxiliary Hun-
+garian losses.
+Quality-Aware Assignment Loss.We adopt the proposed
+quality-aware one-to-many matching to construct adaptive
+positive sets. The lossL 1:m follows Eq. 3 with the coeffi-
+cient settings from DINO [42].
+Pattern Diversity Regularization Loss.To avoid redun-
+dant pattern representations, we penalize cosine similarity
+among normalized shared patterns:
+Ldiv = 1
+m(m−1)
+X
+i̸=j
+ cos(ˆqP
+i ,ˆqP
+j )
+. (8)
+Auxiliary Supervision Loss.Following DETR, we apply
+Hungarian lossesL aux to all decoder intermediate layers.
+Total Objective Loss.The final loss is:
+Ltotal =L 1:m +L aux +βL div. (9)
+4. Experiments
+4.1. Experiment Setup
+Datasets.We perform comprehensive experiments to eval-
+uate our model across multiple benchmarks and tasks,
+including the standard COCO 2017 [23], CityScapes
+2016 [6], CSD [36] and MSSD [5]. For object detection,
+we use COCO 2017 along with two task-specific datasets:
+CSD and MSSD. To further assess our approach’s versatil-
+ity, we extend our evaluation to instance segmentation using
+COCO 2017 and CityScapes 2016.
+Evaluation Metrics.Following established protocol [2],
+we evaluate detection performance using standard COCO
+metrics, including mean Average Precision (mAP) at differ-
+ent IoU thresholds (0.5, 0.75 and 0.5:0.95), as well as dif-
+ferent scales across small, medium, and large objects. For
+instance segmentation, we report both mask mAP and box
+mAP metrics, respectively.
+Implementation details.We evaluate our approach using
+two backbone architectures: ResNet-50 [12] pretrained on
+ImageNet-1k and Swin-Large [26] pretrained on ImageNet-
+22k [9]. All models are trained using the AdamW opti-
+mizer [27] with an initial learning rate of2×e−4 and weight
+decay of1×e −4. We adopt standard training schedules of
+1×(12 epochs) and 2×(24 epochs), where the learning rate
+is reduced by a factor of 0.1 at the 11th and 20th epochs,
+respectively. Training is performed with a batch size of
+16 across 8 NVIDIA RTX 3090 GPUs. Following estab-
+lished practices [2, 42, 47], we apply standard data augmen-
+tations, including random resize, crop, and horizontal flip
+during training. For dynamic query generation, we employ
+50 and 150 patterns to generate 300 and 900 queries, re-
+spectively, consistent with baseline configurations. Within
+one-to-many assignment, the hyper-parameters are config-
+ured as follows:l= 1,k= 4, andγ= 0.4. The diversity
+loss weight is set toβ= 0.2.
+4.2. Main Results
+COCO 2017.We evaluate our methods on the COCO
+2017 benchmark [23] across multiple DETR baselines, in-
+cluding Deformable-DETR [47], DAB-DETR [24], DN-
+DETR [22], and DINO [42], using 300 or 900 queries. Un-
+like Co-DETR [48], we follow the standard DETR train-
+ing pipeline without introducing extra queries or auxil-
+iary branches. As shown in Table 1, our PaQ variants
+consistently improves all baselines by 1.1–1.6 mAP un-
+der the 12-epoch schedule. Notably, PaQ-DINO reaches
+51.9 mAP, surpassing DINO++ by 1.6 and yielding larger
+gains on medium (+2.3 AP M ) and large (+2.9 AP L) ob-
+jects. With 24-epoch training, it further achieves 52.6 mAP,
+outperforming recent methods such as DDQ-DETR [44]
+and Stable-DINO [25]. Using a Swin-L backbone (Ta-
+ble 2), PaQ-DINO attains 57.8 mAP, surpassing all coun-
+terparts. These results demonstrate that our dynamic query
+and quality-aware designs generalize well across architec-
+tures and training schedules.
+Comparison with One-to-Many Assignment DETRs.
+Recent DETR variants [4, 19, 45, 48] employ one-to-many
+assignment to enrich supervision and speed up convergence.
+To ensure a fair comparison, we follow the hybrid config-
+uration of H-DETR [19] only in training withN h = 1500
+andk= 6positives in an auxiliary branch, while keep-
+ing our main branch equipped with the proposed adaptive
+assignment, termed as PaQ-DETR. As shown in Table 3,
+PaQ-DETR achieves the highest mAP among representative
+one-to-many methods, including Group-DETR [4], MS-
+DETR [45], and Co-DETR [48], confirming that our unified
+pattern- and quality-aware design provides complementary
+benefits for feature diversity and balanced supervision.
+CSD and MSSD.To demonstrate generalizability, we eval-
+uate our method on two task-specific datasets for defect de-
+tection: CSD [36] and MSSD [5]. As shown in Table 4 and
+Table 5, our method achieves 54.2 and 55.2 mAP respec-
+tively, improving over DINO baseline by 0.8 and 4.2 mAP.
+These consistent gains across diverse datasets validate the
+robustness of our method beyond general object detection.
+25508

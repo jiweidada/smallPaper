@@ -1,0 +1,85 @@
+Proceedings of Machine Learning Research 222, 2023 ACML 2023
+The Importance of Anti-Aliasing in Tiny Object Detection
+Jinlai Ning Bjinlai.ning@kcl.ac.uk
+Michael Spratling michael.spratling@kcl.ac.uk
+King’s College London, Department of Informatics, London. UK.
+Editors: Berrin Yanıko˘ glu and Wray Buntine
+Abstract
+Tiny object detection has gained considerable attention in the research community ow-
+ing to the frequent occurrence of tiny objects in numerous critical real-world scenarios.
+However, convolutional neural networks (CNNs) used as the backbone for object detection
+architectures typically neglect Nyquist’s sampling theorem during down-sampling opera-
+tions, resulting in aliasing and degraded performance. This is likely to be a particular issue
+for tiny objects that occupy very few pixels and therefore have high spatial frequency fea-
+tures. This paper applied an existing approach WaveCNet for anti-aliasing to tiny object
+detection. WaveCNet addresses aliasing by replacing standard down-sampling processes
+in CNNs with Wavelet Pooling (WaveletPool) layers, effectively suppressing aliasing. We
+modify the original WaveCNet to apply WaveletPool in a consistent way in both pathways
+of the residual blocks in ResNets. Additionally, we also propose a bottom-heavy version of
+the backbone, which further improves the performance of tiny object detection while also
+reducing the required number of parameters by almost half. Experimental results on the
+TinyPerson, WiderFace, and DOTA datasets demonstrate the importance of anti-aliasing
+in tiny object detection and the effectiveness of the proposed method which achieves new
+state-of-the-art results on all three datasets. Codes and experiment results are released at
+https://github.com/freshn/Anti-aliasing-Tiny-Object-Detection.git .
+Keywords: Tiny Object Detection; Anti-aliasing; Wavelets; Convolutional Neural Net-
+works
+1. Introduction
+Tiny object detection is a specialized area within the object detection field that focuses on
+identifying and localising small objects in images. While these objects are prevalent in real-
+world scenarios such as maritime rescue, driving assistance and security monitoring, they are
+difficult for standard object detection methods (Ren et al., 2015; Cai and Vasconcelos, 2018;
+Liu et al., 2015; Lin et al., 2017b; Tian et al., 2019; Zhu et al., 2020a) because of the limited
+spatial extent and low resolution of the target objects. The key distinction between data
+used in tiny object detection, such as the TinyPerson (Yu et al., 2020), WiderFace (Yang
+et al., 2016) and DOTA (Xia et al., 2018) datasets, and general object detection datasets
+lies in the proportion of small and tiny objects: ones that occupy only a few pixels in an
+image (typically less than 20x20 pixels in TinyPerson).
+Due to their small size, the distinguishing features of tiny objects tend to have high
+spatial frequency. However, such high spatial frequencies will tend to be filtered out by
+the down-sampling performed within the Convolutional Neural Networks (CNNs) that are
+© 2023 J. Ning & M. Spratling.
+
+---PAGE---
+
+Ning Spratling
+typically used as the feature-extracting backbones of object detectors. Furthermore, the
+methods used for downsampling in these CNNs ignore the issue of aliasing.
+Aliasing refers to the phenomenon where high-frequency information in an image is
+incorrectly represented or distorted during down-sampling (Gonzalez and Woods, 2021).
+According to Nyquist’s sampling theorem, the sampling rate should be at least twice the
+highest frequency present in the signal (Nyquist, 1928). If this is not the case, unless
+effective anti-aliasing techniques are employed, a down-sampled signal can exhibit significant
+distortions and may appear completely different from the original input signal. The aliasing
+problem exists for most detectors because there are many down-sampling processes involved
+in CNNs. Down-sampling is a commonly used operation to reduce the number of parameters
+and discard irrelevant details. Max-pooling, average-pooling, and strided convolution are
+the most widely applied down-sampling methods in standard CNNs (He et al., 2016; Howard
+et al., 2017; Springenberg et al., 2015). These down-sampling operations usually ignore
+Nyquist’s sampling theorem, which results in aliasing. The broken object structures and
+accumulated random noise do harm to the CNN’s performance (Grabinski et al., 2022; Li
+et al., 2020).
+Previous work has introduced anti-aliased down-sampling operations into CNNs (Zhang,
+2019; Zou et al., 2020; Williams and Li, 2018) and has shown the effectiveness of anti-aliasing
+in tasks such as object classification. However, despite the fact that aliasing is likely to be
+a particular issue when objects are small, these anti-aliasing techniques have not previously
+been considered in the field of tiny object detection. This inspires us to design anti-aliased
+backbones for tiny object detection. Our proposed anti-aliased backbone is heavily based on
+WaveCNet (Li et al., 2020). WaveCNet employs WaveletPool to replace the down-sampling
+processes in a standard ResNet (He et al., 2016), and has been shown to achieve excellent
+performance in image classification and standard object detection tasks. Here we show that
+this method can also be used to great effect in tiny object detection. Our contributions are
+as follows:
+• We apply WaveletPool to reduce distortions in the representations of tiny objects and
+preserve more discriminate information about such objects.
+• We modify WaveCNet so that the order in which Wavelet Pooling is performed is
+consistent among all connections in the backbone to improve the performance of tiny
+object detection.
+• We combine anti-aliasing with a bottom-heavy architecture (Ning et al., 2022) to
+improve tiny object detection performance further.
+• We achieve state-of-the-art performance on three tiny object detection benchmarks.
+2. Related Work
+2.1. Tiny Object Detection
+Previous approaches to improving the performance of tiny object detectors can be roughly
+categorized into seven types (Tong and Wu, 2022). In the subsequent paragraphs, repre-
+sentative examples from each category will be reviewed.

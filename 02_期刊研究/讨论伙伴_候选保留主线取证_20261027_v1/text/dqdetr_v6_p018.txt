@@ -1,0 +1,35 @@
+18
+us from classifying the number of instances N per image in a more detailed
+manner.
+Table A2 and Table A3 demonstrate the detection performance and the ac-
+curacy of the classification task in our categorical counting module. We can
+observe that if we classify the number of objectsN into more classes, e.g., 5
+classes, AP drops 1.4 compared to the 4-class scenario. That is because the poor
+classification results from the categorical counting module will directly affect
+the number of object queries used for detection and the inappropriate number
+of queries might harm the detection performance. In the 5-class classification
+scenario, while the total classification accuracy maintains 93.8%, the accuracy
+in the 500 < N ≤ 900, and N > 900 situations are only 37.1% and 57.4%. Since
+there are only a few training images, the categorical counting module doesn’t
+perform well in these two situations and further impacts the detection perfor-
+mance. Hence, we only categorize the number of objectsN per image into four
+levels without partitioning theN > 500 situation into more detailed settings.
+T able A2:Ablation of categorical counting module. DINO-DETR is compared as the
+baseline.
+Method AP AP vt APt APs APm
+Baseline 25.9 12.7 25.3 32.0 39.7
+Classification (4cls) 30.2 15.3 30.5 36.5 44.6
+Classification (5cls) 28.8 14.3 29.2 34.1 43.1
+T able A3:Theclassificationaccuracyofourcategoricalcountingmodulewithdifferent
+numbers of classes.
+#Objects in image Accuracy(%) @ 4cls Accuracy(%) @ 5cls #Sample
+N ≤ 10 97.7 97.5 8674
+10 < N ≤ 100 90.5 89.3 4393
+100 < N ≤ 500 86.5 83.2 905
+500 < N ≤ 900 56.5 37.1 35
+900 < N - 54.4 11
+Total 94.6 93.8 14018
+A.3 Categorical Counting Module (CCM) for Different Datasets.
+Since the characteristics of different datasets may vary a lot, it is vital to tailor
+our categorical counting module to the dataset property and determine how
+many queries should be used for object detection. In the categorical counting

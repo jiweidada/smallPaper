@@ -1,0 +1,25 @@
+精简回交：两项外部事件与唯一优先问题
+2026-10-28，America/Los_Angeles
+
+一、真正无人机视频事件可核，但暂不推荐直接立题
+TA-GRU原文Drones2023 Table4，YOLOv7在VisDrone2019-VID validation的mAP50:.95：单帧18.71，普通时序聚合16.55（−2.16pp）；已有对齐20.03，完整方法24.57。直接答案已在同文反超单帧，不能只用朴素聚合下降支撑新题，也没有相机运动/遮挡分组的受控失败数值。应先取得成熟时序系统的同条件实际失败，而非反复重现未经处理的对照。
+原文：https://www.mdpi.com/2504-446x/7/7/466
+官方PDF：https://mdpi-res.com/d_attachment/drones/drones-07-00466/article_deploy/drones-07-00466.pdf
+本地：papers/TA_GRU_Drones2023_7_466.pdf。重点读PDF8—13，PDF11 Table4视觉核对。作者数据声明指向公开VID；作者任务代码/权重在本轮范围内未核到，不能以通用YOLOv7权重替代。详01。
+
+二、非视频闭集遥感事件仅横向保留
+RarePlanes WACV2021 Table2，单类aircraft、Faster R-CNN R50-FPN，同真实test、5runs：Real73.32±.34 AP，Synth54.86±.25（−18.46pp）；约10%real训练图微调已69.16±.69，距Real4.16pp。大部分落差已有普通微调答案，不人为加标签/计算限制维持动机。原始test协议及资源可核，但宽泛sim2real gap不足以直接推荐新方法题。
+原文：https://arxiv.org/pdf/2006.02963v2
+资源：https://github.com/VisionSystemsInc/RarePlanes/blob/master/models/README.md
+本地：papers/RarePlanes_arXiv2006.02963.pdf。读PDF6—8，PDF7 Table2视觉核对；后续2405.19822v1相关PDF4—8只作已有答案检查。作者三份单类权重HEAD均HTTP200，本轮未下载/加载权重或数据。后续3类role结果不能与单类混比较。详02。
+
+三、独立建议与根侧一致：只优先一个问题
+优先投入一次Constellation失效机制判别：同一固定高位场景，哪些变化解释跨年检测退化，这一区分是否真的改变刷新数据选择。IJCV2026 Table12车辆AP50，test2020下train2020/2023为96.4/89.0；test2023下为86.3/99.2。同test训练来源差7.4/12.9pp，是可靠事件；仍不能定位为道路背景因果。
+最强普通解释是天气/阴影、对象和可见性构成；还要区别持久场景变化与标注/采集协议。普通全量或少量更新若已足够，就承认，不强加“有限预算”造研究空间。当前推荐研究问题识别，不是确定论文主线、方法路线或新方法收益。
+原文/作者页：https://mehmetkeremturkcan.com/projects/constellation/
+本地正式原件：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/Constellation_IJCV2026_s11263-026-03029-1.pdf
+本对话独立读PDF4、12并视觉核Table12；未泛称读完整论文。独立drift专集9447帧、按周隔离25%test；与主数据集test不是同一个分母。单固定相机与移动UAV的范围差异必须明示。详03。
+
+最低后续资源是作者原逐帧输出、准确分年test清单及盲于模型结果的条件编码。公开7模型不等于已有分年权重，配方注释不等于已核执行。拿不到原输出/任务权重则可能需要重训两份125epoch模型，两seed为4run；时长/显存/人工工时未知。本轮不执行。
+
+本轮未做任何实验、前向、训练、重评或profiling；未下载数据集/模型权重，未重新审计旧缓存，未使用子代理。重复图/漏标等清理事项已退出研究池，不回填。两边公开讨论按工具可取得范围保存，原文/资源快照与实际阅读范围见source_ledger.json。

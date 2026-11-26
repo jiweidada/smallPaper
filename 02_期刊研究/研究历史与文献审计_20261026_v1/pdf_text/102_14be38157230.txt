@@ -1,0 +1,100 @@
+Published as a conference paper at ICLR 2022
+QUADTREE ATTENTION FOR VISION TRANSFORMERS
+Shitao Tang1∗, Jiahui Zhang2∗, Siyu Zhu2, Ping Tan12
+1Simon Fraser University, 2Alibaba A.I. Lab
+shitaot@sfu.ca, zjhthu@gmail.com,
+siting.zsy@alibaba-inc.com, pingtan@sfu.ca
+ABSTRACT
+Transformers have been successful in many vision tasks, thanks to their capa-
+bility of capturing long-range dependency. However, their quadratic computa-
+tional complexity poses a major obstacle for applying them to vision tasks re-
+quiring dense predictions, such as object detection, feature matching, stereo, etc.
+We introduce QuadTree Attention, which reduces the computational complex-
+ity from quadratic to linear. Our quadtree transformer builds token pyramids
+and computes attention in a coarse-to-ﬁne manner. At each level, the top K
+patches with the highest attention scores are selected, such that at the next level,
+attention is only evaluated within the relevant regions corresponding to these
+top K patches. We demonstrate that quadtree attention achieves state-of-the-
+art performance in various vision tasks, e.g. with 4.0% improvement in feature
+matching on ScanNet, about 50% ﬂops reduction in stereo matching, 0.4-1.5%
+improvement in top-1 accuracy on ImageNet classiﬁcation, 1.2-1.8% improve-
+ment on COCO object detection, and 0.7-2.4% improvement on semantic seg-
+mentation over previous state-of-the-art transformers. The codes are available at
+https://github.com/Tangshitao/QuadtreeAttention.
+1 I NTROCUTION
+Transformers can capture long-range dependencies by the attention module and have demonstrated
+tremendous success in natural language processing tasks. In recent years, transformers have also
+been adapted to computer vision tasks for image classiﬁcation (Dosovitskiy et al., 2020), object
+detection (Wang et al., 2021c), semantic segmentation (Liu et al., 2021), feature matching (Sarlin
+et al., 2020), and stereo (Li et al., 2021), etc. Typically, images are divided into patches and these
+patches are ﬂattened and fed to a transformer as word tokens to evaluate attention scores. However,
+transformers have quadratic computational complexity in terms of the number of tokens, i.e. number
+of image patches. Thus, applying transformers to computer vision applications requires careful
+simpliﬁcation of the involved computation.
+To utilize the standard transformer in vision tasks, many works opt to apply it on low resolution or
+sparse tokens. ViT (Dosovitskiy et al., 2020) uses coarse image patches of 16× 16 pixels to limit
+the number of tokens. DPT (Ranftl et al., 2021) up-samples low-resolution results from ViT to high
+resolution maps to achieve dense predictions. SuperGlue (Sarlin et al., 2020) applies transformer on
+sparse image keypoints. Focusing on correspondence and stereo matching applications, Germain
+et al. (2021) and Li et al. (2021) also apply transformers at a low resolution feature map.
+However, as demonstrated in several works (Wang et al., 2021c; Liu et al., 2021; Sun et al., 2021; Li
+et al., 2021; Shao et al., 2020), applying transformers on high resolution is beneﬁcial for a variety
+of tasks. Thus, many efforts have been made to design efﬁcient transformers to reduce computa-
+tional complexity. Linear approximate transformers (Katharopoulos et al., 2020; Wang et al., 2020)
+approximate standard attention computation with linear methods. However, empirical studies (Ger-
+main et al., 2021; Chen et al., 2021) show those linear transformers are inferior in vision tasks. To
+reduce the computational cost, the PVT (Wang et al., 2021c) uses downsampled keys and values,
+which is harmful to capture pixel-level details. In comparison, the Swin Transformer (Liu et al.,
+∗Equal contribution
+1
+arXiv:2201.02767v2  [cs.CV]  23 Mar 2022
+
+---PAGE---
+
+Published as a conference paper at ICLR 2022
+Image A Image B
+level 3
+level 1
+level 2
+Figure 1: Illustration of QuadTree Attention. Quadtree attention ﬁrst builds token pyramids by
+down-sampling the query, key and value. From coarse to ﬁne, quadtree attention selects top K
+(here, K = 2) results with the highest attention scores at the coarse level. At the ﬁne level, attention
+is only evaluated at regions corresponding to the top K patches at the previous level. The query
+sub-patches in ﬁne levels share the same top K key tokens and coarse level messages, e.g., green
+and yellow sub-patches at level 2 share the same messages from level 1. We only show one patch in
+level 3 for simplicity.
+2021) restricts the attention in local windows in a single attention block, which might hurt long-
+range dependencies, the most important merit of transformers.
+Unlike all these previous works, we design an efﬁcient vision transformer that captures both ﬁne
+image details and long-range dependencies. Inspired by the observation that most image regions are
+irrelevant, we build token pyramids and compute attention in a coarse to ﬁne manner. In this way,
+we can quickly skip irrelevant regions in the ﬁne level if their corresponding coarse level regions are
+not promising. For example, as in Figure 1, at the 1st level, we compute the attention of the blue
+image patch in image A with all the patches in image B and choose the topK (here, K = 2) patches
+which are also highlighted in blue. In the 2nd level, for the four framed sub-patches in image A
+(which are children patches of the blue patch at the 1st level), we only compute their attentions with
+the sub-patches corresponding to the top K patches in image B at the 1st level. All the other shaded
+sub-patches are skipped to reduce computation. We highlight two sub-patches in image A in yellow
+and green. Their corresponding top K patches in image B are also highlighted in the same color.
+This process is iterated in the 3rd level, where we only show the sub-sub-patches corresponding to
+the green sub-patch at the 2nd level. In this manner, our method can both obtain ﬁne scale attention
+and retain long-range connections. Most importantly, only sparse attention is evaluated in the whole
+process. Thus, our method has low memory and computational costs. Since a quadtree structure is
+formed in this process, we refer to our method as QuadTree Attention, or QuadTree Transformer.
+In experiments, we demonstrate the effectiveness of our quadtree transformer in both tasks requiring
+cross attention, e.g. feature matching and stereo, and tasks only utilizing self-attention, e.g. im-
+age classiﬁcation and object detection. Our method achieves state-of-the-art performance with sig-
+niﬁcantly reduced computation, comparing to relevant efﬁcient transformers (Katharopoulos et al.
+(2020); Wang et al. (2021c); Liu et al. (2021)). In feature matching, we achieve 61.6 AUC@20 ◦
+in ScanNet (Dai et al., 2017), 4.0 higher than the linear transformer (Katharopoulos et al., 2020)
+but with similar ﬂops. In stereo matching, we achieve a similar end-point-error as standard trans-
+former, (Li et al., 2021) but with about 50% ﬂops reduction and 40% memory reduction. In image
+classiﬁcation, we achieve 84.0% top-1 accuracy in ImageNet (Deng et al., 2009), 5.7% higher than
+ResNet152 (He et al., 2016) and 1.0% higher than the Swin Transformer-S (Liu et al., 2021). In ob-
+ject detection, our QuadTree Attention + RetinaNet achieves 47.9 AP in COCO (Lin et al., 2014), 1.8
+higher than the backbone PVTv2 (Wang et al., 2021b) with fewer ﬂops. In semantic segementation,
+QuadTree Attention improves the performance by 0.7-2.4%.
+2 R ELATED WORK
+Efﬁcient Transformers. Transformers have shown great success in both natural language pro-
+cessing and computer vision. Due to the quadratic computational complexity, the computation of
+2

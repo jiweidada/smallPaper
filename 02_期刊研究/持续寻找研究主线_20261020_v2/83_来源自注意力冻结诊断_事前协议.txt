@@ -1,0 +1,9 @@
+2026-10-21 America/Los_Angeles。新增无训练诊断，已知来源隔离原则有NaViT/SPA/VGTok/UP-DETR/GroupDETR等先例，不能将mask本身算新方法。此核查只决定现有Mosaic是否暴露值得处理的来源特异交互，不承担总目标完成。
+
+1. 固定62原16图中按(augmentation_seed,position)排序每增强流前2图，共4图，使用76生成的all_count RGB/GT。两个原BASE24 online checkpoint、eval-mode、640、300普通query、无DN训练，模型/缓冲/CP前后SHA不变。不是新数据分割，不重选表现好坏。
+2. 普通query来源：实际_select_topk返回的原始网格anchor中心（未加预测bbox偏移）映射到真实source-occurrence ID图。源ID图按原affine/flip及同all_count的s/t最近邻变换和640最近邻缩放；真实RGB完全沿77缓存不重渲染。源ID只近似边界离散归属，不证明CNN特征隔离。
+3. 三臂：a原self-attention；b同源query互通、异源禁止的固定初始来源mask；c各图保持完全相同5组大小、由输入SHA固定随机置换query归属的mask。真实来源0=填充，独立成组；对角总可见，不修改cross-attention/encoder/GT/matcher/loss。不能把结果说成纯粹去除异供体，因为来源0也单独成组；逐组数量与源0比例必须报告。随机控制保留源0组大小但打乱成员。
+4. 统一禁用PyTorch MHA fastpath，三臂均沿同一原生MHA实现；不改变dtype/权重。原臂与77已有同图预测比较max误差及覆盖，若统计不一致须标注并解释，不混用不同backend作差。挂接只在当前内存实例，绝不改原源码或CP。
+5. 主指标沿63：原生class×query sigmoid展开top300、原sub4固定组、最大一对一真类IoU.5覆盖；全GT真类.5也报告。判据：两个模型真实来源mask各自全GT真类.5严格高于原臂与随机臂，且sub4真类.5不低于原臂，才支持继续来源特异干扰线索；任一端不满足，停止此精确版本，不放松阈值/换组/换图挽救。全图与sub4几何.5/.75、真类.75和逐GT新增/丢失全部保留。通过也不是AP或创新证明。
+6. 同次描述：原self-attention跨来源权重质量（从实际q/k及原投影权重重建softmax）、各层reference与初始query的source跳变、最终合格框是否来自其他初始source。描述不参与输入与门槛，不把相关当因果。DN mask训练组合只在未来训练设计讨论，不在当前eval伪造训练验证。
+7. CPU2线程、Below Normal、affinity13/15、内存>8GiB；最多20分钟/12次batch4 forward、零backward/optimizer/训练、零heldout/远端/监测。保存独立结果、原始预测、输入/CP/脚本/protocol SHA，不写checkpoint。失败按具体实现/版本记录，总研究目标继续。

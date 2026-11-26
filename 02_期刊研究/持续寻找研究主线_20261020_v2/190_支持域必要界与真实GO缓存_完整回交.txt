@@ -1,0 +1,37 @@
+190：支持域所有权必要界与真实GO缓存——完整回交
+2026-10-21；本文件只记录实际执行结果和已读原文边界。不新增训练、不操作远端、不改历史文件。不是主线完成或训练许可。
+
+一、183已经实际执行，不能再为该检查重复拟计划
+事前协议182 SHA256=010f8f64249ccc95c05e790957907c83ea0475a780a10e8691f452609fe88d49；脚本183 SHA256=800f840b20adbb6569633dc71dd552a64ee12a52dcde7e33544ed531c17fb5f4。
+输出184_C0_sameclass_support_bound/00_results.json：complete、退出0、约1.422秒计算。0模型前向/反传/优化器；CPU2线程、interop1、affinity[13,15]、BelowNormal，空闲RAM23.74GiB。全部来源SHA前后不变，合成检查通过，主FP64物理域与真实FP32编码域没有边分歧或近边。
+输入仍为127的单一C0 online、四development输入、902GT/453 original_sub4；不是两个模型种子的结论。ordinary末层own共784个正槽，418GT那图原本未匹配的118个GT不加入。保持query集合、GT集合和每query正类别不变，同类一对一重排。
+
+可达配对数：原own525，当前FP32 IoU最优simple522，最大支持532。
+最大支持减simple分图[1,6,3,0]，总10、3图正，182的事前必要门槛true。
+最大支持减原own实际为[0,3,4,0]，总7、2图正。不得把10称为相对原生改善。
+五个有差额的图/类别（原own/simple/最大支持）：0/0=37/36/37；1/2=19/19/20；1/3=97/94/99；2/3=81/81/83；2/4=24/24/25。10对中7对来自类别ID3。图0只是恢复simple损失。
+251个原own当前IoU为0的配对中，248支持外、3支持内。上界仍至少有252/784支持外。原FGL按IoU加权，因此零IoU配对原本FGL权重为0；换到可表示GT不自动使FGL权重变正。
+Kuhn补满见证总IoU271.9923，simple311.8920。见证没有优化IoU，不能据此声称拿到532必须牺牲这么多IoU，也不能把任意补满见证当完整候选。
+尚未检查IoU最优解的并列面：必须先保持总IoU精确最优，再在全部最优解中最大化支持数。10对不能先称全部为并列效应，也不能先称全部独立于并列。
+
+二、187已经实际执行，188是真实训练分支的纯冻结采集
+事前协议186 SHA256=53b769be04ca7b251ffe2ac935a45c64a0ae764f4dbcecd4e18e245fa0914a6c；脚本187 SHA256=16bd61b9e2397ae9ed6cff29d85e5615e1b4da4569ee6f08929e3694a0b08c5a。
+188_C0_true_GO_support_cache/01_cache.pt SHA256=8a100f920dff9c961cc13ac5814e338dd37fc0bf5f390cc453a607f546b0ced9。
+执行complete、退出0，正好4次model forward和4次native criterion求值，0 backward/VJP/cache-autograd/optimizer/update、0额外eval forward。约2.844秒采集计算。模型/BN/criterion state、输入、checkpoint和源文件SHA前后不变。资源保持CPU2/interop1/[13,15]/BelowNormal/空闲RAM>8GiB。
+模式是model/backbone/encoder eval、decoder train、BN eval、torch.no_grad；同DN seed20261021，包含真实DN分支。不是训练，不保存新checkpoint。
+每图真实GO数量[172,290,300,70]，总832；实际出现的不同GT数[146,265,280,58]，总749。GO每query只接受一个GT，但同GT可由多个query监督，不能当普通784的一对一预算。
+每图保存各stage own、真实GO/GT多重计数、完整native输出、初始ref、loss调用索引/分母和loss值。全部ordinary FDR层ref数值相同且等于本次pre框，DN FDR组内亦共享；对象/底层storage与数值共享分开报告。pre/encoder没有ref字段不伪造。
+
+与114历史有梯度前向不bitexact，必须保留：
+图0/1/2/3末框最大绝对误差约1.788e-7/1.937e-7/5.066e-7/1.788e-7；logit约4.625e-5/2.718e-5/2.909e-5/4.435e-5。DN/RNG相同。没有据此确认具体底层数值差异来源。
+图0、2、3的GO配对及顺序exact；图1有5个query的GT发生改变，并非只改顺序：新(q,g)=(138,123),(153,208),(162,129),(196,279),(213,50)，旧为(138,128),(153,184),(162,126),(196,259),(213,52)。对应GO列表78个顺序位置变化，不能把78说成78个目标改配。
+总loss新/旧逐图约24.076618/24.076620、27.913689/27.911507、26.576685/26.576677、24.521088/24.521091。这是采集重放差异，非方法效应，不强行改种子/张量/匹配来追旧精度。
+后续所有GO候选与控制统一用188自身同次输出、同次GO为baseline；不得混114匹配、127 eval refs或ordinary预算。
+
+三、原文与方法边界
+185实际核对FCOS §3.1–3.2、GFL §3 Eq4–6、D-FINE §4.1–4.2、Q-MCMF §3、YOLO26 §3.2.2/3.3.3。root也实际读取FCOS及YOLO26这些段落。有限支持、按range分配、几何剪边和solver均非首次。
+当前FDR各层虽更新注意力参考框和残差logit，但distance2bbox一直使用pre_bboxes.detach的同一initial ref。支持不是当前框IoU，也不是永远无法学习：pre head在训练中可以改变下一步初始框。
+up=.5时，支持条件每轴等价于 |(c_GT-c_ref)/s_ref| + |s_GT/s_ref-1|/2 <= 1，不依赖PMF形状/熵。因此不能称distribution-aware matching或声称不是实例几何分配。
+允许继续核查的具体修订G：固定实际GO query集合、每GT原几何监督次数m_g、每query原GO类别；重排整条GO boxes/local的GT归属，所有原own分类/DN不动。先最少支持外，再最小未截断越界量，再原末层native cost。分类cost在同类组内是行常数。
+最强控制包括原GO、当前框IoU最优面内最大支持、initial-ref IoU最优面内最大支持、同预算原native cost最优面内最大支持。所有控制同q集合/m_g/类别，不任意小epsilon冒充精确lex。
+这些是已有具体变量与可实施方案，仍非已建立创新或训练依据。GO不同于ordinary，必须独立算真实作用面；G按自己目标占优是求解保证，不能当检测效果。后续若存在独立目标信号，再检查真实损失/FGL/DDF/pre/encoder影响；不把oracle非零或局部梯度当AP提升。

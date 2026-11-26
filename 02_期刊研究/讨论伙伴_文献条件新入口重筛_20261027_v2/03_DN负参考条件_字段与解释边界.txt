@@ -1,0 +1,24 @@
+DN负参考条件：字段与解释边界
+2026-10-27。追加于01后的新议题，先读原文与字段；不执行扰动生成、随机重采样、模型、训练或碰撞统计。
+
+原文与代码条件
+实际读DINO arXiv:2203.03605v4 PDF第7–8页§3.3，并读本地denoising.py全文。原文按相对某个源GT的扰动大小定义正/负角色，负slot用于no-object任务；并无与其他全部GT进行几何排除的保证。
+本地采样源码先复制GT、作类别和框扰动，再clip与坐标变换，没有all-GT拒绝筛选。它证明了“未显式防止靠近其他GT”的代码条件，不证明产生了历史实际碰撞，更不证明角色指定有错或对检测有害。
+输入框仅是query的一部分。内容、attention可见上下文、指定GT与角色均需分开；仅输入/输出IoU接近其他GT不足以证明逻辑矛盾。
+
+查重
+197只描述188缓存内DN正slot的assigned-pair几何，不能拿其结果机械否决负参考输入条件。对持续寻找研究主线目录的TXT/MD/PY定向搜索未发现精确负参考输入碰撞的既有阴性；不声称穷尽全历史。旧DN梯度/支持诊断不等于本条件已经验证。
+
+必须区分的缓存家族
+BASE24 isolated_v3 A/B development00–07原始生成在CUDA。已保存的schema顶层为outputs、targets、tag、group、forward_DN_seed，dn_meta为positive_idx/num_group/num_split；未保存原始denoising_bbox_unact、扰动后类别ID或完整初始attention输入。仅CPU用同seed重抽不能复现CUDA发生器，不能以新CPU样本补成历史证据。
+188_C0_true_GO_support_cache实际为epoch94、model_online、902GT、四个固定输入、单模型CPU参考；不是BASE24、成熟132，也不是实际完整训练状态。187记录model/backbone/encoder eval、decoder train、BN eval。
+本次用白名单pickle元数据读取器核四条记录，未导入torch或打开张量storage；DN_seed=20261021，保存前后RNG SHA而无state本体，也无原始扰动输入。读到字段见DN_cache_schema_only.json。
+187在每次整网调用前重置Python/NumPy/Torch种子，记录before/after SHA。该CPU家族有潜在可重放线索，但须另核同版本、完整随机调用顺序、前后状态及输入身份；这尚不是已闭合链。本轮没有重放，不能把seed+hash当现成输入，也不能把CUDA家族的限制错误外推为CPU家族必定不可重放。
+
+DN pre不能代替初始扰动
+dfine_decoder.py第484行先执行第一decoder layer，第488行才产生pre_bboxes，第490行以它设置ref_points_initial；输出dn_pre_outputs.pred_boxes及后续dn_outputs.ref_points属于处理后的参考族。
+188顶层名为ref_points_initial的字段明确来自原生输出ref_points，也不是最开始的扰动框。不能因名称含initial便误用为采样器返回输入。
+
+本轮判断与最小证据顺序
+当前历史初始输入条件未建立，不能记科学阴性，也不能以末框碰撞或新CPU噪声计数凑阳性。若根侧日后继续，先冻结现成输入/随机链保真门；链不闭合则NA。即便链闭合且有几何邻近，也只建立暴露条件，仍需区分正常角色训练与可观察的冲突/不良后果，不能自动升为机制或方法缺口。
+本轮未确认新的独立主线；没有另一个已闭合的不同入口补位。JPEG、域身份及ignore的各自边界不因本议题改变。

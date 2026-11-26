@@ -1,0 +1,41 @@
+332｜本地预检六项：交Codex实现规格（2026-10-21）
+范围：只含本地、无GPU、无SSH、不开训练、不碰heldout。依据317 v3；原生接口来自已读的 C:\Users\jiwei\Desktop\DEIM\engine\deim\{postprocessor,matcher,deim_criterion,box_ops}.py 与 configs\base\{deim,dfine_hgnetv2}.yml。
+环境：系统默认python无torch。用 D:\Anaconda\python.exe -s -X utf8 -B，并把 code\dn_pre_frozen_diagnostic_20261020_v1\runtime 放入sys.path（torch2.5.1+cpu，沿311/320做法）。新目录：code\unit_instance_completion_20261021_v1（317第3节拟定）。311/320的core.py/gcal.py只读复用，SHA不变（311 core SHA 8cd5dbc6…）。
+所有测试输出用独占新建文件，不覆盖历史。每项报告写清：执行了什么、调用次数、未执行什么。
+
+【已读原生事实（实现须逐项对齐，不得凭印象）】
+a) PostProcessor：sigmoid(logits)→flatten(1)→topk(num_top_queries)→label=index%C、box=index//C；cxcywh→xyxy再乘orig_size。该文件内没有 score>0.001 和 逐类max100；这两步在别处（评估/COCO侧），我未读到，Codex需先定位并确认，不能默认。
+b) HungarianMatcher：focal代价 α.25/γ2，cost_class2/cost_bbox5/cost_giou2；cost_bbox=cdist L1(cxcywh归一化)，cost_giou=−GIoU；nan→1.0；linear_sum_assignment。
+c) loss_labels_mal：target=one-hot类别×IoU(detach)；target_score取pow(γ)；weight=pred_score^γ·(1−t)+t（mal_alpha=None时）；BCEwithlogits；loss=sum/num_boxes。base/deim.yml的γ=1.5、mal_alpha未设；deim_losschange.yml才设0.25——须核BASE24实际用哪份yml，317写的是γ1.5。
+d) loss_boxes：L1求和/num_boxes，GIoU同；generalized_box_iou对w<0的框assert失败。
+e) 原forward里num_boxes=该batch全部GT数，clamp(min=1)；单输出头无aux时无GO并集，不要照搬use_uni_set。317要求：完整|U_W|进分母，超过4的overflow单列。
+
+【任务1：M0三级lex】
+输入：fullP候选(box,cls,score)与全图native有效GT。合法边：同类且FP32 IoU≥0.5。按317第2节：lex最大覆盖→最小native matcher cost(2 focal+5 L1−2 GIoU，α.25/γ2)→固定索引。输出每GT是否被解释、每候选owner。
+测试：①并列时索引稳定、重排输入不变（以固定索引定义的序）；②M0只用一次、与窗/新头无关；③U_W与G_W−M0闭合；④空P、空GT、无合法边；⑤全final300任何类框无IoU.5边的GT必在U_W。
+注意：不是COCO贪心，不叫FN。
+
+【任务2：native MAL/boxes适配与parity】
+写一个只接4个新query的compute_losses：用与(b)相同的matcher代价，对4×|U_W|做Hungarian，匹配min(4,|U_W|)，MAL/L1/GIoU按(c)(d)公式、分母按(e)。
+parity：同一随机输入，对比 原engine类（import自DEIM，仅CPU、构造最小criterion）与新实现的loss_mal/loss_bbox/loss_giou，要求数值一致到FP32容差；记录容差。|U_W|=0时只保留分类负项，数值须有手算。
+
+【任务3：global300＋new4原生融合parity】
+global的300框/300×10 logits与new4（4×10）在query维concat→sigmoid→flatten→top300→score严格>0.001→逐类max100。
+测试：new4分数全<0.001时输出与仅global逐位相同（317的初态parity合同）；同query多类保留；不引入NMS/温度/保底配额；与(a)的PostProcessor在无new4时逐项相同。
+
+【任务4：自然数据缓存与训练/续跑/独评管线】
+按317第2/3/5/6节：每seed只用327里的development3235 id（SHA fdea615d…）；每图原final300预测中心数最多的64²格选窗（row-major解并列）；RGB128²采样沿296；缓存预测/M0/crop/SHA；batch16、drop_last=False、每轮203步×6轮、固定last；续跑只恢复该run完整状态。独评val548，不读heldout3236。
+预检：CP与标注先重算SHA（327写明current_checkpoint_rehashed=False，需先做）；raw/eval/native输出parity；global零grad、state不变；写文件前确认不会进入heldout路径。
+
+【任务5：optimizer路由与no-decay审核】
+AdamW lr1e-4 β(.9,.999) wd1e-4；bias/norm无decay；G的class_null(10标量)进no-decay组且只接det loss；warmup100步1e-5→1e-4后cosine→1e-5；clip1；FP32。
+测试：打印每参数→组的映射并落盘；断言class_null在no-decay组；断言global参数不在任何组；G的κ_c对det loss有梯度、对L_mass/L_assoc无梯度；饱和例按实际算子记零。
+
+【任务6：参数/FLOPs/显存/时延/费用计量】
+实际建四臂模型，逐臂报参数（S的P-crossattention新增，317记133888为代数计数，须与实测核对）、CPU上单窗FLOPs与时延；GPU显存与墙钟只能在服务器测，本地标NA。缓存成本与训练/评估分开计，不把四臂共享缓存重复摊算。
+
+【交付与自检】
+- 每个任务一份result json＋SHA，列出“已通过/未执行”。未通过的工程合同按317第7节写成实现失败，不得记为科学结果。
+- 317第8节新增合同（G/R初态同值、固定f/m/P改θ只改G的aux计划、κ_c梯度）也在此轮执行并如实记录。
+- 不得修改317/311/320/历史文件；需要改接口时另存新版本并写差异。
+- 本文只是规格，未执行任何一项；没有可启动的训练命令。

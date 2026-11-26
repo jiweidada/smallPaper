@@ -1,0 +1,108 @@
+Published as a conference paper at ICLR 2022
+SPARSE DETR: E FFICIENT END-TO-E ND OBJECT DE-
+TECTION WITH LEARNABLE SPARSITY
+Byungseok Roh1∗†, JaeWoong Shin2∗‡ , Wuhyun Shin1∗, Saehoon Kim1
+1KakaoBrain
+2Lunit
+{peter.roh,aiden.hsin,sam.kim}@kakaobrain.com
+jwoong.shin@lunit.io
+ABSTRACT
+DETR is the ﬁrst end-to-end object detector using a transformer encoder-decoder
+architecture and demonstrates competitive performance but low computational
+efﬁciency on high resolution feature maps. The subsequent work, Deformable
+DETR, enhances the efﬁciency of DETR by replacing dense attention with de-
+formable attention, which achieves 10× faster convergence and improved perfor-
+mance. Deformable DETR uses the multiscale feature to ameliorate performance,
+however, the number of encoder tokens increases by 20× compared to DETR, and
+the computation cost of the encoder attention remains a bottleneck. In our prelim-
+inary experiment, we observe that the detection performance hardly deteriorates
+even if only a part of the encoder token is updated. Inspired by this observation,
+we propose Sparse DETR that selectively updates only the tokens expected to
+be referenced by the decoder, thus help the model effectively detect objects. In ad-
+dition, we show that applying an auxiliary detection loss on the selected tokens in
+the encoder improves the performance while minimizing computational overhead.
+We validate that Sparse DETR achieves better performance than Deformable
+DETR even with only 10% encoder tokens on the COCO dataset. Albeit only the
+encoder tokens are sparsiﬁed, the total computation cost decreases by 38% and the
+frames per second (FPS) increases by 42% compared to Deformable DETR. Code
+is available at https://github.com/kakaobrain/sparse-detr.
+1 I NTRODUCTION
+In recent years, we have witnessed the dramatic advancement and the success of object detection in
+deep learning. Diverse object detection methods have been proposed, but the existing algorithms that
+perform positive matching with the ground truth as a heuristic way require non-maximum suppres-
+sion (NMS) post-processing of near-duplicate predictions. Recently, Carion et al. (2020) has intro-
+duced a fully end-to-end detector DETR by eliminating the need for NMS post-processing through
+a set-based objective. The training objective is designed by employing the Hungarian algorithm that
+considers both classiﬁcation and regression costs, and achieves highly competitive performance.
+However, DETR is unable to use multi-scale features such as feature pyramid networks (Lin et al.,
+2017), which are commonly used in object detection to improve the detection of small objects. The
+main reason is increased memory usage and computation by adding Transformer (Vaswani et al.,
+2017) architecture. As a result, its ability to detect small objects is relatively poor.
+To address this problem, Zhu et al. (2021) has proposed a deformable-attention inspired by the
+deformable convolution (Dai et al., 2017) and reduced the quadratic complexity to linear complex-
+ity through key sparsiﬁcation in the attention module. By using deformable attention, deformable
+DETR addresses the slow convergence and high complexity issue of DETR, which enables the en-
+coder to use multi-scale features as an input and signiﬁcantly improves performance on detecting
+small objects. However, using the multi-scale features as an encoder input increases the number of
+tokens to be processed by about 20 times. Eventually, despite efﬁcient computation for the same
+∗Equal contribution.†Corresponding author.‡Work is done during an internship at KakaoBrain.
+1
+arXiv:2111.14330v2  [cs.CV]  4 Mar 2022
+
+---PAGE---
+
+Published as a conference paper at ICLR 2022
+token length, the overall complexity increases back again, making the model inference slower even
+than vanilla DETR.
+In general, natural images often contain large background regions irrelevant to the objects of interest,
+and accordingly, in end-to-end detectors, the tokens corresponding to the background also occupy a
+signiﬁcant portion. In addition, the importance of each regional feature is not identical, which has
+been proven by the two-stage detectors successfully do their job by focusing only on the foreground.
+It suggests that there exists considerable regional redundancy that can be reduced in the detection
+tasks and seeking to devise an efﬁcient detector focusing on the salient regions is a necessary and
+natural direction. In our preliminary experiments, we observe the following: (a) during inference
+of a fully-converged Deformable DETR model on the COCO validation dataset, the encoder tokens
+referenced by the decoder account for only about 45% of the total, and (b) retraining a new detector
+while updating only the encoder tokens preferred by the decoder from another fully-trained detector,
+barely suffers performance loss(0.1 AP degradation). See Appendix A.9 for the details.
+Inspired by this observation, we propose a learnable decoder cross-attention map predictor to spar-
+sify encoder tokens. In the existing methods (Carion et al., 2020; Zhu et al., 2021), the encoder takes
+all the tokens, i.e. the backbone features combined with corresponding positional embeddings, as
+input without discrimination. Meanwhile, our approach distinguishes encoder tokens to be refer-
+enced later in the decoder and considers only those tokens in self-attention. Therefore, this can
+signiﬁcantly reduce the number of encoder tokens involved in the computation and reduce the total
+computational cost. We further propose the encoder auxiliary loss for selected encoder tokens to
+improve detection performance while minimizing computational overhead. The proposed auxiliary
+loss not only improves performance, but also allows training a larger number of encoder layers.
+Extensive experiments on the COCO 2017 benchmark (Lin et al., 2014) demonstrate that Sparse
+DETR effectively reduces computational cost while achieving better detection performance. With-
+out bells and whistles, Sparse DETR using Swin-T (Liu et al., 2021) backbone achieves 48.2 AP
+with 38% reduction of the entire computational cost compared to the 48.0 AP baseline and 49.2 AP
+with 23% reduction. In the case of the experiment that achieves 48.2 AP using only 10% of encoder
+tokens, the computational cost of the transformer encoder block is reduced by approximately 82%.
+We summarize our contributions as follows:
+• We propose encoder token sparsiﬁcationmethod for an efﬁcient end-to-end object detector,
+by which we lighten the attention complexity in the encoder. This efﬁciency enables stack-
+ing more encoder layers than Deformable DETR, leading to performance improvement
+within the same computational budget.
+• We propose two novel sparsiﬁcation criteria to sample the informative subset from the en-
+tire token set: Objectness Score (OS) and Decoder cross-Attention Map (DAM). Based on
+the decoder cross-attention map criterion, the sparsiﬁed model preserves detection perfor-
+mance even when using only 10% of the whole tokens.
+• We adopt an encoder auxiliary loss only for the selected tokens. This additional loss
+not only stabilizes the learning process, but also greatly improves performance, with only
+marginally increased training time.
+2 R ELATED WORK
+Efﬁcient computation in vision transformers. It is a well-known problem that the attention com-
+putation in Transformers incurs the high time and memory complexity. The vision transformers need
+to digest even bigger token sets as input so that a large body of works (Parmar et al., 2018; Child
+et al., 2019a; Ho et al., 2019; Wang et al., 2020; Katharopoulos et al., 2020; Choromanski et al.,
+2021; Kitaev et al., 2020) has been proposed lightweight attention mechanisms for them. Most of
+those works shed light on the complexity that resides only in a single-scale attention module, which
+hinders direct extension to the multi-scale features generally required in object detection.
+One of the promising approaches for the lighter transformer attention is input-dependenttoken spar-
+siﬁcation. DynamicViT (Rao et al., 2021) and IA-RED 2 (Pan et al., 2021), similar to our work,
+both propose jointly-learned token selectors generating the sparsity patterns to be overlaid on the
+input tokens. Those approaches mainly focus on sparsifying a backbone network evaluated on the
+classiﬁcation tasks, while our interest lies in a sparse encoder of the end-to-end object detectors.
+2

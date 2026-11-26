@@ -1,0 +1,42 @@
+145 C0 conditional unfold：可达族事前协议
+状态：仅登记与写脚本；交 root/C 审核后由 root 决定是否执行。登记时未读取本候选的可达族效果。
+
+1. 问题、边界与输入
+本次只检验条件展开是否扩大当前参考框下、原生分类预算允许的 GT 几何可达作用面。不是把缓存预测直接换参数后评估，不是训练收益、AP、梯度可学性或创新证明。137 的完整 PMF 兼容质量门槛失败保持停止；本次不复活该先验。
+只读 127_C0_attention_template_registration/01_cache.pt。缓存 SHA256 固定为 f2fb2120ccd670f846a0a70651a3fabbf9bcfb636c94d43d33f8dc34eceac79c；C0 checkpoint SHA256 为 9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e，weight_key=model_online。四图、300 query/图、902 GT、original_sub4 共453；不同 augmentation event 不称两个模型种子。
+使用 ref_points_initial、pred_boxes、原 FP32 pred_logits、target.boxes/labels、original_sub4。selected_indices 不参与资格筛选、GT 归属或匹配；不读取/使用 PMF 兼容质量选择边。缓存 reg_max=32、up=.5、R=abs(reg_scale)>0，其他情况 failclosed。
+
+2. 四个实际可达族，均允许中心与宽高联合变化
+一轴记参考中心 c0、正参考宽 w0，原左右分布期望 l,r∈[-R,R]，s=(l+r)/2，t=(r-l)/2。原解码 c=c0+w0*t/R，w=w0*(1+2s/R)>0。
+conditional：q(s)=max(1-|s|/R,.1)，c=c0+w0*t/(R*q(s))，w=w0*(1+2s/R)>0。保留原左右各33节点分布头，不在本次脚本修改模型。
+若将来训练，所有 FDR 层、普通与 DN 分支的编码/解码必须一致。精确逆映射定义 s*=R(w/w0-1)/2、u*=R(c-c0)/w0，l*=s*-q(s*)u*、r*=s*+q(s*)u*；纵轴同理。u*含R，不能漏掉该单位因子。w<=0 拒绝；超出头物理支持不得clip伪装可达。本次只登记该公式，不实现训练分支或目标编码。
+rectangle：独立中心变量 u=(c-c0)/w0∈[-1,1] 与尺度 k=w/w0∈[0,3]，可以每轴两个同为33节点的分布期望实现，并非额外节点预算。range2：左右支持扩大为[-2R,2R]，解码分母仍R；不能把R整体翻倍抵消展开。
+使用正面积物理框的闭包求支持上确界，保留w=0边界候选但其二维IoU为0。端点概率集中属于头期望支持闭包，有限logit softmax不一定精确达到端点，不宣称训练能达到上界。
+
+3. 可核验的凸多边形
+每轴归一化端点 L=(x1-c0)/w0、H=(x2-c0)/w0，k=H-L，u=(L+H)/2。
+original：-1.5<=L<=.5，-.5<=H<=1.5，H>=L。
+rectangle：|L+H|<=2，0<=H-L<=3。
+conditional：rectangle 加 -4.5L+5.5H<=15、-5.5L+4.5H<=15，等价 |u|+5k<=15。
+range2：-2.5<=L<=1.5，-1.5<=H<=2.5，H>=L。
+推导：原|t|<=R-|s|；合法k∈[0,3]时，conditional 的 |u|<=min(1,15-5k)。所以k<=2.8时与rectangle完全相同，只有上端宽度区间截缩。严格承认 original⊂conditional⊂rectangle⊂range2，conditional不是一个超过rectangle的新可达域；去掉.1下界，在非奇异内部即连续矩形重参数化。不能把仅改变坐标/头参数化直接当方法创新。
+合法tiny尺度 k→0+ 对应 s→-R/2，原cap=R-|s|→R/2；s=-R对应k=-1非法，不构成tiny坍缩证据。
+
+4. 精确最大IoU算法及有限精度限定
+GT每轴端点为a<b。由 L=a、L=b、H=a、H=b 四条线切分合法凸多边形，每个cell中交叠长度 max(0,min(H,b)-max(L,a)) 为仿射或恒零。固定另一轴时，IoU的分子、分母均为该cell内(L,H)的仿射函数，GT面积>0保证分母>0，故分式线性函数最大值可在cell顶点取得。从二维全局最优先将横轴移到不劣顶点，再将纵轴移到不劣顶点，因此两轴 arrangement 顶点的笛卡尔积包含一个全局最优。
+146 枚举合法多边形顶点、边界与四条GT线交点、GT线互相交点，筛选合法点；逐块枚举横纵候选积，取真实二维IoU最大值。全300×GT对均使用此算法，geometry结果不使用更松的替代算法。空间远离时只以“任一轴不可能正交叠”作严格零值剪枝。
+实数下证明精确；实现为FP64，半平面容差1e-10，反演非平行判定1e-14，重复顶点数值合并1e-12，数值嵌套误差上限1e-8。浮点边界候选的宽度若在[-1e-10,0]仅计零面积，超过该负误差则非法。IoU范围允许1e-10舍入再截回[0,1]。0.5/0.75分类使用原始 >= 阈值，不把阈值降低；完整报告距阈值<=1e-10的边数及匹配数在阈值±1e-10时的变化供复核，不据此改门槛。不能证明/自检失败则输出error，不能输出阳性结论。
+
+5. 固定当前wh子审计
+对每query保留缓存pred_boxes的w、h，不保留其中心。每轴以H=L+k切上述多边形得到允许L区间；仅在此尺寸固定情况下，将GT中心投影到允许中心区间可同时最大化交叠和IoU。若当前尺寸切片不可行则 failclosed，不clip成其他尺寸。该结果与联合改中心/wh结果分开报告，不能用固定wh中心投影代替联合求解。
+原生缓存预测指标另列native_predictions；它不是original可达族oracle。检查并报告native框相对原域的数值残差及original固定尺寸上界相对native IoU的最大负残差，不把FP32重建误差当新方法退化。
+
+6. 匹配、输出与唯一主门槛
+原生FP32 pred_logits.sigmoid().flatten().topk(300)，得到每query允许的类别集合；重复类别槽折叠，query容量为1。trueclass边仅当对应GT类别在该query允许集合中成立。每图/臂/阈值/GT子集分别做容量1最大二分匹配，q升序、GT原数组下标升序的确定性Kuhn；不以selected索引认GT，不跨臂强制保留同一GT身份。
+joint四臂及fixed_current_wh四臂完整输出all/sub4 × geometry/trueclass × IoU .5/.75共8指标、匹配对、边数与各图结果。sub4指标是在original_sub4子集内独立最大匹配；不从all匹配随意抽出sub4数。主指标是匹配数，非可达边数量。
+事前门槛锁定：joint conditional 相对 joint original 的 sub4_trueclass05 四图合计净增 >=10，且至少2图净增>0。其余 .75/all8/rectangle/range2/fixedwh 全部报告，不代替或追加效果门槛。一次通过只允许继续讨论条件展开的作用面，不授予训练许可，不证明实质创新。
+
+7. 自检、资源、产物
+在读取缓存内容前进行确定性合成检查：四域精确GT可达；非正GT/ref宽高拒绝；反向端点拒绝、零宽边界IoU0；合法tiny极限cap趋R/2；通过多边形顶点证实上述域嵌套及严格见证；conditional前向/逆向和物理支持闭合；联合两轴改变尺寸可IoU1而固定wh只.25的反例；大GT包含整个域时最大面积比；原/条件/矩形/倍域最大值的单调性；容量1匹配及固定尺寸闭式与同切片候选法一致。
+146只复用已冻结136中的资源/读写/哈希/数组/原生topk/匹配/IoU工具函数，不调用其PMF分析或main。136SHA固定10bc190cce57688cd8c04b31190fc356244cc2afd6df5b6c74f8bed4eca6ab26。CPU2线程、interop1、affinity[13,15]、BelowNormal、可用RAM>8GiB；每块64个query-GT对；不加载模型，无forward/backward/optimizer/训练/远程。读取前自检失败不读缓存。源文件及缓存前后SHA一致。
+脚本146_C0_conditional_unfold_reachable.py；默认新建147_C0_conditional_unfold_reachable（不覆盖），输出00_results.json与01_pairwise_oracles.npz，后者保存所有臂/子审计的FP64成对上界、native矩阵、允许类别边/GT子集以便独立复查。协议/脚本先交root/C审查，当前不执行。

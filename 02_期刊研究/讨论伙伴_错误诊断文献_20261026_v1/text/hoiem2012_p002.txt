@@ -1,0 +1,44 @@
+2 Diagnosing Error in Object Detectors
+error, confusion with semantically similar objects, confusion with other labeled objects,
+and confusion with background. We analyze two types of detectors on the PASCAL
+VOC 2007 dataset [2]: the Vedaldi et al. [3] multiple kernel learning detector (called
+VGVZ for authors’ initials) and the Felzenszwalb et al. [4, 5] detector (called FGMR).
+By making our analysis software and annotations available, we will make it effortless
+for future researchers to perform similar analysis.
+Relation to Existing Studies: Many methods have been proposed to address a par-
+ticular recognition challenge, such as occlusion (e.g., [6–8]), variation in aspect ratio
+(e.g., [5, 3, 9]), or changes of viewpoint (e.g., [10–12]). Such methods are usually eval-
+uated based on overall performance, home-brewed datasets, or artiﬁcial manipulations,
+making it difﬁcult to determine whether the motivating challenge is addressed for nat-
+urally varying examples. Researchers are aware of the value of additional analysis, but
+there are no standards for performing or compactly summarizing detailed evaluations.
+Some studies focus on particular aspects of recognition, such as interest point detec-
+tion (e.g., [13, 14]), contextual methods [15, 16], dataset design [17], and cross-dataset
+generalization [18]. The work by Divvala et al. [15] is particularly relevant: through
+analysis of false positives, they show that context reduces confusion with textured back-
+ground patches and increases confusion with semantically similar objects. The report on
+PASCAL VOC 2007 by Everingham et al. [19] is also related in its sensitivity analysis
+of size and qualitative analysis of failures. For size analysis, Everingham et al. measure
+the average precision (AP) for increasing size thresholds (smaller-than-threshold ob-
+jects are treated as “don’t cares”). Because the measure is cumulative, some effects of
+size are obscured, causing the authors to conclude that detectors have a “limited prefer-
+ence for large objects”. In contrast, our experiments indicate that object size is the best
+single predictor of performance.
+Studies in specialized domains, such as pedestrian detection [20] and face recogni-
+tion [21, 22], have provided useful insights. For example, Dollar et al. [20] analyze
+effects of scale, occlusion, and aspect ratio for a large dataset of pedestrian videos,
+summarizing performance for different subsets with a single point on the ROC curve.
+Contributions: Our main contribution is to provide analysis tools (annotations, soft-
+ware, and techniques) that facilitate detailed and meaningful investigation of object
+detector performance. Although benchmark metrics, such as AP, are well-established,
+we had much difﬁculty to quantitatively explore causes and correlates of error; we wish
+to share some of the methodology that we found most useful with the community.
+Our second contribution is the analysis of two state-of-the-art detectors. We intend our
+analysis to serve as an example of how other researchers can evaluate the frequency
+and correlates of error for their own detectors. We sometimes include detailed analysis
+for the purpose of exempliﬁcation, beyond any insights that can be gathered from the
+results.
+Third, our analysis also helps identify signiﬁcant weaknesses of current approaches and
+suggests directions for improvement. Equally important, our paper highlights the danger
+of relying on overall benchmarks to measure short-term progress. Currently, detectors
+perform well for the most common cases of objects and avoid egregious errors. Large

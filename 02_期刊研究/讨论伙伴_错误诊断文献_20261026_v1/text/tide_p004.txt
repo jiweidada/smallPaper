@@ -1,0 +1,46 @@
+4 D. Bolya et al.
+We could categorize all these types of errors, but it’s not entirely clear how to weight
+their relative importance. Hoiem et al. [14] weight false positives by their prevalence
+in the top N most conﬁdent errors and consider false negatives separately. However,
+this ignores the effect many low scoring detections could have (so effective use of it
+requires a sweep overN), and it doesn’t allow comparison between false positives and
+false negatives.
+There is one easy way to determine the importance of a given error to overallmAP ,
+however: simply ﬁx that error and observe the resulting change inmAP . Hoiem et al.
+brieﬂy explored this method for certain false positives but didn’t base their analysis
+off of it. This is also similar to how the COCO eval toolkit [ 1] plots errors, with one
+key difference: the COCO implementation computes the errors progressively. That is, it
+observes the change inmAP after ﬁxing one error, but keep those errors ﬁxed for the
+next error. This is nice because at the end result is trivially 100mAP , but we ﬁnd that
+ﬁxing errors progressively in this manner is misleading and may lead to false conclusions
+(see Sec. 2.3).
+So instead, we deﬁne errors in such a way that ﬁxing all errors will still result in
+100mAP , but we weight each error individually starting from the original model’s
+performance. This retains the nice property of including conﬁdence and false negatives
+in the calculation, while keeping the magnitudes of each error type comparable.
+2.1 Computing mAP
+Before deﬁning error types, we focus our attention on the deﬁnition of mAP to un-
+derstand what may cause it to degrade. To compute mAP , we are ﬁrst given a list
+of predictions for each image by the detector. Each ground truth in the image is then
+matched to at most one detection. To qualify as a positive match, the detection must
+have the same class as the ground truth and an IoU overlap greater than some threshold,
+tf , which we will consider as 0.5 unless otherwise speciﬁed. If multiple detections are
+eligible, the one with the highest overlap is chosen to be true positive while all remaining
+are considered false positives.
+Once each detection has matched with a ground truth (true positive) or not (false
+positive), all detections are collected from every image in the dataset and are sorted by
+descending conﬁdence. Then the cumulative precision and recall over all detections is
+computed as:
+Pc = TP c
+TP c +FP c
+Rc = TP c
+NGT
+(1)
+where for all detections with conﬁdence≥c,Pc denotes the precision,Rc recall,TP c
+the number of true positives, andFP c the number of false positives.NGT denotes the
+number of GT examples in the current class.
+Then, precision is interpolated such that Pc decreases monotonically, and AP is
+computed as a integral under the precision recall curve (approximated by a ﬁxed-length
+Riemann sum). Finally,mAP is deﬁned as the averageAP over all classes. In the case
+of COCO [20],mAP is averaged over all IoU thresholds between 0.50 and 0.95 with a
+step size of 0.05 to obtainmAP 0.5:0.95.

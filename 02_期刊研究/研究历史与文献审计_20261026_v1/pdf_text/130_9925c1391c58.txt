@@ -1,0 +1,176 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+Density Crop-guided Semi-supervised Object
+Detection in Aerial Images
+Akhil Meethal, Eric granger, Marco Pedersoli
+LIVIA lab, Dept. of Systems Engineering, ETS Montreal, Canada
+Abstract—One of the important bottlenecks in training modern
+object detectors is the need for labeled images where bounding
+box annotations have to be produced for each object present
+in the image. This bottleneck is further exacerbated in aerial
+images where the annotators have to label small objects often
+distributed in clusters on high-resolution images. In recent days,
+the mean-teacher approach trained with pseudo-labels and weak-
+strong augmentation consistency is gaining popularity for semi-
+supervised object detection. However, a direct adaptation of such
+semi-supervised detectors for aerial images where small clustered
+objects are often present, might not lead to optimal results. In this
+paper, we propose a density crop-guided semi-supervised detector
+that identifies the cluster of small objects during training and
+also exploits them to improve performance at inference. During
+training, image crops of clusters identified from labeled and
+unlabeled images are used to augment the training set, which in
+turn increases the chance of detecting small objects and creating
+good pseudo-labels for small objects on the unlabeled images.
+During inference, the detector is not only able to detect the objects
+of interest but also regions with a high density of small objects
+(density crops) so that detections from the input image and
+detections from image crops are combined, resulting in an overall
+more accurate object prediction, especially for small objects.
+Empirical studies on the popular benchmarks of VisDrone and
+DOTA datasets show the effectiveness of our density crop-guided
+semi-supervised detector with an average improvement of more
+than 2% over the basic mean-teacher method in COCO style AP.
+Our code is available at: https://github.com/akhilpm/DroneSSOD
+Index Terms —Semi-supervised object detection, small object
+detection
+I. I NTRODUCTION
+With abundant labeled data and efficient deep learning al-
+gorithms, supervised object detection has achieved impressive
+results in natural images [4], [9], [29], [43]. Though the
+progress is also resonated in Aerial Image object detection
+with images captured by drones and satellites [7], [14], [30],
+[45], we are yet to see large-scale annotated datasets like
+Pascal VOC [12], MS-COCO [24] and Open Images [17] in
+aerial images. Getting sufficient labeled data is difficult in
+aerial images, especially at instance-level recognition tasks like
+object detection [28], [32], [46], limiting the scalability of the
+popular supervised detectors to aerial images. The annotation
+of several tiny objects per image is a tedious task [49]. This
+puts more demand on learning object detectors with limited
+annotations in aerial image detection. Practical applications
+with aerial imagery produce large amounts of unlabeled data
+[3], [39], [40] but they are simply not utilized in the learning
+process. Therefore, it is important to leverage the available
+unlabeled data to train the detectors for aerial image detection.
+To train a detector with limited annotated images and a
+large collection of unlabeled data, we focus on training them
+in a semi-supervised setting. Although semi-supervised object
+detection (SSOD) has achieved tremendous progress in recent
+years on natural images [13], [16], [18], [28], [32], [38], [41],
+[46], we are yet to see large-scale adoption of them on aerial
+images. While adapting the best SSOD techniques on natural
+images to aerial images, one should be cautious due to the
+large difference in these images. Specifically, factors like the
+high-resolution nature of the imagery, the small size of the
+objects, and their sparse distribution across the image need
+consideration. The number of target objects is also fairly high
+in aerial images compared to natural images. For example,
+the average number of objects in Pascal VOC and MS-
+COCO images are 3 and 7, respectively, whereas the images
+in the VisDrone [49] and DOTA [45] datasets, two popular
+benchmarks in aerial detection research, have an average
+number of 53 and 67 objects, respectively. A naive adaptation
+of semi-supervised detectors based on pseudo-labels, in this
+case, is not labeling enough small objects in the unlabeled
+images as shown in figure 1 right. We hypothesize that these
+difficulties contributed to the lower adoption rate of semi-
+supervised detectors in aerial image detection. To the best of
+our knowledge, we are yet to see a large-scale study of the
+recent semi-supervised detectors in aerial images.
+In supervised settings, even with a fully annotated training
+set, vanilla object detectors still struggle to accurately local-
+ize the small objects in high-resolution aerial images. Thus
+additional techniques for performance enhancement are often
+used including density-guided detection [8], [10], [19], scale-
+specific detectors [36], [37], feature fusion [22], [25], attention
+methods [47] etc. Among these, density crop-based approaches
+are popular as they process the cluster of small objects by
+zooming in on the crops obtained from there, resulting in better
+small object detection. To bring the same benefits to the semi-
+supervised settings, we designed our semi-supervised detector
+with density crop-guided training and inference. Although
+density crops can be used in supervised settings with external
+learnable modules and additional loss functions [10], [19],
+[48], using them in semi-supervised settings with mean-teacher
+method [42] is not straightforward. The external module may
+need additional loss functions, and often times they are trained
+before the detector with sufficient labeled data. Also, it is
+not immediately clear how to construct pseudo-labels for the
+density extraction module if one wants to train them in the
+mean-teacher settings using unlabeled images. Thus, in our
+case, we want to identify the density crops from the detector’s
+arXiv:2308.05032v1  [cs.CV]  9 Aug 2023
+
+---PAGE---
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+Fig. 1. (a) Change in mAP over the epochs with and without density crops on supervised and semi-supervised settings. FS: Fully Supervised, FS+C: Fully
+supervised + density crops, SS: Semi-supervised (mean-teacher baseline), SS+C: Semi-supervised + density crops (on labeled and unlabeled images).(b) The
+average number of pseudo-GT boxes per image over training iteration. The density crop-guided mean-teacher is producing more pseudo labels compared to
+the vanilla mean-teacher method. This will result in more pseudo-labels for small objects.
+prediction itself. For this, we used a cascade zoom-in detector
+(CZ Detector) design that learns to predict density crops as an
+additional class in addition to the base class objects. The CZ
+detector was introduced in [31]. In this work, we extend the
+CZ detector in order to exploit additional unsupervised data
+present in a semi-supervised setting. We show that a simple
+adaptation of the CZ detector for semi-supervised learning
+would not work and that some additional care is needed.
+Thus, experiments on two different datasets and meaningful
+ablation are reported that show the advantages of the proposed
+approach.
+With the CZ detector, density crops can be identified on the
+labeled and unlabeled images. For the labeled images, they are
+identified a priori with the available ground-truth (GT) labels.
+For the unlabeled images, pseudo-GT predictions are utilized
+to locate the cluster of small objects and then labeled as density
+crops. The crops identified on both labeled and unlabeled
+images are used to augment the training set. The augmented
+crops result in more samples of small objects seen at higher
+pixel resolution, improving their detection chance. This is
+due to more pseudo-labels created on the unlabeled images
+(figure 1 right) compared to the vanilla mean-teacher method.
+The detector is then trained in the mean-teacher fashion with
+weak-strong augmentation consistency and pseudo labels for
+the unlabeled images. At inference, detection is performed
+separately on both the input image and upscaled density crops
+if any are present in that image. They are then fused and
+post-processed to get the final results. As the training and
+inference with crops here are relying only on the detector
+itself, their semi-supervised adaptation becomes easier. Figure
+1 left shows how density crops are improving AP detection
+on the VisDrone dataset. It can be observed that by utilizing
+the density crops effectively in the semi-supervised settings,
+our detection accuracy increases significantly over the vanilla
+semi-supervised detector, as in the fully supervised settings.
+Our main contributions can be summarized as follows:
+(1) A density-crop guided semi-supervised detection method is
+proposed for aerial images. It adapts the vanilla mean-teacher
+semi-supervised detector with the capability to identify and
+process the cluster of small objects, improving their suitability
+for training semi-supervised detectors on high-resolution aerial
+images.
+(2) The detector is designed in a zoom-in fashion that can iden-
+tify clusters of small objects and re-detect the small objects
+by upscaling the clusters. Different from other approaches, the
+zoom-in operation doesn’t need a separate module, the detector
+itself can identify the regions to zoom in.
+(3) We empirically validate the benefits of our semi-supervised
+detection method on aerial images from drones (VisDrone) and
+satellites (DOTA), and observed a consistent improvement in
+the detection accuracy on both datasets over the supervised
+training.
+II. R ELATED WORKS
+Object Detection. Generic object detectors have achieved
+impressive progress in recent years on object detection tasks in
+natural images [22], [26], [33], [34] object detectors. This has
+resulted in wider adoption of them in practical applications.
+With aerial images, Faster RCNN based detectors are widely
+used as they tend to be more accurate due to potential object
+region extraction performed in the first stage [8], [19], [48].
+Recently, one-stage detectors are being explored in aerial
+images [47]. These days, anchor-free detectors [11], [43] are
+getting popular, since they avoid the need for hand-crafted
+anchor box dimensions and their matching process. Anchor-
+based matching is difficult with small objects as the overlap
+values are low for small bounding boxes. Though appealing,

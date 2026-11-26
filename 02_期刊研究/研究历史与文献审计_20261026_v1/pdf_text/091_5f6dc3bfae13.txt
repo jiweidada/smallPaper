@@ -1,0 +1,174 @@
+Real-Time Object Detection Meets DINOv3
+Shihua Huang1⋆, Yongjie Hou1, 2⋆, Longfei Liu1⋆, Xuanlong Yu1, Xi Shen1†
+1 Intellindust AI Lab; 2Xiamen University
+⋆ Equal Contribution; † Corresponding author.
+Project Page: https://intellindust-ai-lab.github.io/projects/DEIMv2
+Code & Weights: https://github.com/Intellindust-AI-Lab/DEIMv2
+10 20 30 40 50 60 70
+#Params (M)
+46
+48
+50
+52
+54
+56
+58COCO APval
+50.9
+53.0
+56.0
+57.8
+DEIMv2 (ours)
+DEIM
+D-FINE
+YOLOv11
+YOLOv12
+(a)COCO performance v.s. Number of Parameters.
+25 50 75 100 125 150 175 200 225
+#FLOPs (G)
+46
+48
+50
+52
+54
+56
+58COCO APval
+50.9
+53.0
+56.0
+57.8
+DEIMv2 (ours)
+DEIM
+D-FINE
+YOLOv11
+YOLOv12 (b)COCO performance v.s. FLOPs.
+Figure 1. Compared with state-of-the-art real-time object detectors on COCO [12], all variants of our proposed DEIMv2 (S, M, L, X)
+achieve superior performance in terms of average precision (AP) while maintaining similar parameters and less computational cost.
+Abstract
+Driven by the simple and effective Dense O2O, DEIM
+demonstrates faster convergence and enhanced perfor-
+mance. In this work, we extend it with DINOv3 features,
+resulting in DEIMv2. DEIMv2 spans eight model sizes from
+X to Atto, covering GPU, edge, and mobile deployment. For
+the X, L, M, and S variants, we adopt DINOv3-pretrained /
+distilled backbones and introduce a Spatial Tuning Adapter
+(STA), which efficiently converts DINOv3’s single-scale
+output into multi-scale features and complements strong se-
+mantics with fine-grained details to enhance detection. For
+ultra-lightweight models (Nano, Pico, Femto, and Atto),
+we employ HGNetv2 with depth and width pruning to meet
+strict resource budgets. Together with a simplified decoder
+and an upgraded Dense O2O, this unified design enables
+DEIMv2 to achieve a superior performance–cost trade-off
+across diverse scenarios, establishing new state-of-the-art
+results. Notably, our largest model, DEIMv2-X, achieves
+57.8 AP with only 50.3M parameters, surpassing prior X-
+scale models that require over 60M parameters for just 56.5
+AP . On the compact side, DEIMv2-S is the first sub-10M
+model (9.71M) to exceed the 50 AP milestone on COCO,
+reaching 50.9 AP . Even the ultra-lightweight DEIMv2-Pico,
+with just 1.5M parameters, delivers 38.5 AP—matching
+YOLOv10-Nano (2.3M) with∼50% fewer parameters.
+1. Introduction
+Real-time object detection [6, 18, 22, 29] is a critical
+component in many practical applications, including au-
+tonomous driving [11], robotics [16], and industrial defect
+detection [8]. Achieving a good balance between detec-
+tion performance and computational efficiency remains a
+key challenge, especially for lightweight models suitable
+for edge and mobile devices.
+Among prevailing real-time detectors, DETR-based
+methods are increasingly favored for their end-to-end na-
+ture. Despite the robust feature representations offered by
+DINOv3 [21] in diverse scenarios, the feasibility and effec-
+arXiv:2509.20787v4  [cs.CV]  26 Jan 2026
+
+---PAGE---
+
+Table 1.Architectural details and main results of DEIMv2 variants.We report the configurations for different variants and the final
+Average Precision (AP) on the COCO benchmark.
+Variant Backbone Hidden Dimension Layers #Scales #Query #Params GFLOPs Latency APModel Adapterd Back. dEnc. dDec. #Back. #Dec.
+X ViT-S+ STA 384 256 256 12 6 3 300 50.26 151.6 13.75 57.8
+L ViT-S STA 384 256 256 12 4 3 300 32.18 96.32 10.47 56.0
+M ViT-T+ STA 256 256 256 12 4 3 300 18.11 52.20 8.80 53.0
+S ViT-T STA 192 192 192 12 4 3 300 9.71 25.62 5.78 50.9
+Nano HGv2-B0 - 1024 128 128 5 3 2 300 3.57 6.86 2.32 43.0
+Pico HGv2-P - 512 112 112 4 3 2 200 1.51 5.15 2.14 38.5
+Femto HGv2-F - 256 96 96 3 3 2 150 0.96 1.67 1.91 31.0
+Atto HGv2-A - 256 64 64 3 3 2 100 0.49 0.76 1.61 23.8
+tiveness of integrating it into DETR-based models have yet
+to be fully investigated.
+In this work, we introduce DEIMv2, a real-time object
+detector built upon our previous DEIM [7] pipeline and en-
+hanced with DINOv3 [21] features. DEIMv2 employs of-
+ficial DINOv3-pretrained backbones (ViT-Small and ViT-
+Small+) for its largest variants (L and X sizes) to maxi-
+mize feature richness, while its S and M variants leverage
+ViT-Tiny and ViT-Tiny+ backbones distilled from DINOv3,
+carefully balancing performance and efficiency. To address
+ultra-lightweight scenarios, we further introduce four spe-
+cialized variants: Nano, Pico, Femto, and Atto, extending
+DEIMv2’s scalability across a wide spectrum of computa-
+tional budgets.
+To better leverage the strong feature representations of
+DINOv3, pretrained on large-scale data, under real-time
+constraints, we design the Spatial Tuning Adapter (STA).
+Operating in parallel with DINOv3, STA efficiently con-
+verts its single-scale outputs into the multi-scale features re-
+quired for object detection in a parameter-free manner. Si-
+multaneously, it performs fast downsampling of the input
+image to provide fine-grained, multi-scale detail features
+with very small receptive fields, complementing DINOv3’s
+strong semantics.
+We further simplify the decoder by drawing on advances
+from the Transformer community. Specifically, we replace
+the conventional FFN and LayerNorm with SwishFFN [20]
+and RMSNorm [27], both of which have been shown to be
+efficient without significantly affecting performance. We
+additionally note that object query locations change mini-
+mally during iterative refinement, motivating sharing query
+position embeddings across all decoder layers. Beyond this,
+we enhance Dense O2O by introducing object-level Copy-
+Blend augmentation, which increases effective supervision
+and further improves model performance.
+Extensive experiments on COCO [12] demonstrate that
+DEIMv2 achieves state-of-the-art performance across mul-
+tiple model scales, which can be seen in Figure 1. De-
+spite its simplicity, the family of DEIMv2 exhibits strong
+performance. For instance, our largest variant, DEIMv2-
+X, achieves 57.6 AP on COCO with only 50.3M parame-
+ters, surpassing prior best X-scale detectors DEIM-X that
+requires over 60M parameters yet attains only 56.5 AP. At
+the smaller end, DEIMv2-S establishes a notable milestone
+as the first model with fewer than 10M parameters to exceed
+50 AP, highlighting the effectiveness of our design at com-
+pact scales. Furthermore, our ultra-lightweight DEIMv2-
+Pico, with merely 1.5M parameters, attains 38.5 AP, match-
+ing the performance of YOLOv10-Nano (2.3M parame-
+ters) while reducing parameter count by∼50%, thereby
+redefining the efficiency–accuracy frontier at the extreme
+lightweight regime.
+Our work highlights how DINOv3 [21] features can be
+effectively adapted for real-time object detection and pro-
+vides a versatile framework spanning ultra-lightweight to
+high-performance models. To our knowledge, this is the
+first work in real-time object detection to simultaneously
+address such a wide range of deployment scenarios.
+The main contributions of this work are summarized as
+follows:
+• We present DEIMv2, which offers eight model sizes cov-
+ering GPU, edge, and mobile deployment.
+• For larger models, we leverage DINOv3 for strong se-
+mantic features and introduce the STA to efficiently inte-
+grate them into real-time object detection.
+• For ultra-lightweight models, we leverage expert knowl-
+edge to effectively prune the depth and width of
+HGNetv2-B0, meeting strict computational constraints.
+• Beyond backbone, we further simplify the decoder and
+upgrade Dense O2O, pushing the performance bound-
+aries even further.
+• Finally, we demonstrate on COCO that DEIMv2 outper-
+forms existing state-of-the-art methods across all resource
+settings, establishing new SOTA results.
+2. Method
+Overall architecture.Our overall architecture follows
+the design of RT-DETR [14], comprising a backbone, a hy-

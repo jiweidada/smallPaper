@@ -1,0 +1,75 @@
+Adaptive Spectrum-Aware Feature Disentangled
+Network for Small Object Detection
+Yang Guo1,2 , Zihan Yang3 , Feifei Kou2, Yulan Hu4, Ran Zhang 5, and
+Siyuan Yao1⋆
+1 Shenzhen Campus of Sun Yat-sen University
+2 Beijing University of Posts and Telecommunications, Beijing, China
+3 Hangzhou International Innovation Institute, Beihang University, Hangzhou, China
+4 Renmin University of China 5 China CITIC Bank
+guoyang4409@gmail.com zihanyang@buaa.edu.cn koufeifei000@bupt.edu.cn
+huyulan@ruc.edu.cn zhangran4@citicbank.com yaosiyuan04@gmail.com
+Abstract.Small Object Detection (SOD) is a fundamental yet chal-
+lenging problem in computer vision due to its limited spatial resolu-
+tion and weak visual cues. Although recent approaches have achieved
+remarkable advances, the background distractors in different frequency
+spectra still degrade the performance. In this paper, we propose a novel
+small object detection framework termedSFDNet, which is capable
+of detecting small objects via efficient spectrum-aware feature disentan-
+glement. Specifically, we propose an Adaptive Spectrum Disentangle-
+ment (ASD) module that decomposes backbone features into multiple
+complementary spectral components, aiming to construct discriminative
+object-relevant representations by discarding the background distrac-
+tors for each component. Afterwards, to strengthen the semantic con-
+sistency of the similar objects in the same class, we propose a Class-
+Wise Prototype Distillation (CPD) procedure, which establishes class
+prototypes for the object instances and enforces the compact repre-
+sentation by efficient prototype distillation. Extensive experiments on
+multiple challenging benchmarks show that SFDNet outperforms exist-
+ing state-of-the-art methods by a large margin. Our code is available at
+https://github.com/ManOfStory/SFDNet.
+Keywords:Small Object Detection·Spectrum Disentanglement·Pro-
+totype Distillation
+1 Introduction
+Small Object Detection (SOD) is a critical research task aiming to accurately
+identify objects with limited size, which plays a vital role in a wide range of ap-
+plications such as surveillance, drone-based inspection, and autonomous driving,
+etc. Compared to the classical object detection, the small objects are featured
+by fewer pixels and are prone to being confused with backgrounds, making it
+infeasible to adapt generic object detectors directly to the SOD task.
+⋆ Corresponding Author
+
+---PAGE---
+
+2 Y. Guo et al.
+low
+mid high
+Fig. 1.The first row (left) illustrates the disentangled low, mid, and high frequency
+spectra, while the first row (right) reports the corresponding average response statistics
+within target regions at different scales. The second row presents the ground-truth an-
+notations along with the heatmaps derived from low, mid, and high frequency features,
+respectively. Please zoom in for details. Regions highlighted by red circles emphasize
+salient differences.
+From a technical perspective, existing small object detectors [49,50,21,58]
+primarily focus on learning semantically discriminative features to mitigate spa-
+tial information attenuation. Despite remarkable progress, these methods still
+struggle to reliably detect small objects in extremely complex scenarios. First,
+due to the limited spatial extent and weak visual cues of small objects, current
+detectors are easily confused by surrounding distractors. The most advanced
+approaches [35,37,20] attempt to alleviate this issue by suppressing noise in spe-
+cific frequency bands, thus the models are encouraged to pay more attention
+to the informative small-object features. However, these methods overlook the
+fact that noise is distributed across the entire spectrum, which is crucial for
+robust small object detection. As shown in Fig. 1, different frequency spectra
+exhibit distinct sensitivities to various scales of objects: the low-frequency spec-
+trum tends to emphasize background structures and large-scale distractors, the
+mid-frequency spectrum demonstrates a wider range of response to the objects
+from tiny to medium-sized targets, while the high-frequency spectrum is partic-
+ularly sensitive to extremely tiny objects. Due to the absence of comprehensive
+full-spectrum modeling, the performance of existing SOD methods[55,35,24] is
+inherently constrained. Besides, many small objects share similar appearance
+semantics, while the intrinsic relationship information of these objects has not
+been sufficiently explored. Although some methods, e.g., [43,17,55,52], attempt
+to enhance the appearance representation of small objects via super-resolution,
+feature mimic learning, or memory-based retrieval mechanisms, they still fail
+to effectively exploit the semantic similarity among objects. These approaches
+typically utilize the grouped samples with predefined metrics, e.g., IoU or cosine

@@ -1,0 +1,12 @@
+355b｜实现复核与解释边界｜2026-10-25
+Material Passport: implementation review; source=audited C and frozen 355b; all statements about implementation, not publication novelty.
+
+1. 原始支路在P2的64通道上作64→16 Conv-BN-ReLU，然后pixel_unshuffle([00,01,10,11])，64→256无偏置restore，残差加P3后继续进入P4/P5。Haar和均值干预严格在reduce ReLU之后。未更新BN统计。
+2. 主臂被删的16维子带替换成固定训练样本估计的通道均值；OFF-mean替换全部支路输出的估计均值。以FP64求W'=Q diag(mask) H和Q_removed mu，转FP32供原restore权重及输出常量使用。F保持原权重和原路径，以352同CPU输出作为硬门槛。
+3. 正交往返、独立手工子带替换与投影/偏置等价性、幂等性及D0四相位权重零和已通过FP64检查。最大等价误差见355b_algebra_validation.json。F辅助采样的FP32 restore输出与FP64合成残差会有浮点误差，单独报告，不替代F的logits/boxes全量门槛。
+4. 256张训练图在新val前向前冻结。640固定输入使每图均有6400个子带位置；图像与空间位置平均口径等价。对训练样本的均值保留是精确代数关系；对val均值只是训练分布估计，不能保证每幅图、每个空间位置或每个条件下无偏移。
+5. 非负DC不保证restore输出的各通道偏移同号或足够大；细节均值也非恒零。实际mu、标准差、restore均值均交付。四个子带输出的二阶矩包含六个交叉项，不能简单当作四份独立贡献。
+6. 此处为相同稠密restore中的固定权重干预，未把64输入通道真正改成48，也未测得任何参数或速度节省。代数上被约束的权重和为0；主臂另外保留非零常量，因此它与无偏置、完全删除DC的detail-only网络不是完全同一个函数。候选重训参数/延迟必须针对真正实现另外测量。
+7. OFF/ OFF-mean是同一份已训练C的支路干预，不是独立训练baseline；下降衡量固定网络对支路变化的依赖，不能直接替代C相对baseline的训练收益。
+8. 判据是事前工程预算，不是统计等效或统计显著性检验；11臂没有依结果选择胜者。单seed、固定train256的抽样误差以及冻结网络干预的分布变化均限制外推。不能证明条件信息冗余或新方法的新颖性。
+9. UAVDT既有AP70协议与COCO AP/APs、349 S组的映射尚未冻结；仅当VisDrone全门槛通过才需明确这些端点并复跑。VisDrone未通过则直接封存，不借其他数据集挽救门槛。

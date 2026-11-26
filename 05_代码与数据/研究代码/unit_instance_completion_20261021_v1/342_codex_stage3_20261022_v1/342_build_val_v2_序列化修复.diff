@@ -1,0 +1,42 @@
+--- 342_build_val.py
++++ 342_build_val_v2.py
+@@ -27,7 +27,7 @@
+         else:h.update(json.dumps(v,sort_keys=True).encode())
+     add(e);return h.hexdigest()
+ 
+-def entry_path(seed,iid):return C.HERE/f'342_cache_val_seed{seed}'/f'342_{iid:06d}.pt'
++def entry_path(seed,iid):return C.HERE/f'342_cache_val_v2_seed{seed}'/f'342_{iid:06d}.pt'
+ 
+ def build_entry(raw,im,items,annotation_sha,raw_path):
+     iid=im['id'];ow,oh=im['width'],im['height']
+@@ -44,6 +44,12 @@
+     cb=G.full_plane_cxcywh(full_boxes);gb=G.full_plane_cxcywh(gt)
+     cost,iou,legal=G.m0_matrices(cb,full_logits,gb,gl,labels)
+     sol=M.exact_assignment(cost.numpy(),legal.numpy(),flat.tolist())
++    # Persist large certificate integers as decimal strings: torch 2.5's
++    # weights_only unpickler does not implement pickle LONG4. Math stays exact.
++    sol=dict(sol)
++    for field in ('cost_integer_sum','owner_vector_lex','edge_cost_shift'):
++        sol[field]=str(sol[field])
++    sol['dual_potentials']=[str(x) for x in sol['dual_potentials']]
+     owner=torch.tensor(sol['cand_owner'],dtype=torch.long)
+     explained=torch.zeros(len(gt),dtype=torch.bool)
+     if (owner>=0).any():explained[owner[owner>=0]]=True
+@@ -68,7 +74,7 @@
+         'source_image_sha256':raw['source_image_sha256'],'annotation_sha256':annotation_sha,
+         'checkpoint_sha256':raw['checkpoint_sha256'],'raw_cache_file_sha256':C.sha(raw_path),
+         'm0_cost_matrix':cost,'m0_native_iou':iou,'m0_legal_mask':legal,
+-        'm0_cand_boxes_norm':cb,'m0_gt_boxes_norm':gb,'m0_exact':sol,
++        'm0_cand_boxes_norm':cb,'m0_gt_boxes_norm':gb,'m0_exact':sol,'m0_certificate_integer_encoding':'decimal_string',
+         'M0_version':'342 exact candidate-instance class + FP32 exact cost + intrinsic flatten-index owner lex',
+         'seed':raw['seed']}
+     # Legacy numeric subset hash remains available for explicit parity;
+@@ -82,7 +88,7 @@
+ def run(seed,tag,stop_after_new=None):
+     assert json.loads((C.HERE/'342_M0修复放行记录.json').read_text(encoding='utf-8'))['user_answer']=='允许修复并按字段披露差异'
+     assert json.loads((C.HERE/'342_result_阶段3单元验收.json').read_text(encoding='utf-8'))['status']=='已验证'
+-    ims,by,ah=C.metadata();folder=C.HERE/f'342_cache_val_seed{seed}';folder.mkdir(exist_ok=True)
++    ims,by,ah=C.metadata();folder=C.HERE/f'342_cache_val_v2_seed{seed}';folder.mkdir(exist_ok=True)
+     counts={'raw_cache_loads':0,'complete_cache_loads':0,'cache_writes':0,'verified_skips':0,
+         'image_decodes':0,'M0_solves':0,'global_forwards':0,'model_loads':0,'optimizer_steps':0}
+     rows=[];start=time.perf_counter()

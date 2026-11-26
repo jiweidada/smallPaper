@@ -1,0 +1,198 @@
+arXiv:2501.01855v3  [cs.CV]  1 Jul 2025
+UA V-DETR: Efficient End-to-End Object Detection for Unmanned
+Aerial Vehicle Imagery
+Huaxiang Zhang, Hao Zhang, Kai Liu, Zhongxue Gan*, and Guo-Niu Zhu*, Member, IEEE
+Abstract— Unmanned aerial vehicle object detection (UA V-
+OD) has been widely used in various scenarios. However,
+most existing UA V-OD algorithms rely on manually designed
+components, which require extensive tuning. End-to-end models
+that do not depend on such manually designed components are
+mainly designed for natural images, which are less effective for
+UA V imagery. To address such challenges, this paper proposes
+an efficient detection transformer (DETR) framework tailored
+for UA V imagery, i.e., UA V-DETR. The framework includes a
+multi-scale feature fusion with frequency enhancement module,
+which captures both spatial and frequency information at
+different scales. In addition, a frequency-focused downsampling
+module is presented to retain critical spatial details during
+downsampling. A semantic alignment and calibration module
+is developed to align and fuse features from different fusion
+paths. Experimental results demonstrate the effectiveness and
+generalization of our approach across various UA V imagery
+datasets. On the VisDrone dataset, our method improves AP
+by 3.1% and AP 50 by 4.2% over the baseline. Similar enhance-
+ments are observed on the UA VVaste dataset. The project page:
+https://github.com/ValiantDiligent/UAV-DETR
+I. I NTRODUCTION
+Camera-equipped unmanned aerial vehicles (UA Vs) have
+been widely applied in various fields [1]. As one of the
+core technologies in these applications, UA V object detection
+(UA V-OD) has attracted considerable attention [2]. Popu-
+lar UA V-OD algorithms often rely on manually designed
+components, such as non-maximum suppression (NMS) and
+anchor boxes generated based on human expertise [3]. These
+components require extensive tuning for different tasks,
+which are complex and inefficient in practical applications.
+In contrast, end-to-end models are free from these issues.
+Therefore, it would be a good choice to develop end-to-end
+models for UA V-OD.
+As a popular end-to-end model, the Detection Transformer
+(DETR) [4] utilizes the transformer architecture to create
+an end-to-end detector. Recent studies have improved the
+small object detection capabilities of DETR models, but
+their high computational cost and poor real-time performance
+make them unsuitable for real-time scenarios [5]. To tackle
+such issues, Zhao et al. [6] introduced a real-time detection
+transformer (RT-DETR), which surpassed the popular you
+only look once (YOLO) framework in both accuracy and
+speed. However, existing DETRs are predominantly designed
+*This work is supported by Shanghai Municipal Science and Technology
+Major Project under Grant 2021SHZDZX0103 and Key Project of Com-
+prehensive Prosperity Plan of Fudan University under Grant XM06231744.
+(Corresponding author: Zhongxue Gan and Guo-Niu Zhu)
+All authors are with the Academy for Engineering and Technology, Fudan
+University, Shanghai 200433, China (e-mail: guoniu zhu@fudan.edu.cn).
+Fig. 1. Challenges in UA V-OD
+for natural images, which poses challenges when applied to
+UA V image analysis.
+As shown in Fig. 1, the object features in UA V vision
+are more complex than those in normal vision. Aerial im-
+agery suffers from challenges such as small object sizes
+and occlusion. Therefore, detecting objects in UA V images
+typically benefits from detailed feature extraction [2]. In
+cases where local features may not provide sufficient in-
+formation, incorporating the relationship between the object
+and its surrounding environment would be a viable option to
+enhance the detection accuracy [3], [7].
+To handle the challenge of object detection in aerial
+imagery, this paper proposes an efficient detection trans-
+former framework for UA V imagery, namely UA V-DETR.
+We enhance our model by leveraging both spatial and fre-
+quency domain information across multiple scales to retain
+high-frequency components. We present a frequency-focused
+downsampling strategy to preserve critical spatial details
+during downsampling. Finally, we enhance the semantic
+representation capability of the model by aligning features
+from different feature fusion paths.
+Our main contributions are summarized as follows.
+1) We propose UA V-DETR, an efficient end-to-end de-
+tector transformer for UA V imagery. The framework
+achieves superior accuracy and real-time performance.
+We put forward three models of different sizes to meet
+various performance requirements.
+2) We present a multi-scale feature fusion with frequency
+enhancement module to enhance the detection of small
+and occluded objects.
+3) We develop a frequency-focused downsampling mod-
+ule that retains dual-domain information.
+4) We propose a semantic alignment and calibration mod-
+
+---PAGE---
+
+ule to align features that from different feature fusion
+paths to boost detection performance.
+II. R ELATED WORK
+A. Object Detection in UAV Imagery
+Object detection in UA V imagery presents unique chal-
+lenges, particularly in detecting small objects and managing
+occlusions. Moreover, UA V-OD often needs to be deployed
+on hardware platforms, which requires to balance between
+real-time performance and computational complexity [3].
+Some studies [8], [9] presented a coarse-to-fine processing
+pipeline for UA V-OD. Although these two-stage methods
+achieve high accuracy, they introduce significant compu-
+tational overhead [10], which makes them unsuitable for
+resource-limited environments. To address this issue, another
+strategy focused on developing optimized single-stage mod-
+els to balance between detection accuracy and efficiency.
+Meanwhile, lots of works [2], [11] suggested to capture
+more features relevant for detecting small objects, with
+most of them concentrating on utilizing higher-resolution
+feature maps. In addition, some methods [12], [13] leveraged
+contextual information to enhance small object detection.
+Among these studies, most UA V-OD methods are de-
+voted to lightweighting models or optimizing the processing
+pipeline for practical use. There is limited research on post-
+processing techniques. Additionally, these methods mainly
+extract detailed features and contextual information in the
+spatial domain, while the frequency domain is underutilized.
+B. Real-Time End-to-End Object Detection
+Many single-stage UA V-OD models are based on the
+YOLO series models due to their balance of performance
+and real-time capability [11], [13]. However, these detectors
+typically require NMS for post-processing, which not only
+slows down inference but also introduces hyperparameters
+that can lead to instability in speed and accuracy.
+By contrast, RT-DETR [6] is the first real-time and end-
+to-end object detector, which eliminates the influence of
+NMS. It surpasses even the most powerful YOLO models in
+both speed and accuracy through attention-based intra-scale
+feature interaction, CNN-based cross-scale feature fusion,
+and uncertainty-minimal query selection.
+RT-DETR leverages global attention mechanisms to cap-
+ture long-range dependencies and contextual information,
+which make it more flexible and effective. Its end-to-end
+design strategy enables it more suitable for deployment on
+UA V platforms compared to the YOLO series models.
+C. Feature Fusion
+Feature fusion techniques aim to combine multi-scale
+feature maps to improve object detection. However, semantic
+gaps between features at different levels pose challenges,
+especially for detecting small and densely distributed objects
+[14]. An intuitive approach is to sum or concatenate feature
+maps from different layers, though it often leads to spatial
+feature misalignment. For example, Li et al. [15] presented
+pooling-based and sampling-based attention mechanisms to
+investigate these issues.
+While these methods focus on spatial feature fusion, the
+frequency-domain information is not taken into considera-
+tion. Although some works [16], [17] explored frequency-
+domain fusion, they fall short in effective multi-scale fusion
+across both spatial and frequency domains.
+In contrast, our UA V-DETR, a single-stage model with a
+DETR-like architecture, performs multi-scale feature fusion
+in both spatial and frequency domains. By using learned
+offsets to align features across different fusion paths, our
+approach addresses the misalignment issue and enhances
+detection performance.
+III. M ETHODOLOGY
+As shown in Fig. 2, this study proposes a UA V-DETR,
+which is built upon the architecture of RT-DETR [6].
+We enhance the model with three components, i.e., multi-
+scale feature fusion with frequency enhancement, frequency-
+focused downsampling, and semantic alignment and cali-
+bration. Additionally, we introduce inner Scylla intersection
+over union (Inner-SIoU) [18], [19] to replace the generalized
+intersection over union (GIoU).
+A. Multi-Scale Feature Fusion with Frequency Enhancement
+In traditional feature fusion, high-frequency components
+are often lost. In this study, we present a multi-scale feature
+fusion with frequency enhancement module (MSFF-FE) to
+preserve small object details by combining spatial and fre-
+quency domain information across multiple scales.
+In the proposed MSFF-FE architecture, the Focus module
+[20] is employed to compress spatial information from satel-
+lite imagery into channel dimensions through stride-based
+feature slicing and a convolution layer. As depicted in Fig. 3,
+we process S2 through Focus modules and concatenate the
+resulting feature map with other input feature maps along
+the channel dimension as input. The MSFF-FE adopts a
+cross-stage partial strategy [21]. It partitions the input feature
+map x ∈ RC×H×W into two parts: x1 ∈ RC1×H×W and
+x2 ∈ RC2×H×W . To avoid excessive computational cost, we
+set C1 = C
+4 and C2 = 3C
+4 . The first part x1 undergoes
+multi-scale and frequency enhancement, while the second
+part x2 is concatenated with the processed features from x1,
+followed by a 1 × 1 convolution to fuse the two branches.
+Firstly, the feature map x1 passes through a 1×1 convolution
+to adjust its channel dimensions, followed by the GELU
+activation function [22] for non-linearity, resulting in xconv.
+As shown in Eq. (1), we transform xconv into the frequency
+domain by Fourier transform (F). To refine the frequency-
+domain features, we design a Global Average Pooling (GAP)
+layer, followed by a convolutional layer. After refinement,
+the features are transformed back to the spatial domain via
+inverse Fourier transform (IF).
+xsp = |IF (Conv1×1(GAP(xconv)) · F (xconv))| (1)

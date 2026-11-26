@@ -1,0 +1,177 @@
+持续目标补充核心文献矩阵（R21–R34）
+日期：2026-10-28。与根目录R1–R20联合使用；非系统综述。
+读取范围逐条写明，下载/提取/结构PASS不等于已读全文。R15本轮补读记录位于文件末尾。
+
+[R21] TTAC
+Analyzing and Mitigating JPEG Compression Defects in Deep Learning
+作者：Max Ehrlich; Larry Davis; Ser-Nam Lim; Abhinav Shrivastava
+出版信息：ICCV Workshops (MELEX), 2357–2367
+主链接：https://openaccess.thecvf.com/content/ICCV2021W/MELEX/papers/Ehrlich_Analyzing_and_Mitigating_JPEG_Compression_Defects_in_Deep_Learning_ICCVW_2021_paper.pdf
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：比较JPEG微调、现成伪影修复和任务定向修复。TTAC冻结任务网络，以原始图与修复图的任务响应差异训练修复器；检测任务使用backbone特征。压缩先于任务几何变换。
+数据/任务范围：ImageNet分类、COCO检测及分割任务；不据此声称UAV结论
+阅读范围：CVF 11页版结构PASS；本地p3–4、HTML §3–4.1方法选读，p4方法图/公式目视核对；未完整通读所有实验。arXiv 29页PDF结构UNAVAILABLE，保留但不用其页码作核心锚点。
+本调研推断：恢复对比适配、冻结任务网络指导修复，都已有明确先例；重新在VisDrone+YOLO26运行不构成算法新意。
+待验证/未确定：未在已读范围建立普通JPEG适配之后的UAV小目标分配冲突及其因果作用。
+
+[R22] QGAC
+Quantization Guided JPEG Artifact Correction
+作者：Max Ehrlich; Larry Davis; Ser-Nam Lim; Abhinav Shrivastava
+出版信息：ECCV 2020
+主链接：https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123530290.pdf
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：使用完整JPEG量化矩阵条件化频域修复，借助卷积滤波器流形生成权重，先亮度后颜色；含感知质量优化。
+数据/任务范围：JPEG伪影修复，不是UAV目标检测
+阅读范围：18页PDF结构PASS；摘要及p1–5方法选读，p4–5图2–4目视核对；未完整核结果表。
+本调研推断：已知量化表、整表条件化和条件卷积不是新机制。
+待验证/未确定：完整量化表条件化是否改善JPEG适配后的航拍小目标，尚无本轮实验。
+
+[R23] Unc-SOD
+Unc-SOD: An Uncertainty Learning Framework for Small Object Detection
+作者：Xiang Yuan; Gong Cheng; Jiacheng Cheng; Ruixiang Yao; Junwei Han
+出版信息：IEEE Transactions on Image Processing, 35, 1127–1142
+主链接：https://pubmed.ncbi.nlm.nih.gov/41570104/
+DOI：10.1109/TIP.2026.3654892
+原文已读内容：摘要提出RPN实例不确定性学习与感知/交互采样策略，面向小目标。
+数据/任务范围：摘要报告SODA-D、SODA-A与VisDrone
+阅读范围：仅作者/出版信息与摘要；未获取/阅读全文。失败的猜测IEEE文档URL不作为依据。
+本调研推断：不确定性指导小目标采样已有工作；不能把摘要未展开的细节当作空白。
+待验证/未确定：未核其与JPEG配对分配的逐项机制关系。
+
+[R24] JPEG posterior sampling
+High-Perceptual Quality JPEG Decoding via Posterior Sampling
+作者：Sean Man; Guy Ohayon; Theo Adrai; Michael Elad
+出版信息：CVPR Workshops (NTIRE), 1272–1282
+主链接：https://openaccess.thecvf.com/content/CVPR2023W/NTIRE/html/Man_High-Perceptual_Quality_JPEG_Decoding_via_Posterior_Sampling_CVPRW_2023_paper.html
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：摘要提出JPEG一致的随机条件生成与后验采样，输出多个可能重建。
+数据/任务范围：FFHQ、ImageNet图像修复；未据此证明检测收益
+阅读范围：只阅读官方摘要；11页PDF虽已存档、结构PASS并提取文本，正文尚未阅读。
+本调研推断：量化单元约束与多重可能重建已有先例；不能把多重采样自身作为创新。
+待验证/未确定：后验平均或不确定性是否比普通蒸馏多提供有效信息，待论证。
+
+[R25] DocQT
+DocQT: Improving Document Forgery Localization Robustness via Diverse JPEG Quantization Tables
+作者：Kylian Ronfleux–Corail; Guillaume Bernard; Mickaël Coustaty; Nicolas Sidère
+出版信息：arXiv:2605.19688v2, revised 2026-08-06 (preprint)
+主链接：https://arxiv.org/abs/2605.19688
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：指出libjpeg标量质量只覆盖狭窄量化表族，收集/采用多种真实亮度量化表训练取证定位模型。不同架构收益不一致。
+数据/任务范围：文档篡改像素定位；依赖取证痕迹，非语义框检测
+阅读范围：18页v2结构PASS；摘要与p7–8选读，p7图2量化矩阵目视核对；未完整核实验表。
+本调研推断：量化表多样性增强的宽泛问题与做法已有先例。
+待验证/未确定：文档取证对双压缩周期的敏感性不能直接外推到UAV检测；任务化算法增量尚未提出。
+
+[R26] OA-DG
+Object-Aware Domain Generalization for Object Detection
+作者：Wooju Lee; Dasol Hong; Hyungtae Lim; Hyun Myung
+出版信息：AAAI, 38(4), 2947–2955
+主链接：https://ojs.aaai.org/index.php/AAAI/article/view/28076
+DOI：10.1609/aaai.v38i4.28076
+原文已读内容：OA-Mix按局部/目标显著性混合原图和增强图保护弱语义；共享权重检测器，OA-Loss包括前景/背景关系对比与跨视图一致性。
+数据/任务范围：通用检测域泛化及损坏基准；不是JPEG UAV专项证据
+阅读范围：arXiv 9页PDF结构PASS；摘要、p2–4方法选读；p3–4图2–3与式1–5目视核对；未完整读实验。
+本调研推断：保护弱目标的对象感知增强、共享权重双视图一致性以及部分含前景的背景处理均已有机制。
+待验证/未确定：未证明YOLO26的2像素过滤属于该文原始设定或已被解决。
+
+[R27] SAR crop masking
+Rethinking the Random Cropping Data Augmentation Method Used in the Training of CNN-Based SAR Image Ship Detector
+作者：Rong Yang; Robert Wang; Yunkai Deng; Xiaoxue Jia; Heng Zhang
+出版信息：Remote Sensing, 13(1), 34 (online 2020-12-23)
+主链接：https://www.mdpi.com/2072-4292/13/1/34
+DOI：10.3390/rs13010034
+原文已读内容：针对斜向船只裁剪后水平框误差，按裁剪后/原框面积比例生成损失屏蔽区域，减少错误监督。
+数据/任务范围：SAR船只目标检测；不等同RGB无人机全部小目标
+阅读范围：22页PDF结构PASS；§2.2–2.3方法选读，p7公式5/图5、p9图7目视核对；未核所有实验表。
+本调研推断：对已知裁剪错误框区域关闭损失已有方法；简单ignore-mask不是新贡献。
+待验证/未确定：完整可见但缩到2像素的目标，与原文裁剪几何错标并非完全相同；这一差异也不自动产生论文价值。
+
+[R28] DN-TOD
+DN-TOD: Robust tiny object detection amidst label noise
+作者：Haoran Zhu; Chang Xu; Wen Yang; Ruixiang Zhang; Yan Zhang; Gui-Song Xia
+出版信息：Pattern Recognition, 178, 113448
+主链接：https://www.sciencedirect.com/science/article/abs/pii/S0031320326004140
+DOI：10.1016/j.patcog.2026.113448
+原文已读内容：CLC按类别动态置信矩阵过滤类别噪声；TLS按预测趋势重权分类并迭代融合预测框/原框，缓解框噪声；负样本趋势也用于重权。
+数据/任务范围：期刊摘要包含VisDrone；所存2024 v1预印本实验为AI-TOD/AI-TOD-v2/DOTA-v2等，不合并两个版本结果。
+阅读范围：期刊出版商摘要/引言片段与官方README；另读13页2024 v1预印本p1–3及p5–6方法，p5–6图5–6/式2–11目视核对。PDF页眉写ISPRS是预印本模板，不能当作正式刊载信息。
+本调研推断：小目标标签噪声、动态样本重权与框再生成已有组合。
+待验证/未确定：未证明JPEG后的视觉模糊等于原始框标注错误；不能把真实低可辨目标一律当噪声丢弃。
+
+[R29] Soft Sampling
+Soft Sampling for Robust Object Detection
+作者：Zhe Wu; Navaneeth Bodla; Bharat Singh; Mahyar Najibi; Rama Chellappa; Larry S. Davis
+出版信息：BMVC 2019; arXiv:1806.06986v2
+主链接：https://arxiv.org/abs/1806.06986
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：摘要针对漏标导致前景被当成背景的错误梯度，通过样本重权缓解训练噪声。
+数据/任务范围：通用目标检测漏标情形
+阅读范围：仅官方摘要/元数据；本轮PDF下载TLS失败，未读全文。
+本调研推断：背景错罚和软采样并非新问题。
+待验证/未确定：对YOLO26最小框过滤和JPEG压缩的精确适用性尚未核清。
+
+[R30] Weather localization KD + ALA
+Learning to Detect Objects Under Inclement Weather Conditions via Symmetric Localization Distillation and Adaptive Label Assignment
+作者：Jie Niu; Chengran Lin; Zhengcai Cao; Mengchu Zhou
+出版信息：IEEE Transactions on Industrial Informatics, 22(5), 3974–3984
+主链接：https://researchwith.njit.edu/en/publications/learning-to-detect-objects-under-inclement-weather-conditions-via/
+DOI：10.1109/TII.2026.3654043
+原文已读内容：作者机构摘要明确提出基于JS散度的对称定位蒸馏和自适应标签分配以选择蒸馏区域。
+数据/任务范围：雨、雾、雪等；摘要说三套数据，具体名称和训练实现未读全文核清
+阅读范围：只读作者机构保存的摘要及出版元数据；IEEE DOI打开失败，无全文和代码审计。
+本调研推断：退化场景下定位KD＋动态分配已有直接先例，是任何压缩分配候选的重要近邻。
+待验证/未确定：不能据摘要断言已覆盖GT实例间压缩诱发冲突，也不能据全文缺失反向宣称该细节未做。
+
+[R31] CrossKD
+CrossKD: Cross-Head Knowledge Distillation for Object Detection
+作者：Jiabao Wang; Yuming Chen; Zhaohui Zheng; Xiang Li; Ming-Ming Cheng; Qibin Hou
+出版信息：CVPR, 16520–16530
+主链接：https://openaccess.thecvf.com/content/CVPR2024/papers/Wang_CrossKD_Cross-Head_Knowledge_Distillation_for_Object_Detection_CVPR_2024_paper.pdf
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：分析动态标签分配造成的检测/蒸馏目标冲突，把学生中间特征送入教师预测层形成跨头预测，缓解冲突。
+数据/任务范围：COCO检测蒸馏；不是JPEG UAV专项
+阅读范围：官方会议目录元数据、作者PDF索引§3.1及相关方法说明选段；未读完整方法/实验、未核图3数值；本地PDF下载TLS失败。
+本调研推断：蒸馏目标冲突及通过训练路径分离缓解已有方法。
+待验证/未确定：压缩导致的额外冲突是否独立于一般师生差异，尚无证据。
+
+[R32] Consistent-Teacher
+Consistent-Teacher: Towards Reducing Inconsistent Pseudo-Targets in Semi-Supervised Object Detection
+作者：Xinjiang Wang; Xingyi Yang; Shilong Zhang; Yijiang Li; Litong Feng; Shijie Fang; Chengqi Lyu; Kai Chen; Wayne Zhang
+出版信息：CVPR, 3240–3249
+主链接：https://openaccess.thecvf.com/content/CVPR2023/html/Wang_Consistent-Teacher_Towards_Reducing_Inconsistent_Pseudo-Targets_in_Semi-Supervised_Object_Detection_CVPR_2023_paper.html
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：ASA提高对噪声伪框的鲁棒性，FAM-3D对齐子任务特征，GMM动态修订伪框阈值；补充材料定义分配集合的A-IoU。
+数据/任务范围：半监督COCO；噪声伪框，与本题固定人工GT的JPEG配对不同
+阅读范围：官方摘要、引言及补充材料§1.1/§2分配一致性定义选段；没有完整方法和实验通读；本地PDF下载TLS失败。
+本调研推断：分配不一致的诊断、抖动框测试与自适应分配已有先例。
+待验证/未确定：固定GT/变化像素条件仍须独立诊断，但不能只改测试扰动就宣称算法创新。
+
+[R33] SSRT-DETR
+SSRT-DETR: Domain-Adaptive Semi-Supervised Detector
+作者：完整作者表尚待核实
+出版信息：Sensors, 26(5), 1539
+主链接：https://doi.org/10.3390/s26051539
+DOI：10.3390/s26051539
+原文已读内容：出版商索引选段描述DAM在Hungarian代价中加入师生查询一致性项，另有多视图/原型伪标过滤及源域损失一致性。
+数据/任务范围：Cityscapes→Foggy等域迁移，非JPEG UAV固定GT协议
+阅读范围：出版商全文索引的方法/讨论选段（§3.4–3.6及§5.2），未逐项核公式、图示或完整实验；全文作者表未完整核实，暂不生成正式BibTeX。
+本调研推断：在匹配内部加入跨视图教师一致性也有近邻工作。
+待验证/未确定：不能把其查询方法直接等同YOLO网格冲突修复；精确算法比较需正文和代码进一步审计。
+
+[R34] CoreKD
+CoreKD: Adaptive core-aware knowledge distillation for tiny object detection in remote sensing imagery
+作者：Zhuangzhuang Zhou; Weixiang Ren; Xuewu Zhao; Ning Yu; Yingying Zhu; Lingling Li
+出版信息：Expert Systems with Applications, 333, 133869；在线年与卷期年待出版商完整元数据复核
+主链接：https://www.sciencedirect.com/science/article/abs/pii/S0957417426027776
+DOI：本轮未用可靠元数据核实，留空
+原文已读内容：出版商方法梗概与作者README列出尺度感知高斯核心掩膜、非刚性采样偏移对齐和前景关系蒸馏。
+数据/任务范围：作者README列DIOR、AI-TOD、SODA-D、SSDD
+阅读范围：仅出版商摘要/方法梗概/结论片段及官方README；未读全文。年份/DOI暂不采用二手页面数值填充。
+本调研推断：小目标核心区权重＋自适应对齐＋上下文蒸馏已经拥挤，不能直接套模块。
+待验证/未确定：尚未核到JPEG传输预算协议；这也不构成自动的新颖性。
+
+既有条目R15补读
+既有10页PDF结构PASS；本轮进一步选读p3–5及§3.2/§3.4相关说明；p4–5公式2/3及文字已目视核对。未完整读实验，不称全文通读。
+LAD以教师预测代入分配成本；CoLAD动态切换教师/学生。仅复制干净图分配到压缩图不宜包装成独立机制。
+
+所有论文结论均为作者报告；本轮没有独立复现。

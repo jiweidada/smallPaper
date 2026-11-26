@@ -1,0 +1,853 @@
+                                         An Uncertainty-aware DETR Enhancement Framework for Object
+                                                                  Detection
+                                                          Xingshu Chen∗                                 Sicheng Yu∗                                       Chong Cheng
+                                                  chenxsh53@mail2.sysu.edu.cn                     yusch@mail2.sysu.edu.cn               ccheng735@connect.hkust-gz.edu.cn
+                                                     Sun Yat-sen University                        AI Thrust, HKUST(GZ)                       AI Thrust, HKUST(GZ)
+
+                                                                                 Hao Wang†                                      Ting Tian†
+                                                                         haowang@hkust-gz.edu.cn                      tiant55@mail.sysu.edu.cn
+                                                                           AI Thrust, HKUST(GZ)                         Sun Yat-sen University
+
+                                         ABSTRACT
+arXiv:2507.14855v1 [cs.CV] 20 Jul 2025
+
+
+
+
+                                         This paper investigates the problem of object detection with a focus           Group1          Group2                             𝑦       +∞
+                                                                                                                                                                                           Traditional
+                                         on improving both the localization accuracy of bounding boxes
+                                                                                                                                                      GIoU1=GIoU2=0.267                 𝒄#𝒙 ~ 𝜹(𝒙 − 𝒄𝒙 ) =
+                                         and explicitly modeling prediction uncertainty. Conventional de-         a                                   GWD1=0.195                         𝐥𝐢𝐦 𝑵(𝒄𝒙 , 𝝈𝒄#𝒙 𝟐 )
+                                         tectors rely on deterministic bounding box regression, ignoring                                              GWD2=0.108                        𝝈𝒄#𝒙 𝟐 →𝟎
+
+                                                                                                                                                                                             Variance=0
+                                         uncertainty in predictions and limiting model robustness. In this
+                                                                                                                                                                                  𝑐!      𝑐"!
+                                         paper, we propose an uncertainty-aware enhancement framework
+                                                                                                                                                                           Information Gaps
+                                         for DETR-based object detectors. We model bounding boxes as                                                  CIoU1=CIoU2=-0.835   𝑦
+                                         multivariate Gaussian distributions and incorporate the Gromov-          b                                   GWD1=0.294
+                                                                                                                                                                                            Proposed
+                                                                                                                                                      GWD2=0.161
+                                         Wasserstein distance into the loss function to better align the pre-                                                                                            𝟐
+                                                                                                                                                                                         𝒄#
+                                                                                                                                                                                          𝒙 ~ 𝑵(𝒄𝒙 , 𝝈𝒄#𝒙 )
+                                         dicted and ground-truth distributions. Building on this, we derive                                                                                 Variance= 𝝈𝒄#𝒙 𝟐
+                                         a Bayes Risk formulation to filter high-risk information and im-                Group GT       Group2 GT
+
+                                         prove detection reliability. We also propose a simple algorithm                 Group1 Pred    Group2 Pred
+                                                                                                                                                                                  𝑐!       𝑐"!
+                                         to quantify localization uncertainty via confidence intervals. Ex-
+                                         periments on the COCO benchmark show that our method can                Figure 1: The left side shows two examples (Ex. a, Ex. b)
+                                         be effectively integrated into existing DETR variants, enhancing        where GIoU and CIoU fail to distinguish completely differ-
+                                         their performance. We further extend our framework to leukocyte         ent ground truth and prediction pairs, while GW distance
+                                         detection tasks, achieving state-of-the-art results on the LISC and     does. On the right, taking center coordinate 𝑐 𝑥 as an example,
+                                         WBCDD datasets. These results confirm the scalability of our frame-     traditional methods model bounding boxes as fixed values
+                                         work across both general and domain-specific detection tasks. Code      following a Dirac delta distribution, whereas we model them
+                                         page: https://github.com/ParadiseforAndaChen/An-Uncertainty-            as Gaussian distributions with variance.
+                                         aware-DETR-Enhancement-Framework-for-Object-Detection.
+                                                                                                                 based on these fixed representations. However, these geometrically
+                                                                                                                 approximated objectives cause discontinuous gradients and hinder
+                                         KEYWORDS                                                                stable convergence, while failing to provide a systematic quantifi-
+                                         Object Detection, DETR, Uncertainty, Gromov-Wasserstein Dis-            cation of uncertainty. Figure 1 provides two examples where GIoU
+                                         tance, Leukocyte Detection                                              and CIoU produce identical values for pairs of completely different
+                                                                                                                 ground truth and predicted bounding boxes. This suggests that de-
+                                         1    INTRODUCTION                                                       terministic 2D geometric representations fail to capture sufficient
+                                         Object detection aims to tackle the problems of bounding box regres-    information in predictions.
+                                         sion and object classification for each object of interest. Classical      From a probabilistic perspective, representing bounding boxes
+                                         convolution-based detectors [25, 29, 31–34], along with recently        with fixed coordinates is equivalent to modeling predictions as
+                                         proposed Transformer-based end-to-end detectors [1, 2, 5, 13, 14,       Dirac delta distributions, the limiting case of Gaussian distributions
+                                         23, 38, 40], have significantly advanced the performance of object      when variance approaches zero. This formulation does not account
+                                         detection.                                                              for prediction uncertainty. While some prior works [4, 24, 35, 37]
+                                            Despite these advancements, several challenges limit the per-        have modeled bounding boxes as Gaussian distributions, their fixed
+                                         formance and reliability of object detection models. One major          variance still fails to capture the uncertainty in predictions. A new
+                                         challenge lies in the formulation of bounding box regression.           approach to model bounding boxes is essential to overcome these
+                                         In traditional object detection frameworks, bounding boxes are rep-     limitations and address the performance bottleneck in object detec-
+                                         resented by fixed coordinates and dimensions [20, 26, 29]. Model        tion models.
+                                         training typically relies on L1 loss and IoU-based losses (e.g., GIoU      Another challenge lies in quantifying localization uncer-
+                                         [27], DIoU and CIoU [39]), which measure geometric similarity           tainty. The confidence score reflects the model’s certainty about ob-
+                                                                                                                 ject classification. However, there is a lack of a reasonable character-
+                                         ∗ Equal contribution.                                                   ization of overall uncertainty in localization. Some works [11, 16, 17]
+                                         † Corresponding authors.                                                have provided uncertainty in the four directions of the predicted
+bounding box, but they do not account for the overall uncertainty               2   RELATED WORK
+in localization. Unlike classification scores, object detection still           Bounding Box Modeling and Metric. Traditional methods treat
+lacks a measure of the overall reliability of localization.                     bounding boxes as fixed coordinates, using IoU-based metrics to
+   Given its end-to-end design and growing influence in modern                  capture the geometric similarity between predictions and ground
+object detection, DETR has emerged as a strong baseline. To ad-                 truth. IoU is the most widely used metric; however, it is only ef-
+dress the above issues, we propose a novel uncertainty-aware DETR               fective when bounding boxes have overlap. GIoU [27] addresses
+enhancement framework. Specifically, we establish a one-to-one                  non-overlapping cases by introducing a penalty term based on the
+correspondence between the ground truth and 2D Gaussian distri-                 smallest enclosing box. However, when one bounding box com-
+butions, and model the predictions as a 4D Gaussian distribution                pletely contains another, GIoU degenerates to IoU. To overcome this
+with a learnable covariance matrix. This formulation effectively                issue, CIoU and DIoU [39] incorporate additional factors such as
+captures prediction uncertainty, providing more information for                 the overlapping area, central point distance, and aspect ratio, cover-
+model training. To measure the discrepancy between distributions                ing more scenarios. Building on this, SIoU [7] further accounts for
+across different dimensions, we introduce the Gromov-Wasserstein                the angle between bounding boxes. Despite these extensions, such
+(GW) distance [6]. By minimizing the GW distance, we ensure                     modeling ignores prediction uncertainty, and IoU-based metrics
+that the predicted and ground truth distributions become statisti-              still face significant limitations.
+cally closer, thereby improving prediction accuracy and model’s                     Recent works have modeled bounding boxes as probabilistic
+robustness. Furthermore, we provide a theoretical upper bound that              distributions and introduced distribution-based metrics. Wang et al.
+characterizes the convergence of the Gromov-Wasserstein distance                [35] and Yang et al. [37] represent bounding boxes as 2D Gaussian
+to zero.                                                                        distributions. The former introduced the Normalized Wasserstein
+   Leveraging the statistical properties of these distributions, we             Distance to alleviate the sensitivity of IoU to location deviations
+derive the formulation of Bayes Risk for bounding box regression,               in tiny objects, while the latter proposed Gaussian Wasserstein
+representing the theoretical lower bound of the regression loss                 Distance to address boundary discontinuity and the square-like
+achievable by the model. This Bayes Risk is then incorporated                   problem in oriented object detection. However, these works fail
+into DETRs to refine the internal modules. By filtering high-risk               to capture prediction uncertainty. In our approach, we model the
+predictions, the model focuses more on reliable outputs, thereby                ground truth as a 2D Gaussian distribution and the prediction as
+improving performance. Finally, we propose a distribution-based                 4D Gaussian distribution, where the variance measures prediction
+algorithm to characterize overall localization uncertainty. The algo-           uncertainty. To compare distributions of different dimensions, we
+rithm constructs prediction confidence intervals to provide a solid             introduce the Gromov-Wasserstein distance [6] as a metric.
+measure of uncertainty for the predicted boxes.                                     Localization Uncertainty. Localization uncertainty in object
+   To evaluate the generalizability of our framework, we conduct                detection refers to the model’s ability to estimate the confidence or
+experiments in both general and domain-specific settings. On the                uncertainty associated with predicted bounding box locations. Lak-
+COCO benchmark, our method can be seamlessly integrated into                    shminarayanan et al. [15] and Harakeh et al. [9] use Monte Carlo
+various DETR variants, resulting in improved detection perfor-                  dropout within a Bayesian framework to account for prediction
+mance. To assess its applicability to specialized tasks, we extend              uncertainty, improving model performance. He et al. [12] estimate
+our framework to leukocyte detection—a classic medical imaging                  bounding box uncertainty by minimizing the KL-divergence be-
+task. In this context, providing reliable estimates of prediction un-           tween the Gaussian distribution of the predicted bbox and the
+certainty is particularly valuable, as it can assist clinicians in making       Dirac delta distribution of the ground truth bbox on Faster R-CNN
+more informed diagnostic decisions, thereby carrying significant                [26]. Lee et al. [16] propose Uncertainty-Aware Detection (UAD),
+clinical importance. Experiments on the WBCDD and LISC datasets                 equipping FCOS [29] with a localization uncertainty estimator that
+demonstrate that our method outperforms state-of-the-art cell de-               reflects box quality along four directions of the predicted bbox.
+tection models while offering interpretable uncertainty estimates.              However, Monte Carlo dropout is computationally expensive, and
+The contributions of this paper are summarized as follows:                      these methods only estimate uncertainty in four directions, failing
+                                                                                to capture the overall localization uncertainty of the entire box. Ad-
+                                                                                ditionally, they are tailored to CNN-based architectures and cannot
+   (1) We propose modeling bounding boxes as multivariate Gauss-                be directly applied to Transformer-based models like DETR.
+       ian distributions with learnable covariance matrices to cap-                 DETR for Object Detection. The pioneering work DETR [2]
+       ture uncertainty, and introduce the Gromov-Wasserstein                   introduced an end-to-end transformer-based framework [30] for 2D
+       distance for distribution alignment.                                     object detection, inspiring numerous follow-up studies. For exam-
+   (2) We derive Bayesian risk minimization for DETR-based de-                  ple, Deformable DETR [40] tackled scalability issues by adopting de-
+       tectors and introduce a confidence interval algorithm that               formable attention, enabling efficient processing of high-resolution
+       quantifies localization uncertainty, enabling risk-aware de-             images without sacrificing accuracy. Conditional DETR [22] refined
+       tection.                                                                 query initialization to improve detection accuracy. DINO-DETR
+   (3) Our method integrates seamlessly into existing DETR vari-                [38] introduced a query denoising scheme to accelerate conver-
+       ants, improving detection performance on COCO benchmark                  gence. H-DETR [14] proposed a hybrid matching strategy that
+       and achieving state-of-the-art results on LISC and WBCDD                 combines one-to-one matching with auxiliary one-to-many match-
+       datasets for leukocyte detection, demonstrating strong gen-              ing to enhance training efficiency. Additionally, Relation-DETR [13]
+       eralization across both general and specific domains.
+                                                                            2
+incorporated positional relation priors as attention biases, improv-
+ing both interpretability and detection performance, and achiev-
+ing SOTA results on multiple benchmarks. These methods have
+collectively advanced DETR’s performance across diverse object
+detection tasks. Our approach, in contrast, provides a general and
+flexible framework that integrates seamlessly with these methods.
+
+3     DISTRIBUTION MODELING AND
+      THEORETICAL ANALYSIS
+In this section, we detail the process of modeling bounding boxes
+as distributions and discuss the advantages. To measure the dis-
+crepancy between prediction and ground truth, we introduce the
+GW distance and provide a theoretical proof of its convergence
+property. Additionally, we derive the Bayes Risk based on those
+distributions to further refine modules in DETR-based models.
+
+3.1    Distribution Modeling of Bounding Boxes
+In bounding box (bbox) regression tasks, the training objective is to
+                                                                                Figure 2: Portion of the entire whole Gaussian surface that
+make the predicted bbox as similar as possible to the ground truth
+                                                                                satisfies the condition (x − 𝝁𝑔 ) ⊤ 𝚺𝑔−1 (x − 𝝁𝑔 ) ≤ 1 and its pro-
+bbox. This makes the formulation of bboxes and the measurement
+                                                                                jection onto the coordinate plane.
+of their “similarity” critical to the success of the model. Tradition-
+ally, bboxes are represented as fixed coordinates, formulated as
+Dirac delta distributions. However, this approach only captures                 the ground truth bounding box. This establishes a one-to-one cor-
+precise boundary information and ignores the inherent uncertainty               respondence between the ground truth bounding box and the 2D
+in predictions, leading to limitations in training process.                     Gaussian distribution.
+   To address this, we model bboxes as Gaussian distributions, en-                 4D Gaussian Distribution for Prediction. When predicting
+abling a probabilistic perspective to measure and align the ground              the bounding box of an object, the model outputs four values
+truth and prediction. This generalizes Dirac delta distributions,               𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ which represent fixed location information. How-
+                                                                                                  ˆ ℎ),
+which can be seen as the limiting case of Gaussian distributions as             ever, predictions inherently involve uncertainty. We assume that
+the variance approaches zero. Specifically, the ground truth bbox is            each component of 𝑅ˆ follows a 1D Gaussian distribution N𝑖 (𝜇𝑖 , 𝜎𝑖2 ),
+modeled as a 2D Gaussian distribution, derived by back-projecting               where 𝑖 = {𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ 𝜇𝑖 = {𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ}, and 0 < 𝜎 2 ≤ 1. Thus,
+                                                                                                        ˆ ℎ},                                 𝑖
+its inscribed ellipse. We treat the predicted bbox’s as a 4D Gauss-             the predicted bounding box 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤,      ˆ can be modeled as a
+                                                                                                                                  ˆ ℎ)
+ian distribution, given that the model’s outputs consist of four                4D Gaussian distribution NP (𝝁 P , 𝚺 P ), where
+components. As training progresses, the two distributions become
+increasingly similar, leading to more accurate predictions.                                                    𝜎2        𝜎𝑐2ˆ 𝑐ˆ     𝜎𝑐2ˆ 𝑤ˆ   𝜎 2 ˆ 
+                                                                                                               𝑐ˆ𝑥          𝑥 𝑦         𝑥       𝑐ˆ𝑥 ℎ 
+   2D Gaussian Distribution for Ground Truth. A ground truth
+                                                                                              𝑐 𝑥            2
+                                                                                                            𝜎𝑐ˆ 𝑐ˆ      𝜎𝑐2ˆ       𝜎𝑐2ˆ 𝑤ˆ   𝜎2 ˆ
+bounding box 𝑅 = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ), where 𝑐 𝑥 and 𝑐 𝑦 represent the cen-
+                                                                                              𝑐              𝑦 𝑥              𝑦       𝑦       𝑐ˆ𝑦 ℎ 
+                                                                                       𝝁 P =  𝑦  ,   𝚺P =  2          2            2       𝜎2 ˆ 
+                                                                                                                                                       .
+ter coordinates while 𝑤 and ℎ denote the width and height, contains                           𝑤              𝜎𝑤ˆ 𝑐ˆ
+                                                                                                                      𝑥
+                                                                                                                          𝜎𝑤
+                                                                                                                           ˆ 𝑐ˆ   𝑦
+                                                                                                                                       𝜎𝑤
+                                                                                                                                        ˆ         𝑤ˆ ℎ 
+                                                                                                               𝜎2        𝜎 2ˆ        𝜎 2ˆ       𝜎 2ˆ 
+                                                                                                              
+both foreground and background pixels. Foreground pixels are pri-
+                                                                                              ℎ 
+                                                                                                             ℎˆ𝑐ˆ        ℎ𝑐ˆ𝑦        ℎ 𝑤ˆ       ℎ 
+marily concentrated within the inscribed ellipse, while background                                             𝑥
+pixels distribute across the remaining       regions. Let x = (𝑥, 𝑦) ,         For simplicity, we assume that the components of 𝑅ˆ are independent,
+                                                                       𝑇
+                                      2   2                                                                       2 , 𝜎 2 ). The standard deviation 𝜎 is a
+                                                                                so that 𝚺 P = Diag(𝜎𝑐2ˆ , 𝜎𝑐2ˆ , 𝜎𝑤
+                                     
+𝝁𝑔 = (𝑐 𝑥 , 𝑐 𝑦 )𝑇 , and 𝚺𝑔 = Diag 𝑤4 , ℎ4 . The equation of the in-                                   𝑥      𝑦   ˆ ℎˆ                               𝑖
+scribed ellipse can be expressed as:                                            learnable parameter, measuring uncertainty of the estimation. As 𝜎𝑖
+                                                                                approaches 0, the model becomes more confident in its predictions.
+                     (x − 𝝁𝑔 ) ⊤ 𝚺𝑔−1 (x − 𝝁𝑔 ) = 1.                 (1)
+
+   We back-project the inscribed ellipse into 3D space, resulting in            3.2    GW Distance for Bounding Box Regression
+a surface of 2D Gaussian distribution N𝑔 (𝝁𝑔 , 𝚺𝑔 ), whose density              After modeling the bounding boxes as Gaussian distributions, a
+function is given by:                                                           metric is required to measure the difference between them. The
+                                                                                Gromov-Wasserstein (GW) distance [6] provides a way to compare
+                          exp − 12 (x − 𝝁𝑔 ) ⊤ 𝚺𝑔−1 (x − 𝝁𝑔 )
+                                                             
+                                                                                distributions in different dimensions. Given 𝑚 = N𝑔 (𝝁𝑔 , 𝚺𝑔 ) and
+         𝑓 (x|𝝁𝑔 , 𝚺𝑔 ) =                       1
+                                                                . (2)           𝑛 = NP (𝝁 P , 𝚺 P ), the GW distance in this case is defined as:
+                                       2𝜋 |𝚺𝑔 | 2
+                                                                                          𝐺𝑊22 (𝑚, 𝑛) =                                                     (3)
+As shown in Figure 2, the blue surface represents the Gaussian                                      ∬                             2
+surface region satisfying (x − 𝝁𝑔 ) ⊤ 𝚺𝑔−1 (x − 𝝁𝑔 ) ≤ 1. Its projection                    inf         ∥𝑥 − 𝑥 ′ ∥ 2 − ∥𝑦 − 𝑦 ′ ∥ 2 d𝜋1 d𝜋2 .
+onto the coordinate plane corresponds to the inscribed ellipse of                         𝜋 ∈Π (𝑚,𝑛)
+                                                                            3
+                                                                               Distribution Modeling             DETRs                        Output
+                                                          � � �� , � �
+                                                                                                                                         Uncertainty: 0.041
+                                                                                                                                         person | Score: 0.88
+                                                         GW Distance                              ℒ��        + �� + ����
+
+                                                                                      Update ��
+                                                                                                              Localization
+                                                          � � �� , � �
+                                                                                          Quantify            Uncertainty
+                                                  Derivation
+                                                                                Output Embedding
+                                         Bayes Risk
+                                                                 ℒ����          Classification Loss
+                                         = �� ��
+                                     Refine Modules                                 Matching Cost             Improvement
+
+
+Figure 3: The diagram illustrates our approach to modeling bounding boxes and integrating it into DETR-based frameworks.
+Ground truth and predicted bounding boxes are modeled as 2D and 4D gaussian distributions respectively, with the Gromov-
+Wasserstein Distance serving as the loss. Based on the the distribution of the prediction, we derive the Bayes Risk of the
+predicted bbox and use it to refine three modules in existing DETRs frameworks. Additionally, using Gaussian-based modeling,
+we quantify the localization uncertainty of the prediction. The final output includes the target class, classification score, and
+localization uncertainty.
+where 𝜋 1 = 𝜋 (𝑥, 𝑦), 𝜋2 = 𝜋 (𝑥 ′, 𝑦 ′ ). The analytical solution for the             based on the distribution modeling, we derive the Bayes Risk and
+GW distance in this case will be provided in A.3. To establish the                    use it to refine modules within the DETRs. Finally, we calculate the
+convergence property of the GW distance, we present the following                     localization uncertainty of the predicted bounding box.
+theorem:
+                                                                                      4.1     Loss Formulation Based on GW Distance
+                                       
+                                      0
+                                           ∈ R4 , 𝚺 P = 𝚺∗ + Δ𝚺, then as
+                              𝚺
+Theorem 3.1. Let 𝚺∗ = 𝑔
+                              0 0                                                     For the bounding box regression problem, previous works in the DE-
+∥Δ𝚺∥ 𝐹 → 0:                                                                           TRs primarily employed IoU-based Loss and 𝐿1 Loss [2]. However,
+                      𝐺𝑊22 (𝑚, 𝑛) = 𝑂 (∥Δ𝚺∥ 2𝐹 ).                                     as discussed in section 1, these losses have certain limitations. We
+   Theorem 3.1 implies that as ∥Δ𝚺∥ 𝐹 approaches zero, the square                     model the ground truth and predicted bounding boxes as Gaussian
+of the GW distance converges to zero at a rate proportional to∥Δ𝚺∥ 2𝐹 .               distributions and use the GW distance to measure their differences.
+For a detailed proof, see A.4.                                                        Therefore, the bounding box regression loss in our work can be
+                                                                                      expressed as:
+3.3    Bayes Risk Derivation
+                                                                                                                                          ˆ 1
+                                                                                                                            ˆ + 𝜆𝐿1 ||𝑅 − 𝑅||
+                                                                                                        L𝑏𝑜𝑥 =𝜆𝑖𝑜𝑢 L𝑖𝑜𝑢 (𝑅, 𝑅)
+Bayes Risk represents the minimum achievable expected loss for
+the model. In our work, we compute the Bayes Risk for bounding                                                  + 𝜆𝑔𝑤 𝐺𝑊22 (N𝑔 , NP ).                          (6)
+box predictions to refine the modules in DETRs models, further
+enhancing performance. Given a loss function, the Bayes Risk is                       By introducing GW distance, the model gains a more comprehen-
+defined as:                                                                           sive perspective by considering the distribution, which helps guide
+                                                                                      parameter optimization and enhances performance. Furthermore,
+                                         ˆ 𝑅)].                                       as shown in A.3, the GW distance formulation includes the pre-
+                      Risk∗ = inf E[loss(𝑅,                              (4)
+                                𝑅ˆ                                                    dicted covariance matrix, allowing its distribution parameters to
+   We derive the Bayes Risk based on the 𝐿2 loss, as it provides                      be optimized for alignment. This, in turn, serves as the foundation
+a smoother optimization process and effectively captures large                        for deriving Bayes Risk to further refine the modules.
+prediction errors. Using 𝐿2 loss, the Bayes Risk is expressed as the
+following simplified form:                                                            4.2     Bayes Risk Refinement Modules
+                    Risk∗ = 𝜎𝑐2ˆ𝑥 + 𝜎𝑐2ˆ𝑦 + 𝜎𝑤
+                                             2     2
+                                                                         (5)          According to Equation 5, the Bayes Risk of the the prediction is
+                                             ˆ + 𝜎 ˆ.
+                                                  ℎ                                   equal to the trace of 𝚺 P . For DETRs, we define the Normalized
+which is just the trace of 𝚺 P . For a detailed derivation, please refer              Bayes Risk vector T as:
+to A.5.
+                                                                                                            T = {𝑡 1, 𝑡 2, . . . , 𝑡 𝑁 } ∈ R1×𝑁 .               (7)
+4     APPROACH
+Figure 3 provides an overview of our approach to model the bound-                     where 𝑡𝑖 = Risk∗ /4 represents normalized Bayes Risk for each
+ing boxes and enhance DETRs frameworks. First, we model the                           object query in the decoder. T reflects the minimum expected loss
+bounding boxes as Gaussian distributions and use the GW distance                      made by the model. Using this information, we can refine different
+to measure their difference, serving as the loss for DETRs. Next,                     modules within DETRs, thereby improving its performance.
+                                                                                4
+   Output Embedding. In DETRs, the embeddings Z ∈ R𝑑 ×𝑁                                       valuable uncertainty estimates, accurately reflecting the precision
+output by the transformer decoder are passed through a feedfor-                               of the predicted bounding boxes.
+ward network to produce the final predictions. The term 1 − T
+reflects the confidence of predictions, where higher values indicate                           Algorithm 1: Quantify Localization Uncertainty
+greater stability and lower error rates. We apply this term to refine
+these embeddings, followed by an additional MLP layer:                                          Input: Predicted bounding box 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤,ˆ ℎ),ˆ
+                                                                                                number of divisions 𝑘
+                      Zre = MLP(Z ⊙ (1 − T )).                                      (8)         Output: Localization uncertainty
+                                                                                                1. Compute 95% confidence intervals:
+where ⊙ is the Hadamard product. By incorporating refined embed-
+dings, the model gains confidence-aware representations, which                                     [𝑐ˆ𝑥 ± 1.96𝜎𝑐ˆ ], [𝑐ˆ𝑦 ± 1.96𝜎𝑐ˆ ], [𝑤ˆ ± 1.96𝜎𝑤ˆ ], [ℎˆ ± 1.96𝜎 ˆ ]
+                                                                                                                      𝑥                    𝑦                            ℎ
+enable more informed inference and reduce the impact of uncer-                                      2. Divide each interval into 𝑘 equal parts:
+tain predictions. These refined embeddings help prioritize lower
+Bayes Risk predictions, allowing the model to focus on more reliable                                            {𝑐ˆ𝑥 }, {𝑐ˆ𝑦 }, {𝑤ˆ 𝑖 }, {ℎˆ𝑖 }, 𝑖 = 1, . . . , 𝑘
+                                                                                                                          𝑖      𝑖
+
+outputs.                                                                                            3. Form 𝑘 bounding boxes:
+   Classification Loss. Previous work [1, 23] highlight that the
+misalignment between classification scores and localization accu-                                               𝑅ˆ𝑖 = (𝑐ˆ𝑥𝑖 , 𝑐ˆ𝑦𝑖 , 𝑤ˆ 𝑖 , ℎˆ𝑖 ),   𝑖 = 1, . . . , 𝑘
+racy limits the performance of DETRs. To address this, they incor-                                  4. Compute IoUs between 𝑅ˆ and each 𝑅ˆ𝑖 :
+porate IoU score 𝑢 and classification score 𝑠 into a unified term 𝑟                                                          ˆ 𝑅ˆ𝑖 ), 𝑖 = 1, . . . , 𝑘
+                                                                                                                 IoU𝑖 = IoU(𝑅,
+within the BCE loss, termed the IoU-aware Classification Loss:
+                                                                                                    5. Calculate average IoU of top 5 values and get
+                     𝑁∑︁
+                       𝑝𝑜𝑠                       𝑁∑︁
+                                                   𝑛𝑒𝑔
+                                                                                                    uncertainty:
+            L𝑐𝑙𝑠 =             BCE(𝑠𝑖 , 𝑟𝑖 ) +               𝑠 2𝑗 BCE(𝑠 𝑗 , 0).     (9)                              5
+                                                                                                                  1 ∑︁
+                          𝑖                          𝑗                                                 AvgIoU =         Top-5 IoU 𝑗 , Uncertainty = 1 − AvgIoU
+                                                                                                                  5 𝑗=1
+                     ˆ
+                               2
+               GIoU( 𝑅,𝑅)+1
+            
+where 𝑟 =           2       − 𝑠 . A predicted bounding box with a
+high IoU score 𝑢 should correspond to a low Bayes Risk. Therefore,                            5 EXPERIMENT
+we extend the IoU-aware Classification Loss by weighting 𝑟 with
+Bayes Risk. Let 𝑤 = 𝑒𝑥𝑝 (−Risk∗ /4), the Bayes Risk aware BCE loss                            5.1 Experiment Setting
+is defined as:                                                                                To validate the effectiveness of our method in enhancing general
+                    𝑁∑︁
+                      𝑝𝑜𝑠                            𝑁∑︁
+                                                       𝑛𝑒𝑔
+                                                                                              DETR-based detectors and quantifying localization uncertainty,
+            𝐵
+           L𝑐𝑙𝑠 =             BCE(𝑠𝑖 , 𝑤𝑖 𝑟𝑖 ) +              𝑠 2𝑗 BCE(𝑠 𝑗 , 0).   (10)       we conduct experiments on the COCO benchmark [19]. We select
+                      𝑖                                  𝑗                                    three representative DETR variants—H-DETR [14], DINO-DETR
+                                                                                              [38], and Relation-DETR [13], and extend them with our approach.
+By leveraging the Bayes Risk weighting mechanism, we effectively                              Each model is implemented with either ResNet-50 [10] or Swin
+downweight the impact of lower-quality predictions while amplify-                             Transformer [21] backbone. All models are trained on COCO train
+ing the influence of more accurate ones.                                                      set with the standard 1x schedule and evaluated on the val set.
+    Matching Cost. DETRs typically use the Hungarian algorithm                                   To further demonstrate the applicability of our method in biomed-
+for one-to-one matching. However, the matching cost, which simply                             ical scenarios, we evaluate it on two public datasets for leukocyte
+sums the classification and regression costs, overlooks the relation-                         detection and classification: the Leukocyte Images for Segmenta-
+ship between the classification score 𝑠 and IoU 𝑢. Additionally, the                          tion and Classification (LISC) dataset [28] and the White Blood
+linear representation of IoU cannot capture subtle variations when                            Cell Detection Dataset (WBCDD) . Both datasets contain five types
+its value is high. To address these issues, inspired by [23], we adopt                        of white blood cells—neutrophils (NEU), eosinophils (EOS), mono-
+a multiplicative form and a higher-order representation of IoU. In-                           cytes (MON), basophils (BAS), and lymphocytes (LYM). We apply
+corporating information from Bayes Risk, we propose a Bayes Risk                              our enhanced H-DETR variant and compare it with several classic
+refine matching cost:                                                                         object detectors, including Faster R-CNN [26], SSD [20], RetinaNet
+                     Bayes Risk                                                               [18], DETR [2], and Deformable DETR [40], as well as specialized
+                                    = 𝑠 1+Risk /4 · 𝑢 4+Risk .
+                                                 ∗                   ∗
+                  Lmatch                                                           (11)
+                                                                                              leukocyte detection models such as TE-YOLOF [36], YOLOv5-ALT
+                                                                                              [8], and MFDS-DETR [3]. All models are trained on the respective
+4.3    Quantify Localization Uncertainty.                                                     training sets and evaluated on the test sets.
+The predicted bounding box 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤,   ˆ follows a 4D Gauss-
+                                               ˆ ℎ)                                           5.2      Main Results
+ian distribution NP (𝝁 P , 𝚺 P ) , where 𝝁 P = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ)𝑇 and
+                                                                                              Enhancing DETR-based Models. Table 1 compares the perfor-
+                          2 , 𝜎 2 ). Based on this distribution, the 95%
+𝚺 P = Diag(𝜎𝑐2ˆ , 𝜎𝑐2ˆ , 𝜎𝑤
+               𝑥      𝑦   ˆ ℎˆ                                                                mance of baseline models and those enhanced by our approach
+confidence intervals for (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤,  ˆ can be derived individually.
+                                       ˆ ℎ)                                                   on the COCO val2017 dataset. The results demonstrate that our
+Building on this, we propose an algorithm to compute the uncer-                               approach consistently improves DETRs across different backbones.
+tainty of the predicted bounding box, as detailed in algorithm 1.                             Specifically, for H-DETR, our method boosts AP to 50.1%(+1.4%)with
+Section 5.3 confirm that the proposed algorithm provides highly                               ResNet-50 and 51.7%(+1.1%) with Swin-Tiny backbone. Similarly,
+                                                                                          5
+Table 1: Comparison of baseline models and those enhanced by our approach on COCO val2017. All models were trained for
+12 epochs. For Relation-DETR, the default classification loss was used without Bayes Risk modification due to constraints
+imposed by the model’s structure.
+
+        Model                     Backbone          AP            AP50           AP75           AP𝑆            AP𝑀            AP𝐿
+        H-DETR                      Res-50         48.7        66.4        52.9        31.2        51.5        63.5
+        H-DETR+ours                 Res-50      50.1 (+1.4) 67.6 (+1.2) 54.8 (+1.9) 33.1 (+1.9) 53.8 (+2.3) 64.0 (+0.5)
+        H-DETR                      Swin-T         50.6        68.9        55.1        33.4        53.7        65.9
+        H-DETR+ours                 Swin-T      51.7 (+1.1) 69.1 (+0.2) 56.6 (+1.5) 35.0 (+1.6) 55.0 (+1.3) 66.8 (+0.9)
+        DINO-DETR                   Res-50         49.0        66.6        53.5        32.0        52.3        63.0
+        DINO-DETR+ours              Res-50      50.2 (+1.2) 67.8 (+1.2) 54.9 (+1.4) 33.4 (+1.4) 53.6 (+1.3) 64.6 (+1.6)
+        Relation-DETR               Res-50         51.7        69.1        56.3                 36.1          55.6        66.1
+        Relation-DETR+ours          Res-50      51.9 (+0.2) 69.3 (+0.2) 56.6 (+0.3)          35.9 (-0.2)   55.7 (+0.1) 66.7 (+0.6)
+        Relation-DETR               Swin-L         57.8        76.1        62.9        41.2        62.1                      74.4
+        Relation-DETR+ours          Swin-L      57.9 (+0.1) 76.2 (+0.1) 63.1 (+0.2) 41.8 (+0.6) 62.2 (+0.1)               74.2 (-0.2)
+
+
+                                                                           respectively. Although this improvements appear modest compared
+                                                                           to previous results, they demonstrate the generalizability of our
+                                                                           method in enhancing all already well-designed architectures.
+                                                                              It should be noted that our approach not only improves overall
+                                                                           performance but also enables the model to detect challenging ob-
+                                                                           jects. Figure 4 provides illustrative examples, where H-DETR, after
+                                                                           our enhancement, successfully detects previously missed objects,
+                                                                           including a small fire hydrant, an edge-blurred snowboard, and a
+                                                                           low-texture glass bottle.
+                                                                              Application to Leukocyte Detection. As shown in Table 2,
+                                                                           our method outperforms previous approaches on both the LISC
+                                                                           and WBCDD datasets. Compared with the current state-of-the-art
+                                                                           MFDS-DETR, our framework improves overall detection accuracy
+                                                                           by +1.4% AP on LISC and +1.9% AP on WBCDD. Our model also
+                                                                           achieves higher precision on challenging categories such as Mono-
+                                                                           cytes and Eosinophils, particularly in the WBCDD dataset. While
+                                                                           some smaller classes may not reach the top scores, our method
+                                                                           maintains consistently strong performance across all five leukocyte
+                                                                           types in both datasets, demonstrating better generalization and
+                                                                           robustness than other methods.
+                                                                              As illustrated in Figure 5, our model detects more ambiguous
+                                                                           or overlapping cells and produces more accurate bounding boxes.
+                                                                           These results confirm the effectiveness of our framework in extend-
+                                                                           ing to domain-specific biomedical object detection tasks.
+Figure 4: Comparison of the results after integrating our
+method into H-DETR. Red boxes denote ground truth, while
+blue and green boxes indicate predictions. Our method im-                  5.3    Localization Uncertainty Reliability
+proves bounding box accuracy and enables DETRs to detect                   During inference, our algorithm provides localization uncertainty
+small, edge-blurred, or low-texture objects that the origi-                to quantify the reliability of predicted bounding boxes. Ideally, an
+nal model missed. Additionally, our method provides local-                 accurate prediction should have both a high classification score 𝑠
+ization uncertainty, where more accurate predictions corre-                and a high IoU 𝑢 with the ground truth, corresponding to lower
+spond to lower uncertainty.                                                localization uncertainty. Inspired by [1, 23], we use the following
+                                                                           metric to jointly consider 𝑠 and 𝑢: Combined Metric = 𝑠 · 𝑢 0.5 as
+                                                                           a measure of prediction quality. We then analyze its relationship
+our enhancement improves DINO-DETR by 1.2% with ResNet-50.                 with uncertainty. As shown in Figure 6, lower Combined Metric val-
+For Relation-DETR, which already sets new state-of-the-art perfor-         ues correspond to higher and more dispersed uncertainty, whereas
+mance in object detection, our approach further refines its results.       higher values result in lower, more concentrated uncertainty, vali-
+With ResNet-50 and Swin-Large, AP increases by 0.2% and 0.1%,              dating the reliability of our uncertainty estimation.
+                                                                       6
+Table 2: Comparison of leukocyte detection performance on the LISC and WBCDD datasets. Our method achieves state-of-the-
+art overall detection accuracy and maintains consistent performance across all five leukocyte subtypes.
+
+                                                   LISC                                                      WBCDD
+          Method
+                            AP    AP50 AP75 APNEU APMON APEOS APLYM APBAS              AP     AP50 AP75 APNEU APMON APEOS APLYM APBAS
+      Faster R-CNN [26]    76.5   100    96.9   83.3   71.4   80.2    70.2     77.5    58.2   73.7   72.4   84.9   53.1   41.5   73.1   38.2
+          SSD [20]         70.3   96.1   92.7   73.7   72.0   61.5    68.9     75.3    64.2   80.5   77.9   83.1   48.0   49.0   67.2   73.9
+       RetinaNet [18]      37.0   52.1   47.6   46.1   22.0   19.7    69.8     19.7    47.6   57.0   55.3   85.1   47.3   31.1   66.4   7.9
+          DETR [2]         77.8   98.9   98.9   82.1   76.0   80.6    72.5     77.7    66.8   86.4   82.5   84.1   53.4   52.4   73.6   70.5
+  Deformable DETR [40] 78.1 100.0 95.4          79.6   77.2   82.6    72.9     78.2    74.9   94.4   93.6   84.2   68.7   74.5   73.7   73.1
+       TE-YOLOF [36]       77.4 100.0 94.9      81.2   79.2   81.1    69.3     76.2    68.5   88.7   86.5   86.9   59.3   69.3   79.7   47.2
+      YOLOv5-ALT [8]       75.9   98.8   97.9   84.3   74.5   84.1    77.1     59.5    71.3   98.2   93.4   88.2   62.7   74.2   72.2   59.4
+       MFDS-DETR [3]       79.5   99.9   98.7   75.2   81.8   83.9    74.2     82.5    79.7   97.2   96.8   87.1   71.5   85.0   80.3   74.9
+            Ours           80.9 100.0 100       81.3   82.4   84.6    75.3     80.7    81.6   98.3   98.3   85.6   76.6   89.0   78.8   78.0
+
+
+
+
+                                                                             Figure 6: Heatmap between the Combined Metric and local-
+                                                                             ization uncertainty. Combined Metric = 𝑠 · 𝑢 0.5
+
+
+                                                                             Table 3: Ablation study on integrating GW distance as a loss
+                                                                             function and the Bayes Risk Refinement Module (BRRM)
+                                                                             into the baseline model.
+Figure 5: Qualitative comparison with the state-of-the-art
+method. Our model detects more challenging leukocyte ob-                              GWD BRRM AP AP50 AP75 AP𝑆 AP𝑀 AP𝐿
+jects, produces more accurate bounding boxes, and provides                             ✗       ✗     49.2 66.7 53.9 31.7 52.4 63.7
+meaningful localization uncertainty estimates.                                         ✓       ✗     49.3 66.9 53.6 32.4 52.7 63.7
+                                                                                       ✓       ✓     50.1 67.6 54.8 33.1 53.8 64.0
+5.4     Ablation Study
+We conducted a series of experiments to evaluate the impact of each
+component in our approach on COCO benchmark. Using H-DETR                    for further improvements. As shown in Table 3, incorporating GW
+with IoU-aware loss and a ResNet-50 backbone as the baseline, we             distance as a loss term slightly improves the AP of the baseline
+progressively add and remove modules to demonstrate their effects.           model, with more notable gains in AP𝑆 and AP𝑀 . However, since
+Note that GW distance is a prerequisite for introducing the Bayes            all subsequent modules rely on it as a prerequisite, its importance
+Risk Refinement Modules.                                                     is further underscored. Appendix A.1 presents a comparison of GW
+   Gromov-Wasserstein Distance. The GW distance measures                     distance with other traditional metrics.
+the discrepancy between the ground truth distribution and pre-                   Bayes Risk Refinement Modules. The Bayes Risk Refinement
+dicted distribution. By minimizing the GW distance, we enhance               Modules (BRRM) enhance model performance by adaptively re-
+prediction performance while optimizing the covariance matrix for            fining predictions, prioritizing high-confidence regions while sup-
+Bayes Risk computation, which in turn refines subsequent modules             pressing those with high Bayes Risk. As shown in Table 3, BRRM
+                                                                      7
+Table 4: The impact of incorporating each component across
+the Bayes Risk Refinement Modules. Here, BROE denotes
+Bayes Risk Output Embedding, BRMC represents Bayes Risk
+Matching Cost, and BRCL stands for Bayes Risk Classifica-
+tion Loss.
+
+
+    BROE BRMC BRCL AP AP50 AP75 AP𝑆 AP𝑀 AP𝐿
+      ✗       ✗       ✗     49.3 66.9 53.6 32.4 52.7 63.7
+      ✓       ✗       ✗     49.5 67.0 54.1 32.6 52.9 63.6
+                                                                             Figure 7: Density distribution of predicted classification
+      ✓       ✓       ✗     49.9 67.3 54.6 33.2 53.4 63.9
+                                                                             scores and IoU before and after applying Bayes Risk Refine-
+      ✓       ✓       ✓     50.1 67.6 54.8 33.1 53.8 64.0
+                                                                             ment Modules to the baseline model.
+
+Table 5: The impact of removing each component in Bayes
+Risk Refinement Modules.
+
+
+    BROE BRMC BRCL AP AP50 AP75 AP𝑆 AP𝑀 AP𝐿
+      ✗       ✓       ✓     49.8 67.2 54.5 32.6 53.4 63.8
+      ✓       ✗       ✓     49.7 67.2 54.0 32.0 53.0 64.2
+      ✓       ✓       ✗     49.9 67.3 54.6 33.2 53.4 63.9
+      ✓       ✓       ✓     50.1 67.6 54.8 33.1 53.8 64.0
+                                                                             Figure 8: Density distribution of predicted classification
+                                                                             scores and IoU before and after applying Bayes Risk Out-
+                                                                             put Embedding to the baseline model.
+improves overall performance, increasing AP by 0.8%, AP𝑆 by 0.7%,
+and AP𝑀 by 1.1%. Figure 7 further illustrates its impact on score dis-
+tribution. Before applying BRRM, the distribution is more peaked,
+indicating the model assigns excessive confidence to a concen-
+trated set of predictions, making it more susceptible to incorrect
+high-confidence outputs. After applying BRRM, the distribution
+becomes smoother and more dispersed, reducing overconfidence
+and mitigating bias toward a few high-confidence scores by better
+incorporating Bayes Risk. Additionally, BRRM improves localiza-
+tion accuracy, as evidenced by a denser concentration in the high
+IoU range (> 0.75) and a notable increase in extremely high IoU
+occurrences (IoU ≈ 0.9).                                                     Figure 9: The density distribution of IoU before and after
+   Bayes Risk Output Embedding. Table 4 and Table 5 demon-                   applying Bayes Risk Matching Cost to the baseline model
+strate that incorporating Bayes Risk Output Embedding (BROE)                 with BROE.
+improves performance. Specifically, adding BROE to the baseline
+model increases AP by 0.2% (row1 vs. row2 in Tab. 4), while adding           regions, guiding the model to focus on more reliable areas. This en-
+BROE completes our approach, further boosting AP by 0.3% (row1               courages higher-confidence predictions with improved robustness.
+vs. row4 in Tab. 5). As shown in Figure 8, after integrating BROE, the       As shown in Table 5, comparing row3 and row4, incorporating BRCL
+score distribution becomes smoother and more dispersed, and the              further improves AP by 0.2%, even on an already strong-performing
+IoU distribution shifts toward higher values, indicating improved            model.
+localization accuracy and overall better prediction performance.
+   Bayes Risk Matching Cost. By integrating Bayes Risk with                  6   CONCLUSION
+higher-order IoU formulations, the Bayes Risk Matching Cost (BRMC)           In this paper, we address the limitations of conventional bounding
+better captures IoU variations, improving localization performance,          box modeling in object detection by exploring a uncertainty-aware
+particularly in AP𝑆 . Specifically, BRMC increases AP by 0.4% and            approach to enhance DETR-based methods. We model bounding
+AP𝑆 by 0.6% (row2 vs. row3 in Tab. 4), and further boosts AP by              boxes as Gaussian distributions to account for uncertainty and
+0.4% and AP𝑆 by 1.1% when completing our approach (row2 vs.                  derive Bayes Risk to refine modules in DETRs. Moreover, we formu-
+row4 in Tab. 5). As shown in Figure 9, BRMC enhances predicted               late the localization uncertainty for predictions. Extensive ablation
+bounding box alignment with ground truth, improving localization             studies and experimental results demonstrate that our method can
+accuracy.                                                                    be seamlessly integrated into existing DETRs, leading to improved
+   Bayes Risk Classification Loss. BRCL applies a Bayes Risk                 performance. Our method can also be extended to domain-specific
+weighting mechanism to reduce the impact of high-Bayes-Risk                  biomedical applications such as leukocyte detection.
+                                                                         8
+REFERENCES                                                                                    [23] Yifan Pu, Weicong Liang, Yiduo Hao, Yuhui Yuan, Yukang Yang, Chao Zhang,
+ [1] Zhi Cai, Songtao Liu, Guodong Wang, Zheng Ge, Xiangyu Zhang, and Di Huang.                    Han Hu, and Gao Huang. 2024. Rank-DETR for high quality object detection.
+     2023. Align-detr: Improving detr with simple iou-aware bce loss. arXiv preprint               Advances in Neural Information Processing Systems 36 (2024).
+     arXiv:2304.07527 (2023).                                                                 [24] Heqian Qiu, Hongliang Li, Qingbo Wu, and Hengcan Shi. 2020. Offset bin
+ [2] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexan-                   classification network for accurate object detection. In Proceedings of the IEEE/CVF
+     der Kirillov, and Sergey Zagoruyko. 2020. End-to-end object detection with                    Conference on Computer Vision and Pattern Recognition. 13188–13197.
+     transformers. In European conference on computer vision. Springer, 213–229.              [25] J Redmon. 2016. You only look once: Unified, real-time object detection. In
+ [3] Yifei Chen, Chenyan Zhang, Ben Chen, Yiyu Huang, Yifei Sun, Changmiao Wang,                   Proceedings of the IEEE conference on computer vision and pattern recognition.
+     Xianjun Fu, Yuxing Dai, Feiwei Qin, Yong Peng, et al. 2024. Accurate leukocyte           [26] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun. 2016. Faster R-CNN: To-
+     detection based on deformable-DETR and multi-level feature fusion for aiding                  wards real-time object detection with region proposal networks. IEEE transactions
+     diagnosis of blood diseases. Computers in biology and medicine 170 (2024), 107917.            on pattern analysis and machine intelligence 39, 6 (2016), 1137–1149.
+ [4] Jiwoong Choi, Dayoung Chun, Hyun Kim, and Hyuk-Jae Lee. 2019. Gaussian                   [27] Hamid Rezatofighi, Nathan Tsoi, JunYoung Gwak, Amir Sadeghian, Ian Reid,
+     yolov3: An accurate and fast object detector using localization uncertainty for               and Silvio Savarese. 2019. Generalized intersection over union: A metric and a
+     autonomous driving. In Proceedings of the IEEE/CVF International conference on                loss for bounding box regression. In Proceedings of the IEEE/CVF conference on
+     computer vision. 502–511.                                                                     computer vision and pattern recognition. 658–666.
+ [5] Xiyang Dai, Yinpeng Chen, Jianwei Yang, Pengchuan Zhang, Lu Yuan, and Lei                [28] Seyed Hamid Rezatofighi and Hamid Soltanian-Zadeh. 2011. Automatic recogni-
+     Zhang. 2021. Dynamic detr: End-to-end object detection with dynamic attention.                tion of five types of white blood cells in peripheral blood. Computerized Medical
+     In Proceedings of the IEEE/CVF international conference on computer vision. 2988–             Imaging and Graphics 35, 4 (2011), 333–343.
+     2997.                                                                                    [29] Zhi Tian, Chunhua Shen, Hao Chen, and Tong He. 2020. FCOS: A simple and
+ [6] Julie Delon, Agnes Desolneux, and Antoine Salmona. 2022. Gromov–Wasserstein                   strong anchor-free object detector. IEEE transactions on pattern analysis and
+     distances between Gaussian distributions. Journal of Applied Probability 59, 4                machine intelligence 44, 4 (2020), 1922–1933.
+     (2022), 1178–1198.                                                                       [30] A Vaswani. 2017. Attention is all you need. Advances in Neural Information
+ [7] Zhora Gevorgyan. 2022. SIoU loss: More powerful learning for bounding box                     Processing Systems (2017).
+     regression. arXiv preprint arXiv:2205.12740 (2022).                                      [31] Ao Wang, Hui Chen, Lihao Liu, Kai Chen, Zijia Lin, Jungong Han, and Guiguang
+ [8] Yecai Guo and Mengyao Zhang. 2023. Blood cell detection method based on                       Ding. 2024. Yolov10: Real-time end-to-end object detection. arXiv preprint
+     improved YOLOv5. IEEE Access 11 (2023), 67987–67995.                                          arXiv:2405.14458 (2024).
+ [9] Ali Harakeh, Michael Smart, and Steven L Waslander. 2020. Bayesod: A bayesian            [32] Chengcheng Wang, Wei He, Ying Nie, Jianyuan Guo, Chuanjian Liu, Yunhe Wang,
+     approach for uncertainty estimation in deep object detectors. In 2020 IEEE Inter-             and Kai Han. 2024. Gold-YOLO: Efficient object detector via gather-and-distribute
+     national Conference on Robotics and Automation (ICRA). IEEE, 87–93.                           mechanism. Advances in Neural Information Processing Systems 36 (2024).
+[10] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep residual               [33] Chien-Yao Wang, Alexey Bochkovskiy, and Hong-Yuan Mark Liao. 2023. YOLOv7:
+     learning for image recognition. In Proceedings of the IEEE conference on computer             Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors.
+     vision and pattern recognition. 770–778.                                                      In Proceedings of the IEEE/CVF conference on computer vision and pattern recogni-
+[11] Yihui He, Chenchen Zhu, Jianren Wang, Marios Savvides, and Xiangyu Zhang.                     tion. 7464–7475.
+     2019. Bounding box regression with uncertainty for accurate object detection. In         [34] Chien-Yao Wang, I-Hau Yeh, and Hong-Yuan Mark Liao. 2025. Yolov9: Learning
+     Proceedings of the ieee/cvf conference on computer vision and pattern recognition.            what you want to learn using programmable gradient information. In European
+     2888–2897.                                                                                    conference on computer vision. Springer, 1–21.
+[12] Yihui He, Chenchen Zhu, Jianren Wang, Marios Savvides, and Xiangyu Zhang.                [35] Jinwang Wang, Chang Xu, Wen Yang, and Lei Yu. 2021. A normalized Gaussian
+     2019. Bounding box regression with uncertainty for accurate object detection. In              Wasserstein distance for tiny object detection. arXiv preprint arXiv:2110.13389
+     Proceedings of the ieee/cvf conference on computer vision and pattern recognition.            (2021).
+     2888–2897.                                                                               [36] Fanxin Xu, Xiangkui Li, Hang Yang, Yali Wang, and Wei Xiang. 2022. TE-YOLOF:
+[13] Xiuquan Hou, Meiqin Liu, Senlin Zhang, Ping Wei, Badong Chen, and Xuguang                     Tiny and efficient YOLOF for blood cell detection. Biomedical Signal Processing
+     Lan. 2025. Relation detr: Exploring explicit position relation prior for object               and Control 73 (2022), 103416.
+     detection. In European Conference on Computer Vision. Springer, 89–105.                  [37] Xue Yang, Junchi Yan, Qi Ming, Wentao Wang, Xiaopeng Zhang, and Qi Tian.
+[14] Ding Jia, Yuhui Yuan, Haodi He, Xiaopei Wu, Haojun Yu, Weihong Lin, Lei Sun,                  2021. Rethinking rotated object detection with gaussian wasserstein distance
+     Chao Zhang, and Han Hu. 2023. Detrs with hybrid matching. In Proceedings of                   loss. In International conference on machine learning. PMLR, 11830–11841.
+     the IEEE/CVF conference on computer vision and pattern recognition. 19702–19712.         [38] Hao Zhang, Feng Li, Shilong Liu, Lei Zhang, Hang Su, Jun Zhu, Lionel M Ni, and
+[15] Balaji Lakshminarayanan, Alexander Pritzel, and Charles Blundell. 2017. Simple                Heung-Yeung Shum. 2022. Dino: Detr with improved denoising anchor boxes for
+     and scalable predictive uncertainty estimation using deep ensembles. Advances                 end-to-end object detection. arXiv preprint arXiv:2203.03605 (2022).
+     in neural information processing systems 30 (2017).                                      [39] Zhaohui Zheng, Ping Wang, Wei Liu, Jinze Li, Rongguang Ye, and Dongwei Ren.
+[16] Youngwan Lee, Joong-won Hwang, Hyung-Il Kim, Kimin Yun, Yongjin Kwon,                         2020. Distance-IoU loss: Faster and better learning for bounding box regression. In
+     Yuseok Bae, and Sung Ju Hwang. 2022. Localization uncertainty estimation                      Proceedings of the AAAI conference on artificial intelligence, Vol. 34. 12993–13000.
+     for anchor-free object detection. In European Conference on Computer Vision.             [40] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, and Jifeng Dai. 2020.
+     Springer, 27–42.                                                                              Deformable detr: Deformable transformers for end-to-end object detection. arXiv
+[17] Xiang Li, Wenhai Wang, Xiaolin Hu, Jun Li, Jinhui Tang, and Jian Yang. 2021.                  preprint arXiv:2010.04159 (2020).
+     Generalized focal loss v2: Learning reliable localization quality estimation for
+     dense object detection. In Proceedings of the IEEE/CVF conference on computer
+     vision and pattern recognition. 11632–11641.
+[18] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and Piotr Dollár. 2017.
+     Focal loss for dense object detection. In Proceedings of the IEEE international
+     conference on computer vision. 2980–2988.
+[19] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva
+     Ramanan, Piotr Dollár, and C Lawrence Zitnick. 2014. Microsoft coco: Common
+     objects in context. In Computer Vision–ECCV 2014: 13th European Conference,
+     Zurich, Switzerland, September 6-12, 2014, Proceedings, Part V 13. Springer, 740–
+     755.
+[20] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed,
+     Cheng-Yang Fu, and Alexander C Berg. 2016. Ssd: Single shot multibox detec-
+     tor. In Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The
+     Netherlands, October 11–14, 2016, Proceedings, Part I 14. Springer, 21–37.
+[21] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin,
+     and Baining Guo. 2021. Swin transformer: Hierarchical vision transformer us-
+     ing shifted windows. In Proceedings of the IEEE/CVF international conference on
+     computer vision. 10012–10022.
+[22] Depu Meng, Xiaokang Chen, Zejia Fan, Gang Zeng, Houqiang Li, Yuhui Yuan, Lei
+     Sun, and Jingdong Wang. 2021. Conditional detr for fast training convergence.
+     In Proceedings of the IEEE/CVF international conference on computer vision. 3651–
+     3660.
+
+                                                                                          9
+Table 6: Effect of GIoU, Wasserstein distance and Gromov-Wasserstein distance. Here 𝑅 = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ) represent the ground
+truth bbox, 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ represent the predicted bbox.
+                              ˆ ℎ)
+
+
+
+        Metric Formulation                             Type                   AP               AP50      AP75   AP𝑆        AP𝑀          AP𝐿
+                𝑓 (𝑅, 𝑅)ˆ                             IoU                    48.6              66.6      53.1   31.2        51.6            63.1
+                𝑓 (𝑅, 𝑅)ˆ                            GIoU                    48.7              66.4      52.9   31.2        51.5            63.5
+                𝑓 (𝑅, 𝑅)ˆ                          IoU+WD                    48.8              66.6      53.2   31.6        51.9            63.2
+             ˆ 𝜎2 , 𝜎2 , 𝜎2 , 𝜎2 )
+       𝑓 (𝑅, 𝑅,                                   IoU+GWD                    48.8              66.7      53.1   31.4        52.1            63.3
+                𝑐ˆ 𝑥  𝑐ˆ  𝑤ˆ
+                           𝑦   ˆ        ℎ
+
+A APPENDIX
+A.1 Ablation Experiments on GWD
+Compared to traditional metrics such as IoU and GIoU, Gromov-Wasserstein distance and Wasserstein distance measure the difference
+between the predicted and ground truth box distributions from a distributional perspective. We use the H-DETR model with IoU loss as the
+baseline and conduct experiments to demonstrate the impact of GIoU, Wasserstein distance and Gromov-Wasserstein distance.
+   As shown in 6, using Gromov-Wasserstein Distance and Wasserstein Distance provides greater performance improvement compared to
+GIoU. However, we will demonstrate in A.2 that the Wasserstein Distance formulation essentially relies on the same variables as GIoU and
+IoU, without incorporating covariance matrix terms that characterize the distribution of predicted boxes. Therefore, it cannot compute Bayes
+Risk for further model performance improvement.
+
+A.2      Formulation of Wasserstein distance
+As stated in [35], given the ground truth bounding box 𝑅 = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ) and the predicted bounding box 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ the ground truth
+                                                                                                                               ˆ ℎ),
+bbox follows a Gaussian distribution 𝑚 = N𝑔 (𝝁𝑔 , 𝚺𝑔 ) ∈ R2 , the predicted bbox follows another Gaussian distribution 𝑛 = NP (𝝁 P , 𝚺 P ) ∈ R2 ,
+where                                                  2                                          2
+                                                                   0                𝑐ˆ𝑥            𝑤ˆ /4      0
+                                                                                                             
+                                        𝑐              𝑤 /4
+                                 𝝁𝑔 = 𝑥 , 𝚺𝑔 =                               𝝁   =              =
+                                                                ℎ 2 /4                                     ℎˆ2 /4
+                                                                         ,              ,   𝚺 P                     .
+                                        𝑐𝑦              0                      P    𝑐ˆ𝑦              0
+
+                                                                                                   1/2 1/2
+                                                                                                      
+                                                                                            1/2
+                                        𝑊22 (𝑚, 𝑛) = ∥𝝁𝑔 − 𝝁 P ∥ 22 + Tr 𝚺𝑔 + 𝚺 P − 2 𝚺 P 𝚺𝑔 𝚺 P
+                                                                                          
+
+
+                                                                                                   i 2
+                                                                           T h                  ˆ T
+                                                        𝑐 𝑥 , 𝑐 𝑦 , 𝑤2 , ℎ2 − 𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤2ˆ , ℎ2
+                                                       
+                                                   =
+                                                                                                    2
+
+A.3      Analytical solution for the Gromov-Wasserstein distance
+Given 𝑚 = N𝑔 (𝝁𝑔 , 𝚺𝑔 ) and 𝑛 = NP (𝝁 P , 𝚺 P ), as stated in [6], Gromov-Wasserstein distance between the ground truth bbox distribution and
+predicted bbox distribution has the following expression: 
+                                                           2                 (2) 2
+                                                                                   
+                                     2
+  𝐺𝐺𝑊22 (𝑚, 𝑛) = 4 tr(𝚺 P ) − tr(𝚺𝑔 ) + 8 𝚺 P − 𝚺𝑔 + 8 ∥𝚺 P ∥ 2𝐹 − 𝚺 P
+                                                 (2)                                           (2)
+                                                                                     , where 𝚺 P denotes the submatrix containing the 2 first
+                                                           𝐹                               𝐹
+row and the 2 first columns of 𝚺 P .
+
+A.4      Proof of Theorem 3.1
+We first need the following lemma to illustrate the situation when 𝐺𝐺𝑊22 (𝑚, 𝑛) = 0.
+                                                                                                                                                  
+                                                                                                                                                 0
+Lemma A.1. Given 𝑚 = N𝑔 (𝝁𝑔 , 𝚺𝑔 ) and 𝑛 = NP (𝝁 P , 𝚺 P ), where 𝑚 ∈ R2 and 𝑛 ∈ R4 , in this case, 𝐺𝐺𝑊22 (𝑚, 𝑛) = 0 when 𝚺 P =
+                                                                                                                                            𝚺𝑔
+                                                                                                                                                     ∈
+                                                                                                                                            0    0
+R4 .
+   We are ready to prove 3.1 now.
+   Proof. Since we have the analytical solution for the Gromov-Wasserstein distance as:
+                                                                                2              (2) 2
+                                                                                                    
+                                                               2
+                            𝐺𝐺𝑊22 (𝑚, 𝑛) = 4 tr(𝚺 P ) − tr(𝚺𝑔 ) + 8 𝚺 P − 𝚺𝑔 + 8 ∥𝚺 P ∥ 2𝐹 − 𝚺 P
+                                                                      (2)
+                                                                                                       .
+                                                                                                𝐹               𝐹
+                                                                             10
+                                                                                                   
+                                                                          𝚺𝑔 0
+and it can been seem through A.1 that 𝐺𝐺𝑊22 (𝑚, 𝑛) = 0, when 𝚺 P = 𝚺∗ =          ∈ R4 .
+                                                                          0 0
+  For the normal case, when 𝐺𝐺𝑊22 (𝑚, 𝑛) is approaching zero, we consider 𝚺 P has the form that 𝚺 P = 𝚺∗ + Δ𝚺, where Δ𝚺 is a small
+perturbation matrix such that ∥Δ𝚺∥ 𝐹 → 0.
+                                                                       2
+  Now we consider the first term in the expression: tr(𝚺 P ) − tr(𝚺𝑔 )
+                                                                                           2
+                                                               tr(𝚺 P ) − tr(𝚺𝑔 )               = (tr(Δ𝚺)) 2
+
+Notice that |tr(Δ𝚺)| ≤ ∥Δ𝚺∥ 𝐹 , thus we have
+                                                                               2
+                                                   tr(𝚺 P ) − tr(𝚺𝑔 )               = (tr(Δ𝚺)) 2 = 𝑂 (∥Δ𝚺∥ 2𝐹 )
+
+                                            (2)        2
+For the second term in the expression: 𝚺 P − 𝚺𝑔
+                                                𝐹
+
+                                                                         2                      2
+                                                                              = ∥Δ𝚺 (2) ∥ 𝐹 = 𝑂 (∥Δ𝚺∥ 2𝐹 )
+                                                           (2)
+                                                       𝚺 P − 𝚺𝑔
+                                                                         𝐹
+
+                                                    (2) 2
+For the last term in the expression: ∥𝚺 P ∥ 2𝐹 − 𝚺 P      ,
+                                                        𝐹
+
+
+                                            ∥𝚺 P ∥ 2𝐹 = ∥𝚺∗ + Δ𝚺∥ 2𝐹 = ∥𝚺∗ ∥ 2𝐹 + 2tr(𝚺⊤            2
+                                                                                       ∗ Δ𝚺) + ∥Δ𝚺∥ 𝐹
+
+
+
+
+                                         ∥𝚺 P ∥ 2𝐹 = ∥𝚺𝑔 + Δ𝚺 (2) ∥ 2𝐹 = ∥𝚺𝑔 ∥ 2𝐹 + 2tr(𝚺𝑔⊤ Δ𝚺) + ∥Δ𝚺 (2) ∥ 2𝐹
+                                            (2)
+
+
+Notice that tr(𝚺⊤           ⊤
+                ∗ Δ𝚺) = tr(𝚺𝑔 Δ𝚺), so we have
+
+
+                                             ∥𝚺 P ∥ 2𝐹 − ∥𝚺 P ∥ 2𝐹 = ∥Δ𝚺∥ 2𝐹 − ∥Δ𝚺 (2) ∥ 2𝐹 = 𝑂 (∥Δ𝚺∥ 2𝐹 )
+                                                                 (2)
+
+
+Combining above three terms together, we have
+
+                                                          2                         2
+                                                                                           + ∥𝚺 P ∥ 2𝐹 − ∥𝚺 P ∥ 2𝐹 = 𝑂 (∥Δ𝚺∥ 2𝐹 )
+                                                                       (2)                                        (2)
+                                     tr(𝚺 P ) − tr(𝚺𝑔 )        + 𝚺 P − 𝚺𝑔
+                                                                                     𝐹
+
+so we have 𝐺𝑊22 (𝑚, 𝑛) = 𝑂 (∥Δ𝚺∥ 2𝐹 ).
+                                                                                                                                              □
+
+A.5    Derivation of Bayes Risk for 𝐿2 loss
+Let 𝑅 = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ) denotes the ground truth bounding box and 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ denotes the predicted bounding box. For bounding box
+                                                                                       ˆ ℎ)
+regression task, we choose 𝐿2 loss as the loss function to reflect the difference between those two bounding boxes. The 𝐿2 loss has the
+following formulation :
+
+                                              𝐿2 = (𝑐ˆ𝑥 − 𝑐 𝑥 ) 2 + (𝑐ˆ𝑦 − 𝑐 𝑦 ) 2 + (𝑤ˆ − 𝑤) 2 + (ℎˆ − ℎ) 2
+
+Notice that for the predicted bounding box 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ it follows a 4D Gaussian distribution NP (𝝁 , 𝚺 P ) with
+                                                             ˆ ℎ),                                           P
+
+                                                                                  𝜎 2            0          0       0
+                                                         𝑐 𝑥                     𝑐ˆ𝑥
+                                                                                   0            𝜎𝑐2ˆ        0       0 
+                                                                                                                       
+                                                         𝑐 
+                                                  𝝁 P =  𝑦  ,            𝚺P = 
+                                                                                                       𝑦
+                                                                                   0                   0    2       0
+                                                                                                                         .
+                                                         𝑤                                                𝜎𝑤ˆ
+                                                         ℎ                       0
+                                                                                  
+                                                                                                        0    0        2  
+                                                                                                                    𝜎 ˆ 
+                                                                                                                  ℎ
+
+Each component of the ground truth bounding box 𝑅 = (𝑐 𝑥 , 𝑐 𝑦 , 𝑤, ℎ) follows a uniform distribution 𝑈 (0, 1) on the interval [0,1].
+                                                                                      11
+                                                   Table 7: Results on a smaller-scale VOC dataset.
+
+
+                                                        Method                               AP           AP𝑆 AP𝑀 AP𝐿
+                                                 YOLOV5                                     51.5        24.6        39.9    56.9
+                                               YOLOV5+WD                                    51.7        24.8        40.7    56.8
+                                              YOLOV5+GWD                                    51.9        25.0        41.0    57.2
+                                         YOLOV5+GWD+BRRM (Ours)                             52.4        25.3        41.6    57.8
+
+                                                      Table 8: Impact of Parameter k on COCO.
+
+
+                                     K                             100         200          300           400        500     600
+                                     Inference time(min) 5.13 6.95 8.68 10.97 13.03 14.67
+                                     Std of uncertainty  0.106 0.085 0.069 0.064 0.060 0.058
+
+                                                                                                          
+                                                                                                 (𝑥 −𝑐 ) 2
+   Take 𝑐ˆ𝑥 for illustration, it then has the posterior distribution 𝑝 (𝑐ˆ𝑥 |𝑐 𝑥 ) = √︃ 1 2 exp − 2𝜎 2𝑥      and 𝑐 𝑥 ∼ 𝑈 (0, 1), so the Bayes Risk can
+                                                                                              2𝜋𝜎𝑐ˆ                   𝑐ˆ𝑥
+                                                                                                    𝑥
+be calculated as:
+                                                                   ∬
+                                            Bayes Risk for 𝑐ˆ𝑥 =         (𝑐ˆ𝑥 − 𝑐 𝑥 ) 2 𝑝 (𝑐ˆ𝑥 , 𝑐 𝑥 ) 𝑑 𝑐ˆ𝑥 𝑑𝑐 𝑥
+                                                                   ∬
+                                                               =   (𝑐ˆ𝑥 − 𝑐 𝑥 ) 2 𝑝 (𝑐ˆ𝑥 |𝑐 𝑥 )𝑝 (𝑐 𝑥 ) 𝑑 𝑐ˆ𝑥 𝑑𝑐 𝑥
+                                                                 ∫ ∫                                       
+                                                               =          (𝑐ˆ𝑥 − 𝑐 𝑥 ) 2 𝑝 (𝑐ˆ𝑥 |𝑐 𝑥 ) 𝑑 𝑐ˆ𝑥 𝑝 (𝑐 𝑥 ) 𝑑𝑐 𝑥
+                                                                 ∫
+                                                               =   𝜎𝑐2ˆ𝑥 𝑝 (𝑐 𝑥 ) 𝑑𝑐 𝑥
+
+                                                               = 𝜎𝑐2ˆ𝑥
+So the Bayes Risk for 𝑅ˆ = (𝑐ˆ𝑥 , 𝑐ˆ𝑦 , 𝑤, ˆ is:
+                                        ˆ ℎ)
+                                                              Risk∗ = 𝜎𝑐2ˆ𝑥 + 𝜎𝑐2ˆ𝑦 + 𝜎𝑤
+                                                                                       2   2
+                                                                                       ˆ +𝜎ˆ          ℎ
+
+A.6     Adapting Our Method to YOLO
+To show that our modeling approach generalizes beyond DETR, we applied it to the YOLOv5 model, the results are shown in Table 7. Due to
+YOLO’s one-stage architecture, the Bayes Risk refinement module (BRRM) here only modifies the output embeddings and the classification
+loss.
+
+A.7     Analysis of Parameter k in Algorithm 1
+Table 8 shows the effect of division count k on localization-uncertainty computation. To highlight these effects, we report total inference
+time and the standard deviation of the estimated uncertainty on the COCO test set. Inference time grows linearly with k, while uncertainty’s
+standard deviation decreases—indicating more robust estimates. When k exceeds 300, robustness gains plateau, so we choose k = 300 as a
+trade-off between efficiency and estimation quality.
+
+A.8     Computational Complexity Analysis
+     • Theoretical Analysis: The extra computational overhead comes from: (1) GWD computation—O(N). (2) Quantifying localization
+       uncertainty (Alg. 1)—O(N·k), where N is the number of boxes, k is the number of divisions.
+     • Experimental Analysis: We train H-DETR and our enhanced model on COCO using eight 3090 GPUs(12 epochs) and recorded
+       training time. We also measure single-image inference time. Table 9 shows that added computation introduced by our method remains
+       practically acceptable.
+
+
+
+
+                                                                                  12
+       Table 9: Time Consumption on COCO.
+
+
+                    H-DETR H-DETR+Ours      Rise
+Training time(h)     14.67     15.55          6%
+Inference time(h)     0.24      0.25        4.16%
+
+
+
+
+                         13
+

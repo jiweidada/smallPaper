@@ -1,0 +1,750 @@
+
+===== 16_补答核心资产摘要.txt =====
+核心资产摘要，原始完整来源在03/09及其链接；仅压缩材料，不改变新目标、原判据或原始结果。
+新目标：找到至少一条有实质创新且值得申请训练的具体方法线。三Astra/xhigh+一Claude Opus5.5轮流，不限轮数/无训练核查次数，不因候选失败结束，也不硬凑。当前不训练、不远程、不监测。专家只读文件/公开原文，不运行脚本模型，主助手核查。
+
+A1 C96统一best_stg2项目COCO testdev：C-baseline APs +.836978/+.669pp；C-Cmean三个seed +.836978/+.164133/+.163016；rank16-mean+.205045/+.267242/+.571461。C+17440参数，rank16+6176。8–16输入sqrt-area档 C-Cmean+.690/+.379/+.426；AP75不全正，平移1/2/4/8/32无一致优势。结构近邻UAV-DETR SOEP、HMF-DEIM已把P2四相位带入P3且无P2头，不能主张结构首次/相位=定位机制已证。
+A2 O8 batch8 seed1只把改后P3给neck，deep吃rawP3，O8-C8 AP+.034423/APs+.027865/APl-1.698841。已做非新设计。40预测×2000图像配对bootstrap14主区间全跨0，大目标代价未确立，不解释噪声造新设计。
+A3 BASE12旧548val GT38759/seed、COCOsmall26586：IoU.5漏13102/13197，3观察阶段都无几何覆盖10305/10397，早有末无564/527，末框有而真类未过预算/score1886/1923。短边<4 GT5096，漏4197/4303，其中3阶段无覆盖4029/4147约96%；只观察selected encoder300/pre/final，不是全池。
+A4 BASE132 EMA32val图、GT<=300、短边<4 GT329：max1to1几何覆盖IoU.5 TopK92/82→全有效池107/102→最终119/121，full-topK+4.56/6.08pp，没过当时10pp优先级；IoU.75 8/6→11/6→20/20。全池是oracle，不是部署方法，未选token不受同等直接几何监督。
+A5 BASE12 EMA增强fixture容量内普通最终union短边<4：1970/2079曝光，IoU0 1094/1240，own固定支持外1077/1223；其中别的query可达526/543，全部300不可达551/680。不是当前BASE24统计。FGL .15*sg(IoU)，L1/GIoU/DN仍几何监督。全局range×2同配方12轮 ΔAPs+.212887/-.373524、smallAP75+.002115/-.338883，没过事前条件。
+A6 attention采样集中在已失败tiny群体0/85、0/93，未过25%门槛。不主张所有attention无用。
+A7 骨干stem的随机/预训相混不能归因结构；late-downsample原有，不能再提作创新。旧fine_residual局部高分辨率encoder几何残差被用户停于10/17轮，没有完整正证据，当前不恢复。
+A8 UAVDT36 EMA val5153frames、87719GT、max30/frame：AP70 baseline83.734441/83.931472，C83.400550/83.493197，mean82.660120/81.967071；C-base-.333891/-.438275。输入sqrt-area<32 GT57546，几何maxmatching IoU.75 C-base+.557815/+.488305，.70-.465714/+.239808；多321/281个高IoU覆盖不等同AP。FP base8315/8254,C9044/8729额外729/475；中IoU额外373/176、背景226/257、重复-9/+7。不支持C跨dataset均有效，也未识别时间一致规则。
+A9 union遗漏U*恢复78/2925、84/2925，U*与末层锚定差425/3416、506/3429；恢复边IoU/L1GIoU变差，DN仍覆盖遗漏GT全部。算法是已有Hungarian非新求解，当前该版不训练。
+
+D0 DN pre最后W/b局部Adam独立虚拟步，2seed×2批，跨批DN额外普通pre损失×1e4：s1+.729204/-1.420694，s2+1.465050/+1.287104。mixed，不支持稳定有害。只改末层，不能推广整网。裁剪联动分解已做，有限端点的一阶简单对照复制八项符号，无额外价值。
+D1 全488可训练张量、10231995参数，8dev批32输入/seed，来源分配相对原方案几何-.0002562059/+.0002625494，较同预算固定比例-1.285e-6/-6.817e-6各4好4差。mixed，不开训。12642配对0例单图单query多GT回归。
+D2 BASE12 EMA548val离线CPU原N vs每queryargmax删D/补R：N AP6.128496/7.908137；R5.190986/6.738981，R-N-.937510/-1.169156pp，停止该版。删除secondary-class TP3333/3361，新增query TP432/545，补入大量背景。不能把重复query类全当无用。pipeline CPU另登记，不称复现原GPU1e-8。
+D3 BASE24两dev批原损失历史Adam端点，ordered变化2081/2400、1855/2400，但成员仅换38/19，约99%保留。已覆盖tiny bestsite都没换出，分母小；逆序槽换框差<2.8e-6，不能把排序当巨大集合不稳定。
+D4 分布方差U已有partialrank-.0898/-.1146，16批均负但效应弱；GFLv2/GaussianYOLOv3/D-FINE先例强，不为加方差评分再训练。
+D5 BASE24同GPUunion两aux层12582/12702曝光；active7813/8236，teacherworse3309/3548，占studentIoU权重42.9845/42.3193%，teacherworse中T5对几何逆向2496/3309、2689/3548。但T5总体不比T1更坏。完整网络历史Adam核查两新DDF版已结束：多层新增残差几何QP较original ΔG+2.1592e-6/+1.75397e-5，FGLCE变差；教师PMF平移到GT较original ΔG+.0000189361/-.0003119452，CE改善但几何mixed，native重选seed2更坏。GT两bin对照几何更好CE更差，不是全支配。GEM/PCGrad/BTKD++/LD原文已核，两个精确版本当前不训练，不封杀整个KD。
+
+当前可用：data08 isolated_v3/A(seed1)、B(seed2) development00–07保存640增强输入、GT、同前向原生匹配、普通所有层pred_boxes/pred_corners/ref_points。data10保存BASE24 online native fullmodel梯度、Adam状态、可供隔离重建。已反复开发，不叫独立验证。可使用CPU2线程低优先级少量冻结前向/反传及独立Adam虚拟端点，不累计更新、不写模型、不伪装训练。现成范围、topK、DDF表不再说待统计。
+
+最新07：BASE24全union6291/6351曝光，IoU0+own支持外2335/2149；固定33节点一次重锚完整新增仅5/3（含短边<4共3/3）；all300原不可达1170/895仅新增2/1。好框PMF历史CE比同均值重置好，但坏框不一致，旧固定坐标原本也有好框历史。数学守恒/导数通过不是方法贡献。10月5–6日已有输运/重锚原型，不以改名声称新发现。
+
+
+===== 116_地址审计完整结果与下一核查.txt =====
+109事前口径、110代码→111原始输出，零模型前向/反传/更新。沿用103固定四张all_count开发图、两BASE24原online模型，902GT/453固定sub4，每query容量一。
+
+sub4正确类别IoU.5最大匹配：
+                    model1   model2
+原框                  22       25
+全部±2新边             32       40
+只加GT在原格内的新边    26       28
+只加GT在原格外的新边    30       37
+只加末框中心在原格内    24       27
+只加末框中心在原格外    31       38
+
+全GT正确类别IoU.5：原268/281，全部307/315，GT格外300/308，末框格外300/310。
+全GT几何IoU.5：原302/309，全部366/357，GT格外356/346，末框格外349/348。
+sub4正确类别IoU.75：原2/4，全部11/18，GT格外9/18，末框格外9/17。
+完整8组指标和逐图整数都在111/00_rows.json及01_results.json；每一组独立最优，不相加，不把差值说成唯一可恢复GT身份。
+
+必要地址作用面为正：GT格外净容量+8/+12，末框格外+9/+13。只能支持下一次读取地址比较；不证明旧格特征没有邻域信息（感受野），不证明P2局部采样能学会修正，不是AP或方法新颖性结论。109未设多数/50%阈值，也不允许事后加门槛救设计。
+
+104还确认C0原online及EMA严格加载，历史optimizer可用。正在准备C0 restore参数中心路由的冻结对应性首检，先评估一个检查点，不能称两种子C96。另一条局部重采样候选尚缺超出SAM-DETR/DSNT/普通偏移头的具体方法增量。原始实验和权重不改，总目标未完成。
+
+
+===== 118_C0轴路由冻结首检_完整回交.txt =====
+112事前协议、113代码→114实际结果。C0 online best_stg2（last_epoch94），固定四张all_count开发图902GT/453原sub4，单训练seed。原代码/online权重801张量严格加载，CPU2线程/affinity13,15/below-normal；实际8次forward、21次VJP、零更新，用时8.125秒。CP SHA和整个state_dict/BN前后相同。不是Adam端点、训练或AP。
+
+候选只改16384个restore参数中的普通final cx/cy加权L1梯度方向，其他损失和前向保留。原native matcher/union/分母/DN均记录。没有用BASE12的旧漏检组：按C0自身eval框分组，四图漏检sub4数36/104/237/9，原union配对41/105/124/13。eval与decoder.train输出最大boxes差约1.2e-7–1.8e-7、logits差2.1e-5–4.6e-5，已保留，不伪称数值全等。
+
+四图LOO平均gain，完整W方向范数已配平；gain越大表示-epsilon*D的局部SGD预测下降越多：
+               O             axis          M             S_axis        swap          rot45
+center         .0020240301   .0020327287   .0020325683   .0020299908   .0020324073   .0020328250
+total          .1244750431   .1233428695   .1232866386   .1236093825   .1232302151   .1232369985
+classification .0326198970   .0323179135   .0323282059   .0323897881   .0323384615   .0323026823
+hard_geometry  .0006708288   .0006890481   .0006881825   .0006844653   .0006873142   .0006885557
+
+axis对O的中心gain在3/4图更好；平均中心gain也严格高于O/M/S_axis/swap，hard geometry为正且高于O。这些正向事实保留。但axis未胜rot45，total/classification均低于O，故112原门槛false，不申请此精确轴路由版本训练。不能因旋转差很小便断言整条相位机制无效；也不能删掉分类/total代价改判。没有把其他投影事后选成新胜者。
+
+初步含义：局部中心监督的削弱/方向限制可能改变几何—分类取舍，但当前数据没有支持横坐标必须对应Hx、纵坐标必须对应Hy这一独占解释；更没有实际优化器更新或检测收益证据。按协议，本首检不足不等于Adam永久无效，但没有根据继续为这个精确版本申请训练。
+
+已保存03_eval_predictions_and_queries.pt：同四图C0 eval预测、真实原native selected_indices、GT/original_sub4及来源SHA，可作下一次零前向作用面统计。114全部逐图loss、union、梯度、方向及门槛在02_direction_results.json、04_execution.json和输出SHA清单，可复核。
+
+另一个前向奇偶中心头也不能仅凭D4反射性质立新：共享四点softmax期望本身已具相同局部排列等变性；共享线性分数去均值与原softmax严格相同。新的提议若只是Haar换基/分解softmax或删掉混合项，需先明确新的作用变量及其真实数据依据，不能换名复活。
+
+总研究目标未完成。继续给真正不同的可实施修订/设计，不停于本次阴性，也不重复追加不改变取舍的资格条件。先不新增训练，不操作远端或监测，不改旧证据。
+
+
+===== 121_C0_center_feasibility/01_results.json =====
+{
+  "state": "complete",
+  "resources": {
+    "priority": "below_normal",
+    "affinity": [
+      13,
+      15
+    ],
+    "threads": 2,
+    "available_RAM_GiB": 24.172550201416016,
+    "torch": "2.5.1+cpu",
+    "cuda_runtime": null
+  },
+  "checkpoint_sha256": "9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e",
+  "weight_key": "model_online",
+  "epoch": 94,
+  "GT": 902,
+  "sub4": 453,
+  "totals": {
+    "original": {
+      "all_geo05": 370,
+      "sub4_geo05": 66,
+      "all_geo075": 184,
+      "sub4_geo075": 15,
+      "all_class05": 324,
+      "sub4_class05": 51,
+      "all_class075": 162,
+      "sub4_class075": 10
+    },
+    "P3_final_residual_2px": {
+      "all_geo05": 445,
+      "sub4_geo05": 105,
+      "all_geo075": 273,
+      "sub4_geo075": 49,
+      "all_class05": 394,
+      "sub4_class05": 89,
+      "all_class075": 243,
+      "sub4_class075": 40
+    },
+    "P3_grid_absolute_2px": {
+      "all_geo05": 302,
+      "sub4_geo05": 55,
+      "all_geo075": 143,
+      "sub4_geo075": 16,
+      "all_class05": 223,
+      "sub4_class05": 32,
+      "all_class075": 113,
+      "sub4_class075": 8
+    },
+    "P3_free_center": {
+      "all_geo05": 719,
+      "sub4_geo05": 271,
+      "all_geo075": 590,
+      "sub4_geo075": 167,
+      "all_class05": 574,
+      "sub4_class05": 223,
+      "all_class075": 481,
+      "sub4_class075": 137
+    },
+    "P3_GT_size_only": {
+      "all_geo05": 396,
+      "sub4_geo05": 74,
+      "all_geo075": 249,
+      "sub4_geo075": 32,
+      "all_class05": 343,
+      "sub4_class05": 55,
+      "all_class075": 219,
+      "sub4_class075": 24
+    }
+  },
+  "best_constant_per_metric": {
+    "all_geo05": 370,
+    "sub4_geo05": 66,
+    "all_geo075": 184,
+    "sub4_geo075": 15,
+    "all_class05": 324,
+    "sub4_class05": 51,
+    "all_class075": 162,
+    "sub4_class075": 10
+  },
+  "constant_shift_table": [
+    {
+      "pixels": [
+        -2,
+        -2
+      ],
+      "counts": {
+        "all_geo05": 246,
+        "sub4_geo05": 18,
+        "all_geo075": 99,
+        "sub4_geo075": 0,
+        "all_class05": 211,
+        "sub4_class05": 14,
+        "all_class075": 87,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        -2,
+        -1
+      ],
+      "counts": {
+        "all_geo05": 266,
+        "sub4_geo05": 19,
+        "all_geo075": 99,
+        "sub4_geo075": 1,
+        "all_class05": 231,
+        "sub4_class05": 14,
+        "all_class075": 89,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        -2,
+        0
+      ],
+      "counts": {
+        "all_geo05": 270,
+        "sub4_geo05": 20,
+        "all_geo075": 106,
+        "sub4_geo075": 0,
+        "all_class05": 235,
+        "sub4_class05": 14,
+        "all_class075": 94,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        -2,
+        1
+      ],
+      "counts": {
+        "all_geo05": 262,
+        "sub4_geo05": 19,
+        "all_geo075": 104,
+        "sub4_geo075": 1,
+        "all_class05": 225,
+        "sub4_class05": 13,
+        "all_class075": 92,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        -2,
+        2
+      ],
+      "counts": {
+        "all_geo05": 246,
+        "sub4_geo05": 22,
+        "all_geo075": 103,
+        "sub4_geo075": 3,
+        "all_class05": 213,
+        "sub4_class05": 17,
+        "all_class075": 90,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        -1,
+        -2
+      ],
+      "counts": {
+        "all_geo05": 312,
+        "sub4_geo05": 35,
+        "all_geo075": 117,
+        "sub4_geo075": 2,
+        "all_class05": 272,
+        "sub4_class05": 30,
+        "all_class075": 106,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        -1,
+        -1
+      ],
+      "counts": {
+        "all_geo05": 335,
+        "sub4_geo05": 45,
+        "all_geo075": 134,
+        "sub4_geo075": 2,
+        "all_class05": 293,
+        "sub4_class05": 36,
+        "all_class075": 125,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        -1,
+        0
+      ],
+      "counts": {
+        "all_geo05": 347,
+        "sub4_geo05": 48,
+        "all_geo075": 138,
+        "sub4_geo075": 1,
+        "all_class05": 306,
+        "sub4_class05": 40,
+        "all_class075": 125,
+        "sub4_class075": 1
+      }
+    },
+    {
+      "pixels": [
+        -1,
+        1
+      ],
+      "counts": {
+        "all_geo05": 338,
+        "sub4_geo05": 43,
+        "all_geo075": 133,
+        "sub4_geo075": 2,
+        "all_class05": 299,
+        "sub4_class05": 36,
+        "all_class075": 118,
+        "sub4_class075": 1
+      }
+    },
+    {
+      "pixels": [
+        -1,
+        2
+      ],
+      "counts": {
+        "all_geo05": 298,
+        "sub4_geo05": 32,
+        "all_geo075": 118,
+        "sub4_geo075": 3,
+        "all_class05": 257,
+        "sub4_class05": 24,
+        "all_class075": 101,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        0,
+        -2
+      ],
+      "counts": {
+        "all_geo05": 337,
+        "sub4_geo05": 49,
+        "all_geo075": 125,
+        "sub4_geo075": 0,
+        "all_class05": 294,
+        "sub4_class05": 38,
+        "all_class075": 112,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        0,
+        -1
+      ],
+      "counts": {
+        "all_geo05": 359,
+        "sub4_geo05": 59,
+        "all_geo075": 155,
+        "sub4_geo075": 4,
+        "all_class05": 318,
+        "sub4_class05": 48,
+        "all_class075": 144,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        0,
+        0
+      ],
+      "counts": {
+        "all_geo05": 370,
+        "sub4_geo05": 66,
+        "all_geo075": 184,
+        "sub4_geo075": 15,
+        "all_class05": 324,
+        "sub4_class05": 51,
+        "all_class075": 162,
+        "sub4_class075": 10
+      }
+    },
+    {
+      "pixels": [
+        0,
+        1
+      ],
+      "counts": {
+        "all_geo05": 369,
+        "sub4_geo05": 64,
+        "all_geo075": 156,
+        "sub4_geo075": 6,
+        "all_class05": 320,
+        "sub4_class05": 50,
+        "all_class075": 139,
+        "sub4_class075": 6
+      }
+    },
+    {
+      "pixels": [
+        0,
+        2
+      ],
+      "counts": {
+        "all_geo05": 340,
+        "sub4_geo05": 49,
+        "all_geo075": 126,
+        "sub4_geo075": 4,
+        "all_class05": 292,
+        "sub4_class05": 35,
+        "all_class075": 108,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        1,
+        -2
+      ],
+      "counts": {
+        "all_geo05": 285,
+        "sub4_geo05": 21,
+        "all_geo075": 103,
+        "sub4_geo075": 2,
+        "all_class05": 241,
+        "sub4_class05": 16,
+        "all_class075": 90,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        1,
+        -1
+      ],
+      "counts": {
+        "all_geo05": 313,
+        "sub4_geo05": 34,
+        "all_geo075": 119,
+        "sub4_geo075": 3,
+        "all_class05": 272,
+        "sub4_class05": 27,
+        "all_class075": 104,
+        "sub4_class075": 3
+      }
+    },
+    {
+      "pixels": [
+        1,
+        0
+      ],
+      "counts": {
+        "all_geo05": 335,
+        "sub4_geo05": 47,
+        "all_geo075": 125,
+        "sub4_geo075": 3,
+        "all_class05": 290,
+        "sub4_class05": 35,
+        "all_class075": 108,
+        "sub4_class075": 2
+      }
+    },
+    {
+      "pixels": [
+        1,
+        1
+      ],
+      "counts": {
+        "all_geo05": 319,
+        "sub4_geo05": 41,
+        "all_geo075": 112,
+        "sub4_geo075": 2,
+        "all_class05": 273,
+        "sub4_class05": 29,
+        "all_class075": 98,
+        "sub4_class075": 1
+      }
+    },
+    {
+      "pixels": [
+        1,
+        2
+      ],
+      "counts": {
+        "all_geo05": 281,
+        "sub4_geo05": 31,
+        "all_geo075": 102,
+        "sub4_geo075": 2,
+        "all_class05": 234,
+        "sub4_class05": 19,
+        "all_class075": 89,
+        "sub4_class075": 1
+      }
+    },
+    {
+      "pixels": [
+        2,
+        -2
+      ],
+      "counts": {
+        "all_geo05": 223,
+        "sub4_geo05": 10,
+        "all_geo075": 97,
+        "sub4_geo075": 1,
+        "all_class05": 179,
+        "sub4_class05": 7,
+        "all_class075": 84,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        2,
+        -1
+      ],
+      "counts": {
+        "all_geo05": 242,
+        "sub4_geo05": 15,
+        "all_geo075": 97,
+        "sub4_geo075": 0,
+        "all_class05": 199,
+        "sub4_class05": 11,
+        "all_class075": 84,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        2,
+        0
+      ],
+      "counts": {
+        "all_geo05": 257,
+        "sub4_geo05": 17,
+        "all_geo075": 97,
+        "sub4_geo075": 0,
+        "all_class05": 214,
+        "sub4_class05": 12,
+        "all_class075": 82,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        2,
+        1
+      ],
+      "counts": {
+        "all_geo05": 249,
+        "sub4_geo05": 15,
+        "all_geo075": 96,
+        "sub4_geo075": 0,
+        "all_class05": 209,
+        "sub4_class05": 10,
+        "all_class075": 83,
+        "sub4_class075": 0
+      }
+    },
+    {
+      "pixels": [
+        2,
+        2
+      ],
+      "counts": {
+        "all_geo05": 222,
+        "sub4_geo05": 10,
+        "all_geo075": 92,
+        "sub4_geo075": 0,
+        "all_class05": 183,
+        "sub4_class05": 5,
+        "all_class075": 80,
+        "sub4_class075": 0
+      }
+    }
+  ],
+  "necessary_gate_nonzero": true,
+  "scope": "Single C0 online cached geometric bounds, not cross-seed validation, initial-ref intervention, learnability, trained AP or novelty",
+  "source_sha256": "0df5c08566d8df2da93fdfce78b0e2ffe8ce8dc90e0fe79b7d6e90c749c1d586",
+  "script_sha256": "a288b06212cb4bd41655f74869ed64347904764b1bd4f7985cc30d9d88d7ed8e",
+  "protocol_sha256": "c48b07c35c24ca1477ddd64e8e5ad8dd85d79ffdfa4ef583046235523fb9d004",
+  "helper_sha256": "faec819a3309e67e6f24f8ebc04f7624f8f9708559a7845c3f2c0eefaa557813",
+  "model_forwards": 0,
+  "model_backwards": 0,
+  "optimizer_steps": 0,
+  "new_training": false,
+  "seconds": 0.34299999999348074
+}
+
+===== 115_本轮原文与既有资产边界补核.txt =====
+2026-10-21。仅记录实际阅读范围，不将搜索未命中当新颖性证明。
+
+1. DSNT，Numerical Coordinate Regression with Convolutional Neural Networks。
+原文 https://arxiv.org/html/1801.07372v2 ，本轮独立读§4–5相关方法段。归一化非负热图与固定X/Y坐标矩阵内积得到连续坐标，可直接受坐标损失；无须GT热图监督。当前四点softmax期望是其2×2局部支持的特殊读出形式。查询条件打分、输出残差和取值地址是实现差别，不是新坐标期望原理。
+
+2. SAM-DETR，CVPR2022。
+原文 https://openaccess.thecvf.com/content/CVPR2022/papers/Zhang_Accelerating_DETR_Convergence_via_Semantic-Aligned_Matching_CVPR_2022_paper.pdf ，直接open失败；通过同CVF原文的搜索索引实际读§3.2和§3.2.1式2–3/图3文字，不声称完整PDF成功归档。reference box先RoIAlign出7×7特征，再Resample生成query内容与位置，接后续cross-attention。当前末框局部P2读取只改最终中心，不重建每层query；这是真实作用位置差别，局部取样本身已有。
+
+3. Efficient On-Device Training via Gradient Filtering，CVPR2023。
+原文 https://openaccess.thecvf.com/content/CVPR2023/papers/Yang_Efficient_On-Device_Training_via_Gradient_Filtering_CVPR_2023_paper.pdf ，本轮通过CVF索引独立读§3.3及式2、§3.4部分：将activation输出梯度按r×r块取均值，结合空间求和的输入/卷积核简化反传。当前restore参数的cx/cy固定相位方向投影不是这个低通近似算法；但后向固定滤波本身不是新原理，任务特定固定投影尚需实际对应性证据。
+
+4. StarRoute-DBNet / PhaseRoute，Remote Sensing2026，18(11),1731，DOI10.3390/rs18111731。
+原文 https://www.mdpi.com/2072-4292/18/11/1731 ，本轮官方索引读§3.3含式29–34：相位descriptor经1×1生成温度缩放logits，可加Gumbel，top2 mask后softmax，四相位加权合成再3×3投影。phase明确是空间采样偏移。动态phase gate/softmax feature fusion已有直接先例；这里没有读到中心损失按Haar参数分量路由，不能因此宣布整个文献无同法。
+
+5. 查到更多已有本项目P2资产，不得当本轮新方法。
+code/p2_subspace_diagnostic12_20261011_v1/protocol.json明确旧forward干预dc16_norm与svd16_norm：只改已训restore权重，等rank16及权重Frobenius范数，不匹配特征能量/近似误差。
+outputs/p2_subspace_geometry_class12_20261011_v1/report.json本轮只读：seed2 fixed12 parent，548val/26586 COCOsmall。SVD小目标final几何存在性IoU.5 16077→16338(+261)，.75 6102→6241(+139)，nativeTP净+217/+114；DC对应几何−2647/−2459，nativeTP−2520/−2300。不是C96，不是重训，不是本轮运行，也非APs分解或跨seed证明。它应作为learned-subspace强控制的已有依据；不能把普通低秩/SVD压缩换名当新线。
+
+当前两候选的关键未决：最终框小残差有真实几何作用面，但局部采样/坐标期望已有；坐标损失—共享相位参数方向路由尚未实测，不能借用残差oracle作为监督路由证据。目标继续，先不新增训练。
+
+
+===== 117_更近梯度调控原文_GraDual核验.txt =====
+2026-10-21，本轮原生B发现，主助手随后独立取得同DOI出版社索引方法正文，非只读摘要。
+
+GraDual: Resolving the Semantic–Frequency Trade-Off via Gradient-Regulated Dual-Branch Multimodal Manipulation Detection。
+IEEE Access14,95360–95377，2026-06-22，DOI https://doi.org/10.1109/ACCESS.2026.3706107 。本轮主助手实际阅读Gradient Regulation via Scaling段、式4和其解释；直接IEEE页面可能机器人验证，未声称本地正式PDF已归档。
+
+式4对共享encoder的三种任务梯度分别给1、lambda、0，其中图像定位lambda=.8，文本grounding stop-gradient，检测保留全部。它已有根据语义—频率任务取舍预先分配梯度的明确规则；不是按每次冲突内积动态求投影。因此“forward不改、按频率/语义先验分配梯度、区别PCGrad动态冲突”这组宽泛主张不能作为本项目新颖性。
+
+当前候选仅对restore参数上普通final中心L1作cx→Hx/cy→Hy的空间相位方向投影，既非该式的整任务标量，也尚未证明更好。若自己的等范数标量/交换方向/同子空间控制复制效果，就不能拿固定空间先验这个名称回避。原文未显示此精确轴向规则，不等于已排除所有文献。
+
+下一项必须检验坐标对应是否提供简单降权或任意分流之外的真实信息；本条原文核查本身不是该候选失败或成立的实验。
+
+
+===== 上一场5条完整回答；随后B调用失败，无后续完整回答 =====
+
+第1轮 Claude · 设计与证据整合
+## 当前主张
+
+我主推原生 B 的地址修订，但要把它写成一个前向可部署的末框中心残差头。原生 C 的监督路由降为次线。理由是：103 测到的作用面是“末框中心再移动不超过 ±2 像素”。路由不改变前向，也不增加纠偏容量，只改变 restore 中 17440 个参数里中心 L1 那一部分梯度。在 Adam 逐元素归一化下，它与 103 这个作用面之间没有直接的信息路径。
+
+## 独立依据（已知事实）
+
+- **逐 query 残差有空间**：103 中 sub4 真类 IoU.5 原值 22/25，±2 残差上界 32/40，最佳同常数平移 23/25。也就是说，整体偏置只能解释 1/0，逐 query 部分多出 9/15。
+- **作用面浅**：无界中心可达 113/143，远大于 ±2 的结果，说明多数失败需要超过 2px 的位移。
+- **网格中心不是合适基准**：P3 格中心绝对替换只有 14/12。
+
+条件性推论：末框通常已经离开初始格中心，所以读取地址应跟随末框，而不是跟随 selected 格。
+
+## 可实施设计
+
+- **读取地址**：c = sg(center(b_final))。b_final 取最后一次 distance2bbox 之后的末框。
+- **相位特征**：在 reduce 输出的 16 通道 P2 图上，于 c+(±2,±2) 输入像素处双线性取四点 g_k。这四点与 pixel_unshuffle 的 c*4+(2i+j) 顺序对应，j 为横向。
+- **打分**：e_k = sg(q)ᵀ W g_k，W 为 16×256 低秩矩阵。
+- **偏移**：Δx = 2·tanh((LSE_右 − LSE_左)/2)，Δy 同理。
+- **输出**：c' = c + Δ，宽高不变。
+- **监督**：仅对匹配 query 计算 final L1/GIoU；FGL 和 FDR 表示保持原样，辅助层与 DN 不接入。推理时用 c' 替换末框中心。
+
+## 对照臂与剩余增量
+
+对照臂分四组，参数量相同：
+1. 新地址，自由 MLP，输入 [q, g_1..g_4]，输出经 2·tanh 限幅。
+2. 旧 selected 地址，同一个头。
+3. 新地址，四点全部替换为均值 ḡ。
+4. 可学习常数偏置。
+
+剩余增量我判断很薄。如果 1 ≥ 本设计，就只剩工程化的局部重采样，与 RoIAlign、SAM-DETR、级联细化同类，不能称为方法贡献。只有本设计在 tiny 上胜过 1 和 3，“共享打分的相位读出作为有界细化先验”才有一个可写的主张。
+
+## 一次能改变取舍的最低成本检查
+
+103 只用了 4 张图，逐 query 增益仅 9/15 条边，分母过小。下一步用 data08 isolated_v3 的 development00–07 已存末框、GT、匹配和 selected 索引，零前向重做 103 口径，并增加三项：
+
+1. **半径阶梯**：±1、±2、±4、±8 的上界，各自减去最佳常数。
+2. **位移需求分布**：新增可行边所需的最小 L∞ 位移直方图。
+3. **是否跨格**：新增边的 c 与 c+Δ* 是否离开旧 selected 格。
+
+事前取舍规则：
+- 逐 query 增益在扩大分母后仍两 seed 均正，才继续本线。
+- 若 2–4 档的增益不小于 0–2 档，则半径改为半步长 ±4，四点间距随之放大。
+- 若新增边中 c 多数已离开旧格，地址修订才有独占作用面。否则退回旧地址或自由 MLP，不再主张“换地址”。
+
+## 路由次线与缺口
+
+- **路由次线**：C0 的 Adam 状态已经确认，可以直接做同状态虚拟端点。分五臂：O、Px/Py、交换、rank3 差分、标量 S。但这一步与上述检查相互独立，不应作为前置条件。
+- **面板不一致**：103 用的是 BASE24 而不是 C0。若要在 C0 上读相位，需要主助手先对 C0 做少量冻结前向，生成同口径面板。
+- **文献未核**：SAM-DETR、CenterNet offset 与 Integral 的具体结构我本轮没有重读原文。
+
+是否申请训练由用户决定。
+
+第1轮 Codex A · 结构与信息路径
+我回应 **Claude 本轮“主推末框换址、路由降为次线”**。我接受把残差接在最后一次 distance2bbox 之后，也同意103不能为路由提供直接证据；但我的主推荐仍是 **restore参数上的中心分量路由**。104已使这一版本可以具体比较，下一步应直接检验其效果，不再追加资产或干预幅度门槛。
+
+Claude的前向方案有两处需要修订。第一，若输出写成 \(c'=sg(c_{\rm final})+\Delta\)，并替换原final几何损失，就会切断原中心分支的直接梯度。应当只对**读取地址**detach，输出使用 \(c'=c_{\rm final}+\Delta\)，并按图像尺寸换算像素残差。第二，任意末框中心周围的双线性四点是移动的局部采样；它们可以按左上、右上等排序，却不再严格对应pixel_unshuffle的固定四个奇偶相位。该方案的直接解释应是局部空间读出。
+
+103也不能支持“末框通常已离开旧格”：绝对替换较差，只说明该替换域不合适；即使末框仍在旧格内，也可能成立。9/15是最大匹配计数之差，并非已识别的9/15条新增边。跨格比例可描述地址变化，但不能证明旧地址缺少信息：旧特征可能通过感受野编码邻域，新地址也可能主要读到背景。因此我不接受把“多数跨格”设为换址价值的必要条件。
+
+我的具体版本保持前向不变，将restore权重视为 \([256,16,4]\)，仅改普通final中心L1：
+\[
+G_{\rm new}=G_{\rm rest}+G_{cx}P_x+G_{cy}P_y.
+\]
+宽高、GIoU、FGL、分类、辅助与DN，以及reduce和backbone均保留原梯度。这里研究的是参数梯度的方向选择；原坐标Adam之后，不能宣称更新仍严格位于投影子空间。这比我此前的输入界面投影更明确，是已经改变的判断。
+
+最低成本且能改变取舍的检查，是在已确认的C0上取两批，固定各自原匹配，从同一历史Adam状态独立构造原方向、横纵路由、标量缩放、交换方向及45度旋转的虚拟端点，交叉评估中心误差，并报告全框几何与分类变化。若标量缩放复制收益，就优先普通降权；若交换方向同样有效，就撤回坐标对应解释。无需等待第二个C96，也不要求冻结检查先证明AP。
+
+文献边界仍未解决：据共同材料，SAM-DETR已有reference-box局部RoI与显著点定位，Integral/DSNT已有坐标期望，故换址加期望读出尚未显出充分区别。路由的潜在增量则是**中心坐标分量与相位参数方向的对应训练规则**。本轮未核原文，尤其缺少与子带监督、梯度投影方法在损失分解和参数作用点上的逐项比较；我支持优先检验该具体版本，尚不把它认定为成立的创新主线。
+
+第1轮 Codex B · 数据与可实施设计
+**回应与主推荐**
+
+我回应 **Codex A“优先检验restore参数路由”**，以及 **Claude“换址四点读出及均值对照”**。A对读取地址detach、输出中心保留梯度，以及移动四点不等于固定奇偶相位的纠正，改变了我对换址方案的表述。我本轮主推参数路由：已有C0权重和历史Adam，可以直接比较具体训练规则；这只是核查优先级，尚不是创新成立的判断。
+
+已知103的末框残差上界相对原值净增10/15个sub4真类覆盖，不能解释为已经识别出10/15个可恢复GT，更不能外推到主要漏检群体。路由也不能借用这组数字作为自身作用面。
+
+**具体设计与强简单对照**
+
+采用 \(W\in\mathbb R^{256\times16\times4}\)，仅将普通final中心L1对应的restore梯度改为
+\[
+G_{\rm rest}+G_{cx}P_x+G_{cy}P_y。
+\]
+reduce、主干及其余损失保留原始梯度。这里还需区分：**原始梯度不变，不保证参数更新不变**；若全网裁剪系数发生变化，其他参数的Adam更新也可能受到影响，应沿用原生裁剪流程并记录这一变化。
+
+最强简单方案是同位置、分x/y的标量降权，分别匹配投影后的梯度范数；再用交换x/y检验坐标对应。剩余实质假设是“坐标对应的参数方向选择优于削弱中心监督”，不是去均值本身。
+
+Claude的均值对照存在退化：共享打分下，四点都换成同一均值会使四个logit相等，坐标期望恒为零。它只能充当零残差基线，不能证明差分信息有用。换址线应保留“新地址自由MLP”，并让均值输入也经可学习偏移头，才有预测能力上的公平比较。
+
+**一次能改变取舍的检查**
+
+建议在C0两批输入上，从相同历史状态构造原方向、路由、标量降权及交换方向的独立虚拟端点，交叉评估。按C0自身原预测固定“无几何覆盖”和“已有覆盖但真类预算失败”两组，以原生匹配记录逐GT中心误差变化，同时报告全GT几何与分类变化。这样能检查收益是否落在目标失败群体，而非只改善本来已定位良好的框。
+
+若降权复制收益，我会转向简单降权；若只改善已覆盖组，我会撤回漏检机制解释。无需等待第二个C96，但单检查点结果不能代表跨seed稳定性。
+
+据材料，SOEP/HMF-DEIM已有四相位融合，SAM-DETR已有局部RoI与显著点定位；换址本身的增量仍薄。路由与子带监督、梯度投影原文的具体区别尚缺核查，本轮没有独立查阅。两线的新颖性仍是未解决的分歧。
+
+第1轮 Codex C · 数学与强简单对照
+我回应 **Codex B 的“同位置标量降权是强简单对照”**，以及 **Codex A 的“加入45度旋转检验坐标对应”**。我的主推荐仍是restore参数路由。A把作用点从输入界面移到参数、B指出均值投票恒零，都改变了我的判断：前者使干预可精确定义，后者使换址线必须面对有预测能力的自由偏移头。仍未解决的是，路由收益究竟来自横纵公共子空间，还是中心坐标与方向的特定对应。
+
+具体采用 \(W\in\mathbb R^{256\times16\times4}\)，只替换普通final中心L1对该权重的梯度：
+\[
+G_{\rm new}=G_{\rm rest}+R,\qquad
+R=G_xP_x+G_yP_y.
+\]
+其余参数保留原始梯度，再执行原生裁剪与Adam。这里投影的是16384个restore权重；104的17440是整个相位模块参数量。推理前向不变，103的残差上界也不作为该训练规则的证据。
+
+**可以用一个代数分解，把核心假设直接暴露出来：**
+\[
+R=\underbrace{\tfrac12(G_x+G_y)(P_x+P_y)}_{M}
++\underbrace{\tfrac12(G_x-G_y)(P_x-P_y)}_{D}.
+\]
+交换横纵得到 \(R_{\rm swap}=M-D\)。因此，\(M\)是无需新增反传即可构造的强简单方案：中心两分量共同使用横纵子空间；只有 \(D\) 承载特定坐标对应。原先未经缩放的rank2臂是 \(2M\)，会同时改变监督强度；首检用 \(M\) 更容易解释。
+
+这也修正旋转对照：若只是把横纵基旋转45度再相加，投影和仍为 \(P_x+P_y\)，没有产生新算子。必须让 \(G_x,G_y\) 分别乘旋转后的两个rank1投影，才真正改变对应关系。另外，\(M=(R+R_{\rm swap})/2\)只是梯度恒等式，不能据此平均Adam端点。
+
+我支持一次完成C0两批交叉虚拟端点，首组为原梯度、\(R\)、\(M\)、交换、B的分量同范数缩放。各臂使用相同历史状态、原生裁剪和固定原匹配；按C0原预测固定漏检分组，报告中心误差及全框几何、分类变化。所需材料已明确，无须等待第二个C96。若缩放复制收益，优先降权；若 \(M\) 复制收益，保留共同子空间训练规则，撤回特定坐标对应解释；若 \(R\) 跨批优于两者和交换，才获得值得继续研究的方向对应证据。这不是要求先证明旧梯度有害。
+
+换址线我保留为次选：采用A修正的可导输出中心，并比较新旧地址同头、新地址自由MLP。移动四点属于局部采样，不能再称固定奇偶相位。据共同材料，SAM-DETR已有局部RoI与显著点定位，SOEP/HMF-DEIM已有四相位融合；这些尚未给出路由的直接先例，但也不能据此宣布新颖。本轮未查阅原文，剩余具体缺口是子带监督、梯度投影方法是否已有同类“损失分量—参数方向”对应规则。
+
+第2轮 Codex A · 结构与信息路径
+我回应 **Codex C“用共同子空间臂M分离坐标对应贡献”**，以及 **Codex B“原梯度不变不保证裁剪后的更新不变”**。两点都改变了我的比较方案：接受M替代未经缩放的rank2臂，并沿用完整原生裁剪与历史Adam。主推荐仍是restore参数路由；但M尚不能独自隔离“物理坐标对应”。
+
+**一个需要保留的反例**
+
+设中心两项梯度满足 \(G_x=-G_y\)，且各自在横、纵模式上的能量相等。此时M为零，分量同范数标量缩放后也会相互抵消，但
+\[
+R=G_xP_x+G_yP_y=G_x(P_x-P_y)
+\]
+可以非零，交换臂则为−R。因此，R胜过M、缩放与交换，仍可能来自**分开处理两个相互抵消的损失分量**，未必说明横坐标恰好应该对应水平相位。这是构造反例，并非当前C的实测现象；它限制机制解释，不否定该训练规则的价值。
+
+**我的具体修订**
+
+保留一次比较中的45度臂：
+\[
+u=(h_x+h_y)/\sqrt2,\quad v=(h_x-h_y)/\sqrt2,\qquad
+R_{45}=G_xuu^\top+G_yvv^\top .
+\]
+它保持同一横纵总子空间，却改变两个损失分量各自使用的方向。C关于“旋转后只求投影和不会产生新算子”的纠正成立；这里必须分别作用于两项梯度。
+
+因此首组固定为原梯度、R、M、交换、标量缩放、\(R_{45}\)，不再追加前置资格检查。已有梯度分解即可构造六臂，新增成本主要是一个独立端点评估。若R与旋转臂相当，我会把解释改为分量分流或方向限制；若R更好，才增加对真实空间轴对应的支持，仍不等于训练收益。
+
+**证据与贡献边界**
+
+104已确认可用资产；实际干预对象是16384个restore权重。它们在全图共享，因此不能描述成“把某个漏检GT的梯度送到其水平边缘”。可争取的贡献是损失分量与共享相位参数方向的对应规则。尚缺六臂结果，以及近邻原文是否已有同类对应规则的逐项比较；本轮未查阅原文。换址线仍有明确前向作用点，但局部采样本身与既有方法的区别尚不足，这是我仍保留的分歧。

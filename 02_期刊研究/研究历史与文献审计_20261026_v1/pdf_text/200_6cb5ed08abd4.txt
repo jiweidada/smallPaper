@@ -1,0 +1,170 @@
+Extreme Amodal Face Detection
+Changlin Song1 Yunzhong Hou1 Michael Randall Barnes2 Rahul Shome1 Dylan Campbell1
+1Australian National University 2University of Oslo
+{changlin.song, yunzhong.hou, rahul.shome, dylan.campbell}@anu.edu.au
+michaelrandall.barnes@gmail.com
+(a) Input image
+ (b) Extreme amodal face detection
+ (c) Ground-truth annotations
+Figure 1. Extreme amodal face detection. This task predicts, given an input image, the likelihood of faces at all locations within an
+expanded field-of-view frame. Specifically, a face presence heatmap and bounding boxes are estimated both inside and outside the image.
+In the example pictured, there is direct visual evidence of three faces (one in-frame, one partially in-frame, and one with a partially-observed
+correlate—the person’s body), and two more faces without direct evidence but with a non-zero conditional probability.
+Abstract
+Extreme amodal detection is the task of inferring the 2D
+location of objects that are not fully visible in the input im-
+age but are visible within an expanded field-of-view. This
+differs from amodal detection, where the object is partially
+visible within the input image, but is occluded. In this pa-
+per, we consider the sub-problem of face detection, since
+this class provides motivating applications involving safety
+and privacy, but do not tailor our method specifically to this
+class. Existing approaches rely on image sequences so that
+missing detections may be interpolated from surrounding
+frames or make use of generative models to sample possible
+completions. In contrast, we consider the single-image task
+and propose a more efficient, sample-free approach that
+makes use of the contextual cues from the image to infer
+the presence of unseen faces. We design a heatmap-based
+extreme amodal object detector that addresses the problem
+of efficiently predicting a lot (the out-of-frame region) from
+a little (the image) with a selective coarse-to-fine decoder.
+Our method establishes strong results for this new task, even
+outperforming less efficient generative approaches.
+1. Introduction
+Object detection has been a central problem in computer
+vision for decades [30, 31], with significant advances in
+closed-set detection of predefined categories [31] and open-
+set detection that generalizes beyond fixed taxonomies [30].
+However, existing detectors are fundamentally constrained
+to objects visible within the input frame. This restricts their
+applicability in scenarios that require extrapolating beyond
+what is directly observable.
+We take a step toward this broader goal by introducing
+the task ofextreme amodal detection, where the objective
+is to detect and localize objects that may lie partially or en-
+tirely outside the visible field-of-view. While our design
+is applicable to the general task, in this paper we focus on
+the sub-problem of extreme amodalfacedetection, which
+is especially well-motivated due to its relevance to safety-
+critical (e.g., anticipating pedestrians), accessibility-related
+(e.g., assisting those with visual impairments [4]), and
+privacy-sensitive applications. As shown in Figure 1, we
+categorize extreme amodal faces into (1)truncated faces,
+which are partially within the field-of-view; and (2)out-
+side faces, where the face is completely outside the field-of-
+view. The latter is subdivided into two cases: (2a)with evi-
+dence, where direct visual evidence, such as a visible body,
+is observed; and (2b)without evidence, where the model
+must rely on indirect contextual cues.
+The impact on privacy is especially relevant, and worth
+elaborating as it explains our focus on human faces in par-
+ticular. In brief, extreme amodal face detection can improve
+privacy by enabling computer vision systems to actively
+arXiv:2510.06791v1  [cs.CV]  8 Oct 2025
+
+---PAGE---
+
+avoid capturing sensitive information, i.e., human faces.
+Cameras in public spaces pose inherent privacy risks, and
+cameras that move in public spaces (e.g., on self-driving
+cars, drones, or other semi-autonomous robotic systems)
+exacerbate those risks. Existing solutions often aim to se-
+cure data during post-processing, for example, by detecting
+and blurring faces. This is not a robust strategy, however, as
+raw data is susceptible to theft [6, 7, 19], corporate misuse
+[14, 20, 25], or legally enforced retrieval [3, 24]. More fun-
+damentally, this strategy overlooks data collection as a site
+of intervention, and that the best privacy-preserving strategy
+is often to not collect sensitive data at all. Extreme amodal
+face detection can serve this end. If deployed successfully,
+it can limit the need for actual surveillance, preserving pri-
+vacy without sacrificing utility.
+Prior work provides only limited tools for this task.
+Tracking-based methods [9] leverage temporal continuity in
+video to recover partially unseen objects, but do not address
+the case of a single static frame. Another line of work re-
+lies on generative pipelines that outpaint the extended frame
+using diffusion-based models [2, 15], followed by conven-
+tional detectors. While straightforward, these approaches
+have several drawbacks: (a) they depend heavily on addi-
+tional prompts (e.g., text or masks) whose quality can sig-
+nificantly affect the results; (b) diffusion models are com-
+putationally expensive and slow at inference time, mak-
+ing them ill-suited for time-critical detection scenarios; and
+(c) these pipelines are not end-to-end trainable, limiting
+their ability to adapt to new detection tasks. In contrast,
+humans can readily infer the existence and location of un-
+seen objects based on prior knowledge, contextual cues, or
+reasoning from visible body parts.
+The extreme amodal setting introduces three unique
+challenges. First, the extended region can, in principle, be
+arbitrarily larger than the input image. In our setup, we re-
+strict this extension to8×the input size, which nonethe-
+less requires the long-distance extrapolation of informa-
+tion. Second, naively querying the entire extended region
+is computationally prohibitive, requiring up to8×more to-
+kens and wasting resources on regions that often contain
+no objects. Third, the underlying true conditional distribu-
+tion cannot be accessed; we only have a single realization
+for any input image. This poses a challenge for evalua-
+tion, where we can only measure success indirectly using
+the ground-truth realization, as discussed in Sec. 6.
+To address the first two issues, we propose acoarse-to-
+fine selective decoderthat makes good use of limited in-
+formation while remaining compute-efficient. Our decoder
+first queries the extended area at low resolution, dividing
+it into candidate regions. It then selectively refines only a
+subset of promising candidates to match the resolution of
+the input image. This design reduces the number of tokens
+by lowering the resolution at the initial stage and by refining
+only the most relevant candidates. As a result, our approach
+achieves both efficiency and strong detection performance.
+Our contributions are threefold. We
+1. introduce extreme amodal face detection, the task of de-
+tecting and localizing faces partially or entirely outside
+the visible field-of-view;
+2. construct a benchmark dataset derived from COCO [13]
+images, enabling systematic evaluation for faces inside
+the image, outside the image, and truncated by the image
+frame; and
+3. design an efficient and effective extreme amodal detector
+with a novel coarse-to-fine selective decoder.
+2. Related Work
+Existing works related to our task can be broadly grouped
+into two categories:tracking-based approaches, which
+leverage temporal information across multiple frames, and
+generative-based approaches, which rely on large gener-
+ative models conditioned on additional prompts such as
+masks or text.
+Tracking-based methods.OccludTrack [21] introduced
+the problem of tracking objects even when fully invisi-
+ble, either due to occlusion or containment. Their dataset
+was collected via simulation and manual labeling. Co-
+tracker [10] extended point tracking by jointly tracking all
+points, demonstrating strong robustness in fully occluded
+and out-of-frame scenarios. TAO-amodal [9] expanded
+bounding boxes of pre-trained trackers beyond the visible
+frame by exploiting temporal consistency. ObjectRemem-
+ber [16] lifted object points into 3D coordinates, storing
+them in memory to persist objects even when they leave the
+frame. While these methods can estimate truncated or out-
+side objects, they inherently require temporal cues across
+multiple frames. In contrast, our work investigates how to
+detect such objects from asinglestatic frame.
+Generative-based methods.A second line of work uses
+generative models to complete or outpaint missing re-
+gions. In amodal completion, Pix2Gestalt [15] employed
+SAM [11] to obtain masks and fine-tuned a diffusion model
+for part-whole completion. PD-MC [26] used grounded-
+SAM [18] with text prompts to automatically generate
+masks, then progressively completed objects. OpenACC [1]
+further incorporated both masks and background context to
+reason about text prompts for flexible completion. These
+methods, however, primarily address the occlusion problem
+but do not necessarily generalize well to cases where objects
+of interest are truncated or completely invisible. However,
+our method can infer completely invisible objects.
+For outpainting, PQ-Diff [28] trained a diffusion model
+with positional queries for arbitrary-size extrapolation,
+though performance degrades in complex scenes. VIP [27]

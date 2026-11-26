@@ -1,0 +1,17 @@
+2026-10-21 America/Los_Angeles。继71之后新增的实际原文阅读范围。这里保存自己的核对笔记，不伪称本地PDF SHA，也不把摘要当方法全文。
+
+1. Dynamic Scale Training for Object Detection（旧名Stitcher）
+当前原文为arXiv2004.12432v2，2021-03-14，https://arxiv.org/pdf/2004.12432 。主助手已读§3.2.1/式1、§3.2.2/图3附近文字：前次小目标loss比例r_s<=tau时，下一次用缩小后拼接输入；否则普通输入。空间拼图保持输出尺寸并制造更小目标，另有batch维版本。没有按当前4源尾部计数联合分配不同s，也不等于当前无训练结果证明训练迁移。不能再将训练反馈决定是否Mosaic说成新原理。
+
+2. NaViT/Patch n’ Pack，NeurIPS2023
+原文 https://papers.nips.cc/paper_files/paper/2023/file/06ea400b9b7cfce6428ec27a371632eb-Paper-Conference.pdf 。主助手实际读§2.1及Fig2附近文字：按输入图像ID屏蔽跨样本self-attention，逐图masked pooling，填充另屏蔽。所作用的是已有固定图像身份的patch token。没有在所读段落给出当前DETR query随着reference跨源重判身份的机制；这是真实操作差别，不自动成为贡献。
+
+3. Context-Aware Token Selection and Packing for Enhanced Vision Transformer（SPA/SPT）
+https://arxiv.org/html/2410.23608v2 。主助手已读Token Packing段、式4–9和图3b文字；按GT导出的selection标签训练gating，选不同数量token后打包，按原图ID mask，仅同图互看，减少padding；文中检测实验用Mask R-CNN。因此检测中的原图身份packed-attention已有直接先例。
+
+4. Variable-Granularity Tokenization for High-Resolution Object Detection（VGTok）
+https://arxiv.org/html/2608.28706v1 ，2026-08-27预印本。主助手已独立读§3.3及§4.1：不同颗粒token在相同嵌入空间打包，window层按window、global层按image作block-diagonal attention，最后scatter；Co-DETR/EVA02 encoder。所读§3.3未显示当前decoder query源预算或GT资格联合匹配。不能把encoder packing说成已经逐项覆盖decoder，也不能将mask搬到decoder就算创新。本次没有复现实验，不照抄摘要SOTA作本项目结论。
+
+5. 原生Astra B补充读到UP-DETR式3的patch组query隔离，以及GroupDETR §3.1式5–7的多组query分别匹配全GT；主助手尚未在本阶段独立核读两段，所以后续若需要逐式差别应继续读原文，不能将此转述说成本人全文已核。
+
+当前结论：来源自注意力83–85仅是既有隔离原则在当前Mosaic decoder的诊断适配，且未过事前全部指标条件。对新专属/共享query候选，真正待比的是总query预算、每个GT监督出现次数、资格约束和来源/几何归属，而不是有无mask这个关键词。

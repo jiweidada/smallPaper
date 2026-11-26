@@ -1,0 +1,108 @@
+Academic Editor: Fa-Ming Fang
+Received: 9 July 2026
+Revised: 26 August 2026
+Accepted: 2 September 2026
+Published: 4 September 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+DGSRef: Decoupled Geometric-Semantic Refinement Network
+for High-Resolution Remote Sensing Segmentation
+Junlu Wang 1
+ , Xiaorun Li 1
+ , Shuhan Chen 1,*
+ and Chaoqun Xia 2
+1 College of Electrical Engineering, Zhejiang University, Hangzhou 310027, China;
+junluwang@zju.edu.cn (J.W.); lxr@zju.edu.cn (X.L.)
+2 College of Computer Science and Artificial Intelligence, Wenzhou University, Wenzhou 325035, China;
+chaoqun_xia@wzu.edu.cn
+* Correspondence: 11410057@zju.edu.cn
+Highlights
+What are the main findings?
+• DGSRef decouples coarse remote sensing segmentation refinement into geometric
+alignment and semantic residual correction.
+• The geometric alignment stage predicts a displacement field and transports coarse
+logits in the output space for boundary-sensitive refinement.
+• Experiments on ISPRS Vaihingen, ISPRS Potsdam, and LoveDA show consistent
+overall accuracy improvements with limited computational overhead.
+What are the implications of the main findings?
+• Refining coarse predictions can improve high-resolution remote sensing segmentation
+without redesigning heavier decoders.
+• Explicit separation of spatial boundary correction and semantic residual correction
+provides a flexible refinement paradigm for existing segmentation architectures.
+Abstract
+High-resolution remote sensing semantic segmentation is essential for land-cover mapping,
+urban monitoring, and object-level geospatial analysis, but accurate prediction remains dif-
+ficult because remote sensing images often contain complex backgrounds, shadows, weak
+object contrast, and complex texture variations. Moreover, spatial details lost during fea-
+ture downsampling cannot be fully recovered by subsequent decoding. As a result, coarse
+predictions usually contain two coupled residual problems: spatial boundary displacement
+and local semantic inconsistency. To address these problems, we propose DGSRef (De-
+coupled Geometric-Semantic Refinement Network), a lightweight attachable refiner for
+improving coarse predictions from existing segmentation models. DGSRef treats coarse
+logits as semantic priors and refines them through two decoupled stages. In the geometric
+alignment stage, a displacement field is predicted to warp coarse logits in the output space,
+modeling boundary correction as spatial transport rather than direct reclassification. A
+Multi-Scale Semantic-Guided Structural Difference (MSGSD) module further provides
+semantic-guided structural cues for displacement estimation. In the semantic residual
+stage, gated residual logits are predicted to correct remaining local semantic inconsistencies
+without globally overwriting the aligned prediction. Experiments on ISPRS Vaihingen,
+ISPRS Potsdam, and LoveDA show that DGSRef improves diverse segmentation architec-
+tures with limited additional computation and parameters, confirming its effectiveness as a
+lightweight decoupled refinement framework.
+Remote Sens. 2026, 18, 3011 https://doi.org/10.3390/rs18173011
+
+---PAGE---
+
+Remote Sens. 2026, 18, 3011 2 of 22
+Keywords: remote sensing; semantic segmentation; boundary refinement; flow-based
+alignment; semantic refinement
+1. Introduction
+High-resolution remote sensing semantic segmentation assigns a semantic label to
+each image pixel and supports applications such as land-cover mapping, urban monitoring,
+infrastructure extraction, and geospatial analysis [ 1–3]. In these scenarios, region-level
+recognition alone is often insufficient. Small boundary displacements may change object
+shape, connectivity, and area estimation, especially for buildings, roads, and vehicles.
+Therefore, an effective segmentation model should preserve semantic consistency while
+accurately localizing fine-scale object boundaries.
+High-resolution remote sensing images contain imaging conditions and appearance
+patterns that differ substantially from natural-scene images. Building and impervious-
+surface regions may have similar spectral or texture patterns, shadows may weaken object
+contrast, and roof or vegetation textures may create strong but non-semantic edges. Modern
+CNN- and Transformer-based segmentation networks usually rely on feature downsam-
+pling to enlarge the receptive field, reduce memory consumption, and make high-resolution
+image processing computationally tractable [ 4–7]. However, downsampling inevitably
+discards part of the fine boundary information, while decoder upsampling and feature
+fusion cannot fully recover the lost spatial details. The resulting coarse predictions often
+exhibit two coupled residual problems. One is boundary displacement, where the predicted
+contour is spatially shifted from the true object boundary. The other is local semantic incon-
+sistency, where pixels around weakly contrasted boundaries, shadows, or texture-confused
+regions show unstable category responses. These two problems are related but require
+different operations: boundary displacement should be corrected by moving predictions
+to more appropriate spatial locations, whereas local semantic inconsistency should be
+corrected by adjusting category evidence.
+Existing methods are closely related to this problem from three perspectives. First,
+remote sensing segmentation networks improve multi-scale context modeling and feature
+fusion to produce stronger coarse predictions, but residual boundary and local semantic
+errors may still remain. Second, boundary-aware, point-based, and cascaded refinement
+methods enhance local prediction quality by using edge supervision, uncertain-point
+reclassification, or repeated refinement. These methods can improve both boundary and
+local classification accuracy, but they generally formulate refinement as local reclassification,
+iterative prediction refinement, or feature-level decoupling rather than explicitly separating
+spatial displacement correction from semantic residual correction. Third, feature-alignment
+methods such as SFNet [8] reduce spatial mismatch in intermediate representations, but
+their correction is mainly performed in the feature space before final decoding. These
+observations motivate us to refine the final coarse logits directly and to separate geometric
+alignment from semantic residual correction.
+A key limitation of a unified refinement design is that spatial correction and semantic
+correction are optimized through the same prediction update. Such an update must simul-
+taneously decide where a prediction should move and which category it should represent.
+However, the two operations have different targets. Geometric correction modifies spatial
+correspondence and should mainly address boundary displacement, whereas semantic cor-
+rection modifies category evidence and should mainly address local semantic inconsistency.
+When both targets are mixed, the model may over-correct reliable interior regions, weaken
+https://doi.org/10.3390/rs18173011

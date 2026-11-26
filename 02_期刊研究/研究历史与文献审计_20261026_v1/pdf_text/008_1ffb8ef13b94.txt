@@ -1,0 +1,274 @@
+1
+Gaussian Combined Distance: A Generic Metric for
+Object Detection
+Ziqian Guan ∗, Xieyi Fu ∗, Pengjun Huang ∗, Hengyuan Zhang ∗, Hubin Du ∗,
+Yongtao Liu∗, Yinglin Wang†, Qang Ma †
+∗North China Institute of Science and Technology
+†Hegang Industrial Technology Service Co., Ltd
+Abstract—In object detection, a well-defined similarity metric
+can significantly enhance model performance. Currently, the IoU-
+based similarity metric is the most commonly preferred choice
+for detectors. However, detectors using IoU as a similarity metric
+often perform poorly when detecting small objects because of
+their sensitivity to minor positional deviations. To address this
+issue, recent studies have proposed the Wasserstein Distance as
+an alternative to IoU for measuring the similarity of Gaussian-
+distributed bounding boxes. However, we have observed that
+the Wasserstein Distance lacks scale invariance, which negatively
+impacts the model’s generalization capability. Additionally, when
+used as a loss function, its independent optimization of the
+center attributes leads to slow model convergence and unsat-
+isfactory detection precision. To address these challenges, we
+introduce the Gaussian Combined Distance (GCD). Through
+analytical examination of GCD and its gradient, we demon-
+strate that GCD not only possesses scale invariance but also
+facilitates joint optimization, which enhances model localization
+performance. Extensive experiments on the AI-TOD-v2 dataset
+for tiny object detection show that GCD, as a bounding box
+regression loss function and label assignment metric, achieves
+state-of-the-art performance across various detectors. We further
+validated the generalizability of GCD on the MS-COCO-2017 and
+Visdrone-2019 datasets, where it outperforms the Wasserstein
+Distance across diverse scales of datasets. Code is available at
+https://github.com/MArKkwanGuan/mmdet-GCD.
+Index Terms—Tiny Object Detection, Generic Metric.
+I. INTRODUCTION
+In recent years, deep neural networks have driven signifi-
+cant advancements in computer vision, particularly in object
+detection. However, most research has focused on standard-
+sized objects, overlooking the specific challenges associated
+with detecting small objects. These challenges are crucial in
+many practical applications, including aerial photography[1],
+large-scale surveillance, and maritime rescue[2]. Small objects
+in the AI-TOD[3] dataset, typically smaller than16×16
+pixels, pose significant challenges for feature extraction and
+increase the likelihood of detection errors. Research on small
+object detection has primarily focused on multi-scale feature
+learning[4][5], data augmentation techniques[6][7], and the
+design of backbone networks[8][9] incorporating attention
+mechanisms. Although these strategies have improved de-
+tection performance, they often require higher computational
+Ziqian Guan, Xieyi Fu, Pengjun Huang, Hengyuan Zhang, Hubin Du, and
+Yongtao Liu are with the North China Institute of Science and Technology;
+Yinglin Wang and Qang Ma are with Hegang Industrial Technology Service
+Co., Ltd.
+costs to enhance accuracy and may compromise the detection
+of standard-sized objects.
+Assessing bounding box similarity is vital for object detec-
+tion models. Traditional similarity metrics, such as L n-norms
+or Intersection over Union (IoU)[10], are used. The latter has
+become more favored in recent detection methods due to its
+ability to consider the interrelation between bounding boxes,
+despite the critical flaw that IoU fails to provide sufficient
+gradients when there is no overlap. This issue has been
+partially addressed by variants such as GIoU[11], DIoU[12],
+and EIoU[13]. However, small positional differences in small
+objects can significantly reduce IoU, impeding model opti-
+mization and resulting in slow convergence and inaccurate po-
+sitioning. To overcome these issues, the Wasserstein Distance
+has been introduced as an alternative measure of bounding
+box similarity. Its primary advantage is its ability to assess
+distribution similarity, maintaining effectiveness even without
+overlap.
+Despite the advantages of the Wasserstein Distance[14], it
+is not scale invariant, which is a drawback for datasets with
+a wide range of object sizes. To address this issue, the Nor-
+malized Wasserstein Distance (NWD)[15][16] was proposed,
+incorporating a hyperparameter C that represents the average
+size of objects in the dataset. However, NWD’s performance
+remains inconsistent across various general datasets. There-
+fore, we propose the Gaussian Combined Distance (GCD), a
+universal similarity metric. Due to its scale invariance, GCD
+improves the accuracy of detecting small targets while main-
+taining comparable performance on standard-sized datasets.
+The analysis of GCD and its gradients reveals its joint op-
+timization properties during the learning process, leading to
+superior detection performance, particularly for small targets.
+The main highlights of this paper include:
+•We highlighted the absence of robust scale invariance in
+NWD and showed that its inherent feature of indepen-
+dently optimizing centrality results in reduced detection
+accuracy. Consequently, we proposed GCD as a metric
+for gauging the similarity between two bounding boxes.
+•GCD possesses scale invariance and includes a jointly
+optimizing characteristic, significantly improving the pre-
+cision of small object detection.
+•As both a loss function and a label assignment metric,
+GCD significantly enhances the detection of small objects
+in bounding box regression-based detectors. It achieved
+state-of-the-art (SOTA) performance on the AI-TOD-
+arXiv:2510.27649v1  [cs.CV]  31 Oct 2025
+
+---PAGE---
+
+2
+v2[15] dataset, while maintaining robust generalization
+across diverse datasets.
+II. RELATEDWORK
+A. Small Object Detection
+Recent studies have primarily focused on leveraging con-
+textual information and attention mechanisms to enhance
+the detection capabilities of models for small objects[5][17].
+Multiscale learning, validated by prior research, effectively
+integrates features across various scales[5], thereby improv-
+ing target detection performance. Feature enhancement-based
+detectors aim to augment the feature representations of small
+objects[18][19], often employing super-resolution techniques
+or generative adversarial networks (GANs)[6][7] for this en-
+hancement. Compared to our method, these approaches incur
+additional computational costs.
+B. Similarity Metric in Object Detection
+To mitigate the sensitivity of the L 2-norm to the size
+of bounding boxes, YOLOv1[20] introduced a square root
+transformation of bounding box dimensions to lessen the
+impact of larger boxes, while YOLOv3[21] incorporated a
+penalty term to reduce their dominance. Fast R-CNN[22] and
+Faster R-CNN[23] adopted the Smooth-L 1[22] loss function,
+which is less sensitive to outliers compared to the L 2-norm.
+Unlike Intersection over Union (IoU), which overlooks the
+geometric correlation between bounding boxes, leading to
+suboptimal performance, GIoU[11] introduced a penalty term
+constructed from the smallest enclosing box to address the
+issue of gradient vanishing when two bounding boxes do not
+overlap. DIoU[12] employs a distance-based penalty term,
+and CIoU[12] builds on DIoU[12] by incorporating an aspect
+ratio measure. WD[15] and KLD[24] were proposed based on
+Gaussian Bounding Boxes (GBBs), achieving superior results
+on TOD compared to IoU-based methods. However, they
+failed to demonstrate consistent performance across datasets
+of varying scales and even exhibited a certain degree of
+degradation on standard-scale datasets.
+III. METHODOLOGY
+A. Gaussian Distribution Modeling
+The conventional representation of bounding boxes utilizes
+an axis-aligned rectangle, denoted by (x,y,w,h), where (x,y)
+represent the center coordinates, andwandhdenote the width
+and height of the bounding box, respectively. For small objects,
+bounding boxes often encompass background pixels because
+real-world objects are seldom perfect rectangles. Within these
+bounding boxes, foreground pixels are concentrated near the
+center, while background pixels tend to be located towards the
+edges. To more accurately represent the varying significance
+of pixels within the bounding box, it is advantageous to
+model the bounding box as a two-dimensional (2D) Gaussian
+distribution, in which central pixels carry the highest weight,
+and the importance of pixels decreases radially from the center
+to the periphery. Specifically, a two-dimensional Gaussian
+distribution, denoted asN(µ,Σ), whereµandΣrepresent
+the mean vector and covariance matrix, respectively, can be
+expressed as:
+µ=
+x
+y
+
+,Σ=
+"
+w2
+4 0
+0 h2
+4
+#
+(1)
+Therefore, the bounding box is represented by a Gaussian
+distribution.
+B. Gaussian Combined Distance
+Universal metrics employed in object detection generally
+must satisfy the following criteria:
+•Criterion 1:Affine invariance and symmetry.
+•Criterion 2:Differentiability, avoiding vanishing or ex-
+ploding gradients.
+•Criterion 3:Smooth boundary processing.
+Therefore, we propose constructing the GCD to simultane-
+ously satisfy all these specified criteria.
+The GCD betweenX p andX t is:
+D2
+gc (Np,N t) = (µp −µ t)⊤2Σ−1
+p (µp −µ t)
++ (µt −µ p)⊤2Σ−1
+t (µt −µ p)
++ 2(Σ−1/2
+p )⊤∥Σ1/2
+p −Σ 1/2
+t ∥2
+F (Σ−1/2
+p )
++ 2(Σ−1/2
+t )⊤∥Σ1/2
+t −Σ 1/2
+p ∥2
+F (Σ−1/2
+t )
+(2)
+where∥·∥ F is the Frobenius norm.
+The Eq. 2 can be simplified as:
+D2
+gc (Np,N t) = 1
+2
+(xp −x t)2
+w2p
++ (yp −y t)2
+h2p
+
++ 1
+2
+(wp −w t)2
+4w2p
++ (hp −h t)2
+4h2p
+
++ 1
+2
+(xt −x p)2
+w2
+t
++ (yt −y p)2
+h2
+t
+
++ 1
+2
+(wt −w p)2
+4w2
+t
++ (ht −h p)2
+4h2
+t
+
+(3)
+The GCD satisfies the symmetry property. We provide the
+following proof to demonstrate affine invariance:
+For a full-rank matrixM,|M| ̸=0, we haveD 2
+gc(Np||Nt)
+=D 2
+gc(Np′ ||Nt′ ),X p′ =MX p ∼ N p(Mµp,MΣ pM⊤),X t′
+=MX t ∼ N t(Mµt,MΣ tM⊤), denoted asN p′ andN t′ .
+For the center distance term ofD 2
+gc(Nt′ ||Np′ ), the expres-
+sion as follows:
+(µp −µ t)⊤M⊤(M⊤)−12Σ−1
+p M−1M(µp −µ t)
+= (µp −µ t)⊤2Σ−1
+p (µp −µ t) (4)
+For the coupling term ofD 2
+gc(Nt′ ||Np′ ), the expression as
+follows:
+2(M−1/2)⊤(Σ−1/2
+p )⊤(M−1/2)(M1/2)∥Σ1/2
+p
+−Σ 1/2
+t ∥2
+F (M1/2)⊤(M−1/2)⊤(Σ−1/2
+p )(M−1/2)
+= 2(Σ−1/2
+p )⊤∥Σ1/2
+p −Σ 1/2
+t ∥2
+F (Σ−1/2
+p )
+(5)
+It is evident that the subsequent terms of the GCD possess
+a similar structure. By employing a comparable simplification
+process, we obtain:
+D2
+gc(Np′ ||Nt′ ) =D 2
+gc(Np||Nt) (6)

@@ -1,0 +1,372 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>DEIM-S 结构改点地图</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: engineering schematic on top, then a reading column of findings and candidate cards, filterable by stage. */
+:root{
+  --bg:#F4F6F8; --panel:#FFFFFF; --fg:#18212B; --muted:#5A6672; --line:#C9D1D9;
+  --ink:#1D5E7A; --ink-soft:#E3EEF3; --hot:#B5651D; --hot-soft:#F7E9DA;
+  --ok:#2F7D4F; --ok-soft:#E2F1E8; --warn:#9A6B00; --warn-soft:#F6EDD3; --sat:#6B6F76; --sat-soft:#E9EAEC;
+  --f-display:"Noto Serif SC","Songti SC","SimSun",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono","Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171D; --panel:#1A2129; --fg:#E4E9EE; --muted:#9AA6B2; --line:#33404C;
+  --ink:#7FC0DA; --ink-soft:#1E3440; --hot:#E6A060; --hot-soft:#3A2A1B;
+  --ok:#7CC79A; --ok-soft:#1D3227; --warn:#E0BC5C; --warn-soft:#352C14; --sat:#A3A8AF; --sat-soft:#262B31; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171D; --panel:#1A2129; --fg:#E4E9EE; --muted:#9AA6B2; --line:#33404C;
+  --ink:#7FC0DA; --ink-soft:#1E3440; --hot:#E6A060; --hot-soft:#3A2A1B;
+  --ok:#7CC79A; --ok-soft:#1D3227; --warn:#E0BC5C; --warn-soft:#352C14; --sat:#A3A8AF; --sat-soft:#262B31; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:grid;gap:36px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:28px} h2{font-size:21px} h3{font-size:16.5px}
+p{margin:0} .muted{color:var(--muted)}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--ink);text-transform:uppercase}
+header{display:grid;gap:10px}
+header p{max-width:70ch}
+section{display:grid;gap:14px}
+.read{max-width:78ch}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.diagram svg{display:block;min-width:960px;width:100%;height:auto}
+svg .box{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+svg .box.bb{fill:var(--ink-soft);stroke:var(--ink)}
+svg .box.dim{stroke-dasharray:4 3}
+svg .t{fill:var(--fg);font-family:var(--f-body);font-size:12.5px}
+svg .s{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+svg .col{fill:var(--ink);font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em}
+svg .ar{stroke:var(--muted);stroke-width:1.3;fill:none}
+svg .ar2{stroke:var(--muted);stroke-width:1.1;fill:none;stroke-dasharray:3 3}
+svg .hs circle{fill:var(--hot);stroke:var(--panel);stroke-width:2}
+svg .hs text{fill:var(--panel);font-family:var(--f-mono);font-size:10.5px;font-weight:600}
+svg .hs:hover circle,svg .hs:focus circle{fill:var(--ink)}
+svg .arrowhead{fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);padding:10px 14px;border-top:1px solid var(--line)}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--hot);vertical-align:-2px;margin-right:6px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:13px}
+td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.facts{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.fact{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:6px;min-width:0}
+.fact .k{font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.filters{display:flex;flex-wrap:wrap;gap:8px}
+.filters button{font:inherit;font-size:13.5px;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.filters button:focus-visible,.copy:focus-visible,svg a:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.cards{display:grid;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:grid;gap:12px;scroll-margin-top:16px;min-width:0}
+.card:target{border-color:var(--hot);box-shadow:0 0 0 2px var(--hot-soft)}
+.chead{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px}
+.tag{font-family:var(--f-mono);font-size:12px;padding:1px 8px;border-radius:6px;background:var(--hot);color:var(--panel)}
+.pill{font-size:12px;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.p-first{background:var(--ok-soft);color:var(--ok)}
+.p-struct{background:var(--ink-soft);color:var(--ink)}
+.p-train{background:var(--warn-soft);color:var(--warn)}
+.p-sat{background:var(--sat-soft);color:var(--sat)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 22px}
+.f{display:grid;gap:2px;min-width:0}
+.f b{font-weight:500;font-size:12.5px;color:var(--muted);letter-spacing:.02em}
+.f p{font-size:14.5px}
+.steps{display:grid;gap:10px;counter-reset:s;padding:0;margin:0;list-style:none}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.steps li::before{content:counter(s);font-family:var(--f-mono);font-weight:600;color:var(--ink);font-size:18px}
+.ds{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px}
+.ds pre{margin:0;white-space:pre-wrap;font-family:var(--f-body);font-size:14px;line-height:1.7}
+.copy{justify-self:start;font:inherit;font-size:13.5px;padding:5px 14px;border-radius:8px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+.src{font-size:13.5px;display:grid;gap:4px}
+.src a{color:var(--ink)}
+@media (max-width:560px){h1{font-size:23px}.wrap{padding-inline:16px}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">VisDrone2019-DET · DEIM-D-FINE-S · HGNetv2-B0</div>
+  <h1>DEIM-S 结构改点地图</h1>
+  <p class="muted">依据 D 盘 DEIM 资料库源码（<code>hgnetv2.py</code>、<code>hybrid_encoder.py</code>、<code>dfine_decoder.py</code>、<code>dfine_utils.py</code>、S 与 VisDrone 配置）逐段核对。图中橙色圆点是可以改的位置，点击会跳到对应的候选说明。所有候选都还没有跑过任何实验。</p>
+</header>
+
+<section aria-labelledby="h-map">
+  <h2 id="h-map">一张图看全网络（640 输入，每个视图都走一遍）</h2>
+  <div class="diagram">
+  <svg viewBox="0 0 1180 600" role="img" aria-label="DEIM-D-FINE-S 网络结构，从骨干、编码器、查询选择到三层解码器和评测">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+    <text class="col" x="20" y="22">骨干 HGNetv2-B0</text>
+    <text class="col" x="300" y="22">编码器 HybridEncoder</text>
+    <text class="col" x="610" y="22">查询选择</text>
+    <text class="col" x="900" y="22">解码器 ×3 层</text>
+
+    <!-- backbone -->
+    <rect class="box" x="20" y="36" width="230" height="44" rx="6"/><text class="t" x="32" y="56">输入</text><text class="s" x="32" y="72">3×640×640</text>
+    <rect class="box" x="20" y="96" width="230" height="44" rx="6"/><text class="t" x="32" y="116">Stem：两次 stride 2</text><text class="s" x="32" y="132">16×160×160 · 步长 4</text>
+    <rect class="box bb" x="20" y="156" width="230" height="44" rx="6"/><text class="t" x="32" y="176">Stage1 → C2（不下采样）</text><text class="s" x="32" y="192">64×160² · s4 · 不进编码器</text>
+    <rect class="box" x="20" y="216" width="230" height="44" rx="6"/><text class="t" x="32" y="236">Stage2 → C3（DW3/s2）</text><text class="s" x="32" y="252">256×80² · s8</text>
+    <rect class="box" x="20" y="276" width="230" height="44" rx="6"/><text class="t" x="32" y="296">Stage3 → C4（DW3/s2）</text><text class="s" x="32" y="312">512×40² · s16</text>
+    <rect class="box" x="20" y="336" width="230" height="44" rx="6"/><text class="t" x="32" y="356">Stage4 → C5（DW3/s2）</text><text class="s" x="32" y="372">1024×20² · s32</text>
+    <path class="ar" d="M135 80 V96" marker-end="url(#ah)"/><path class="ar" d="M135 140 V156" marker-end="url(#ah)"/><path class="ar" d="M135 200 V216" marker-end="url(#ah)"/><path class="ar" d="M135 260 V276" marker-end="url(#ah)"/><path class="ar" d="M135 320 V336" marker-end="url(#ah)"/>
+
+    <!-- encoder -->
+    <rect class="box" x="300" y="216" width="260" height="44" rx="6"/><text class="t" x="312" y="236">1×1 投影</text><text class="s" x="312" y="252">256×80² · 6400 位置</text>
+    <rect class="box" x="300" y="276" width="260" height="44" rx="6"/><text class="t" x="312" y="296">1×1 投影</text><text class="s" x="312" y="312">256×40² · 1600 位置</text>
+    <rect class="box" x="300" y="336" width="260" height="44" rx="6"/><text class="t" x="312" y="356">投影 + AIFI（仅最粗层）</text><text class="s" x="312" y="372">256×20² · 400 token 全局注意力</text>
+    <path class="ar" d="M250 238 H300" marker-end="url(#ah)"/><path class="ar" d="M250 298 H300" marker-end="url(#ah)"/><path class="ar" d="M250 358 H300" marker-end="url(#ah)"/>
+    <rect class="box" x="300" y="404" width="260" height="56" rx="6"/><text class="t" x="312" y="425">FPN 最近邻上采样 + PAN SCDown</text><text class="s" x="312" y="443">P3 80² / P4 40² / P5 20²，均 256</text>
+    <path class="ar" d="M430 380 V404" marker-end="url(#ah)"/>
+    <rect class="box" x="300" y="482" width="260" height="44" rx="6"/><text class="t" x="312" y="502">展平拼接 memory</text><text class="s" x="312" y="518">8400×256（6400+1600+400）</text>
+    <path class="ar" d="M430 460 V482" marker-end="url(#ah)"/>
+
+    <!-- query -->
+    <rect class="box" x="610" y="482" width="250" height="44" rx="6"/><text class="t" x="622" y="502">编码器头：10 类分数 + 框</text><text class="s" x="622" y="518">锚框边长 0.05·2^l → 32/64/128 px</text>
+    <path class="ar" d="M560 504 H610" marker-end="url(#ah)"/>
+    <rect class="box" x="610" y="404" width="250" height="56" rx="6"/><text class="t" x="622" y="425">按最大类分数取 Top-300</text><text class="s" x="622" y="443">8400 → 300，与目标数无关</text>
+    <path class="ar" d="M735 482 V460" marker-end="url(#ah)"/>
+    <rect class="box" x="610" y="336" width="250" height="44" rx="6"/><text class="t" x="622" y="356">内容 q0 与参考框 r0（detach）</text><text class="s" x="622" y="372">300×256 · 300×4；训练时另加 DN</text>
+    <path class="ar" d="M735 404 V380" marker-end="url(#ah)"/>
+
+    <!-- decoder -->
+    <rect class="box" x="900" y="36" width="260" height="44" rx="6"/><text class="t" x="912" y="56">查询自注意力 8 头</text><text class="s" x="912" y="72">Q=K=q+pos(r)，V=q</text>
+    <rect class="box bb" x="900" y="96" width="260" height="96" rx="6"/><text class="t" x="912" y="116">多尺度可变形注意力 MSDA</text><text class="s" x="912" y="134">P3/P4/P5 各 3/6/3 点 × 8 头</text><text class="s" x="912" y="151">位置 = 中心 + off·(1/n)·wh·0.5</text><text class="s" x="912" y="168">权重 = softmax(Linear(q+pos))</text><text class="s" x="912" y="185">权重看不到采样到的特征</text>
+    <rect class="box" x="900" y="208" width="260" height="44" rx="6"/><text class="t" x="912" y="228">Gate 融合 + LN</text><text class="s" x="912" y="244">Linear512→512，sigmoid 双门</text>
+    <rect class="box" x="900" y="268" width="260" height="44" rx="6"/><text class="t" x="912" y="288">FFN 256→1024→256</text><text class="s" x="912" y="304">SiLU，残差 + LN</text>
+    <rect class="box bb" x="900" y="328" width="260" height="56" rx="6"/><text class="t" x="912" y="348">FDR：每边 33 格分布 + LQE</text><text class="s" x="912" y="366">相对固定基准框 b_base 逐层累加</text>
+    <path class="ar" d="M1030 80 V96" marker-end="url(#ah)"/><path class="ar" d="M1030 192 V208" marker-end="url(#ah)"/><path class="ar" d="M1030 252 V268" marker-end="url(#ah)"/><path class="ar" d="M1030 312 V328" marker-end="url(#ah)"/>
+    <path class="ar" d="M860 358 H885 V58 H900" marker-end="url(#ah)"/>
+    <path class="ar2" d="M560 504 H580 V578 H874 V144 H900"/>
+    <text class="s" x="590" y="594">memory 作为 MSDA 的 value（虚线）</text>
+    <path class="ar2" d="M1160 356 H1172 V31 H1040 V36"/>
+    <rect class="box" x="900" y="404" width="260" height="56" rx="6"/><text class="t" x="912" y="425">后处理 Top-300（查询×类别）</text><text class="s" x="912" y="443">映射回原图坐标</text>
+    <path class="ar" d="M1030 384 V404" marker-end="url(#ah)"/>
+    <rect class="box dim" x="900" y="482" width="260" height="44" rx="6"/><text class="t" x="912" y="502">评测：每图最多计多少框</text><text class="s" x="912" y="518">资料库配置 300；图册写 100，待核</text>
+    <path class="ar" d="M1030 460 V482" marker-end="url(#ah)"/>
+
+    <!-- outer protocol -->
+    <rect class="box dim" x="20" y="404" width="230" height="122" rx="6"/>
+    <text class="t" x="32" y="426">外层：两种视图共用一个检测器</text>
+    <text class="s" x="32" y="446">整图缩放到 640</text>
+    <text class="s" x="32" y="464">+ 原分辨率 640 裁剪</text>
+    <text class="s" x="32" y="482">验证集平均 6.19 视图/图</text>
+    <text class="s" x="32" y="500">→ 映射原图 → 合并</text>
+    <text class="s" x="32" y="518">裁剪比整图 APs 高约 7.1</text>
+
+    <!-- hotspots -->
+    <a href="#c-B1" class="hs" aria-label="B1 步长与C2"><circle cx="250" cy="156" r="11"/><text x="243" y="160">B1</text></a>
+    <a href="#c-D1" class="hs" aria-label="D1 证据加权采样"><circle cx="1160" cy="150" r="11"/><text x="1153" y="154">D1</text></a>
+    <a href="#c-D2" class="hs" aria-label="D2 步长4只读值层"><circle cx="900" cy="120" r="11"/><text x="893" y="124">D2</text></a>
+    <a href="#c-D3" class="hs" aria-label="D3 采样带宽下限"><circle cx="900" cy="170" r="11"/><text x="893" y="174">D3</text></a>
+    <a href="#c-F1" class="hs" aria-label="F1 定位分布校准"><circle cx="1160" cy="356" r="11"/><text x="1153" y="360">F1</text></a>
+    <a href="#c-Q1" class="hs" aria-label="Q1 查询预算"><circle cx="860" cy="432" r="11"/><text x="853" y="436">Q1</text></a>
+    <a href="#c-E0" class="hs" aria-label="E0 评测上限"><circle cx="1160" cy="504" r="11"/><text x="1153" y="508">E0</text></a>
+    <a href="#c-V1" class="hs" aria-label="V1 视图分工"><circle cx="250" cy="430" r="11"/><text x="243" y="434">V1</text></a>
+    <a href="#c-V2" class="hs" aria-label="V2 跨视图特权信息蒸馏"><circle cx="250" cy="500" r="11"/><text x="243" y="504">V2</text></a>
+  </svg>
+  <div class="legend"><span><span class="dot"></span>可改位置（点击跳转）</span><span>蓝底框：本次分析最关心的模块</span><span>虚线框：网络外的协议部分</span><span>右侧虚线：每层的框 detach 后作为下一层参考框</span></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-stride">
+  <h2 id="h-stride">为什么是 160 / 80 / 40 / 20</h2>
+  <div class="read" style="display:grid;gap:10px">
+    <p>没有任何数学原因要求是这几个数。它们只是 640 除以步长 4、8、16、32：Stem 里两次 stride 2 得到步长 4（C2），Stage2、3、4 开头各有一个 DW3/s2，所以每过一个阶段就减半。你猜的“都依赖上面那个”是对的：C5 是从 C4 算出来的，C4 又是从 C3 算出来的，粗层里的信息全部经过了细层。</p>
+    <p>这些数是可以改的：<code>B0</code> 配置里每个阶段都有一个 <code>downsample</code> 开关，编码器的 <code>feat_strides</code>、解码器的 <code>num_levels</code> 和 <code>num_points</code> 都是列表。真正决定小目标命运的不是 80 这个数，而是<b>有效步长</b>，也就是一个特征格在原图上覆盖多少像素。它等于网络步长乘以原图缩放倍数。</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>原图尺寸（VisDrone 常见）</th><th>整图视图 P3 一格 = 原图多少像素（横 × 纵）</th><th>整图视图 C2 一格</th><th>原图 16×16 目标在整图视图里</th><th>裁剪视图 P3 一格</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1360×765</td><td class="n">17.0 × 9.6</td><td class="n">8.5 × 4.8</td><td class="n">7.5×13.4 px ≈ 0.9×1.7 格</td><td class="n">8 × 8</td></tr>
+      <tr><td class="n">1920×1080</td><td class="n">24.0 × 13.5</td><td class="n">12.0 × 6.8</td><td class="n">5.3×9.5 px ≈ 0.7×1.2 格</td><td class="n">8 × 8</td></tr>
+      <tr><td class="n">2000×1500</td><td class="n">25.0 × 18.8</td><td class="n">12.5 × 9.4</td><td class="n">5.1×6.8 px ≈ 0.6×0.9 格</td><td class="n">8 × 8</td></tr>
+    </tbody>
+  </table></div>
+  <p class="read muted">按配置里的 <code>Resize [640,640]</code>（不保持长宽比）计算。整图视图里，COCO 意义下的小目标在 P3 上普遍不到一格，而且横向被压得比纵向更狠；裁剪视图把有效步长拉回 8。这就是“裁剪收益”的几何本体。它说明问题在<em>每个目标分到的像素和格子太少</em>，但还不能说明该在哪一层补。</p>
+</section>
+
+<section aria-labelledby="h-facts">
+  <h2 id="h-facts">读源码时看到的五个结构事实</h2>
+  <div class="facts">
+    <div class="fact"><span class="k">dfine_decoder.py · MSDeformableAttention</span><p><b>采样权重只看查询。</b><code>attention_weights = Linear(query)</code>，query 是内容加参考框位置编码。采样到的特征只被加权求和，从不参与决定权重。原生 B 和之前的 H 都在这个前提下，所以 H 无法纠正“按实际内容看选错了点或尺度”。</p></div>
+    <div class="fact"><span class="k">同上 · _reset_parameters / forward</span><p><b>采样点散布跟框走，不跟步长走。</b>位置 = 中心 + offset·(1/n)·wh·0.5，初始化时 P3 三个点的半径是 wh/6、wh/3、wh/2，全在框内。整图里 5×7 px 的目标，P4 六个点、P5 三个点基本落在同一格的双线性插值上，读到的值几乎相同。</p></div>
+    <div class="fact"><span class="k">dfine_decoder.py · _generate_anchors</span><p><b>锚框先验偏大。</b>边长 0.05·2^l，即 P3 32 px、P4 64 px、P5 128 px（640 尺度）。整图里的小目标只有 5 到 10 px。编码器头能学到修正量，影响可能不大，但先验与数据尺度分布不匹配是事实。</p></div>
+    <div class="fact"><span class="k">dfine_utils.py · bbox2distance / translate_gt</span><p><b>边分布的监督目标与框大小无关地“尖”。</b>目标只落在相邻两格，1 个原图像素在归一化边距里等于 4/w。对 6 px 宽的框，1 px 标注误差就是 0.67 个单位，但目标分布仍按无噪声处理。LQE 又用这个分布的 top-4 概率估计质量。</p></div>
+    <div class="fact"><span class="k">configs · visdrone_detection.yml / deim.yml</span><p><b>评测上限和训练缩放需要核对。</b>资料库 VisDrone 配置是 <code>max_dets: 300</code>，图册写 100，两者对 APs 影响可能不同。训练默认有 <code>RandomZoomOut</code>（再缩小最多 4 倍）和 <code>SanitizeBoundingBoxes min_size 1</code>，你们双视图训练用的是否相同，需要看实际配置。</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-cands">
+  <h2 id="h-cands">候选改点</h2>
+  <p class="read muted">每个候选写清：动哪里、借的是哪个机器学习原理、可能为什么有效、先例情况、能在本机 CPU 上先做的判别检查、什么结果才值得上 GPU、什么结果就放弃。“机器学习换个名字”本身不是创新，能成为贡献的是：这个原理恰好对准你们测到的那个缺口，并且有简单对照替代不了的证据。</p>
+  <div class="filters" role="group" aria-label="按类别筛选">
+    <button type="button" data-f="all" aria-pressed="true">全部</button>
+    <button type="button" data-f="first" aria-pressed="false">先做判别</button>
+    <button type="button" data-f="struct" aria-pressed="false">结构候选</button>
+    <button type="button" data-f="train" aria-pressed="false">训练与协议</button>
+    <button type="button" data-f="sat" aria-pressed="false">先例饱和或有冲突</button>
+  </div>
+  <div class="cards" id="cards">
+
+  <article class="card" id="c-E0" data-cat="first">
+    <div class="chead"><span class="tag">E0</span><h3>先核对评测上限：每图最多计多少个框</h3><span class="pill p-first">先做判别 · 零推理</span></div>
+    <div class="grid2">
+      <div class="f"><b>动哪里</b><p>不动网络。评测器的 <code>max_dets</code>，以及裁剪与合并结果是否按原图应用同一上限。</p></div>
+      <div class="f"><b>为什么先做</b><p>548 张验证图里有 26586 个小目标，平均每图仅小目标约 48.5 个。如果整图只计 100 个，而裁剪按窗口或更大的预算计，7 个点的差距里会混进一块与网络无关的数量效应。</p></div>
+      <div class="f"><b>CPU 检查</b><p>用已保存的预测，分别按 100 / 300 / 500 重算整图、裁剪、合并三组 AP，并统计真值超过 100 的图占多少。</p></div>
+      <div class="f"><b>怎么解读</b><p>APs 随上限明显变化：之后所有对比统一口径。几乎不变：数量效应可以排除，分辨率解释更站得住。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-V2" data-cat="train first">
+    <div class="chead"><span class="tag">V2</span><h3>跨视图特权信息蒸馏：让裁剪视图在训练时教整图视图</h3><span class="pill p-train">训练机制 · 推理零成本</span></div>
+    <div class="grid2">
+      <div class="f"><b>机器学习原理</b><p>Vapnik 的“特权信息学习”（LUPI）：训练时能拿到、测试时拿不到的额外信息。Lopez-Paz 等人把它和知识蒸馏统一起来。这里的特权信息就是原分辨率裁剪。</p></div>
+      <div class="f"><b>动哪里</b><p>训练损失。同一真值在两个视图里各有一个匹配查询，用裁剪视图最后一层的边分布（映射到整图坐标、重新分格）作为整图查询边分布的软目标，再加分类分数蒸馏。D-FINE 自带的 DDF 层间蒸馏可以直接复用。</p></div>
+      <div class="f"><b>可能为什么有效</b><p>它直接对准测到的现象：同一权重，裁剪比整图强。如果整图特征里其实还有定位所需的信息，只是没被学出来，蒸馏能把裁剪的答案教给它。成功的话，推理时可以少用甚至不用裁剪，省掉 6.19 倍的观察成本。</p></div>
+      <div class="f"><b>先例</b><p>MSAD（CVPR 2021）做 CNN 检测器的跨分辨率特征蒸馏；ScaleKD（CVPR 2023）做尺度感知蒸馏；Semi-DETR 有跨视图查询一致性；D-FINE 有层间定位蒸馏。共享权重、DETR 集合匹配、边分布跨视图重分格这几点组合，我没查到直接先例，需要专门查新。</p></div>
+      <div class="f"><b>CPU 判别检查（关键）</b><p>“信息还在不在”探针：冻结第 81 轮权重，取约 100 张图里两个视图都检出的小目标，用整图最后一层查询特征（256 维）做岭回归，预测“裁剪框减整图框”的修正量。按图分成两半，交叉验证；用打乱配对作对照。</p></div>
+      <div class="f"><b>进入 GPU / 放弃</b><p>探针能解释可观比例的修正量，并让 IoU≥0.75 比例明显上升：值得做蒸馏。接近打乱对照：信息在整图特征里已经丢了，蒸馏没用，应转向 D2 这类补分辨率的结构。两种结果都有信息量。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-D1" data-cat="struct first">
+    <div class="chead"><span class="tag">D1</span><h3>证据加权采样：MSDA 的权重同时看先验和采样内容</h3><span class="pill p-struct">结构候选 · 解码器</span></div>
+    <div class="grid2">
+      <div class="f"><b>机器学习原理</b><p>重要性采样与粒子滤波里的“先验提议 + 似然重加权”。现在的偏移量是提议，权重只来自先验（查询），从不乘似然。改成 w ∝ exp(z<sub>lp</sub> + λ·⟨W<sub>q</sub>q, v<sub>lp</sub>⟩/√32)，λ 零初始化，起点与原生完全一致。</p></div>
+      <div class="f"><b>动哪里</b><p><code>MSDeformableAttention.forward</code>：先采样得到 v<sub>lp</sub>，再算权重。每层加一个 256→256 投影，三层约 0.2M 参数，计算量相对全模型可忽略。需要走 PyTorch 采样路径，不能用原来的融合核。</p></div>
+      <div class="f"><b>可能为什么有效</b><p>整图里的小目标只占一格不到，查询事先不知道它在格内的确切位置。落在目标上的点和落在背景上的点读到的特征不同，现在这个差别被浪费了。它也是对 H 的根本修正：H 和原生都看不到内容。</p></div>
+      <div class="f"><b>先例</b><p>DAT（CVPR 2022，资料库有 <code>DAttention.py</code>）在骨干里对变形采样点做 q·k 注意力；Deformable DETR 原文为了效率选择只用查询；AdaMixer 的混合权重也来自查询。我没检索到在 DETR 解码器 MSDA 里用采样内容重算权重的直接先例，需要专门查新。</p></div>
+      <div class="f"><b>CPU 判别检查</b><p>内容相关性探针：冻结权重，对匹配小目标的查询收集全部采样点，标签为“点是否落在真值框内”。逻辑回归 A 只用 z<sub>lp</sub>（加尺度编号），B 再加采样值 v<sub>lp</sub>。按图划分留出集比较 AUC。</p></div>
+      <div class="f"><b>进入 GPU / 放弃</b><p>B 比 A 的 AUC 高出明显一截：内容里有权重没用上的信息，值得训练。几乎相同：前提不成立，放弃。训练对照至少要有“同样多参数但不看内容的权重头”。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-D2" data-cat="struct">
+    <div class="chead"><span class="tag">D2</span><h3>步长 4 只读值层：C2 只给解码器读，不进编码器</h3><span class="pill p-struct">结构候选 · 解码器</span></div>
+    <div class="grid2">
+      <div class="f"><b>动哪里</b><p>C2 经 1×1 投影到 256 维，作为 MSDA 的第 4 个 value 层，独立点集、独立 softmax，输出乘零初始化门后加回。不参与 Top-300 选择，不加检测头，不进 FPN。</p></div>
+      <div class="f"><b>可能为什么有效</b><p>上表说明整图视图里，小目标在 P3 上不到一格，唯一能提供不同读数的是更细的层。已有 P2 桥在编码器内部和输出端接入几乎没有差别（APs −0.028），说明编码器侧换位置不重要，剩下的问题是编码器侧还是解码器侧。</p></div>
+      <div class="f"><b>CPU 判别检查</b><p>采样散布诊断：对匹配小目标的查询，统计每个尺度上采样点的散布（以格为单位）和各点采样值的差异。若 P3 上小目标各点读数也几乎相同，D2 的前提成立。再加亚步长平移测试（窗口平移 0 到 7 px，看框是否随相位抖动）。</p></div>
+      <div class="f"><b>对照与放弃</b><p>同容量对照：输入换成“P3 上采样到步长 4”和“低通后的 C2”。增益落在种子标准差内，或低通 C2 与原 C2 一样好，就不能写成细节机制，只能作工程改进。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-F1" data-cat="train first">
+    <div class="chead"><span class="tag">F1</span><h3>定位分布的校准：小框的分布是否过度自信</h3><span class="pill p-train">监督与质量估计</span></div>
+    <div class="grid2">
+      <div class="f"><b>机器学习原理</b><p>概率校准与含噪变量回归（errors-in-variables）。如果预测分布声称的不确定度和真实误差不符，LQE 拿这个分布估计质量就会排错序，而 AP 本质上是排序指标。</p></div>
+      <div class="f"><b>CPU 判别检查</b><p>冻结预测，按目标尺寸分箱：把每条边的分布换算成像素标准差，和实际误差比，看标准化误差的方差是否接近 1；再算每箱 LQE 质量分与真实 IoU 的 Spearman 相关。</p></div>
+      <div class="f"><b>可能的改法</b><p>小框明显过度自信或排序相关性明显更低时：按框大小给两格目标卷一个噪声核，σ = σ<sub>原图像素</sub>·reg_scale / w<sub>原图</sub>，零参数；或者给 LQE 加尺寸输入做重校准。</p></div>
+      <div class="f"><b>先例与放弃</b><p>KL-Loss（CVPR 2019）学习方差，GFL/DFL 用分布，NWD 改度量。若各尺寸箱校准都正常、排序相关性差别不大，就放弃这一支。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-V1" data-cat="train first">
+    <div class="chead"><span class="tag">V1</span><h3>视图分工：整图只管大于 s* 的目标，裁剪管更小的</h3><span class="pill p-train">协议 · 可先零训练验证</span></div>
+    <div class="grid2">
+      <div class="f"><b>原理与先例</b><p>SNIP / SNIPER 的“有效尺度区间”：每个分辨率只对它擅长的尺度负责。原理是经典的，不算新；但它直接修你们已证实的合并问题：高分但定位差的整图框压掉更好的裁剪框。</p></div>
+      <div class="f"><b>CPU 检查</b><p>用已保存预测，按目标尺寸分箱比较两个视图的 AP，找到交叉点 s*；再按 s* 过滤后合并，看 AP 和 APs 的变化。零训练。</p></div>
+      <div class="f"><b>后续</b><p>有提升就把它定为新的强基线，之后所有结构对比都在这个协议下做。训练版本需要在匈牙利匹配和分类损失里处理“忽略区间”，这部分在 DETR 上有一点适配工作量。</p></div>
+      <div class="f"><b>定位</b><p>更像强基线而不是论文主贡献。但它决定了后面所有对比是否公平，所以排在前面。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-Q1" data-cat="sat">
+    <div class="chead"><span class="tag">Q1</span><h3>查询预算：按尺度分配名额或动态 K</h3><span class="pill p-sat">先例饱和 · 有条件才做</span></div>
+    <div class="grid2">
+      <div class="f"><b>原理</b><p>分层抽样（每层保留配额）、行列式点过程式的多样化选择。</p></div>
+      <div class="f"><b>先例</b><p>DQ-DETR（动态查询数）、DDQ（去重的独特查询）、Dome-DETR（密度导向查询）都已存在；资料库里已有 <code>dq_dfine_decoder.py</code> 和 <code>dqs_dfine_decoder.py</code> 实现，可以直接当对照。</p></div>
+      <div class="f"><b>什么时候做</b><p>只有 E0 和查询数扫描（推理时取 300 / 600 / 900）显示查询预算贡献明显时才做。</p></div>
+      <div class="f"><b>放弃条件</b><p>K 从 300 到 900，APs 提升不到约 0.3，且小目标的提议召回已经很高。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-D3" data-cat="sat">
+    <div class="chead"><span class="tag">D3</span><h3>采样带宽下限：散布至少覆盖 κ 个格</h3><span class="pill p-sat">与原对话候选重叠</span></div>
+    <div class="grid2">
+      <div class="f"><b>原理</b><p>核密度估计的带宽选择：采样散布用 max(wh, κ·stride<sub>l</sub>)，零参数一行改动，保证粗层的点读到不同的值。</p></div>
+      <div class="f"><b>为什么不在这里推进</b><p>它和原对话负责的“采样范围 / 逐边半径”候选在同一个位置。按约定不干预那条线，这里只建议把它当成那条线的一个简单对照。“Better Sampling”（arXiv 2407.06127，VisDrone）也在约束采样点，方向相反。</p></div>
+    </div>
+  </article>
+
+  <article class="card" id="c-B1" data-cat="sat">
+    <div class="chead"><span class="tag">B1</span><h3>改金字塔本身：加 P2、去 P5、改下采样</h3><span class="pill p-sat">先例饱和</span></div>
+    <div class="grid2">
+      <div class="f"><b>机器学习视角</b><p>把金字塔层看成对“目标尺度”的量化器。Lloyd-Max 量化的结论是：量化级应该放在数据密度高的地方。VisDrone 的尺度集中在小端，现在的 8/16/32 把一级花在很少的大目标上，细端却没有级。</p></div>
+      <div class="f"><b>为什么不当主线</b><p>“加 P2 去 P5”在 VisDrone 的 YOLO 改进里非常普遍；UAV-DETR、Drone-DETR、HEGS-DETR 都把高分辨率层并入颈部；SPD-Conv、BlurPool、LIP 等下采样替换也都在资料库里。直接在 P2 上跑 256 通道的 RepNCSPELAN4，一个 3×3 卷积就约 30 GFLOPs，成本也不划算。</p></div>
+      <div class="f"><b>可以保留的用法</b><p>用尺度直方图把“为什么要补细层”量化出来，作为 D2 的问题依据，而不是作为新方法。</p></div>
+    </div>
+  </article>
+
+  </div>
+</section>
+
+<section aria-labelledby="h-order">
+  <h2 id="h-order">建议的顺序</h2>
+  <ol class="steps">
+    <li><div><b>E0 评测上限</b>，并核对双视图训练的实际缩放配置。零推理，决定以后用什么口径比较。</div></li>
+    <li><div><b>V1 视图分工的零训练重合并。</b>有提升就定为强基线。</div></li>
+    <li><div><b>两个探针一起做</b>（都用冻结权重，在本机 CPU 上）：V2 的“信息还在不在”和 D1 的“内容相关性”。再加 F1 的校准统计。三者共用一次前向收集的数据。</div></li>
+    <li><div><b>按探针结果选路线。</b>信息还在：V2 蒸馏优先，它推理零成本，论文故事最完整。信息已丢：D2 补细层优先。内容探针为正：D1 作为解码器结构贡献，可以与上面任一条叠加。</div></li>
+    <li><div><b>上 GPU 前</b>先用至少 2 个基线种子估计标准差，事先写下筛选阈值，再各跑 1 个种子筛选；通过的才跑 3 个种子。</div></li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-ds">
+  <h2 id="h-ds">可以转给 DS 讨论的问题</h2>
+  <div class="ds">
+<pre id="dsq">1. DEIM-D-FINE-S 的 MSDA 权重只由查询线性生成，不看采样到的特征。如果改成“查询先验 + 采样内容似然”（权重 ∝ exp(z + λ·⟨Wq q, v⟩/√d)，λ 零初始化），在 DETR 解码器里有没有直接先例？最可能的反例是什么？
+
+2. 用冻结权重做“内容相关性探针”（只用 z 预测点是否落在真值框内，对比加上采样值 v）能否作为 D1 的有效前提检验？有什么混杂因素会让 AUC 提升是假象？
+
+3. 双视图共享权重训练时，用裁剪视图的边分布蒸馏整图视图（特权信息学习 LUPI），在 DETR 集合匹配和 D-FINE 边分布下，跨视图重分格应该怎么做才不引入偏差？
+
+4. “整图查询特征能否线性预测裁剪视图的修正量”这个探针，能否区分“像素信息已丢失”与“信息还在但没学出来”？需要哪些对照？</pre>
+    <button type="button" class="copy" id="copyBtn">复制这些问题</button>
+  </div>
+</section>
+
+<section aria-labelledby="h-src">
+  <h2 id="h-src">来源</h2>
+  <div class="src">
+    <p class="muted">源码：D:\BaiduNetdiskDownload\DEIM_1572862469 下的 engine/backbone/hgnetv2.py、engine/deim/hybrid_encoder.py、dfine_decoder.py、dfine_utils.py、postprocessor.py，configs/base/dfine_hgnetv2.yml、deim.yml、configs/dataset/visdrone_detection.yml、configs/deim_dfine/dfine_hgnetv2_s_coco.yml。</p>
+    <a href="https://arxiv.org/abs/2010.04159">Deformable DETR（ICLR 2021）</a>
+    <a href="https://openaccess.thecvf.com/content/CVPR2022/papers/Xia_Vision_Transformer_With_Deformable_Attention_CVPR_2022_paper.pdf">Vision Transformer with Deformable Attention（DAT，CVPR 2022）</a>
+    <a href="https://openaccess.thecvf.com/content/CVPR2021/html/Qi_Multi-Scale_Aligned_Distillation_for_Low-Resolution_Detection_CVPR_2021_paper.html">Multi-Scale Aligned Distillation for Low-Resolution Detection（CVPR 2021）</a>
+    <a href="https://openaccess.thecvf.com/content/CVPR2023/papers/Zhu_ScaleKD_Distilling_Scale-Aware_Knowledge_in_Small_Object_Detector_CVPR_2023_paper.pdf">ScaleKD（CVPR 2023）</a>
+    <a href="https://arxiv.org/html/2407.06127v1">Better Sampling, towards Better End-to-end Small Object Detection（arXiv 2407.06127）</a>
+    <a href="https://arxiv.org/pdf/2303.15390">Learning to Zoom and Unzoom（CVPR 2023）</a>
+    <a href="https://eccv2024.ecva.net/virtual/2024/poster/1901">DQ-DETR（ECCV 2024）</a>
+    <a href="https://arxiv.org/abs/1711.08189">SNIP（CVPR 2018）</a>
+  </div>
+</section>
+</div>
+
+<script>
+(function(){
+  var btns=document.querySelectorAll('.filters button');
+  var cards=document.querySelectorAll('#cards .card');
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    var f=b.getAttribute('data-f');
+    btns.forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+    cards.forEach(function(c){var cats=(c.getAttribute('data-cat')||'').split(' ');c.hidden=!(f==='all'||cats.indexOf(f)>=0)});
+  })});
+  document.querySelectorAll('svg a.hs').forEach(function(a){a.addEventListener('click',function(){
+    var all=document.querySelector('.filters button[data-f="all"]'); if(all) all.click();
+  })});
+  var cb=document.getElementById('copyBtn');
+  cb.addEventListener('click',function(){
+    var t=document.getElementById('dsq').innerText;
+    var done=function(){cb.textContent='已复制'; setTimeout(function(){cb.textContent='复制这些问题'},1600)};
+    var fallback=function(){var r=document.createRange();r.selectNodeContents(document.getElementById('dsq'));var s=window.getSelection();s.removeAllRanges();s.addRange(r);cb.textContent='已选中，请手动复制'};
+    try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+  });
+})();
+</script>
+
+</body></html>

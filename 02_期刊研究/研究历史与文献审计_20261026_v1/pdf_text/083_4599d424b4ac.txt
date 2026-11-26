@@ -1,0 +1,193 @@
+Enhancing Aerial Pedestrian Detection via High-Resolution P2 Feature
+Integration in YOLOv12
+Sukesh Babu V S, Rahul Raman
+IIITDM Kancheepuram, Tamil Nadu, India
+cs22d0001@iiitdm.ac.in, rahul@iiitdm.ac.in
+Sambit Bakshi
+NIT Rourkela, Odisha, India
+bakshisambit@ieee.org
+Abstract
+Detecting pedestrians in UAV (Unmanned Aerial Vehicle)
+imagery poses several challenges due to factors such as sig-
+nificant scale variation, low resolution, dense crowds, and
+cluttered backgrounds. In aerial views, pedestrians often
+occupy only a few pixels, making them difficult to detect
+using standard object detection architectures that rely on
+high-level feature maps. Most modern detectors begin pre-
+dictions at a stride of 8 resolutions, which limits their abil-
+ity to detect extremely small objects. In this study, we revisit
+the feature pyramid architecture of YOLOv12 and introduce
+a high-resolution P2 detection head to improve supervision
+at the early stages of the network. Our proposed modifica-
+tion extends the pyramid to a stride of 4 resolutions and in-
+corporates bidirectional feature refinement to maintain se-
+mantic consistency across different scales. This design re-
+mains lightweight and preserves practical inference speed
+while improving the representation of tiny objects. We eval-
+uate our approach on two aerial pedestrian benchmarks:
+VisDrone and TinyPerson. The proposed model improves
+the mean Average Precision (mAP) at IoU 0.5 from 0.63 to
+0.69, which represents a 9.5% relative gain on the VisDrone
+dataset. On the TinyPerson dataset, mAP@0.5 increases
+from 0.40 to 0.45, indicating a 12.5% relative gain. Addi-
+tionally, there is a 25% relative increase in the tiny-scale
+AP50, rising from 0.24 to 0.30. The experimental results
+demonstrate consistent improvements in detection perfor-
+mance, particularly for small and tiny pedestrians, with-
+out significant computational overhead. Ablation studies
+further confirm that early-resolution detection is crucial in
+enhancing recall for small objects in UAV imagery. These
+findings indicate that revisiting the starting level of feature
+pyramids is a straightforward yet effective strategy for im-
+proving small-object detection in aerial scenarios.
+1. Introduction
+Unmanned aerial vehicles (UA Vs) are increasingly utilised
+in various applications, including traffic monitoring, pub-
+lic safety, search and rescue, and crowd analysis [1, 13].
+A critical aspect of these applications is the reliable de-
+tection of pedestrians from aerial imagery [16]. However,
+detecting pedestrians in UA V scenarios poses several chal-
+lenges, including extreme scale variations, dense scenes,
+complex backgrounds, and the presence of large numbers
+of small objects occupying only a few pixels [22]. Re-
+cent advancements in small object detection have focused
+on improving multi-scale feature fusion, enhancing atten-
+tion mechanisms, and designing better localization losses.
+While these methods show improvements on general bench-
+marks, they often struggle with aerial pedestrian detec-
+tion. Pedestrians captured from UA V platforms frequently
+appear at very small scales, often below the effective re-
+ceptive field of standard detection heads. Several recent
+studies have specifically tackled pedestrian detection in
+UA V imagery by introducing feature enhancement mod-
+ules, multi-scale attention mechanisms, or context-aware
+designs. These approaches have shown improved robust-
+ness against occlusion and complex backgrounds. How-
+ever, most existing work employs conventional detection
+heads that start at P3 (1/8 resolution), thereby overlooking
+fine-grained spatial information essential for detecting tiny
+pedestrians. Lightweight and real-time UA V detectors aim
+to reduce computational costs through techniques such as
+backbone compression, simplified detection heads, or prun-
+ing strategies. Unfortunately, these reductions can lead to
+decreased performance when identifying extremely small
+objects. Transformer-based methods, including Swin trans-
+former approaches for aerial detection [3], improve global
+context modeling through hierarchical attention. However,
+the use of transformers often increases computational over-
+head and does not specifically address the loss of early
+spatial resolution for detecting tiny pedestrians. To tackle
+these challenges, we propose a high-resolution P2 detec-
+tion branch integrated into the YOLOv12 framework. By
+This CVPR Workshop paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+1125
+
+
+---PAGE---
+
+extending the feature pyramid to include P2 (1/4 scale)
+and introducing bidirectional refinement, our proposed head
+preserves early spatial details while maintaining computa-
+tional efficiency. We evaluate our design on two challenging
+aerial benchmarks: VisDrone [28] and TinyPerson [26]. Ex-
+tensive experiments, including size-wise analysis, demon-
+strate consistent improvements in the detection of tiny and
+small object categories while maintaining competitive per-
+formance across various scales. Our contributions can be
+summarized as follows:
+1. A P2-enhanced multi-scale detection head that extends
+YOLOv12 with high-resolution supervision for tiny
+pedestrian detection.
+2. A structured bidirectional feature refinement mechanism
+for preserving high-resolution spatial cues.
+3. Comprehensive evaluation on two challenging UA V
+datasets, including size-wise analysis.
+2. Related Work
+2.1. Small Object Detection in UA V Imagery
+Recent years have seen growing interest in small-object de-
+tection in aerial imagery. Many studies focus on improv-
+ing feature representation through techniques like edge en-
+hancement and context modeling. Early research used cas-
+cade architectures with deformable convolutions to enhance
+the detection of small objects [27]. The work [20] high-
+lights the importance of specialised datasets such as AI-
+TOD, which reveal the limitations of traditional detectors
+for tiny objects and suggest targeted learning strategies. For
+instance, CGD-YOLO [2] introduces global edge propa-
+gation and multi-dimensional attention mechanisms to im-
+prove the extraction of fine contours. EMSANet [8] fur-
+ther develops edge-enhanced multi-scale alignment to ad-
+dress semantic inconsistencies across different feature lev-
+els. Other approaches involve modifications to the back-
+bone and feature pyramid designs. UA VDet [25] incorpo-
+rates CNN-Mamba hybrid modules and redesigns the pyra-
+mid structure specifically for the perception of tiny ob-
+jects. WCDB-YOLO [12] employs a dual-backbone strat-
+egy combined with wavelet-based context modeling and ex-
+plicitly integrates P2 features into the detection head. Ad-
+vancements such as High-Resolution Feature Pyramid Net-
+works [4] improve multi-scale feature representation, while
+QueryDet [23] enhances efficiency by selectively applying
+high-resolution computation. Lightweight architectures and
+attention-based modules, like the NOV A [15] module in
+the RealDroneVision framework, further improve YOLO-
+based detection Collectively, these studies emphasize the
+importance of maintaining high-resolution spatial informa-
+tion when dealing with extremely small targets. However,
+accurately detecting extremely small pedestrians in aerial
+imagery remains challenging due to limited spatial infor-
+mation, underscoring the need for improved high-resolution
+detection heads for localising tiny objects.
+2.2. UA V Pedestrian detection
+Pedestrian detection from UA V platforms has been stud-
+ied as a specialized sub-problem due to its critical impor-
+tance for safety. Recent works have introduced techniques
+such as scale-sensitive feature enhancement [14], attention-
+guided fusion [9], and context-aware modules [16] specifi-
+cally designed for aerial pedestrian detection. These meth-
+ods aim to improve robustness in scenarios involving oc-
+clusion and dense crowds. Most UA V detectors focused on
+pedestrian detection employ a conventional P3-P5 detection
+head structure. However, this structure does not directly
+supervise the earliest high-resolution feature maps for de-
+tection, which limits the ability to accurately localize ex-
+tremely small pedestrians.
+Lightweight and real-time UA V detectors [7, 24] have
+been developed to reduce computational complexity while
+achieving high inference speeds. Unfortunately, they of-
+ten struggle to maintain strong performance on tiny ob-
+jects due to reduced feature capacity and limitations in
+high-resolution modeling. Transformer-based detectors [3]
+have shown effectiveness in capturing global relationships,
+but they also introduce significant computational over-
+head. Recent approaches address this issue by incorporat-
+ing attention-based detection heads. For example, EHDC-
+YOLO [5] employs a Dynamic Head (DyHead) with multi-
+dimensional attention to improve adaptability across vary-
+ing object scales. FDE-YOLO [10] integrates scale-aware,
+spatial-aware, and task-aware refinements in its detection
+head to enhance discrimination in dense scenes. CMA-Net
+[24] proposes collaborative multi-attention structures for ef-
+ficient real-time UA V detection. Although attention mech-
+anisms improve feature weighting, many methods still rely
+on the conventional P3–P5 detection hierarchy, which lim-
+its sensitivity to ultra-small objects. Recent studies have fo-
+cused on attention mechanisms and transformer-based ap-
+proaches to improve pedestrian detection across scales. For
+example, CoSTAA [18] uses a convolutional Swin Trans-
+former with channel and spatial attention to enhance feature
+interaction in complex environments. Similarly, MECSA
+[19] incorporates a multi-scale attention module for better
+feature representation. While these methods improve detec-
+tion performance across a range of object sizes, they often
+struggle with extremely small pedestrians in aerial imagery
+because of insufficient high-resolution spatial features.
+To better handle tiny objects, several recent works
+have introduced high-resolution branches. WCDB-YOLO
+[12] and DPN-YOLO [11] incorporate P2-level features
+to strengthen small-object localization. MSAD-YOLO [6]
+reconstructs a shallow detection head to preserve spatial
+details while maintaining a lightweight design. UA VDet
+1126

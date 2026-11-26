@@ -1,0 +1,130 @@
+Citation: Zhang, X.; Feng, Y.; Zhang,
+S.; Wang, N.; Mei, S.; He, M.
+Semi-Supervised Person Detection in
+Aerial Images with Instance
+Segmentation and Maximum Mean
+Discrepancy Distance. Remote Sens.
+2023, 15, 2928. https://doi.org/
+10.3390/rs15112928
+Academic Editor: Gwanggil Jeon
+Received: 17 April 2023
+Revised: 26 May 2023
+Accepted: 1 June 2023
+Published: 4 June 2023
+Copyright: © 2023 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+remote sensing  
+Article
+Semi-Supervised Person Detection in Aerial Images with Instance
+Segmentation and Maximum Mean Discrepancy Distance
+Xiangqing Zhang 1,2
+ , Yan Feng 1,∗
+ , Shun Zhang 1
+ , Nan Wang 1
+ , Shaohui Mei 1
+ and Mingyi He 1
+1 School of Electronics and Information, Northwestern Polytechnical University, Xi’an 710072, China;
+zxq1991@mail.nwpu.edu.cn (Z.X.); szhang@nwpu.edu.cn (S.Z.); wangnan418@mail.nwpu.edu.cn (N.W.);
+meish@nwpu.edu.cn (S.M.); myhe@nwpu.edu.cn (M.H.)
+2 College of Mathematics and Computer Science, Yan’an University, Yan’an 716000, China
+* Correspondence: sycfy@nwpu.edu.cn
+Abstract: Detecting sparse, small, lost persons with only a few pixels in high-resolution aerial images
+was, is, and remains an important and difﬁcult mission, in which a vital role is played by accurate
+monitoring and intelligent co-rescuing for the search and rescue (SaR) system. However, many
+problems have not been effectively solved in existing remote-vision-based SaR systems, such as the
+shortage of person samples in SaR scenarios and the low tolerance of small objects for bounding boxes.
+To address these issues, a copy-paste mechanism (ISCP) with semi-supervised object detection (SSOD)
+via instance segmentation and maximum mean discrepancy distance is proposed (MMD), which can
+provide highly robust, multi-task, and efﬁcient aerial-based person detection for the prototype SaR
+system. Speciﬁcally, numerous pseudo-labels are obtained by accurately segmenting the instances of
+synthetic ISCP samples to obtain their boundaries. The SSOD trainer then uses soft weights to balance
+the prediction entropy of the loss function between the ground truth and unreliable labels. Moreover,
+a novel evaluation metric MMD for anchor-based detectors is proposed to elegantly compute the IoU
+of the bounding boxes. Extensive experiments and ablation studies on Heridal and optimized public
+datasets demonstrate that our approach is effective and achieves state-of-the-art person detection
+performance in aerial images.
+Keywords: semi-supervised object detection; copy-paste mechanism; instance segmentation; maximum
+mean discrepancy; aerial-based person detection
+1. Introduction
+Search and rescue (SaR) of survivors involves a race against time, which is of great
+significance to the construction of aerial SaR systems. The traditional method puts both
+pending rescuers and SaR workers in danger because of bad terrain and inefficient rescue
+measures. Unmanned aerial vehicles (UA Vs) can provide immediate situational awareness
+over large areas. This makes SaR operations much cheaper and safer by reducing the time and
+number of rescuers needed in emergencies. In recent years, SaR missions based on drones,
+which allow for quick aerial views of huge regions with potentially difficult-to-reach terrain,
+have been developed in many countries [1–4]. While object detection as a crucial SaR mission
+step has advanced somewhat, it is still far from meeting the technical requirements for ground
+application, which may warrant further research.
+In recent years, aerial-based person detection (APD) has gradually become a hot and
+challenging research topic in the ﬁeld of low-altitude remote sensing. Researchers have
+attempted to create datasets of persons in aerial images and have obtained some promising
+results by utilizing existing creative object detection algorithms based on natural images.
+However, the results have been weak and lack robustness [ 5–8]. Compared to remote
+sensing objects [9–15], such as ships, vehicles, and airplanes, persons in aerial images are
+frequently costly to identify in SaR scenes, difﬁcult to label manually, have fewer available
+Remote Sens. 2023, 15, 2928. https://doi.org/10.3390/rs15112928 https://www.mdpi.com/journal/remotesensing
+
+---PAGE---
+
+Remote Sens. 2023, 15, 2928 2 of 26
+datasets, and have multi-view shooting features that vary greatly. As a result, detecting
+persons is more difﬁcult and prevents implementation of applications. The key step in APD
+is to collect a sufﬁcient number of clear drone-based person objects and labeled instances,
+also addressing the issue of the person’s weak features and sparse distribution in high-
+resolution aerial images. Existing methods present a range of problems which urgently
+need to be solved, which are discussed below.
+To tackle the few-shot problem, some popular approaches aim to get enough pseudo-
+labels through semi-supervised learning, which can effectively improve the performance of
+the anchor-based object detector. Since there are not many person labels in SaR scenes, the
+detector needs to be trained on unlabeled data that was generated by synthetic or online
+techniques. Several studies have used transfer learning [ 16] and active learning [ 17] to
+achieve high-accuracy results with less training data, using consistency-based and pseudo-
+label-based methods. First, [ 18] used unlabeled data to learn the model’s consistency,
+while [19] created fake labels to enable model training. The authors of [ 20] proposed a
+consistency-based semi-supervised object detection (CSD) method that can work on both
+single-stage and two-stage detectors by ﬂipping the unlabeled samples horizontally and
+feeding them into the feature map of the detector network to calculate the consistency loss
+at the corresponding position. In [21], hard pseudo-labels were used for self-training and
+incorporated consistent regularization as a data augmentation principle into the training.
+The authors of [22] devised the co-rectify scheme, which involved training two models
+to check and correct each other’s pseudo-labels, which stopped false predictions from
+increasing and improved model accuracy by obtaining pseudo-labels online. In [ 23] the
+average RPN score of the proposal was used, which was identiﬁed through multi-stage
+learning, as a measure of uncertainty at the image level to make pseudo-labels and solve
+the problem of label noise overﬁtting caused by direct ﬁtting. The authors of [24] suggested
+that there was a natural category imbalance in object detection. The authors designed an
+"unbiased teacher", which uses the structure of a “mean teacher” to make a fake label to
+supervise both RPN and ROI heads. However, existing works focus solely on conﬁdence
+scores for pseudo-labels, which cannot guarantee the localization accuracy of pseudo-boxes;
+in terms of consistency training, the widely used random resizing training only considers
+label-level consistency, while ignoring feature-level consistency. In this article, cooperative
+training strategies are designed for a soft threshold between reliable and pseudo-labels
+and candidate bounding boxes are sorted by probability predictive entropy to improve
+detection performance.
+To detect small and indistinct persons in high-resolution aerial images, anchor-based
+detectors with intersection over union (IoU) for label assignment can be a reliable choice.
+IoU is the ratio of two boxes’ intersection to their union by calculating the overlap of the
+ground truth (GT) and prediction bounding boxes (PBBs), which has been used to assess
+the performance of object detection and segmentation. In anchor-based object detectors,
+several candidate bounding boxes are often generated simultaneously by the model, the
+boxes are sorted by their conﬁdence level, and then the IoU [25] is calculated between the
+boxes to determine which one is the real object with others being deleted by non-maximal
+suppression (NMS). Some typical algorithms for optimizing IoU, for example, ref. [ 25],
+determine the similarity of two images in terms of their shapes, but they cannot show their
+distance and aspect ratio.The authors of [26] solved the problem of comparing the distance
+between two bounding boxes that do not overlap by generalizing to improve the way that
+the bounding boxes’ overlap is calculated. However, this still does not give a good picture
+of how close two bounding boxes are in terms of their distance and aspect ratio. In [ 27],
+how the two boxes overlapped, how far apart they were, and how big they were were
+considered. Then, the distance between them was made as small as possible, which made
+the loss function converge more quickly. To better reﬂect the difference between the two
+boxes, the CIoU of [27] added an image similarity inﬂuence factor to the DIoU of [ 27]. Ref.
+[28] broke down the aspect ratios and added anchor-based focal focus quality to improve
+the regression accuracy, as adding aspect ratios to CIoU can make it difﬁcult for the model

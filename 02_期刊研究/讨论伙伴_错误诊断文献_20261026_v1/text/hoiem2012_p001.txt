@@ -1,0 +1,38 @@
+Diagnosing Error in Object Detectors
+Derek Hoiem, Yodsawalai Chodpathumwan, and Qieyun Dai ⋆
+Department of Computer Science
+University of Illinois at Urbana-Champaign
+Abstract. This paper shows how to analyze the inﬂuences of object characteris-
+tics on detection performance and the frequency and impact of different types of
+false positives. In particular, we examine effects of occlusion, size, aspect ratio,
+visibility of parts, viewpoint, localization error, and confusion with semantically
+similar objects, other labeled objects, and background. We analyze two classes
+of detectors: the Vedaldi et al. multiple kernel learning detector and different ver-
+sions of the Felzenszwalb et al. detector. Our study shows that sensitivity to size,
+localization error, and confusion with similar objects are the most impactful forms
+of error. Our analysis also reveals that many different kinds of improvement are
+necessary to achieve large gains, making more detailed analysis essential for the
+progress of recognition research. By making our software and annotations avail-
+able, we make it effortless for future researchers to perform similar analysis.
+1 Introduction
+Large datasets are a boon to object recognition, yielding powerful detectors trained on
+hundreds of examples. Dozens of papers are published every year citing recognition
+accuracy or average precision results, computed over thousands of images from Cal-
+Tech or PASCAL VOC datasets [1, 2]. Yet such performance summaries do not tell us
+why one method outperforms another or help understand how it could be improved.
+For authors, it is difﬁcult to ﬁnd the most illustrative qualitative results, and the read-
+ers may be suspicious of a few hand-picked successes or “intuitive” failures. To make
+matters worse, a dramatic improvement in one aspect of recognition may produce only
+a tiny change in overall performance. For example, our study shows that complete ro-
+bustness to occlusion would lead to an improvement of only a few percent average
+precision. There are many potential causes of failure: occlusion, intra-class variations,
+pose, camera position, localization error, and confusion with similar objects or textured
+backgrounds. To make progress, we need to better understand what most needs im-
+provement and whether a new idea produces the desired effect. We need to measure the
+modes of failure of our algorithms. Fortunately, we already have excellent large, diverse
+datasets; now, we propose annotations and analysis tools to take full advantage.
+This paper analyzes the inﬂuences of object characteristics on detection performance
+and the frequency and impact of different types of false positives. In particular, we ex-
+amine effects of occlusion, size, aspect ratio, visibility of parts, viewpoint, localization
+⋆ This work was supported by NSF awards IIS-1053768 and IIS-0904209, ONR MURI Grant
+N000141010934, and a research award from Google.

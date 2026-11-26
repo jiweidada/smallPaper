@@ -1,0 +1,32 @@
+186 C0真实GO与训练ref支持域缓存：冻结采集事前协议
+2026-10-21。C仅编写186/187，不执行。由root静态审查后单独调度，不能与183抢运行。本次是数据准备，没有效果门槛，不修改任何已停止候选或历史文件。
+
+一、固定身份与预算
+同104/113的C0 online best_stg2，epoch94，原checkpoint SHA256=9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e；strict加载801个model state tensors。recipe、原C源码及native源码按114输入manifest逐项hash确认。
+仅85已选出的同四个development事件，从77/00_all_count_inputs.pt取其原image tensor；event、input_sha256和每个实际tensor的SHA逐项一致。GT902、original_sub4=453，各图GT[146,280,418,58]、sub4[46,121,271,15]。不读heldout，不换图，不重新增强。
+正好4次CPU model forward，每图一次。全程torch.no_grad，不重跑eval；loss/matcher只求值。0 backward/VJP/cache-autograd/optimizer/update。root-model pre-hook计数并拒绝第5次，113自己的forward/vjp/main均不调用。
+资源沿113：CPU2线程/interop1，affinity[13,15]、BelowNormal、RAM>8GiB，CPU torch，MKL_THREADING_LAYER=SEQUENTIAL，MHA fastpath禁用。每图开始与criterion前检查RAM。预计前向和损失匹配5–30秒，总15–90秒含导入、checkpoint/历史缓存读写与hash；未实测，不以超估时改模式、杀别的任务或自行扩预算。
+
+二、与113一致的mode/DN
+调用原113.mode(model,True)：整体model/backbone/encoder为eval，decoder为train，全部BatchNorm仍eval；不把本次称为训练。沿原build，pretrained=False、不下载权重、不改变native head、matcher、loss或weight_dict。参数requires_grad元数据保持build原值，所有运算处于no_grad，所有parameter.grad始终None。
+每图独立重置random/NumPy/torch seed=20261021，记录torch RNG forward前后及criterion后SHA。DN使用真实训练分支，保存原dn_meta、组数和split，不能删DN换取parity。对照114的同event DN/RNG元数据，只报实际差异。
+113导入时只定义helper/类、导入common和native注册，不调用其main。common虽含虚拟Adam等函数定义，本脚本不调用这些函数；不构造optimizer。checkpoint容器中的optimizer条目随文件反序列化，但不读取其状态用于任何计算；build后立即释放raw容器。
+
+三、纯观测采集，保持原返回值
+复用113.build得到同模型及AuditCriterion，然后原样调用criterion.forward(out,targets,epoch=94,step=0,epoch_step=1,global_step=None)。113.mark保证其原final boxes记录正常工作。
+训练_select_topk只加passthrough包装：按真实logits.max(-1).topk(300)计算index，逐项验证原返回memory、logits、anchors均等于gather；返回原result，不能替换内容或改变顺序。记录普通300个source index。它不是按GT选query。
+对criterion.matcher用forward hook观察真实调用；对_get_go_indices和get_loss用passthrough包装观察实际输入与返回，不复制matcher算法、不再次匹配、不重算union。按pred_boxes对象身份把调用关联到final/aux/pre/encoder/DN stage。
+每次get_loss记录stage、loss名、实际query/GT索引、实际GT labels、分母、未乘weight_dict的原返回值；另保存完整criterion最终已加权loss字典及总和。包括原MAL、bbox/GIoU、FGL/DDF、所有aux/pre/encoder/DN，不声称只采了普通末层就覆盖全部监督。
+native GO事实：它先拼接各ordinary stage配对，按频次排序，再为每个query保留一个GT；同一GT可被多个query监督。故同时保存合并前各stage配对与重复出现、实际GO、GT multiset/每GT次数及每query最终GT/class。不能把多query监督同GT误写成一个query接受多个GO GT。若真实GO违反该源码的query唯一约束，报接口错误，不暗自去重。
+
+四、188缓存schema
+默认新目录188_C0_true_GO_support_cache，不覆盖。主文件01_cache.pt：顶层records、checkpoint_sha256、weight_key='model_online'、epoch、reg_max/up/reg_scale、model/BN/criterion state SHA、mode、DN_seed、source_hashes、counts。
+每record：image_index/event/input_sha256；target完整原字典、original_sub4；pred_boxes[300,4]、pred_logits[300,10]、pred_corners[300,132]（同张量别名final_corners）；ref_points_initial[300,4]严格取本次训练out['ref_points'][0]；selected_indices[300]。
+native_outputs保存本次完整原生输出树（含各层aux/pre/encoder/DN及本来存在的refs/corners/teacher输出、enc_outputs_logits、dn_meta；原本不存在ref的pre/encoder不伪造）。其tensor保持原batch维，全部detach/cpu/clone。另有stage_catalog标明哪些stage真的提供ref。stage_ref_sharing在clone之前分别对ordinary FDR各层和DN各层逐项报告ref数值是否完全相同、最大差、是否同一tensor对象/同一底层storage/同一首元素地址，并与对应pre boxes比较。全stage无ref清单另列；不能把stack后共享storage或数值相同写成同一tensor对象，也不把DN和ordinary不同query位置混为一组。源码预期各组ref数值共享，实际不相同仍如实记录，不改ref求一致。
+matching包含ordinary own_by_stage、原matcher调用顺序、GO输入各stage索引、actual indices_go、final own indices、num_boxes_ordinary/num_boxes_go、GO GT multiset、每GT次数、go_gt_per_query/go_class_per_query（无GO的query为-1）。保留所有loss_calls原索引/分母，不用ordinary own代理GO。
+01_image_0至3.json保存可读采集概要、全部loss/索引与114对齐情况；02_summary.json保存四图概要和parity；00_inputs_sha256.json、04_execution.json及05_output_sha256.json记录来源与执行。
+
+五、114对齐与无更新验证
+输入manifest和114的4个JSON、03_gradients_and_predictions.pt、04_execution.json先验证原hash。旧03仅读取predictions中的train_ordinary/DN_meta做对照，不使用其中梯度，不使用eval ref（114本来也未存train ref）；本次不加载127的ref。
+身份元数据event、input SHA、GT组不符则failclosed。对于预测值、GO顺序/配对集合、GO分母、loss完整键与数值、DN/RNG，报告exact以及绝对/相对差；保留本次真实值和旧114值。差异不自动当作方法效果，不硬改tensor、seed、模式或匹配来追求exact。cache可采集完成但parity_with_114=false，须据实标明，不能称历史精确重放。
+四图前后model state SHA和单独BN SHA完全一致，原checkpoint与全部输入/源码SHA不变；criterion的state_dict也核对，非state缓存每图按原_clear_cache清理。统计、权重或输入改变则执行失败。无新AP、oracle效用、模型干预或训练主张。

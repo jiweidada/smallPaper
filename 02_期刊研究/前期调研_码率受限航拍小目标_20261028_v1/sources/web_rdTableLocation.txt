@@ -1,0 +1,138 @@
+ (https://cdn.techscience.cn/files/cmc/2024/TSP_CMC-80-3/TSP_CMC_52725/TSP_CMC_52725.pdf)
+ [wordlim: 200] Crawled: last month; Content type: application/pdf; Number of pages: 23; Source: find({"ref_id":"turn60view0","pattern":"Table 5:"}); Total lines: 799
+L470@P13: samples. For example, the detection accuracy for the class awning-tricycle and bicycle is increased by
+L471@P13: 2.3% and 2.0%, respectively. We further explored the confusion matrices of AP scores for different
+L472@P13: categories in Fig. 8. From the observation, our approach allows detectors to better distinguish objects
+L473@P13: and complicated backgrounds, and reduces the detection errors of objects from confused categories.
+L474@P13: The results reveal that the designed rank sample mining method and momentum contrast learning
+L475@P13: strategy can effectively alleviate the problems of interclass similarity and intraclass variability.
+L476@P13: Table 4: Detection results for each class on the clean VisDrone dataset
+L477@P13: Method AP (%) Car Bus Van Ped. Motor Truck Person Tricycle Awn. Bicycle
+L478@P13: FRCNN 21.4 51.2 32.2 27.8 20.4 20.1 20.1 13.7 13.5 7.7 7.0
+L479@P13: FRCNN+RD-MIM 23.8 53.7 35.5 31.5 23.3 22.8 22.2 15.8 14.5 10.0 9.0
+L480@P13: Figure 8: Confusion matrices on the clean VisDrone dataset using (a) original FRCNN and (b)
+L481@P13-14: FRCNN with our RD-MIMCMC, 2024, vol.80, no.3 4163
+L482@P14: To further explore the robustness performance of the RD-MIM, we evaluated the AP scores of
+L483@P14: FRCNN with ResNet50 under different corruption types in Table 5. The shot noise and snow severely
+L484@P14: deteriorate the accuracy of the original detector on the VisDrone and UAVDT datasets, resulting in
+L485@P14: 8.1% and 9.3% AP drops compared to clean accuracy. After applying the RD-MIM, the AP scores
+L486@P14: increase by 5.2% and 6.0%. Moreover, we also used the models trained on the VisDrone dataset to
+L487@P14: evaluate the unseen UAVDT dataset by using AP scores in Table 6. Even though the training and
+L488@P14: testing sets have completely different data distributions, our implementation still outperforms the
+L489@P14: original models, yielding 4.5%, 4.2%, and 4.8% average improvements. These results reveal that our
+L490@P14: approach brings great robustness gains to the detector.
+L491@P14: Table 5: Robustness evaluation under different corruption types in AP
+L492@P14: Dataset Method Gaussian Shot Defocus Motion Snow Frost Fog Brightness Contrast Compression
+L493@P14: VisDrone FRCNN 13.4 13.3 15.4 16.3 13.8 18.0 17.8 21.1 17.8 19.1
+L494@P14: FRCNN+RD-MIM 18.6 18.5 17.9 19.2 19.7 21.2 20.9 23.3 20.0 22.7
+L495@P14: UAVDT FRCNN 8.5 8.5 9.7 10.2 7.8 11.4 11.2 13.3 11.4 12.2
+L496@P14: FRCNN+RD-MIM 12.2 12.3 12.6 13.6 13.8 15.5 15.0 18.5 15.0 16.8
+L497@P14: Table 6: Evaluation results of robustness on the unseen UAVDT dataset by using models trained on
+L498@P14: the VisDrone dataset
+L499@P14: Method Car Truck Bus Average (%)
+L500@P14: FRCNN 15.8 3.8 13.7 11.1
+L501@P14: Retina 16.7 3.6 13.3 11.2
+L502@P14: FCOS 17.2 2.8 14.2 11.4
+L503@P14: FRCNN+RD-MIM 20.9 6.8 19.0 15.6
+L504@P14: Retina+RD-MIM 21.4 5.8 18.9 15.4
+L505@P14: FCOS+RD-MIM 22.1 7.2 19.4 16.2
+L506@P14: The comparison of existing approaches on the VisDrone dataset is shown in Table 7. The proposed
+L507@P14: approach outperforms the first two methods [9,27], resulting in 3.8% and 1.2% AP score improvements
+L508@P14: respectively. Compared to the DSHNet [8] with FRCNN, RD-MIM obtains slightly lower accuracy
+L509@P14: on clean aerial images but increases by 2.2% AP score on corrupted aerial images. QueryDet [48] is
+L510@P14: specifically designed for aerial images, which performs well for small objects. After combining the
+L511@P14: RD-MIM, the AP scores increase by 1.9% and 3.8% on clean and corrupted images, respectively. We
+L512@P14: also evaluated the performance gains of the recently released YOLOv8 [46] and the advanced DINO
+L513@P14: (DETR with Improved denoising anchor boxes) [49]. As can be seen, our RD-MIM still improves the
+L514@P14: performance of advanced detectors, especially in terms of corruption robustness.
+L515@P14: To demonstrate the compatibility of our method, we tested different types of oriented object
+L516@P14: detection methods, including Faster R-CNN (OBB) [50], Retina (OBB) [20], ROI Transformer [51],
+L517@P14: OAN [33], and recent TS-Conv [34] on the DroneVehicle dataset in Table 8. We adopted AP50 to
+L518@P14: evaluate each subcategory. As can be observed, our RD-MIM help the original detection methods
+L519@P14: achieve higher AP50 scores. It illustrates that our approach can be easily integrated into oriented object
+L520@P14-15: detection methods to further improve performance.4164 CMC, 2024, vol.80, no.3
+L521@P15: Table 7: Performance comparison of existing approaches on the VisDrone dataset
+L522@P15: Method Detector Clean accuracy Corruption robustness
+L523@P15: AP (%) AP50 (%) AP75 (%) AP (%) AP50 (%) AP75 (%)
+L524@P15: SimCal [27] FRCNN 20.0 35.8 19.6 – – –
+L525@P15: DSDet [9] 22.6 41.7 21.6 – – –
+L526@P15: DSHNet [8] 24.6 44.4 24.1 18.0 34.0 18.3
+L527@P15: DSHNet [8]+RD-MIM 23.8 41.0 24.4 20.2 34.1 20.1
+L528@P15: DSHNet [8] Retina 16.1 30.2 15.5 11.6 25.3 10.3
+L529@P15: DSHNet [8]+RD-MIM 18.0 34.1 16.6 15.1 27.4 13.8
+L530@P15: QueryDet [48] 26.3 46.5 26.6 22.6 43.1 22.0
+L531@P15: QueryDet [48]+RD-MIM 28.2 52.7 26.7 26.4 44.6 25.7
+L532@P15: DINO [49] Advanced 23.1 41.8 22.0 19.7 36.8 18.1
+L533@P15: DINO [49]+RD-MIM 26.2 42.8 26.9 23.5 38.9 23.9
+--------------------------------------------------------------------------------
+ (https://cdn.techscience.cn/files/cmc/2024/TSP_CMC-80-3/TSP_CMC_52725/TSP_CMC_52725.pdf)
+ [wordlim: 200] Crawled: last month; Content type: application/pdf; Number of pages: 23; Source: find({"ref_id":"turn60view0","pattern":"Compression"}); Total lines: 799
+L390@P10: • VisDrone dataset: The dataset has 10 object categories and 10,209 images, including 6471 for
+L391@P10: training, 548 for validation, and 3190 for testing. The image size is about 2000 × 1500 pixels, and
+L392@P10: the majority of objects are small, dense, and occluded from each other. We used the validation
+L393@P10: set to evaluate our method, following the same as previous methods [8].
+L394@P10: • UAVDT dataset: The dataset consists of 23,258 training images and 15,069 testing images. The
+L395@P10-11: images with a 1080 × 540 size include three kinds of vehicles: car, bus and truck.4160 CMC, 2024, vol.80, no.3
+L396@P11: • DroneVehicle dataset: It includes 28439 visible-infrared image pairs with OBB annotations and
+L397@P11: has five categories: car, truck, bus, van, and freight car. The input image size is 840 × 712. We
+L398@P11: only adopted RGB images of the dataset.
+L399@P11: To further measure robustness for detectors in aerial images, inspired by Yamada et al. [13]
+L400@P11: work on natural images, we introduced 10 synthetic image corruption types to the two VisDrone
+L401@P11: and UAVDT datasets. Considering the complex working conditions of UAVs, we adopted the
+L402@P11: following corruption types: Gaussian, shot, defocus, motion, snow, frost, fog, brightness, contrast,
+L403@P11: and compression [44]. The corrupted images are algorithmically synthesized and only used to test
+L404@P11: detector robustness. We applied each type to the VisDrone validation dataset and UAVDT testing
+L405@P11: dataset, obtaining 5480 and 150,690 corrupted images, respectively. Fig. 6 presents the 10 corruption
+L406@P11: types on the VisDrone dataset.
+L407@P11: Figure 6: Corruption types on the VisDrone dataset
+L408@P11: 4.2 Implementation Details
+L409@P11: Our experiments were implemented on the open-source MMDetection toolbox [45]. The comparative method YOLOv8 [46] used the MMYOLO [47] framework. We adopted Faster R-CNN,
+L410@P11: RetinaNet, and FCOS with three different backbones of ResNet50, RegNetX-1.6GF, and PVTv2-B0.
+L411@P11: These models were trained and tested on two NVIDIA Tesla P40 GPUs with 24 GB memory.
+L412@P11: In the training phase, we set the batch size to 4, the initial learning rate to 1.0 × 10−4
+L413@P11: , and the
+L414@P11: number of the epochs to 18. The testing phase used the same input image size as the training phase.
+L415@P11: We used the primary AP (average precision), AP50, and AP75 as evaluation metrics. AP50 and AP75
+L416@P11: are the average precision with the IoU threshold of 0.5 and 0.75, respectively. Clean accuracy was
+L417@P11: evaluated on images without corruption types. The mean detection accuracy of the detector for each
+L418@P11: corruption type is defined as corruption robustness. The confusion matrix was also introduced to
+L419@P11: evaluate and analyze errors and confusions between different object categories.
+L420@P11: 4.3 Comparison Experiments
+L421@P11: To compare the detection performance of our approach and the original method that transfers ImageNet network, we implemented three representative detectors, including Faster R-CNN
+L422@P11: (FRCNN), RetinaNet (Retina), and FCOS as basic models. We chose ResNet50, RegNetX-1.6GF,
+L423@P11: and PVTv2-B0 as backbones in Tables 1–3, respectively. RD-MIM achieves obvious improvements on
+L424@P11: almost all basic models, demonstrating the importance of underlying features. It can be seen that our
+L425@P11: method has higher AP score increases on the VisDrone dataset compared with the UAVDT dataset.
+L426@P11-12: Also, the improvement in robustness is greater than that of accuracy on the UAVDT dataset. TheCMC, 2024, vol.80, no.3 4161
+L486@P14: increase by 5.2% and 6.0%. Moreover, we also used the models trained on the VisDrone dataset to
+L487@P14: evaluate the unseen UAVDT dataset by using AP scores in Table 6. Even though the training and
+L488@P14: testing sets have completely different data distributions, our implementation still outperforms the
+L489@P14: original models, yielding 4.5%, 4.2%, and 4.8% average improvements. These results reveal that our
+L490@P14: approach brings great robustness gains to the detector.
+L491@P14: Table 5: Robustness evaluation under different corruption types in AP
+L492@P14: Dataset Method Gaussian Shot Defocus Motion Snow Frost Fog Brightness Contrast Compression
+L493@P14: VisDrone FRCNN 13.4 13.3 15.4 16.3 13.8 18.0 17.8 21.1 17.8 19.1
+L494@P14: FRCNN+RD-MIM 18.6 18.5 17.9 19.2 19.7 21.2 20.9 23.3 20.0 22.7
+L495@P14: UAVDT FRCNN 8.5 8.5 9.7 10.2 7.8 11.4 11.2 13.3 11.4 12.2
+L496@P14: FRCNN+RD-MIM 12.2 12.3 12.6 13.6 13.8 15.5 15.0 18.5 15.0 16.8
+L497@P14: Table 6: Evaluation results of robustness on the unseen UAVDT dataset by using models trained on
+L498@P14: the VisDrone dataset
+L499@P14: Method Car Truck Bus Average (%)
+L500@P14: FRCNN 15.8 3.8 13.7 11.1
+L501@P14: Retina 16.7 3.6 13.3 11.2
+L502@P14: FCOS 17.2 2.8 14.2 11.4
+L503@P14: FRCNN+RD-MIM 20.9 6.8 19.0 15.6
+L504@P14: Retina+RD-MIM 21.4 5.8 18.9 15.4
+L505@P14: FCOS+RD-MIM 22.1 7.2 19.4 16.2
+L506@P14: The comparison of existing approaches on the VisDrone dataset is shown in Table 7. The proposed
+L507@P14: approach outperforms the first two methods [9,27], resulting in 3.8% and 1.2% AP score improvements
+L508@P14: respectively. Compared to the DSHNet [8] with FRCNN, RD-MIM obtains slightly lower accuracy
+L509@P14: on clean aerial images but increases by 2.2% AP score on corrupted aerial images. QueryDet [48] is
+L510@P14: specifically designed for aerial images, which performs well for small objects. After combining the
+L511@P14: RD-MIM, the AP scores increase by 1.9% and 3.8% on clean and corrupted images, respectively. We
+L512@P14: also evaluated the performance gains of the recently released YOLOv8 [46] and the advanced DINO
+L513@P14: (DETR with Improved denoising anchor boxes) [49]. As can be seen, our RD-MIM still improves the
+L514@P14: performance of advanced detectors, especially in terms of corruption robustness.
+L515@P14: To demonstrate the compatibility of our method, we tested different types of oriented object
+L516@P14: detection methods, including Faster R-CNN (OBB) [50], Retina (OBB) [20], ROI Transformer [51],
+

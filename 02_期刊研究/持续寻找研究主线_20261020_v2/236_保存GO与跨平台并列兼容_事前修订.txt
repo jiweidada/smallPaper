@@ -1,0 +1,21 @@
+236｜保存 G0 与跨平台并列兼容：222 的执行前实现修订
+状态：仅编写，交 root 审核。旧222/223/224保持不变；尚无任何候选修复结果。
+
+一、已证实现原因
+235 JSON 窄审计（SHA256=4f2b4f4ef60e3540ab259ac347675395cb293a4788f4711e1974c32b3463b8e9）证实：原 votes 和层顺序一致；原 torch.argsort(counts,descending=True) 未规定稳定并列顺序，当前 CPU 重放在566 q/50曝光上选择了另一同频最高票 GT。全部差异为最高票并列；不得用重放 G0 替换保存 G0。233给源码范围和失败记录。
+
+二、唯一验证改动
+237 固定复用223 SHA=86ba26409d7a596cd085b7364e6588b25121a016e103803a613befc3a481c533 的数学、输入清单、资源约束、候选、输出及 screen 定义；不调用223.main或必然失败的旧validate_batch。新增validate_batch显式保留所有原校验，唯独把“原生重放map必须与保存map完全一致”替换为以下全部必须满足的有限兼容条件：
+1. 逐图原 branch_matches 每层 query/GT 唯一、范围合法，按固定原层顺序构建的 (q,g,count) 与保存 votes 完全相等。
+2. 保存 G0 与当前重放 G0 的 q 集合等于投票 q 集合；两者每 q 所选 GT 都达到该 q 的最高票数。保存 G0 必须逐项等于原 native_union，保持全部每q原class和各GT multiplicity。
+3. 重建的最高票并列集合、最高票数、production_U0_GT、并列q计数与原 tie_sensitivity 完全相等。不能把任意同类/同票但非最高票当可兼容。
+4. 当前每个不同q的 saved_GT/rebuilt_GT/两者票数/最高票数/同为最高票标志以及差异总数，必须与235该account/batch/image的冻结行逐项相同；无新增差异，也不把未列出的不同悄悄接纳。
+5. 235自身16份来源hash、64行身份、torch版本、criterion hash、0 tensor/model/heldout声明全部核验。若当前平台再次改变并列择解，仍fail closed，不能自动扩名单。
+6. 原 final own Hungarian 重算、FP32成本捕获、原GO预算/GT repetitions、pre/FDR ref共享、实际输入shape和L1/分母复现校验全部保留。没有放宽任何数值容差。
+
+三、不变的科学问题
+仍为同16个A/B development batch00–07、64曝光、原保存CPU nativeunion；不混新Windows预算。G_repair/U_cost/U_change/refIoUface/finalIoUface/nativecostface/G0、物理域及精度敏感性、整数优先级/dual、两seed必要screen和所有统计口径完全沿222。仍零checkpoint/forward/backward/VJP/训练，不接触heldout。original_sub4不存在为NA，actual_input_sub4按228真实512/544/640输入；不得泛称独立验证/AP/创新/训练通过。
+
+四、输出与异常
+仅创建新的238_*，默认238_BASE24_saved_GO_repair_probe。每batch输出包含全部并列兼容差异，主结果明确 saved_G0_used=True、Windows_replayed_G0_used=False、原224失败保留。输入及脚本SHA前后核验。先合成（原支持域/整数流+新增并列兼容拒绝非最高票/错名单单测），再读取真实缓存。失败仍state=error，不作为方法阴性。
+本次修订由已证前置实现兼容问题触发，在任何候选结果产生前锁定；不增加样本、不改方法和去留门槛。

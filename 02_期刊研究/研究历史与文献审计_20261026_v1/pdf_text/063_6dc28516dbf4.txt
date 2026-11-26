@@ -1,0 +1,101 @@
+CONTOUR FORMER :REAL -TIME CONTOUR -BASED END-TO-END
+INSTANCE SEGMENTATION TRANSFORMER
+Weiwei Yao, Chen Li, Minjun Xiong, Wenbo Dong, Hao Chen, Xiong xiao
+Zhuzhou CRRC Times Electric Co., Ltd., China
+ABSTRACT
+This paper presents Contourformer, a real-time contour-based instance segmentation algorithm. The
+method is fully based on the DETR paradigm and achieves end-to-end inference through iterative
+and progressive mechanisms to optimize contours. To improve efficiency and accuracy, we develop
+two novel techniques: sub-contour decoupling mechanisms and contour fine-grained distribution
+refinement. In the sub-contour decoupling mechanism, we propose a deformable attention-based
+module that adaptively selects sampling regions based on the current predicted contour, enabling
+more effective capturing of object boundary information. Additionally, we design a multi-stage
+optimization process to enhance segmentation precision by progressively refining sub-contours. The
+contour fine-grained distribution refinement technique aims to further improve the ability to express
+fine details of contours. These innovations enable Contourformer to achieve stable and precise
+segmentation for each instance while maintaining real-time performance. Extensive experiments
+demonstrate the superior performance of Contourformer on multiple benchmark datasets, including
+SBD, COCO, and KINS. We conduct comprehensive evaluations and comparisons with existing state-
+of-the-art methods, showing significant improvements in both accuracy and inference speed. This
+work provides a new solution for contour-based instance segmentation tasks and lays a foundation for
+future research, with the potential to become a strong baseline method in this field.
+1 Introduction
+Instance segmentation [11] is a fundamental task in the field of computer vision, aiming to precisely identify each
+individual object and its corresponding contour within an image. In recent years, instance segmentation technology
+has received widespread attention and achieved significant breakthroughs in research. The studies in this domain have
+primarily focused on two paradigms: mask-based methods and contour-based methods. The former identifies target
+regions through pixel-level masks, while the latter delineates object contours using sparse boundary points.
+Currently, mask-based methods are the mainstream choice and have achieved significant improvements in prediction
+accuracy. However, these methods require precise pixel-level predictions for each object, which often results in
+high computational resource consumption and memory usage, making them difficult to apply in real-time scenarios.
+Additionally, mask-based methods lack explicit structure modeling, leading to potential uncertainties or noise in
+boundary detail delineation and internal region processing. On the other hand, contour-based methods have alleviated
+computational resource occupancy to some extent but still fall short of achieving parity with mask-based methods,
+particularly in large-scale benchmark tests. Researchers in the deep learning community have proposed various
+improvement strategies. However, these methods[ 36, 2, 12, 23, 13, 14] still struggle to match the performance of
+state-of-the-art mask-based methods, especially when dealing with complex scenarios.
+To address these challenges, we propose a novel instance segmentation method called Contourformer. This approach
+is based on the DETR [1] paradigm, inheriting its advantages such as obtaining final results in an end-to-end manner
+without relying on Non-Maximum Suppression (NMS) or anchor boxes. Building upon DETR, Contourformer directly
+predicts object boundaries as polygons and employs iterative and progressive mechanisms to refine initial contours
+by estimating residual displacements, thereby delineating the target instances accurately.Our model demonstrates
+state-of-the-art performance on the SBD [ 26] dataset, MS-COCO [27] dataset, and KINS [ 28] dataset. For images
+of size 512×512, Contourformer achieves an inference speed of 24.6 frames per second (fps) on an NVIDIA A30
+*Email:yaoww1@csrzic.com.
+†The code is available at: https://github.com/talebolano/Contourformer
+arXiv:2501.17688v3  [cs.CV]  15 Apr 2025
+
+---PAGE---
+
+A PREPRINT
+GPU, with accuracy significantly surpassing existing contour-based instance segmentation algorithms.The primary
+contributions of our work are as follows:
+• DETR paradigm-based contour regression model: Our method is fully grounded in the DETR paradigm,
+employing iterative and progressive mechanisms to optimize contours, thereby enabling end-to-end inference.
+• Innovative sub-contour decoupling mechanism: We propose an innovative sub-contour decoupling mechanism
+that decomposes complex overall contours into multiple local sub-parts. By independently modeling the
+geometric features of each sub-part, this approach reduces the difficulty of learning while ensuring model
+stability across various scales and viewpoints.
+• Redefining contour regression within the decoder stage: We redefine contour regression during the decoder
+stage, allowing the model to progressively refine location estimates, which significantly enhances the final
+localization accuracy.
+2 Related Work
+This paper reviews the research progress in the field of instance segmentation from the perspectives of mask-based and
+contour-based approaches, and provides a detailed analysis of various representative methods.
+Mask-based instance segmentation. In the domain of mask-based instance segmentation, mainstream research
+can be broadly categorized into two main paradigms: methods that rely on bounding boxes and those that directly
+predict masks. Early approaches, such as Mask R-CNN [11], adhered to a two-stage paradigm where bounding box
+detection was followed by mask prediction within each detected region. Subsequent advancements introduced cascaded
+integration techniques, exemplified by HTC [3] and RefineMask [4], which interleaved detection and segmentation
+features or fused instance features across different stages to refine mask predictions.To address the complexity of mask
+representation, DCT-Mask [5] proposed a DCT-based mask representation, while Patch-DCT [ 6] further enhanced
+precision by dividing masks into independent patches and applying DCT-based representation at the patch level. More
+recently, methods have shifted away from bounding box reliance, instead focusing on direct mask prediction. YOLACT
+[7] achieved instance segmentation by generating prototype masks and their combination coefficients. BlendMask[35]
+predicted 2D attention maps for each proposal and combined them with ROI features to accomplish the segmentation
+task. SOLO [8] introduced dynamic convolutional kernels to construct high-resolution instance segmentation methods.
+K-Net [22] integrated Transformer structures, gradually optimizing masks through a progressive approach. MaskFormer
+[9] combined the DETR paradigm with dynamic convolutional kernels to separately predict class labels and mask
+results. Mask2former [10] adopted Deformable-detr [21] as the base model, restricting cross-attention to predicted mask
+regions for local feature extraction. MaskDino [20] merged DINO[17], an object detection algorithm that incorporates
+various training acceleration methods[18, 19], with dynamic convolutional kernels for generating masks, enabling
+simultaneous output of both masks and bounding boxes.
+Contour-based instance segmentation. In contrast to mask-based approaches, contour-based methods focus on
+predicting object boundaries or polygonal representations of instances. These methods can be broadly categorized
+into two types: those using polar coordinates and those employing Cartesian coordinates. For instance, PolarMask
+[12] reformulated instance segmentation as a contour regression problem in polar coordinates, while DeepSnake[23]
+initializes contours using bounding box predictions, followed by multiple deformation steps to complete the segmentation
+task. Building on DeepSnake, Dance [ 13] improves the matching scheme between predicted and target contours
+and introduces an attention deformation mechanism. E2EC proposes a learnable contour initialization architecture,
+significantly enhancing performance. Polysnake [14] presents a more lightweight deformable contour module along
+with shape loss to encourage and regulate object shape learning. BoundaryFormer [ 15] introduces a differentiable
+rasterization module, using pixel-level masks to supervise model training. PolyFormer [ 24] adopts a Seq2Seq[33]
+framework, taking image patches and text query tokens as input and autoregressively outputting sequences of polygon
+vertices.
+Different from existing methods, Contourformer fully adopts the DETR paradigm and employs iterative and progressive
+mechanisms to learn object contours. It transforms polygon regression from predicting fixed coordinates to modeling
+probability distributions, thereby achieving precise and robust estimation for various objects.
+3 Methodology
+The proposed Contourformer framework is shown in figure 1. This framework is built upon the D-FINE [25] object
+detection model and extends the regression of bounding boxes to the regression of contours. To achieve efficient training,
+2

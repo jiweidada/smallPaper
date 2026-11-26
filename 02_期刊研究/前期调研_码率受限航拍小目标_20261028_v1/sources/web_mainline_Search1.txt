@@ -1,0 +1,356 @@
+Improving Object Detection by Label Assignment Distillation (https://openaccess.thecvf.com/content/WACV2022/papers/Nguyen_Improving_Object_Detection_by_Label_Assignment_Distillation_WACV_2022_paper.pdf)
+ [wordlim: 200] Crawled: 7 months ago; 
+This WACV 2022 paper is the Open Access version, provided by the Computer Vision Foundation.  
+Except for this watermark, it is identical to the accepted version;  
+the final published version of the proceedings is available on IEEE Xplore.
+
+# Improving Object Detection by Label Assignment Distillation
+
+Chuong H. Nguyen*, Thuy C. Nguyen*, Tuan N. Tang, Nam L.H. Phan  
+CyberCore AI, Ho Chi Minh, Viet Nam  
+chuong.nguyen,thuy.nguyen,tuan.tang,nam.phan@cybercore.co.jp
+
+## Abstract
+
+Label assignment in object detection aims to assign targets, foreground or background, to sampled regions in an image. Unlike labeling for image classification, this problem is not well defined due to the object’s bounding box. In this paper, we investigate the problem from a perspective of distillation, hence we call Label Assignment Distillation (LAD). Our initial motivation is very simple, we use a teacher network to generate labels for the student. This can be achieved in two ways: either using the teacher’s prediction as the direct targets (soft label), or through the hard labels dynamically assigned by the teacher (LAD). Our experiments reveal that: (i) LAD is more effective than soft-label, but they are complementary. (ii) Using LAD, a smaller teacher can also improve a larger student significantly, while soft-label can’t. We then introduce Co-learning LAD, in which two networks simultaneously learn from scratch and the role of teacher and student are dynamically interchanged. Using PAA-ResNet50 as a teacher, our LAD techniques can improve detectors PAA-ResNet101 and PAA-ResNeXt101 to 46AP and 47.5AP on the COCO test-dev set. With a stronger teacher PAA-SwinB, we improve the students PAA-ResNet50 to 43.7AP by only 1× schedule training and standard setting, and PAA-ResNet101 to 47.9AP, significantly surpassing the current methods. Our source code is released at https://git.io/JrDZo.
+
+<visual_element id="e1">
+Figure 1 contains two comparison diagrams:
+
+(a) Soft Label Distillation  
+Input Image → Student Network (cls: p, box: b) → Losses L(p, p_T, b, b_T)  
+Input Image → Teacher Network (cls: p_T, box: b_T) → Soft label (blue arrow) to Losses  
+A red dashed ∇L indicates gradient flow from Losses back to Student Network.
+
+(b) Label Assignment Distillation  
+Input Image → Student Network (cls: p, box: b) → Losses L(p, C, b, B)  
+Input Image → Teacher Network (cls: p_T, box: b_T) → Label Assigner Cost(p_T, C, b_T, B)  
+G.T. (C, B) feeds into Label Assigner, which produces Assigned Labels (blue arrow) to Losses.  
+A red dashed ∇L indicates gradient flow from Losses back to Student Network.
+</visual_element>
+
+Figure 1: Compare Soft Label Distillation and Label Assignment Distillation (LAD). In the former, the teacher’s output is directly used as the target, while in the latter, it is used to evaluate the cost for label assignment.
+
+## 1. Introduction
+
+Object detection is a long-standing and fundamental problem, and many algorithms have been proposed to improve the benchmark accuracy. Nevertheless, the principal framework is still unchanged: an image is divided into many small sample regions, each is assigned a target, on which the detector is trained in a supervised manner. Reviewing the literature, a majority are dedicated to inventing new architectures [29, 34, 35, 1, 38, 20, 36, 2] or defining effective training loss functions [26, 4, 24, 33]. However, the most frontal problem of supervised learning, i.e., how to assign the training targets, yet get less attention.
+
+Unlike image classification, where a category can be easily set to an image, defining labels in object detection is ambiguous due to bounding boxes’ overlapping. Obviously, if a region is completely overlapping or disjoint with a ground truth box, it is definitely positive (foreground) or negative (background). However, for a partial overlapping case, how should we consider it?
+
+A common practice to define a positive region is if its Intersection over Union (IoU) with the nearest ground truth box at least 0.5. This may do due to the high recall preference in the VOC [12] and COCO [27] evaluations. Ironically, a network trained with low IoU assignment yields high recall but noisy predictions, while using only high IoU samples degrades the performance [3]. In addition, regions with the same IoU can have different semantic meaning for classification. Hence, recent research [19, 47] suggests that solely
+
+*Equal Contribution.
+
+1005--------------------------------------------------------------------------------
+GitHub - cybercore-co-ltd/CoLAD: Official Implementation of the WACV 2022 paper: Improve Object Detection with Label Assignment Distillation. · GitHub (https://github.com/cybercore-co-ltd/CoLAD)
+ [wordlim: 200] Published: 4.3 years ago; Crawled: last month; 
+
+## Folders and files
+
+Name  | Name  | Last commit message  | Last commit date
+--- | --- | --- | ---
+Fig  | Fig  |    |  
+ccdet  | ccdet  |    |  
+configs  | configs  |    |  
+docs/ConcurrentWork  | docs/ConcurrentWork  |    |  
+.gitignore  | .gitignore  |    |  
+LICENSE  | LICENSE  |    |  
+README.md  | README.md  |    |  
+setup.py  | setup.py  |    |  
+
+## Repository files navigation
+
+  *   * README
+  * GPL-3.0 license
+
+More items
+
+# Improving Object Detection by Label Assignment Distillation
+
+This is the official implementation of the WACV 2022 paper Improving Object Detection by Label Assignment Distillation. We provide the code for Label Assignement Distillation (LAD), training logs and several model checkpoints.
+
+## What's New
+
+  * [July 7, 2022] release code for CoLAD
+
+  * [May 18, 2022] release code for SoLAD and KDLoss
+
+## Table of Contents
+
+  1. Introduction
+  2. Installation
+  3. Usage
+  4. Experiments
+  5. Citation
+
+* * *
+
+## Introduction
+
+This is the official repository for the paper `Improving Object Detection by Label Assignment Distillation`.
+
+Soft Label Distillation concept (a)  | Label Assignment Distillation concept (b)
+--- | ---
+ | 
+
+  * Distillation in Object Detection is typically achived by mimicking the teacher's output directly, such soft-label distillation or feature mimicking (Fig 1.a).
+  * We propose the concept of Label Assignment Distillation (LAD), which solves the label assignment problems from distillation perspective, thus allowing the student learns from the teacher's knowledge without direct mimicking (Fig 1.b). LAD is very general, and applied to many dynamic label assignment methods. Following figure shows a concrete example of how to adopt Probabilistic Anchor Assignment (PAA) to LAD.
+Probabilistic Anchor Assignment (PAA)  | Label Assignment Distillation (LAD) based on PAA
+--- | ---
+ | 
+
+  * We demonstrate a number of advantages of LAD, notably that it is very simple and effective, flexible to use with most of detectors, and complementary to other distillation techniques.
+  * Later, we introduced the Co-learning dynamic Label Assignment Distillation (CoLAD) to allow two networks to be trained mutually based on a dynamic switching criterion. We show that two networks trained with CoLAD are significantly better than if each was trained individually, given the same initialization.
+
+* * *
+
+--------------------------------------------------------------------------------
+Improving Object Detection by Label Assignment Distillation (https://arxiv.org/abs/2108.10520)
+ [wordlim: 200] Published: 5.2 years ago; Title: Improving Object Detection by Label Assignment Distillation ... Label assignment in object detection aims to assign targets, foreground or background, to sampled regions in an image.
+--------------------------------------------------------------------------------
+Improving Object Detection by Label Assignment Distillation - Conftrace (https://conftrace.com/papers/257712-improving-object-detection-by-label-assignment-distillation)
+ [wordlim: 200] Crawled: 6 days ago; 
+
+2022 WACV WACV 2022
+
+# Improving Object Detection by Label Assignment Distillation
+
+## Abstract
+
+Label assignment in object detection aims to assign targets, foreground or background, to sampled regions in an image. Unlike labeling for image classification, this problem is not well defined due to the object's bounding box. In this paper, we investigate the problem from a perspective of distillation, hence we call Label Assignment Distillation (LAD). Our initial motivation is very simple, we use a teacher network to generate labels for the student. This can be achieved in two ways: either using the teacher's prediction as the direct targets (soft label), or through the hard labels dynamically assigned by the teacher (LAD). Our experiments reveal that: (i) LAD is more effective than soft-label, but they are complementary. (ii) Using LAD, a smaller teacher can also improve a larger student significantly, while soft-label can't. We then introduce Co-learning LAD, in which two networks simultaneously learn from scratch and the role of teacher and student are dynamically interchanged. Using PAA-ResNet50 as a teacher, our LAD techniques can improve detectors PAA-ResNet101 and PAA-ResNeXt101 to 46 AP and 47.5 AP on the COCO test-dev set. With a stronger teacher PAA-SwinB, we improve the students PAA-ResNet50 to 43.7 AP by only 1x schedule training and standard setting, and PAA-ResNet101 to 47.9 AP, significantly surpassing the current methods. Our source code is released at https://git.io/JrDZo.
+
+🌉 Interdisciplinary Bridge - Artificial Intelligence and Computer Vision
+
+### Authors
+
+Chuong H. Nguyen, Thuy C. Nguyen, Tuan N. Tang, Nam L.H. Phan
+
+### Topics
+
+Machine Learning > Application Areas > Knowledge Distillation Computer Vision > Analysis > Object Detection
+
+### Keywords
+
+object detection knowledge distillation teacher-student learning label assignment distillation
+
+Download PDF--------------------------------------------------------------------------------
+Research on Lightweight Low-Altitude Small Object Detection and Model Compression for Edge Intelligence | Proceedings of the 3rd International Conference on Computer Application and Computer Graphics (https://doi.org/10.1145/3844212.3844230)
+ [wordlim: 200] Published: last week; Crawled: 2 days ago; 
+
+# Research on Lightweight Low-Altitude Small Object Detection and Model Compression for Edge Intelligence
+
+Author: Pan LiAuthors Info & Claims
+
+CACG '26: Proceedings of the 3rd International Conference on Computer Application and Computer Graphics
+
+Pages 113 - 120
+
+https://doi.org/10.1145/3844212.3844230
+
+Published: 20 October 2026 Publication History
+
+## Abstract
+
+With the rapid development of the low-altitude economy, real-time detection of low-altitude small targets has become a key technology in fields such as UAV inspection and intelligent security. However, existing detection models face problems such as insufficient small target feature expression, contradiction between lightweight and accuracy, and difficulty in edge deployment. To solve these problems, this study focuses on improving detection accuracy, optimizing model lightweight, and enhancing edge deployment efficiency. A lightweight low-altitude small target detection model based on improved YOLOv8n is proposed, which integrates depthwise separable convolution, Ghost module and partial convolution to optimize the backbone network, reducing model complexity while retaining small target feature extraction capability. An adaptive attention fusion mechanism is designed to strengthen small target feature expression and suppress complex background interference. Combined with structured pruning and INT8 quantization, the model compression strategy is implemented to improve edge deployment efficiency. Experimental results on VisDrone and UAVDT datasets show that the proposed model achieves 87.4% [email protected], 118 FPS and 2.4M parameters, outperforming mainstream comparison models. The model can be stably deployed on edge devices such as Jetson Nano and RK3588, and has broad application prospects in UAV inspection, intelligent transportation, urban security and border monitoring. Future work will focus on Transformer fusion, multi-modal detection and edge-cloud collaborative perception to further improve detection performance in complex scenarios.
+
+## 1 Introduction
+
+The low-altitude economy has experienced rapid growth in recent years, with continuously rising demand for applications such as drone usage, intelligent security monitoring, and automated inspection systems. Third, to improve edge deployment efficiency by adapting the detection model to meet the hardware constraints of edge devices, enabling real-time detection, low-power operation, and high throughput deployment objectives, thereby facilitating the practical implementation of low-altitude small target detection technology.
+
+This study clearly defines five core research objectives as follows: Objective 1 – Develop a lightweight low-altitude target detection network architecture tailored to the hardware constraints of edge devices; Objective 2 – Design an adaptive attention fusion mechanism to enhance feature extraction and discrimination capabilities for small targets; Objective 3 – Optimize multi-scale feature enhancement to improve detection performance for low-altitude targets across different scales; Objective 4 – Implement model compression through pruning and quantization techniques to reduce model complexity and resource consumption; Objective 5 – Achieve optimized real-time deployment on edge devices, ensuring the model meets real-time detection and low-power requirements.
+
+The primary contributions of this study adhere to ACM/IEEE standard specifications as follows: Contribution 1 proposes an improved lightweight backbone network that effectively reduces model complexity through the integrated application of deeply separable convolutional layers and Ghost modules, while preserving critical feature information with reduced parameter count and computational requirements; Contribution 2 introduces an adaptive attention fusion module that dynamically adjusts feature weights to enhance small-object detection performance in complex scenarios and mitigate feature confusion; Contribution 3 establishes a multi-scale feature enhancement mechanism that improves the network's robustness for detecting low-altitude objects across different scales via multi-scale feature fusion and augmentation operations, minimizing detection errors caused by scale variations; Contribution 4 combines structured pruning with INT8 quantization optimization techniques to compress and optimize the detection model, enabling efficient deployment on edge devices while balancing detection accuracy and real-time performance.
+
+--------------------------------------------------------------------------------
+Label Assignment Distillation for Object Detection (https://arxiv.org/abs/2109.07843)
+ [wordlim: 200] Published: 5.1 years ago; Title: Label Assignment Distillation for Object Detection
+--------------------------------------------------------------------------------
+第 50 卷 第 15 期/2023 年 8 月/中国激光 (https://www.researching.cn/ArticlePdf/m00001/2023/50/15/1507203.pdf)
+ [wordlim: 200] Published: 2.1 years ago; 
+quality object detection[C] ∥2018 IEEE/CVF Conference on 
+Computer Vision and Pattern Recognition, June 18-23, 2018, 
+Salt Lake City, UT, USA. New York: IEEE Press, 2018: 6154-
+6162.
+[24]
+Tian Z, Shen C H, Chen H, et al. FCOS: a simple and strong 
+anchor-free object detector[J]. IEEE Transactions on Pattern 
+Analysis and Machine Intelligence, 2022, 44(4): 1922-1933.
+[8]
+何自芬, 陈光晨, 陈俊松, 等. 多尺度特征融合轻量化夜间红外
+行人实时检测[J]. 中国激光, 2022, 49(17): 1709002.
+He Z F, Chen G C, Chen J S, et al. Multi-scale feature fusion 
+lightweight real-time infrared pedestrian detection at night[J]. 
+Chinese Journal of Lasers, 2022, 49(17): 1709002.
+[25]
+Nguyen C H, Nguyen T C, Tang T N, et al. Improving object 
+detection by label assignment distillation[C] ∥2022 IEEE/CVF 
+Winter Conference on Applications of Computer Vision (WACV), 
+January 3-8, 2022, Waikoloa, HI, USA. New York: IEEE 
+Press, 2022: 1322-1331.
+[9]
+刘丰, 韩民, 万军, 等. 基于深度学习的牙齿病变自动检测算法
+[J]. 中国激光, 2022, 49(20): 2007207.
+Liu F, Han M, Wan J, et al. Automatic detection of dental lesions 
+based on deep learning[J]. Chinese Journal of Lasers, 2022, 49
+(20): 2007207.
+[26]
+Feng C J, Zhong Y J, Gao Y, et al. TOOD: task-aligned one-stage 
+object detection[C]∥2021 IEEE/CVF International Conference on 
+Computer Vision (ICCV), October 10-17, 2021, Montreal, QC, 
+Canada. New York: IEEE Press, 2022: 3490-3499.
+[10]
+徐志京, 柏雪. 基于双重特征增强的遥感舰船小目标检测[J]. 光
+--------------------------------------------------------------------------------
+Small object detection: A comprehensive survey on challenges, techniques and real-world applications - ScienceDirect (https://doi.org/10.1016/j.iswa.2025.200561)
+ [wordlim: 200] Published: 1.2 years ago; Crawled: last month; 
+### 4.4. Data augmentation and synthetic data
+
+#### 4.4.1. Data augmentation techniques for SOD
+
+Data augmentation is a widely used strategy to artificially expand the training dataset by applying a variety of transformations to existing images. In the context of SOD, specific augmentation techniques are employed to simulate real-world scenarios and help the model focus on identifying small-scale features (Q. Liu et al., 2024).
+
+  * •
+
+Rotation and Scaling: Small objects often appear in varying orientations and sizes. Applying random rotations and scaling adjustments helps models generalize better to different spatial representations of small objects.
+
+  * •
+
+Cropping and Zooming: Focused cropping and zooming augmentations ensure that small objects remain within the image frame while forcing the model to learn fine-grained details.
+
+  * •
+
+Padding and Contextual Cropping: Augmentations like padding can introduce a buffer around small objects, while contextual cropping emphasizes objects and their surroundings to improve contextual awareness.
+
+  * •
+
+Brightness, Contrast, and Noise Adjustments: Adjusting brightness and contrast or adding Gaussian noise ensures that models can handle variations in lighting and image quality, which are common in real-world conditions.
+
+  * •
+
+Random Erasing and Occlusion Simulation: Simulating occlusions by partially erasing regions of an image encourage models to learn robust representations and improve detection performance under occluded conditions.
+
+Advanced augmentation methods, such as MixUp, CutMix, and Mosaic, have been particularly impactful for SOD (R. Jing et al., 2024; J. Wu et al., 2024; Y. Zhang et al., 2024). These techniques combine multiple images into a single composite image, creating complex scenarios that enhance the model's ability to discern small objects within cluttered backgrounds.
+
+#### 4.4.2. Synthetic data generation for SOD
+
+While data augmentation transforms existing data, synthetic data generation creates entirely new training samples, addressing the issue of limited datasets for SOD. --------------------------------------------------------------------------------
+Deep Learning-Based Small-Object Detection in UAV Imagery: A Symmetry-Informed Review of Scale Variation and Scenario Constraints (https://www.mdpi.com/2073-8994/18/9/1548)
+ [wordlim: 200] Published: last month; Crawled: 3 weeks ago; 
+### 3.2. Key Techniques Layer
+
+This section focuses on how existing methods address the core technical challenges of small-object detection in UAV imagery. As shown in Figure 5, current studies can generally be divided into five main technical directions.
+
+Image
+
+Figure 5. Five major technical routes.
+
+#### 3.2.1. Data Augmentation
+
+Data augmentation addresses the inherent scarcity and scale bias of UAV small objects from the data perspective. Because aerial small objects often occupy only a few pixels and are easily affected by scale compression, background clutter, and insufficient sample diversity, directly improving the training data has become an important way to enhance detector robustness. Existing studies have mainly developed four representative augmentation strategies as follows.
+
+Super-resolution reconstruction improves small-object discernibility by restoring edge, texture, and structural details from low-resolution imagery. Research in this direction broadly falls into two categories: standalone pre-processing before detection [54] and joint optimization of super-resolution with the detection network via collaborative reconstruction and adaptive feature fusion [55]. #### 3.2.4. Model Lightweight Design
+
+Onboard UAV platforms impose stringent constraints on computing power, memory, and energy budgets, rendering most general-purpose detection networks unsuitable for real-time deployment. Unlike generic lightweight tasks, UAV imagery small-object detection faces a unique and fundamental tension: the compression of lightweight models will lead to loss of fine-grained features of objects. Accordingly, existing studies have gradually formed four main routes: model compression, lightweight structural design, task-specific module optimization, and hardware–software co-deployment.
+
+Model compression reduces network redundancy through knowledge distillation, sparsification, and channel pruning, aiming to minimize performance degradation while lowering complexity. Fan et al. [107] applied distillation atop optimized feature fusion to transfer discriminative knowledge from teacher to student. To reduce the inference burden caused by high-resolution feature preservation, Belmouhcine et al. [108] proposed dual-training distillation where an early-upsampling network guides a late-upsampling detector. Ma et al. [109] further combined response alignment, feature imitation, and structure preservation, and they introduced channel pruning to preserve channels sensitive to small objects. More recently, Wang et al. [110] developed ADD-Net by integrating a dynamic sampling backbone, sparse global context modeling, a dual adaptive feature pyramid, and hybrid knowledge distillation. Despite these refinements, structural contradictions still persist in model compression: knowledge distillation and pruning are essentially means of regulating information loss rather than lossless information preservation. For small objects with inherently sparse discriminative feature signals, any compression operation will further weaken the already faint object responses, and the model’s information loss cannot be eliminated through parameter adjustment. Such an inherent trade-off means that optimization schemes relying solely on compression techniques have an upper performance limit.
+
+Lightweight structural design reduces redundancy by redesigning backbones, feature propagation paths, and detection heads. --------------------------------------------------------------------------------
+Advancements in Small-Object Detection (2023–2025): Approaches, Datasets, Benchmarks, Applications, and Practical Guidance (https://www.mdpi.com/2076-3417/15/22/11882)
+ [wordlim: 200] Published: last year; Crawled: 3 months ago; 
+### 3.4. Data Augmentation and Generation
+
+The performance of any detection model is directly tied to the quality and availability of the training dataset, which represents the most important challenge for SOD, where small objects are not in the training search space, creating class imbalance and poor generalization of model detection. Data augmentation methods artificially create larger training datasets, and from 2023 to 2025, we have seen growth from the standard augmentation methods to brute generation methods.
+
+Traditional augmentation methods (random cropping, scaling, flipping, color jitter, etc.) are still standard practice, and one of the more effective for object detection is mosaic augmentation, which combines four training images into one, thereby forcing the model to learn to detect objects in different contexts and likelihoods of scales [30]. However, these methods are still limited by the diversity (or lack thereof) of the training dataset. One powerful method is a generative model approach, namely Generative Adversarial Networks, and more recently, diffusion models have shown great promise in generating novel, synthetic training data.
+
+GAN-based augmentation has been examined for a few years, wherein a generator network learns via training to provide realistic images of objects that can be used to augment the dataset [31,32]. These augmentations may be as simple as creating entire scenes or, even better for SOD, generators create instances of small objects that are then pasted into scenes on backgrounds that make them appear realistic. This can create a “copy–paste” augmentation method that permits exact control over the quantity, location, and scale of small-sized objects to be contained in the training dataset purely for the purpose of class imbalance alleviation. GANs are useful for synthesizing new views of an object, or they may be used to perform style transfer in which an existing image is rendered to look like the scene was taken in different weather conditions [33,34].
+
+In recent years, diffusion models have exhibited significant promise and are often better than GANs regarding the image quality and diversity [35]. --------------------------------------------------------------------------------
+A Deployment-Oriented Case Study of YOLO-Based Model Compression for On-Board Space Debris Detection (https://doi.org/10.3390/info17070650)
+ [wordlim: 200] Published: 3 months ago; Crawled: last month; 
+
+Download PDF
+Download PDF with Cover
+Download XML
+Download Epub
+
+Browse Figures
+
+Versions Notes
+
+## Abstract
+
+Space debris presents a growing operational risk to spacecraft, especially in low Earth orbit, where collisions can generate further debris and increase future collision probability. Active debris removal and in-orbit servicing require robust close-range perception, but on-board systems are constrained by power, memory, processing capability and the need for reliable real-time operation. This paper investigates convolutional object detection for on-board space debris detection using the SPARK 2022 spacecraft detection dataset. A YOLOv3 detector is fine-tuned and used to evaluate post-training compression through static quantisation and pruning. A lightweight architectural variant, YOLO-DWSC, is also introduced by replacing the YOLOv3-tiny backbone convolutions with depthwise separable convolutions while retaining the detection head. The full-precision YOLOv3 model achieves 0.972 mAP_{50} and 0.884 mAP_{50:95}, while 8-bit static quantisation reduces model size from 405 MB to 102 MB with only a small reduction in mAP_{50}, although tighter localisation accuracy is more affected. YOLO-DWSC is much smaller and faster, reaching 256.4 FPS on the tested GPU at 43 MB, but with reduced accuracy. We present this work as a controlled case study rather than an attempt at state-of-the-art SPARK 2022 performance. The original challenge test labels were unavailable, and the experiments therefore use a class-balanced re-split of the labelled data. The results should consequently be interpreted as internally controlled comparisons of compression behaviour, not as leaderboard-comparable benchmark results. Pruning and a two-pass refinement method are also evaluated. The results indicate that simple compression methods can be useful for broad region-of-interest detection, but they also show that claims about on-board deployment require caution. Speed benefits are hardware- and runtime-dependent, and safety-critical proximity operations require evaluation criteria better aligned with full-object containment.
+
+Keywords:
+
+space debris; object detection; YOLOv3; quantisation; pruning; depthwise separable convolution; on-board inference; active debris removal; SPARK 2022; lightweight CNN
+--------------------------------------------------------------------------------
+NBD-DLA: Normalized Bhattacharyya distance-based dynamic label assignment for remote sensing tiny object detection - ScienceDirect (https://www.sciencedirect.com/science/article/pii/S0925231226020631)
+ [wordlim: 200] Crawled: 2 months ago; 
+
+# NBD-DLA: Normalized Bhattacharyya distance-based dynamic label assignment for remote sensing tiny object detection
+
+https://doi.org/10.1016/j.neucom.2026.134665Get rights and content
+
+## Highlights
+
+  * •
+
+The effective receptive field is estimated dynamically.
+
+  * •
+
+The NBD-DLA is proposed to solve the imbalance problem in positive sample assignment.
+
+  * •
+
+The CAFEM enhances tiny object features via adaptive multi-receptive-field fusion and striped convolutions.
+
+  * •
+
+The proposed method improves performance across multiple baseline models.
+
+## Abstract
+
+In remote sensing image processing, tiny object detection (TOD) is one of the most challenging tasks. Compared with normal-scale objects, tiny objects contain weaker features and limited information, causing most current detectors to often suffer from low recall and inaccurate localization in TOD tasks. To address these issues, we analyze current methods and focus on two key limitations: the imbalance in positive sample assignment and insufficient discriminative feature extraction. --------------------------------------------------------------------------------
+A Realistic Instance-Level Data Augmentation Method for Small-Object Detection Based on Scene Understanding (https://www.mdpi.com/2072-4292/18/4/647)
+ [wordlim: 200] Published: 8 months ago; Crawled: 2 weeks ago; 
+However, due to inconsistencies between instance and background—such as background mismatch, scale mismatch, illumination mismatch, and viewpoint mismatch—these random operations often result in augmented images that lack visual realism, as illustrated in Figure 1a. Prior studies have demonstrated that including such images in the training set may not only fail to improve detection performance but could also degrade it [35,39,40].
+
+In response to the lack of visual realism in augmented images, several solutions have been proposed. For example, InstaBoost [35] computes an appearance coherence heatmap to identify candidate regions that share similar background patterns with the original instance location. Context-DA [39] explicitly trains a classification model that classifies the local context of the instance. Meanwhile, AdaResampling [30] leverages a semantic segmentation model to generate a prior road map, which helps to prevent illogical placements, such as placing vehicles in the sky.
+This scenario not only captures the most common background variations found in natural scenes but is also characterized by significant changes in scale, viewpoint, and illumination [41]. Such compound variations impose strict requirements on the visual realism of data augmentation. Any unreasonable augmented results due to mismatching will be easily identifiable, making this scenario an ideal testbed for our method. In other words, successfully addressing the multi-dimensional matching challenges in this demanding scenario provides empirical evidence for the generalization of our approach to other scenarios, such as autonomous driving, where viewpoint changes are relatively minor.
+
+Our major contributions can be summarized as follows:
+
+  * We propose a unified scene-understanding-driven instance-level data augmentation framework dedicated to small-object detection, which abandons the random operation paradigm of traditional “copy-paste” methods and systematically addresses the four key mismatches in background, scale, illumination, and viewpoint. This is achieved through a unified pipeline that integrates image inpainting, tagging, open-set object detection, SAM, and pose estimation for joint instance-background modeling.
+
+  * We conduct extensive comparative experiments on the VisDrone [42] dataset across multiple mainstream object detection models, and the quantitative results demonstrate that our method stably improves the baseline detector’s mAP@0.5:0.95 and mAP@0.5 by 1.6% and 2.2%, respectively. More importantly, our experiments uncover a strong positive correlation between the visual realism of augmented images and the final detection performance gain, providing valuable empirical evidence for this previously underexplored intrinsic relationship in the field of data augmentation.
+
+  * We offer a practical solution that reduces dependency on large-scale manual annotation. By leveraging pre-trained models for scene understanding, our method generates high-quality training data with high visual realism. This resource-efficient approach is particularly suited for data-scarce domains such as UAV perception and remote sensing, where obtaining dense annotations is challenging.
+
+--------------------------------------------------------------------------------
+Calibrate the Sensor, Randomize the Scene: Box-Aware Degradation Policies for Tiny-Object Synthetic-to-Real Detection — Lacuna (https://lacuna.tiptreesystems.com/hypothesis/calibrate-the-sensor-randomize-the-scene-box-aware-degradation-policies-for-tiny-c2e740f8d7e1af2c)
+ [wordlim: 200] Crawled: 3 weeks ago; 
+
+# Calibrate the Sensor, Randomize the Scene: Box-Aware Degradation Policies for Tiny-Object Synthetic-to-Real Detection
+
+Detectors trained on rendered images, such as drone footage from a game engine, lose much of their accuracy on real cameras. One cause is well documented: rendered textures are too clean in their fine detail. The standard fix adds random noise to the high-frequency part of the image's Fourier spectrum, the part that encodes fine detail. For aerial and surveillance scenes this fix runs into a conflict. Many targets there span fewer than 16 pixels, and in those targets the fine detail is the object. The same randomization that hides rendering artifacts in the background also erases the cars and people the detector is supposed to find.
+
+We propose to split augmentation into two kinds of transformation that current pipelines lump together. The first kind is sensor transformations: lens blur, resampling with imperfect anti-aliasing, sensor noise, and compression. A real camera applies these to everything in the frame, so they should be applied uniformly, with strengths fitted to unlabeled real images. --------------------------------------------------------------------------------
+YOLO-DSNet for Small Target Detection (https://www.mdpi.com/2076-3417/16/3/1493)
+ [wordlim: 200] Published: 8 months ago; Crawled: last month; 
+## 3. Methodology
+
+This section will detail several improvement methods we propose. At the data level, we design a multi-dimensional collaborative enhancement strategy prioritizing target detection objectives, generating high-quality augmented datasets (Enhanced_Data) to provide sufficient and high-quality small object samples for model training. At the network architecture level, we propose the MSA-C2f module to replace traditional modules in the original backbone network, combined with the small object enhancer SmallTargetEnhancer (STE) to strengthen small object feature extraction capabilities. At the feature representation level, we introduce the DSAM to refine feature enhancement for the detector input, improving object–background discrimination.
+
+Through a comprehensive design process covering data augmentation, structural optimization, and feature refinement, we systematically address issues such as feature ambiguity and background interference in small object detection. The complete architecture is shown in Figure 1 and red sections indicating modified or added modules.
+Traditional augmentation methods often rely on single or limited strategies like flipping or cropping, which fail to comprehensively cover complex scenarios with drone small targets. We implemented a combination of geometric transformations, pixel adjustments, and noise simulation techniques that complement each other. Through this enhancement process, we generated a massive dataset of 38,826 augmented images, compared to the original 6471 images. This substantial increase in sample diversity significantly improved the model’s stability in recognizing small targets under varying perspectives and lighting conditions, reduced missed detections due to camera angles or lighting changes, and enhanced contrast between small targets and backgrounds. The optimized dataset also underwent moderate contrast adjustments to better capture small target features in complex environments, thereby boosting model robustness. The object classification and quantity in the dataset are shown in Figure 3 and Figure 4 respectively, presenting statistics for the original dataset and the improved dataset.
+
+The original dataset was insufficient for small target detection, so we enhanced the data and named it Enhanced_Data.
+
+--------------------------------------------------------------------------------
+A Comprehensive Literature Review on YOLO-Based Small Object Detection: Methods, Challenges, and Future Trends - ScienceDirect (https://www.sciencedirect.com/org/science/article/pii/S1546221826001943)
+ [wordlim: 200] Published: 8 months ago; Crawled: 2 months ago; 
+
+A second pervasive issue is overfitting in the regime of scarce and weak small object signals. In many datasets, small objects occupy only a tiny portion of the image and appear less frequently than medium or large instances. The associated feature vectors lie near the noise floor of the representation and form a minority in the empirical distribution. When a detector is heavily tuned toward these cases, the learning process can latch onto incidental textures or dataset specific artifacts that happen to correlate with the small labels in the training set. Mitigation requires stronger forms of regularization, robust data augmentation that alters both appearance and geometry, and preferably additional data sources that increase coverage of small object conditions. A third structural challenge is persistent class and scale imbalance. The data distribution is typically long tailed with respect to both semantic labels and object sizes, so gradients are dominated by abundant medium and large instances. Reweighting schemes, modified sampling policies, and curriculum style schedules can partially redistribute gradient mass toward rare small objects, yet none of these techniques can fully compensate for the intrinsic scarcity of informative events. 

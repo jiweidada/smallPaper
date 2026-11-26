@@ -1,0 +1,29 @@
+QR-DETR: Query Routing for Detection Transformer 13
+5.3 Visual Results
+We quantitatively evaluate our model on the COCO 2017 validation dataset
+(Fig. 5), showing that it consistently outperforms the baseline.
+Fig. 5: Detection example on the COCO 2017 dataset. From left to right: ground truth
+labels, baseline Deformable DETR, and QR-Deformable-DETR.
+5.4 Ablation
+In this section, we perform ablation studies on Deformable-DETR using a 12-
+epoch training schedule. We train separate models that exclusively include the
+proposed layers and evaluate their performance against the baseline model.
+a. How to choose the router scheme?We evaluate the importance of the rout-
+ing scheme employed by training our model using only theEEQRSA, EEQRCA,
+EEQRF, and a combination of these decoder layers (for simplicity, we denote
+the combination strategy asEEQR, corresponding to the alternance (EEQRF − →
+EEQRSA − →EEQRCA), as shown in Tables 3, 4). We compare the performance
+of these variants against the baseline in Table 4. Our analysis focuses on the
+contribution of each layer, as discussed earlier, emphasizing how each layer in-
+tegrates information into object queries differently. Thus, maintaining diversity
+among EEQR layers is crucial for achieving optimal results.
+b. Impact of the Scattering Strategy.We present the impact of two strategies
+for gathering the output queries from the transformer decoder in Table. 5: 1)
+concatenatingall queries after passing through the decoder, and 2)scattering the
+queries back to their initial positions before entering the next decoder stack. The
+latter strategy achieves 20 mAP higher performance, suggesting that the relative
+positional information among queries is crucial. We hypothesize that due to the
+positional embeddings added to each object query, their relative positions are
+encoded, and simply concatenating the queries breaks this positional encoding,
+requiring the transformer decoder to perform additional alignment.
+366

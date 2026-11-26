@@ -1,0 +1,34 @@
+2026-10-27｜定向问题入口核查；不是正式综述或查新结论
+
+Material Passport: academic-research-suite / experiment-agent validate + targeted primary-source fact check。对象为问题成立条件、项目接口及已冻结零训练检验。Verification Status: ANALYZED；来源和缓存保真可核验，原因识别与新方法有效性尚未成立。没有完整文献覆盖承诺。
+
+A. Rethinking “Batch” in BatchNorm
+原件：20261027_问题入口_Rethinking_Batch_in_BatchNorm_arXiv2105.07576v1.pdf；arXiv2105.07576v1，2021-05-17技术报告，不能写成CVPR论文。根助手读取引言、§3.1–3.3及§5.1–5.2相关文字；讨论伙伴另有逐页及图表读取账本。不宣称全文读完。
+原文链接：https://arxiv.org/abs/2105.07576v1
+PDF SHA256: 0ce1e7d01fb100e63abb3ff9494a7c44304c769df493ce7ac66735e91bba0717
+问题条件是归一化运行统计与实际所用网络/输入分布的相容性；权重EMA与BN运行统计自己的EMA不是同一概念。PyTorch文档与已安装2.5.1源码允许平均buffer或另行更新BN等做法，因此“平均buffer”本身不是bug。
+本项目必要事实：4份checkpoint均99个动态BN前缀、14072个通道，freeze_norm=false；raw与EMA运行均值/方差确有差异。EMA整型num_batches_tracked为0在eval中不参与归一化，不能据此归因。
+机制预检：冻结16图/1583GT与2×2原始状态交叉，只改198项mean/var，不更新BN。原生产者环境中EE逐图输出和导出完全相同；ER−EE主门双seed失败。说明本次raw统计替换不受支持，不证明自然EMA统计错、也不证明原文一般问题不存在。
+同一BN反复跨FPN域共用是原文另一具体条件；伙伴只读代码检查未见本项目符合，不能仅因多尺度而另立题。
+
+B. SNIP
+原件：221_SNIP_CVPR2018_Publisher.pdf；CVPR2018官方CVF版，10页。讨论伙伴实际读取PDF1/5/6/7并看5–7页图表，根助手使用其有明确页码的原文条件核查及本地原生变换代码；不声称根助手完成全文/图表审读。
+原文链接：https://openaccess.thecvf.com/content_cvpr_2018/papers/Singh_An_Analysis_of_CVPR_2018_paper.pdf
+PDF SHA256: efc5944ea9840ae2cbf0b87b28c61cf9cd793fd399d1c73a712f9ae282fd6154
+成立条件：实例应在适合尺度保留曝光与多样性；不适合当前尺度的GT在原RPN处理中有忽略语义，不能简单当背景。其RPN阈值和尺度范围不能照搬DETR，也没有普适4px可学性阈值。
+本项目只检验一个更窄的可证伪前提：固定49回放中是否保留了完全没有原GT矩形潜在源像素贡献的GT。保留次数0/12936、0/10469满足此严格零支持者；该命题没有阳性。非零不是对象完整、可辨或可学的证明；删除非零也不自动是错删。没有借这个结果推断所有增强有效或无效。
+
+C. Seesaw
+原件：20261027_问题入口_Seesaw_CVPR2021_Publisher.pdf；CVPR2021官方CVF版，10页，9695–9704。新下载1266708字节，SHA256 cc036273a55f73cb1cb823311488c7d5516dc03d509cb30f10f0fb78d0f8031d。已提取PDF1–4；根助手实际审读PDF1–2及PDF3的§3.1问题推导，未进行图像渲染核查，不宣称方法/实验全文阅读。伙伴读取PDF1–4。首次控制台打印因GBK失败，UTF8文本文件已成功落盘，后用PowerShell读取；不把打印失败当原文缺失。
+原文链接：https://openaccess.thecvf.com/content/CVPR2021/papers/Wang_Seesaw_Loss_for_Long-Tailed_Instance_Segmentation_CVPR_2021_paper.pdf
+这里只采用问题定义：高频类实例可带来针对低频类的大量负监督，造成学习偏斜。没有提出使用本文loss或任何新loss/模块。
+该论文§3.1明确分析softmax CE：他类样本对某类logit的梯度由该类softmax概率决定；原始类别频次不是正负梯度质量的替代。LVIS千类证据也不能直接代入本项目十类。
+本项目原生loss_labels_mal读取见code/local_candidates_20261004_v2/native/engine/deim/deim_criterion.py:274起：sigmoid独立分类、IoU.detach()质量软目标、pred_score.detach()作负项权重。即使保留文献问题，也不能把其softmax竞争公式当成本项目实证机制。
+固定132末层全GT观察门通过，但只到“低频组三类在几何条件下错类较多”的相关现象。最大IoU owner的argmax并非native flatten的决策规则；真实源查询回接已更正412/416的解释。完整读出发现318/341个低频GT真类覆盖pair未入Top300，但这仍属于已有候选读出阶段，不是新发现的训练原因。
+最低频类的所有错类必然指向频次更高类，最高频类反之，因此该方向计数有排名定义导致的机械部分。bus虽低频，AP高于更高频bicycle/van/truck，也提示外观语义、局部可辨性等解释不能被频次组均值排除。
+
+D. 未重新立题的入口
+旧三视图TIDE记录的whole Dupe独立dAP约0.002685pp，且DDQ、重复query、集合预算和读出已多轮讨论；这不是当前双seed新检验，不能当新证据或重启理由。只读旧结果与已有来源元数据，不宣称这轮重新读完TIDE论文。
+DEIM原文正匹配密度的COCO描述不是“必须稀疏场景”的数学条件，原文CrowdHuman实验也不支持这样泛化。没有因N>300就宣布新容量瓶颈。
+
+读到与没有读到分别记录；问题已有研究不等于不能创新；本轮缺的是足以区别竞争解释并连接方法增量的项目证据，而不是要求问题从未被人研究。

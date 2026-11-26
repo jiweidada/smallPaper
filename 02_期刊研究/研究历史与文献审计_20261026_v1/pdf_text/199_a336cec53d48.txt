@@ -1,0 +1,344 @@
+MODALITY-DECOUPLED RGB-THERMAL OBJECT DETECTOR VIA QUERY FUSION
+Chao Tian, Zikun Zhou*, Chao Yang, Guoqing Zhu, Fu’an Zhong, Zhenyu He*
+Harbin Institute of Technology, Shenzhen
+ABSTRACT
+The advantage of RGB-Thermal (RGB-T) detection lies in its abil-
+ity to perform modality fusion and integrate cross-modality com-
+plementary information, enabling robust detection under diverse il-
+lumination and weather conditions. However, under extreme con-
+ditions where one modality exhibits poor quality and disturbs detec-
+tion, modality separation is necessary to mitigate the impact of noise.
+To address this problem, we propose a Modality-Decoupled RGB-T
+detection framework with Query Fusion (MDQF) to balance modal-
+ity complementation and separation. In this framework, DETR-like
+detectors are employed as separate branches for the RGB and TIR
+images, with query fusion interspersed between the two branches in
+each refinement stage. Herein, query fusion is performed by feed-
+ing the high-quality queries from one branch to the other one after
+query selection and adaptation. This design effectively excludes the
+degraded modality and corrects the predictions using high-quality
+queries. Moreover, the decoupled framework allows us to optimize
+each individual branch with unpaired RGB or TIR images, eliminat-
+ing the need for paired RGB-T data. Extensive experiments demon-
+strate that our approach delivers superior performance to existing
+RGB-T detectors and achieves better modality independence.
+Index Terms—RGB-T, Object Detection, Thermal Infrared,
+Multispectral, Query Fusion
+1. INTRODUCTION
+Traditional visible-spectrum images (i.e., RGB images) often lack
+robustness under extreme conditions, such as low-light environ-
+ments [1] and adverse weather conditions (e.g., including fog and
+rain) [2]. These factors degrade image quality and consequently
+undermine the robustness and accuracy of object detection. To deal
+with this problem, many studies introduce thermal infrared images
+for complementary information, which capture thermal radiation
+and are resilient to lighting conditions [3]. By leveraging both
+RGB and thermal infrared images, RGB-Thermal (RGB-T) object
+detection shows its robustness under challenging environmental
+conditions and receives increasing attention in the object detection
+community [2, 4, 5] for improving both accuracy and robustness.
+The advantage of RGB-T object detection stems from the com-
+plementary characteristics of the two modalities [6, 7, 8]. Conse-
+quently, efficient cross-modality fusion is essential for RGB-T de-
+tection, although it remains inherently complex. In typical scenar-
+ios where both RGB and TIR images possess satisfactory quality,
+the objective of fusion is to exploit the complementary informa-
+tion from both modalities, thereby generating more discriminative
+features to distinguish the objects. Conversely, under extreme con-
+ditions, such as low-contrast illumination, the contributions of the
+* Corresponding Author. Email: zhouzikunhit@gmail.com,
+zhenyuhe@hit.edu.cn
+or
+or
+×  N-1
+FuFu FuFu
+Backbone Backbone
+DecoderDecoder
+Decoder Decoder
+Refinement
+Fusion OperationFuFu
+ RGB / TIR Query and Proposal
+Fig. 1: Our proposed RGB-T detector equipped with the query fu-
+sion strategy for cross-modality information exchange. The frame-
+work keeps the independence of each branch, avoiding failure during
+the degradation of a modality. And each single-modality branch can
+be optimized separately.
+RGB and TIR modalities to object detection can become highly im-
+balanced, as the degraded modality would introduce noise during
+fusion [9]. This issue is also known asmodality imbalance. When
+such a modality imbalance arises solely during testing, the detector
+encounters an out-of-distribution (OOD) challenge [10], which may
+result in performance inferior to that of single-modality detectors.
+In summary, modality complementation is crucial in regular condi-
+tions, whereas modality separation should be prioritized in extreme
+cases. Thus, it is imperative for RGB-T detectors to effectively bal-
+ance modality complementation and separation during fusion. Exist-
+ing RGB-T detection methods either tightly couple the two modal-
+ities [11, 9, 8, 12], making them sensitive to modality imbalance,
+or maintain a high level of modality separation at the cost of losing
+cross-modality complementarity [13].
+To effectively balance modality complementation and separa-
+tion, we propose a Modality-Decoupled detection framework with
+Query Fusion (MDQF), as shown in Figure 1. MDQF is designed
+to adhere to two principles: 1) effective cross-modality informa-
+tion prompting; and 2) preservation of the original architecture
+and parameters of each single-modality branch. In this framework,
+DETR-like detectors [14] are employed as separate branches for
+the RGB and TIR modalities, with query fusion interspersed be-
+tween the two branches in each refinement stage. Specifically, the
+query fusion mechanism operates after each decoder layer to fuse
+queries and proposals from DETR-like detectors. First, it chooses
+the top-kqueries and the corresponding proposals based on proposal
+confidence using a customized selection module. Then it employs
+a lightweight query adapter to align the high-quality queries from
+one branch to the decoder of the other branch. With the adapted
+high-quality queries, each branch independently predicts enhanced
+detection results, which are further combined. Thus, query fu-
+sion achieves the cross-modality complementation while selectively
+filtering out low-quality queries/proposals to prevent them from
+affecting the following decoders. This design effectively excludes
+arXiv:2601.08458v1  [cs.CV]  13 Jan 2026
+
+---PAGE---
+
+Proposal
+Head
+Decoder
+Query FusionStatic
+Proposals P0
+Decoder
+Proposal
+Head
+Query Fusion
+Proposal
+Head
+Decoder Decoder
+Proposal
+Head
+Decoder
+Proposal
+Head
+Decoder
+Proposal
+Head
+NMS
+×  3
+Qfu
+tir
+Qfu
+tir
+Qfu
+rgb
+Qfu
+rgb
+Qfu
+tir
+Qfu
+tir
+Qfu
+rgb
+Qfu
+rgb
+P1
+fu
+P1
+fu
+P5
+fu
+P5
+fu
+Ptir
+(1)
+Ptir
+(1)
+Qtir
+(1)
+Qtir
+(1)
+Qrgb
+(1)
+Qrgb
+(1)
+Qtir
+(2)
+Qtir
+(2)
+Ptir
+(2)
+Ptir
+(2)
+Prgb
+(2)
+Prgb
+(2)
+Qrgb
+(2)
+Qrgb
+(2)
+Prgb
+(6)
+Prgb
+(6)
+Ptir
+(6)
+Ptir
+(6)
+Prgb
+(1)
+Prgb
+(1)
+RGB DETR branch
+TIR DETR branch
+0.3 0.5 0.90.2 0.7 0.4 Index
+Set
+Top-K
+Select
+Select
+Selected
+boxes
+Proposals
+Qfu
+rgb
+Qfu
+rgb
+Qfu
+rgb
+Qfu
+rgb
+Qtir
+Qrgb
+Ptir
+Prgb = {p | p = [box, score]}
+Ψ TIR
+Ψ RGB
+Pfu
+RGB field
+TIR field
+MLP
+Adapter
+MLP
+Adapter
+RGB Queries Qrgb
+(i)
+Qrgb
+(i)
+TIR Queries Qtir
+(i)
+Qtir
+(i) Fused Queries
+Adapted For  RGB
+Qfu
+rgb
+Qfu
+rgb Fused Queries
+Adapted For  TIR
+Qfu
+tir
+Qfu
+tir
+RGB Proposals Prgb
+(i)
+Prgb
+(i)
+TIR Proposals Ptir
+(i)
+Ptir
+(i)
+Fused Proposals P(i)
+fu
+P(i)
+fu
+(a) Detector Framework (b) Query Fusion Module
+Encoder
+Swin-T Swin-T
+Frozen 
+In Stage-2
+Encoder
+Swin-T Swin-T
+Frozen 
+In Stage-2
+Fig. 2: (a) MDQF framework. Two standard DETR-like detectors are deployed to process RGB and TIR images independently. The
+continuous optimization of proposals in decoders of each modality is influenced by the other modality through the query fusion. (b) Query
+Fusion module. This is a practical implementation of the query fusion, including projection, selection, and collection of query vectors.
+the degraded modality and corrects predictions in the correspond-
+ing branch using high-quality prompts. By preserving the original
+branches, the framework remains functional with the individual
+branch, even when one modality is entirely unavailable.
+We employ a separate-to-joint learning strategy to preserve
+branch independence while effectively fusing modalities. Benefiting
+from the modality independence brought by the query fusion and
+the training strategy, each branch of the MDQF framework can be
+optimized separately, which alleviates the requirement of paired
+RGB-T image data. Our contributions are summarized as follows:
+• We propose a query fusion strategy to effectively balance the
+modality complementation and modality separation during
+cross-modality fusion.
+• We propose a modality-decoupled RGB-T detection frame-
+work based on the query fusion, in which the two branches
+can perform detection collaboratively, while each branch can
+also conduct detection or optimization independently.
+• Extensive experimental results demonstrate the superior per-
+formance of our approach compared with state-of-the-art
+RGB-T detectors, and its robustness to modality degradation.
+2. METHOD
+2.1. Overview of the Detection Framework
+Figure 2 (a) illustrates the overall architecture of our modality-
+decoupled detection framework. It consists of two separate DETR-
+based detectors, each dedicated to a single modality. The prediction
+of thei-th decoder layer in DETR is formulated as:
+Qi =Decoder i(v,Q i−1,P i−1),(1)
+Pi =Head i(Qi,P i−1), i∈[1,6],(2)
+wherev,Q, andPrespectively mean the value, query, and proposal
+of DETR. The core idea is to enable complementary information
+from one modality to enhance the other by refining the sets of inter-
+mediate proposalsPand queriesQwithin each DETR branch. This
+exchange does not alter the original parameters or architectures of
+the individual branches, thereby preserving their independence. We
+refer to this process as query fusion.
+As shown in Figure 2 (a), at each decoder stage, the sets of pro-
+posals and queries from both branches are fused and refined for the
+next stage by query fusionF(·), formulated as:
+P(i−1)
+f u ,Q (i−1)
+f u =F(P (i−1)
+rgb ,P (i−1)
+tir ,Q (i−1)
+rgb ,Q (i−1)
+tir ).(3)
+Then, guided by the fused set of proposalsP (i−1)
+f u and queries
+Q(i−1)
+f u , each DETR branch independently conducts a new round
+of object prediction according to Eq. (1) and Eq. (2), to enhance
+both the reliability and precision of the detection. Due to the sep-
+arate predictions in each modality, the detection results require
+post-processing using non-maximum suppression (NMS).
+Our proposed framework maintains the independence of each
+single-modality branch. As a result, it can operate as a standalone
+DETR-like detector when one modality is missing during testing,
+thereby mitigating failures caused by out-of-distribution (OOD) in-
+puts. Moreover, each branch can be optimized independently using
+single-modality data, which is practically beneficial as it reduces the
+reliance on paired RGB-T training data.
+2.2. Query Fusion
+We introduce the query fusion to conduct the fusion operationF(·)
+in Eq. (3). There are two major steps to conduct query fusion.
+Query Selection.The query fusion procedure collects high-quality
+and complementary queries and proposals from different modalities
+while removing those with low confidence. In DETR-like detectors,
+a query is explicitly associated with a proposal, which is predicted
+based on this query and indicates the location and class information
+of the query. We thus adopt the top-k strategy to select queries ac-
+cording to the confidence of their associated proposals.
+Each proposalp= [cx, cy, w, h, s]is a vector that contains a
+bounding box and a score. Then we select the top-kbest proposals
+and queries among those from both RGB and TIR modalities accord-
+ing to their scores: The procedure is formulated as:
+Pf u, Z=T opK([P rgb ,P tir], k),(4)
+Qf u = [Qrgb ,Q tir](Z).(5)
+where[P rgb ,P tir]means the union set of proposals from both
+modalities,Z∈N 1×k is the index of thekbest proposals.
+Query Adaptation.TheQ f u in Eq. (5) contains queries from two
+DETR branches, which are different in modes and distributions. The
+subsequent decoder layer (Eq. (1)) needs tuning to handle the im-
+ported queries. This procedure alters the original parameters of each

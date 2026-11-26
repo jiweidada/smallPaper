@@ -1,0 +1,21 @@
+生成式检测近作定向补查与A60创新边界
+
+目的：在M组原训练继续运行期间，核查“目标几何尺度相关的时间条件”是否与近作直接重合。本次不是系统综述；仅按所述片段阅读，不以未命中证明新颖性。
+本地_text目录441个文本文件（含重复和非论文提取）做关键词交叉筛查，并补查公开论文原文。筛查有关键词、OCR及缺全文限制。现有文献总库423条未改；DFM已有L169记录，DiffuDETR/ReDiffDet仅在现有JSON做过精确题名检索。
+
+1. DiffuDETR: Rethinking Detection Transformers with Denoising Diffusion Process，ICLR 2026。已读公开论文摘要、3.2、4.3.2—4.3.3、表5—6和作者项目页选段，未全读补充及源码。
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/e8d91fed4174f84d048cc55953c26475-Abstract-Conference.html
+https://openreview.net/pdf/00fe935c0626949a4043516d6402f171d1fd1a3e.pdf
+原文事实：四坐标参考框加噪、时间步嵌入检测解码器、不同噪声日程和单次解码评估都已有先例。表6列DiffuDINO单次解码51.6 AP与DINO 50.9 AP，差0.7；同节文字写+1.7，数值不一致，本记录不采用文字中的增益。COCO结果不能直接当作VisDrone结果。
+与A60区别：A60的M/Q使用相同尺寸偏置扰动框，比较物理插值时刻和目标相对边误差定义的几何进度标签；上述已读范围没有展示同一对照，但不能由此断言整篇或全球无人做过。
+
+2. ReDiffDet: Rotation-equivariant Diffusion Model for Oriented Object Detection，CVPR 2025。已读原文摘要、3.2—3.4选段、算法1—2及数据集说明，未通读补充或源码。
+https://openaccess.thecvf.com/content/CVPR2025/html/Zhao_ReDiffDet_Rotation-equivariant_Diffusion_Model_for_Oriented_Object_Detection_CVPR_2025_paper.html
+原文事实：面向航拍旋转框，转成二维高斯；图像条件编码器给出条件框，其中心和尺寸用于设定扩散坐标原点与尺度，解码器亦使用时间嵌入。因此“尺度相关噪声＋时间条件＋航拍检测”也不能泛称首创。它的框表示、条件空间分布和任务与A60的水平框M/Q时间标签对照不同。
+
+3. Discriminative Flow Matching via Local Generative Predictors，2026 arXiv预印本；本地文献总库已有L169。已读本地提取的3.1—3.2、5.1及补充D.1选段。
+https://arxiv.org/abs/2603.13928
+原文事实：在分类与框坐标构成的嵌入空间做线性flow matching，标量时间嵌入，并采用多个独立局部训练的流预测器；检测部分描述Euler多步积分。其表示和训练方式不同于A60直接预测框端点。
+
+综合判断：A60可讨论的具体增量是相同扰动框下的几何进度条件对照，仍是待验证假设，不是新编码器或全新解码器原语。即便Q优于M，时间标签分布和同图查询一致性也同时改变，不能单独证明唯一几何因果机制。CEOSOD全文方法仍未取得，重合风险保留。
+M/Q训练、固定12轮终点、已有门槛均未改变；当前Q未启动，不以任何中期或文献诊断替代训练结果。

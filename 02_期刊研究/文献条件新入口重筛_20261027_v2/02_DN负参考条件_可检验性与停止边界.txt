@@ -1,0 +1,25 @@
+2026-10-27｜文献条件检查，不是DN有害结论
+
+原文问题条件
+DINO固定arXiv2203.03605v4，PDF7–8 §3.3：正负去噪query按扰动范围及指定任务生成；负slot要求no-object，目的包括拒绝重复/较远anchor。Fig3把4D anchor-space示意为2D同心框，不是图像IoU的正负阈值。原文没有“负slot与任意GT都不重叠”的保证。
+本轮只读上述文字与原生denoising.py。没有提议变更DN生成器、模块或loss。
+
+初步可提出但尚未成立的命题
+密集GT中，由源GT向外扰动的负参考可能靠近另一同类GT；它是否产生输入/指定监督的矛盾，必须区别正常的query角色学习。仅有IoU交集、相同源GT类、末框覆到真实目标或负类压低幅度，都不够判有害。
+实际送入query的类别ID也会被随机扰动，因此源GT类相同不等于实际内容标签相同。完整条件需原始noisy bbox、实际noisy class/embedding、attention上下文及指定slot角色。
+
+现存双BASE24缓存的接口
+固定A/B各development00–07，共16批、各32增强图，均6629次GT曝光；两个model seed各有0/8批保存原始denoising_bbox_unact或扰动后query label。这里0/8是字段可用性，不是碰撞率/有害率。
+顶层只有outputs/targets/tag/group/forward_DN_seed；dn_meta只有positive_idx/num_group/num_split。原生产者在CUDA设置seed后执行forward；同一个整数seed及CPU重采样不能充当历史CUDA输入精确重放的证明。
+dfine_decoder.py484先执行第一decoder layer，488生成pre_bboxes，490再置ref_points_initial；对外dn_pre_outputs.pred_boxes和DN ref_points已更新。不能把它们当原始noisy输入，或用末框重叠反推初始碰撞。
+
+另一个C0 CPU缓存不能混口径
+188缓存为epoch94/model_online单模型、4图902GT，生产者187是backbone/encoder eval、decoder train、BN eval。它有DN_seed20261021和前后RNG SHA，但没有保存原始noisy bbox/class或RNG state本体。
+该CPU家族在完整调用链、原版本和RNG消费闭合后原则上可能重放；本轮没有证明不可重放，也没有执行。即使可重放，也不能将单C0/902GT冒充双BASE24或132的训练历史。当前还缺能区别正常角色学习与有害监督的明确后果，增加几何碰撞计数不能自行补成这个证据。
+
+查重与解释
+旧197/188主要覆盖DN正slot配对几何，不自动否定本精确负参考问题；旧D0是DN pre梯度局部干扰/虚拟步，方向随批次/seed变化，不能外推所有DN机制。但当前也没有不同输入或后果证据可让此线索升级。
+两个目标模型seed的“原始负输入碰撞”结果均NA，不是0；本轮不将这一项判为科学阴性，更没有宣布DN是瓶颈。
+
+本轮取舍
+不保留为问题卡，不进入原因已确认或方法缺口阶段。若未来重访，先固定所研究的模型版本、真实输入/角色记录和能失败的后果对照；不能以当前末框或CPU重采样代替。没有新模型前向、扰动生成、梯度、训练、GPU或远端操作。

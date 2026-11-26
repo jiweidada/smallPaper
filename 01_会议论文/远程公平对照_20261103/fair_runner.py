@@ -1,0 +1,314 @@
+"""One authorized BASE/FULL pair; frozen neural/loss/data/evaluator source.
+
+This isolated driver adds explicit initialization/data controls and evidence
+recording. It preserves the original FP32 update order, EMA implementation,
+post-update flatcosine LR and validation-dependent late stage-one restores.
+"""
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+os.environ['HF_HUB_OFFLINE'] = '1'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+from pathlib import Path
+from datetime import datetime, timezone
+import argparse, ast, copy, gzip, hashlib, importlib, json, math, random, re, sys, time, traceback
+sys.dont_write_bytecode = True
+import numpy as np
+import torch
+
+ROOT = Path(__file__).resolve().parent
+METRICS = ['AP','AP50','AP75','APs','APm','APl','AR1','AR10','AR100','ARs','ARm','ARl']
+
+def now(): return datetime.now(timezone.utc).isoformat()
+def readj(p): return json.loads(Path(p).read_text())
+def sha(p):
+    h=hashlib.sha256()
+    with Path(p).open('rb') as f:
+        while b:=f.read(4*1024*1024): h.update(b)
+    return h.hexdigest()
+def savej(p,v):
+    p=Path(p); tmp=p.with_suffix(p.suffix+'.tmp')
+    tmp.write_text(json.dumps(v,indent=2,allow_nan=False)+'\n'); os.replace(tmp,p)
+def appendj(p,v):
+    with Path(p).open('a') as f: f.write(json.dumps(v,allow_nan=False)+'\n')
+def savept(p,v):
+    p=Path(p); tmp=p.with_suffix(p.suffix+'.tmp'); torch.save(v,tmp); os.replace(tmp,p)
+def tensor_hash(state):
+    h=hashlib.sha256()
+    for k,v in sorted(state.items()):
+        a=v.detach().cpu().contiguous()
+        h.update(json.dumps([k,str(a.dtype),list(a.shape)]).encode()); h.update(a.numpy().tobytes())
+    return h.hexdigest()
+def batch_hash(samples,targets):
+    state={'samples':samples}
+    for i,t in enumerate(targets):
+        for k,v in t.items():
+            if torch.is_tensor(v): state[f'target.{i}.{k}']=v
+            else: raise TypeError(f'Unrecorded target field {k}')
+    return tensor_hash(state)
+def seeds(seed=0):
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+def worker_init(_):
+    s=torch.initial_seed()%2**32; random.seed(s); np.random.seed(s)
+
+def controls():
+    torch.set_num_threads(4); torch.set_num_interop_threads(1)
+    torch.set_default_dtype(torch.float32)
+    torch.backends.cuda.matmul.allow_tf32=False
+    torch.backends.cudnn.allow_tf32=False
+    torch.backends.cudnn.benchmark=False
+    torch.backends.cudnn.deterministic=True
+    torch.use_deterministic_algorithms(True,warn_only=True)
+    seeds()
+
+def build(arm):
+    import source_loader
+    source_loader.SNAPSHOT=ROOT/'source_snapshot'
+    cfgdata=readj(ROOT/'execution_configs'/f'{arm}.yml')
+    workspace,utils,evaluator_module=source_loader.register_selected_source(cfgdata['DEIM']['backbone'])
+    for name in ['engine.data.transforms.mosaic','engine.optim','engine.deim.matcher','engine.deim.deim_criterion']:
+        importlib.import_module(name)
+    for split in ['train','val']:
+        for op in cfgdata[f'{split}_dataloader']['dataset']['transforms']['ops']:
+            assert '_pymodule' in workspace.GLOBAL_CONFIG.get(op['type'],{}), f"Unregistered transform: {op['type']}"
+    mod=importlib.import_module('engine.core.yaml_config')
+    cfg=mod.YAMLConfig(str(ROOT/'execution_configs'/f'{arm}.yml'))
+    model=cfg.model; criterion=cfg.criterion; post=cfg.postprocessor
+    assert sum(p.numel() for p in model.parameters() if p.requires_grad)=={'BASE':3737611,'FULL':7540942}[arm]
+    train=cfg.train_dataloader; val=cfg.val_dataloader
+    assert len(train)==1617 and len(train.dataset)==6471 and len(val.dataset)==548
+    assert train.batch_size==val.batch_size==4 and train.drop_last and not val.drop_last
+    assert train.num_workers==val.num_workers==4
+    train.generator=torch.Generator(); train.sampler.generator=torch.Generator()
+    train.worker_init_fn=worker_init
+    val.generator=torch.Generator().manual_seed(1000000007); val.worker_init_fn=worker_init
+    evaluator=evaluator_module.CocoEvaluator(val.dataset.coco,['bbox'])
+    # Execute only the unchanged mathematical function, omitting plot imports.
+    lrfile=ROOT/'source_snapshot/engine/optim/lr_scheduler.py'
+    tree=ast.parse(lrfile.read_text()); fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='flat_cosine_schedule')
+    scope={'math':math}; exec(compile(ast.Module(body=[fn],type_ignores=[]),str(lrfile),'exec'),scope)
+    return cfg,model,criterion,post,train,val,evaluator,scope['flat_cosine_schedule']
+
+def prepare_epoch(loader,epoch):
+    loader.set_epoch(epoch)
+    loader.generator.manual_seed(1000003*epoch)
+    loader.sampler.generator.manual_seed(1000003*epoch)
+
+def shared_key(k):
+    return (k.startswith(('encoder.','decoder.')) or
+            re.fullmatch(r'backbone\.stages\.\d+\.downsample\..+',k) is not None or
+            re.fullmatch(r'backbone\.stages\.\d+\.blocks\.\d+\.layers\..+',k) is not None)
+
+def preflight(arm):
+    folder=ROOT/'preflight'; folder.mkdir(exist_ok=True)
+    report_path=folder/f'{arm}.json'
+    if report_path.exists(): raise RuntimeError('Preflight receipt exists; inspect before a deliberate new preparation attempt')
+    r={'status':'INITIALIZING','arm':arm,'started_utc':now(),'model_optimizer_steps':0,
+       'runner_sha256':sha(Path(__file__)),'config_sha256':sha(ROOT/'execution_configs'/f'{arm}.yml'),
+       'environment_sha256':sha(ROOT/'environment.current.json')}
+    savej(report_path,r)
+    try:
+        cfg,model,criterion,post,train,val,evaluator,lrfn=build(arm)
+        optimizer=cfg.optimizer
+        _=cfg.lr_scheduler
+        _=cfg.lr_warmup_scheduler
+        r['optimizer_groups']=len(optimizer.param_groups)
+        r['initial_executed_lrs']=[g['lr'] for g in optimizer.param_groups]
+        state=model.state_dict(); common=[]
+        if arm=='FULL':
+            base=torch.load(folder/'BASE.initial.pt',map_location='cpu',weights_only=True)
+            for k in base:
+                if shared_key(k):
+                    assert k in state and base[k].shape==state[k].shape,(k,'shared mapping mismatch')
+                    state[k]=base[k].clone(); common.append(k)
+            assert common and any(k.startswith('backbone.') for k in common)
+            model.load_state_dict(state,strict=True)
+            full=model.state_dict()
+            assert tensor_hash({k:base[k] for k in common})==tensor_hash({k:full[k] for k in common})
+            savej(folder/'common_initialization.json',{'policy':'Shared encoder/decoder, stage downsample and HG convolutional layers; exclude stem and aggregation/gates.',
+                  'keys':common,'shared_tensors':len(common),'shared_numel':sum(base[k].numel() for k in common),
+                  'shared_tensor_sha256':tensor_hash({k:full[k] for k in common})})
+        savept(folder/f'{arm}.initial.pt',{k:v.detach().cpu().clone() for k,v in model.state_dict().items()})
+        r['initial_tensor_sha256']=tensor_hash(model.state_dict())
+        r['initial_file_sha256']=sha(folder/f'{arm}.initial.pt')
+        # Prove data alignment without changing the initial state used by training.
+        seeds(); prepare_epoch(train,0)
+        data=[]; first=None
+        for step,(samples,targets) in enumerate(train):
+            if step==0: first=(samples,targets)
+            data.append({'step':step,'sha256':batch_hash(samples,targets),'image_ids':[int(t['image_id']) for t in targets]})
+            if step==99: break
+        savej(folder/f'{arm}.first100.json',data)
+        if arm=='FULL': assert data==readj(folder/'BASE.first100.json'),'Preflight training data differ'
+        r['first100_batches_sha256']=sha(folder/f'{arm}.first100.json')
+        # Minimal compatibility check: one forward/backward, no optimizer or EMA update.
+        model=model.cuda().train(); criterion=criterion.cuda().train()
+        samples,targets=first; samples=samples.cuda()
+        targets=[{k:v.cuda() for k,v in t.items()} for t in targets]
+        seeds(); torch.cuda.reset_peak_memory_stats()
+        outputs=model(samples,targets=targets)
+        loss_dict=criterion(outputs,targets,epoch=0,step=0,global_step=0,epoch_step=1617)
+        loss=sum(loss_dict.values()); assert bool(torch.isfinite(loss))
+        loss.backward()
+        assert all(p.grad is None or bool(torch.isfinite(p.grad).all()) for p in model.parameters())
+        model.eval();post.cuda()
+        with torch.no_grad():
+            prediction=post(model(samples),torch.stack([t['orig_size'] for t in targets]))
+        assert len(prediction)==4 and all(len(x['scores'])==300 and bool(torch.isfinite(x['scores']).all()) for x in prediction)
+        r.update({'status':'PREFLIGHT_PASSED_NO_OPTIMIZER_UPDATE','completed_utc':now(),
+                  'loss_and_gradients_finite':True,'peak_cuda_allocated_bytes':torch.cuda.max_memory_allocated(),
+                  'trainable_parameters':sum(p.numel() for p in model.parameters() if p.requires_grad)})
+        savej(report_path,r); print(json.dumps(r),flush=True)
+    except Exception:
+        r.update({'status':'PREFLIGHT_FAILED_BEFORE_TRAINING','traceback':traceback.format_exc()});savej(report_path,r);raise
+
+@torch.no_grad()
+def evaluate(model,post,val,evaluator,out,epoch,epoch_hook):
+    model.eval(); evaluator.cleanup(); predictions=[]; seen=[]
+    for samples,targets in val:
+        samples=samples.cuda(non_blocking=True)
+        outputs=model(samples)
+        sizes=torch.stack([t['orig_size'] for t in targets]).cuda()
+        results=post(outputs,sizes)
+        res={int(t['image_id']):{k:v.detach().cpu() for k,v in r.items()} for t,r in zip(targets,results)}
+        evaluator.update(res); seen.extend(res)
+        for image_id,r in res.items():
+            boxes=r['boxes'].clone(); boxes[:,2:]-=boxes[:,:2]
+            predictions.extend({'image_id':image_id,'category_id':int(label),'bbox':box,'score':float(score)}
+                               for box,score,label in zip(boxes.tolist(),r['scores'].tolist(),r['labels'].tolist()))
+    assert sorted(seen)==list(range(548)) and len(predictions)==164400
+    evaluator.synchronize_between_processes(); evaluator.accumulate(); evaluator.summarize()
+    coco=evaluator.coco_eval['bbox']; assert coco.params.maxDets==[1,10,100]
+    values=coco.stats.tolist(); assert len(values)==12 and all(math.isfinite(x) for x in values)
+    predpath=out/'latest.predictions.json'
+    savej(predpath,predictions)
+    arrays=out/'latest.evaluation_arrays.npz'
+    np.savez_compressed(arrays,precision=coco.eval['precision'],recall=coco.eval['recall'],scores=coco.eval['scores'])
+    # Evidence is captured before any validation-dependent restoration.
+    return dict(zip(METRICS,values)),sha(predpath),sha(arrays),tensor_hash(model.state_dict())
+
+def train_run(arm):
+    protocol=readj(ROOT/'execution_protocol.json')
+    assert protocol['authorized'] and protocol['epochs']==320 and protocol['arms']==['BASE','FULL']
+    for a in ['BASE','FULL']:
+        assert readj(ROOT/'preflight'/f'{a}.json')['status']=='PREFLIGHT_PASSED_NO_OPTIMIZER_UPDATE'
+    out=ROOT/'runs'/arm; out.mkdir(parents=True,exist_ok=False)
+    receipt={'status':'INITIALIZING','arm':arm,'pid':os.getpid(),'started_utc':now(),'optimizer_step_attempts':0,
+             'actual_loop_epoch':-1,'protocol_sha256':sha(ROOT/'execution_protocol.json'),'config_sha256':sha(ROOT/'execution_configs'/f'{arm}.yml'),
+             'runner_sha256':sha(Path(__file__)),'environment_sha256':sha(ROOT/'environment.current.json'),
+             'inputs_receipt_sha256':sha(ROOT/'cache_verification.json'),'initialization_sha256':sha(ROOT/'preflight'/f'{arm}.initial.pt')}
+    savej(out/'receipt.json',receipt)
+    try:
+        for item in protocol['frozen_files']:
+            assert sha(ROOT/item['path'])==item['sha256'],item['path']
+        cached=readj(ROOT/'cache_verification.json')
+        for item in readj(ROOT/'dataset_bundle_manifest.json')['files']:
+            assert sha(Path(cached['cache_root'])/item['path'])==item['sha256'],item['path']
+        cfg,model,criterion,post,train,val,evaluator,lrfn=build(arm)
+        model.load_state_dict(torch.load(ROOT/'preflight'/f'{arm}.initial.pt',map_location='cpu',weights_only=True),strict=True)
+        assert tensor_hash(model.state_dict())==readj(ROOT/'preflight'/f'{arm}.json')['initial_tensor_sha256']
+        model.cuda(); criterion.cuda(); post.cuda()
+        optimizer=cfg.optimizer
+        _=cfg.lr_scheduler
+        warmup=cfg.lr_warmup_scheduler # Preserve the original constructor's initial LR scaling.
+        ema=cfg.ema.to('cuda')
+        base_lrs=[g['initial_lr'] for g in optimizer.param_groups]
+        best_ap=-math.inf; best_epoch=-1; last_epoch=-1; attempts=0
+        expected=readj(ROOT/'preflight'/f'{arm}.first100.json')
+        seeds()
+
+        def state(loop_epoch):
+            return {'model':model.state_dict(),'ema':ema.state_dict(),'optimizer':optimizer.state_dict(),
+                    'criterion':criterion.state_dict(),'postprocessor':post.state_dict(),
+                    'lr_warmup_scheduler':warmup.state_dict(),'last_epoch':last_epoch,
+                    'actual_loop_epoch':loop_epoch,'optimizer_step_attempts':attempts,
+                    'protocol_sha256':receipt['protocol_sha256'],'arm':arm,'weight_source':'ema.module',
+                    'configuration_sha256':receipt['config_sha256'],'environment_sha256':receipt['environment_sha256']}
+
+        def restore(path,loop_epoch,reason):
+            nonlocal last_epoch
+            old=last_epoch; s=torch.load(path,map_location='cpu',weights_only=True)
+            model.load_state_dict(s['model'],strict=True); ema.load_state_dict(s['ema'],strict=True)
+            optimizer.load_state_dict(s['optimizer']); criterion.load_state_dict(s['criterion'],strict=True)
+            post.load_state_dict(s['postprocessor'],strict=True); warmup.load_state_dict(s['lr_warmup_scheduler'])
+            last_epoch=s['last_epoch']
+            appendj(out/'restore_events.jsonl',{'actual_loop_epoch':loop_epoch,'reason':reason,'checkpoint_sha256':sha(path),
+                    'previous_last_epoch':old,'restored_last_epoch':last_epoch,'monotonic_step_attempts':attempts,'ema_updates':ema.updates})
+
+        receipt['status']='RUNNING';savej(out/'receipt.json',receipt)
+        with gzip.open(out/'executed_learning_rates.csv.gz','wt',compresslevel=1) as lrlog:
+            lrlog.write('attempt,actual_epoch,batch,'+','.join(f'group{i}' for i in range(len(base_lrs)))+'\n')
+            for epoch in range(320):
+                started=time.monotonic(); prepare_epoch(train,epoch)
+                if epoch==296:
+                    restore(out/'best_stg1.pt',epoch,'stage_two_entry')
+                    ema.decay=train.collate_fn.ema_restart_decay
+                model.train(); criterion.train(); total_loss=0.0
+                first_lr=[g['lr'] for g in optimizer.param_groups]
+                for step,(samples,targets) in enumerate(train):
+                    if epoch==0 and step<100:
+                        row={'step':step,'sha256':batch_hash(samples,targets),'image_ids':[int(t['image_id']) for t in targets]}
+                        assert row==expected[step],f'Actual training data mismatch at batch {step}'
+                        appendj(out/'actual_first100.jsonl',row)
+                    lrlog.write(f'{attempts},{epoch},{step},'+','.join(repr(g['lr']) for g in optimizer.param_groups)+'\n')
+                    samples=samples.cuda(non_blocking=True)
+                    targets=[{k:v.cuda(non_blocking=True) for k,v in t.items()} for t in targets]
+                    outputs=model(samples,targets=targets)
+                    loss_dict=criterion(outputs,targets,epoch=epoch,step=step,global_step=epoch*1617+step,epoch_step=1617)
+                    loss=sum(loss_dict.values())
+                    if not bool(torch.isfinite(loss)): raise RuntimeError(f'Nonfinite loss epoch={epoch} batch={step}')
+                    optimizer.zero_grad();loss.backward()
+                    grad_norm=torch.nn.utils.clip_grad_norm_(model.parameters(),0.1,error_if_nonfinite=True)
+                    optimizer.step(); attempts+=1; ema.update(model)
+                    # Same placement as retained train_one_epoch: AFTER optimizer/EMA update.
+                    for group,init_lr in zip(optimizer.param_groups,base_lrs):
+                        group['lr']=lrfn(1617*320,2000,1617*164,1617*24,epoch*1617+step,init_lr,init_lr*cfg.lr_gamma)
+                    total_loss+=float(loss.detach())
+                    if step%100==0 or step==1616:
+                        receipt.update({'status':'RUNNING','phase':'training','actual_loop_epoch':epoch,'batch':step+1,
+                                        'optimizer_step_attempts':attempts,'last_loss':float(loss.detach()),'updated_utc':now()})
+                        savej(out/'receipt.json',receipt)
+                        print(json.dumps({'arm':arm,'epoch':epoch,'batch':step+1,'loss':float(loss.detach()),'attempts':attempts}),flush=True)
+                last_epoch+=1
+                receipt.update({'phase':'validation','actual_loop_epoch':epoch,'updated_utc':now()});savej(out/'receipt.json',receipt)
+                metrics,pred_sha,array_sha,weight_sha=evaluate(ema.module,post,val,evaluator,out,epoch,None)
+                row={'epoch':epoch,'last_epoch':last_epoch,'optimizer_step_attempts':attempts,'ema_updates':ema.updates,
+                     'weight_source':'ema.module',
+                     'train_loss_mean':total_loss/1617,'metrics':metrics,'ema_tensor_sha256':weight_sha,
+                     'prediction_sha256':pred_sha,'evaluation_arrays_sha256':array_sha,'first_executed_lrs':first_lr,
+                     'post_final_update_lrs':[g['lr'] for g in optimizer.param_groups],'seconds':time.monotonic()-started,
+                     'created_utc':now(),'protocol_sha256':receipt['protocol_sha256'],'config_sha256':receipt['config_sha256']}
+                # Persist actual terminal evaluated state before late-stage rollback.
+                if epoch==319:
+                    savept(out/'terminal_epoch0319.pt',state(epoch))
+                    import shutil
+                    shutil.copyfile(out/'latest.predictions.json',out/'terminal.predictions.json')
+                    shutil.copyfile(out/'latest.evaluation_arrays.npz',out/'terminal.evaluation_arrays.npz')
+                    savej(out/'terminal.metrics.json',{**row,'checkpoint_sha256':sha(out/'terminal_epoch0319.pt')})
+                if metrics['AP']>best_ap:
+                    best_ap=metrics['AP'];best_epoch=epoch
+                    savept(out/'best.pt',state(epoch))
+                    import shutil
+                    shutil.copyfile(out/'latest.predictions.json',out/'best.predictions.json')
+                    shutil.copyfile(out/'latest.evaluation_arrays.npz',out/'best.evaluation_arrays.npz')
+                    savej(out/'best.metrics.json',{**row,'checkpoint_sha256':sha(out/'best.pt')})
+                    if epoch<296: shutil.copyfile(out/'best.pt',out/'best_stg1.pt')
+                elif epoch>=296:
+                    ema.decay-=0.0001
+                    restore(out/'best_stg1.pt',epoch,'late_epoch_without_new_global_best')
+                appendj(out/'epochs.jsonl',row);lrlog.flush()
+                receipt.update({'phase':'epoch_complete','completed_epochs':epoch+1,'best_epoch':best_epoch,'best_AP':best_ap,
+                                'latest_metrics':metrics,'updated_utc':now()});savej(out/'receipt.json',receipt)
+                print(json.dumps({'arm':arm,'epoch_complete':epoch,'AP':metrics['AP'],'APs':metrics['APs'],'seconds':row['seconds']}),flush=True)
+        assert attempts==517440
+        receipt.update({'status':'COMPLETED','completed_epochs':320,'optimizer_step_attempts':attempts,'ended_utc':now()})
+        savej(out/'receipt.json',receipt)
+    except Exception:
+        receipt.update({'status':'FAILED','ended_utc':now(),'traceback':traceback.format_exc()});savej(out/'receipt.json',receipt);raise
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['preflight','train']);parser.add_argument('--arm',choices=['BASE','FULL'],required=True)
+    args=parser.parse_args();controls()
+    if args.mode=='preflight': preflight(args.arm)
+    else: train_run(args.arm)

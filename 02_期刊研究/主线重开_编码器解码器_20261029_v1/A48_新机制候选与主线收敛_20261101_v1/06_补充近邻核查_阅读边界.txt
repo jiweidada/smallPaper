@@ -1,0 +1,22 @@
+2026-11-01｜A48训练进行期间的补充查新，不修改冻结方法/协议
+
+Filtered Batch Normalization
+Andras Horvath, Jalal Al-afandi，arXiv2010.08251v1；ICPR2020条目。已取得PDF，SHA ae59d52be3db1f1e26d9c61a7ce59842219ae01cb6386fab58ccbd93cb9e46ae；本轮方法阅读来自同版本arXiv HTML §III、式4–13，并非PDF全文审读。
+原文先按普通均值/标准差识别激活离群值，再用阈值mask重新估计统计；亦已说明训练存储统计、推理无额外计算，并在COCO Mask R-CNN任务作过比较。
+https://arxiv.org/abs/2010.08251v1
+与A48：两者同属改变参与统计的权重/样本集合，故“只改训练归一化且无推理增量”已有先例。A48按标注框的实例测度均衡，不按激活离群程度筛选，也不声称WBN公式新颖。是否优于稳健统计/GN是后续候选阳性时的强对照问题，当前不自动追加新arm。
+
+Improving Batch Normalization with Test-Time Adaptation for Robust Object Detection in Self-Driving
+Dacheng Liao, Mengshi Qi, Liang Liu, Huadong Ma，AAAI2026 40(9):6925–6933，DOI10.1609/aaai.v40i9.37626。官方页面公开日期2026-03-14。
+https://ojs.aaai.org/index.php/AAAI/article/view/37626
+https://github.com/Maodou-L/LearnableBN
+本轮阅读范围仅官方摘要/首页和官方仓库README，PDF下载失败；不能写成完整方法核查。摘要说明LearnableBN加入辅助可学习参数、几何置信与熵目标、语义一致双阶段测试时适配；对象为BEVFormer/NuScenes-C。官方仓库在本次读取时仅显示README、LICENSE与图资源，没有可核查完整归一化实现，不能据此确认代码行为或重现方法。
+目前可知的任务/机制与A48训练GT实例加权不同，但全文未读，逐式重合核查仍有缺口。不因标题含BN便判相同，也不因摘要没有instance一词便证明新颖。
+
+其他检索线索
+BoxNorm命中的TUM学位论文摘要片段描述按框大小归一化主动学习选样分数，非已核实的BN特征矩；未采用其技术结论。
+Class-balanced Normalization命中OpenReview ZA_F5AU-byh，但页面验证拦截，身份/全文未取得，不纳入核心方法对比。
+SURGELLM arXiv2606.24259为文本多任务统计归一化线索，仅摘要，未作为无人机检测直接先例。
+这些均是检索线索，不升级为全文证据，不作为放行/否定A48的唯一根据。
+
+本次补充不改变当前状态：A48仍是可能过于增量的任务特定候选；效用、机制与完整新颖性均未建立。原版B/M像素加权/Q实例加权三组按原冻结12轮端点继续；没有为这些新线索增加训练。

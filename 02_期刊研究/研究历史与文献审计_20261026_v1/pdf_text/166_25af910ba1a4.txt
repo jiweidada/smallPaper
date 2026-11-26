@@ -1,0 +1,175 @@
+SET: Spectral Enhancement for Tiny Object Detection
+Huixin Sun1, Runqi Wang2, Yanjing Li1,
+Linlin Yang5, Shaohui Lin6, Xianbin Cao1∗, Baochang Zhang3,4*
+1School of Electronic Information Engineering, Beihang University, Beijing, China
+2School of Computer Science and Technology, Beijing Jiaotong University
+3School of Artiﬁcial Intelligence, Beihang University, Beijing, China
+4Zhongguancun Laboratory, Beijing, China
+5State Key Laboratory of Media Convergence and Communication,
+Communication University of China, Beijing, China
+6School of Computer Science and Technology, East China Normal University, Shanghai, China
+Abstract
+Deep learning has signiﬁcantly advanced the object detec-
+tion ﬁeld. However , tiny object detection (TOD) remains a
+challenging problem. We provide a new analysis method to
+examine the TOD challenge through occlusion-based attri-
+bution analysis in the frequency domain. We observe that
+tiny objects become less distinct after feature encoding and
+can beneﬁt from the removal of high-frequency information.
+In this paper , we propose a novel approach named Spectral
+Enhancement for Tiny object detection (SET), which am-
+pliﬁes the frequency signatures of tiny objects in a hetero-
+geneous architecture. SET includes two modules. The Hier-
+archical Background Smoothing (HBS) module suppresses
+high-frequency noise in the background through adaptive
+smoothing operations. The Adversarial Perturbation Injec-
+tion (API) module leverages adversarial perturbations to
+increase feature saliency in critical regions and prompt the
+reﬁnement of object features during training. Extensive ex-
+periments on four datasets demonstrate the effectiveness of
+our method. Especially, SET boosts the prior art RFLA by
+3.2% AP on the AI-TOD dataset.
+1. Introduction
+Recent advances in Deep Neural Networks (DNNs) [14, 60]
+have signiﬁcantly improved the object detection ﬁeld [ 11,
+22]. Despite the progress, Tiny Object Detection (TOD) re-
+mains a challenging problem. Tiny objects, characterized
+by their very limited pixel input, occupy areas equal to or
+less than 16×16 pixels [ 44]. Compared to traditional ob-
+ject detection [ 10, 21], generic object detectors often fail
+to manifest effectiveness on the TOD task. For instance,
+*Corresponding authors. Email: sunhuixin@buaa.edu.cn
+!"!"!""!"#Figure 1. A feature-level occlusion-based attribution analysis in
+the frequency domain. Mid-frequency features ranges from 40%
+to 60% of the total energy, high-frequency features are above 90%
+of the total energy. The model is trained on the AI-TOD [ 44]
+trainval and validated on the AI-TOD test. Detection per-
+formance is evaluated by inferencing a 1 × FCOS detector [ 39]
+with the masked features. Results exhibit that tiny objects are more
+likely to be affected by high-frequency noise and can beneﬁt from
+the direct removal of high-frequency information.
+DINO [ 60], one of the most representative transformer-
+based object detector, achieves 37.6% AP on medium-sized
+objects but only 9.9% AP on very tiny objects on the AI-
+TOD [ 44] benchmark, Moreover, the vanilla FCOS [ 39]
+achieves only 2.5% AP on very tiny objects on the AI-
+TOD [ 44], which is far from sufﬁcient to meet the de-
+mands of real-world applications, such as autonomous driv-
+ing, maritime rescue, and trafﬁc management.
+Constrained by the inherently low resolution, one key
+challenge in TOD is to extract discriminative foreground
+features [ 7], especially in the high-level features of de-
+tection architecture after down-samplings. In the mean-
+time, it is difﬁcult to learn about tiny objects from the
+noisy and dominant background clutter [ 54]. Most existing
+works [ 1, 3, 30, 54] focus on enhancing feature represen-
+tations of tiny objects in the spatial domain. We provide a
+new analysis method and address the challenge from a fre-
+quency spectrum perspective.
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+4713
+
+
+---PAGE---
+
+(b)
+(c)
+Tiny ObjectsSmall ObjectsVanilla FCOSFCOS w/ SET
+(a)Figure 2. The analysis examines different objects after feature en-
+coding in the frequency domain. The frequency spectrum is calcu-
+lated using the Fast Fourier Transform (FFT) [ 31] on the cropped
+P3 feature and selecting the channel with the highest energy. The
+frequency signatures of tiny objects become more pronounced af-
+ter applying SET, manifesting distinct frequency response on the
+edges of the spectrum compared to vanilla FCOS.
+Motivated by occlusion-based attribution analysis [ 33,
+45], we perform an occlusion-based analysis on the inter-
+mediate Feature Pyramid Network (FPN) features to exam-
+ine the impact of masking speciﬁc frequency bands on the
+detection performance across object scales. Speciﬁcally, we
+transform the features into the frequency domain using the
+n-dimensional Fast Fourier Transform (FFT) [ 31] and ap-
+ply static ﬁlters to the amplitude spectrums, which are then
+fed to Inverse Fast Fourier Transform (IFFT) with phase
+spectrums to generate the masked spatial features. High-
+frequency mask results in Fig. 1 reveal that directly remov-
+ing high-frequency features has a positive effect on very tiny
+and tiny objects, while negatively affecting the detection of
+larger objects. The disparity can be attributed to that tiny
+objects become less distinct after feature encoding, exhibit-
+ing weak high-frequency components (example (b), Fig. 2)
+and extremely vague frequency signatures in the cluttered
+background (example (c), Fig. 2). Therefore, they are more
+likely to be affected by high-frequency noise and beneﬁt
+from the direct removal of high-frequency information. In
+contrast, larger objects exhibit distinct high-frequency sig-
+natures (example (a), Fig. 2) and have a higher dependency
+on high-frequency information. Based on the observations,
+we investigate an explicit measure to enhance the frequency
+signatures for tiny objects by removing the high-frequency
+information in the background. Background (BG) high-
+frequency mask results show that the approach enhances
+detection performance across all three object scales, result-
+ing in improvements of 15%, 8%, and 4%, bringing signif-
+icant gains for very tiny and tiny objects without compro-
+mising larger objects.
+In light of the analysis above, we propose a generic
+Spectral Enhancement (SET) method to enhance the fre-
+quency signatures of Tiny objects using a heterogeneous
+architecture for foreground and background feature reﬁne-
+ment. The method includes two modules. As illustrated in
+Fig. 3, the ﬁrst Hierarchical Background Smoothing (HBS)
+module suppresses the high-frequency information in the
+background through adaptive smoothing operations while
+preserving foreground details, thereby accentuating the fre-
+quency signatures of tiny objects. The second Adversarial
+Perturbation Injection (API) module leverages adversarial
+perturbations to increase feature saliency in critical regions
+and prompt the reﬁnement of object features during train-
+ing. In addition, API facilitates robust feature representa-
+tions through adversarial training. SET is simple yet effec-
+tive and can be easily mounted on existing detectors during
+the training process while bringing no extra burden to the
+inference procedure.
+Our major contributions in this paper are summarized as:
+• A feature-level occlusion-based attribution analysis from
+the frequency spectrum perspective is conducted to inves-
+tigate the Tiny Object Detection (TOD) challenge, which
+shows that tiny objects are more likely to be affected by
+high-frequency noise. We introduce a spectral enhance-
+ment scheme for tiny object detection (SET) by design-
+ing a heterogeneous architecture for foreground and back-
+ground feature reﬁnement.
+• Two new modules are designed for the TOD task. The
+HBS module is used to suppress the high-frequency noise
+in the background through adaptive smoothing opera-
+tions. The API module leverages adversarial perturba-
+tions to increase feature saliency in critical regions and
+prompt the reﬁnement of object features during training.
+• Extensive results reveal that our SET boosts the well-
+known baselines and the prior art by a large margin.
+2. Related Work
+Tiny Object Detection . Most current approaches for tiny
+object detection (TOD) can be grouped into four main cate-
+gories: data augmentation, multi-scale feature learning, la-
+bel assignment, and feature enhancement strategies for tiny
+objects. Several data augmentation strategies [ 6, 37] target
+tiny objects by prompting the detector to focus on instances
+of speciﬁc scales during training. Conventional approaches
+also utilize multi-scale feature learning [ 23, 26, 62]. An-
+other method line focuses on improving tiny object detec-
+tion from the label assignment and proposal reﬁnement per-
+spectives [52, 58]. V arious works aim to enhance the fea-
+ture representations of tiny objects. Y uanet al. [58] propose
+a Feature Imitation (FI) mechanism, aligning RoI features
+with their counterparts in an exemplar feature set within
+the embedding space. Recent state-of-the-art TOD methods
+have proposed auxiliary self-reconstruction branches to en-
+hance the weak representations of tiny objects [ 3, 54]. Dif-
+ferently, our proposed method enhances the discrimination
+of tiny objects from a frequency perspective, prompting the
+reﬁnement of object features during training without adding
+any extra burden to the inference process.
+4714

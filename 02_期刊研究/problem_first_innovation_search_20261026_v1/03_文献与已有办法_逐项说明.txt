@@ -1,0 +1,556 @@
+问题—文献—已有解法逐项说明
+源自本轮实际阅读范围；SNIP R62并入R41；作者代码R64不计论文。
+
+R01 / Q01：Soft-NMS -- Improving Object Detection With One Line of Code
+身份与版本：Soft-NMS -- Improving Object Detection With One Line of Code
+Navaneeth Bodla; Bharat Singh; Rama Chellappa; Larry S. Davis 2017
+arXiv v2，2017-08-08；ICCV2017身份核实；HTML标题省略Soft-NMS前缀
+原始链接：https://arxiv.org/html/1704.04503v2
+实际阅读与定位：§3–4的背景及两种衰减公式；§5评价；§6.1–6.3的结果和敏感性段。未声称精读全部参考文献。
+§3 HTML L63–69，类内NMS
+§4 HTML L70–103，两种衰减及O(N²)
+§5 L127–141、§6.1–6.3 L145–169
+问题先例：是
+已有办法与支持：按与当前高分框的重叠连续衰减分数，避免一次硬删除；原分数顺序会改变。
+硬NMS的删除可损害邻近真实目标，Soft-NMS提供已有简单替代。
+原文自身说明仍是贪心重评分，非全局最优。
+适用边界：须有可用框；不能为Geo0生成新几何。衰减参数、类别内处理和最终截断影响结果；原文COCO/VOC结果不可外推本地tiny。
+本地同协议状态：本地D072只做hard NMS IoU=.5；未找到当前BASE24同协议Soft-NMS结果。
+剩余缺口：hard NMS的净tiny TP为+4/-2尚未被Soft-NMS比较解释；不存在已证实Soft-NMS不足的本地证据。
+
+R02 / Q01：Learning non-maximum suppression
+身份与版本：Learning non-maximum suppression
+Jan Hosang; Rodrigo Benenson; Bernt Schiele 2017
+arXiv v2；CVPR2017正式身份页核实，不依赖不同站点页码差异
+原始链接：https://arxiv.org/html/1705.02950v2
+实际阅读与定位：§3–4.2关于重复目标、匹配标签、联合邻居处理及多类扩展；摘要用于数据集范围。
+§3.1 L123–138
+§4.1 L143–157，匹配耦合标签和多类固定类别
+§4.2 L158–167，邻居联合处理
+问题先例：是，候选冗余与precision/recall取舍
+已有办法与支持：以候选框与分数为输入联合处理邻居，并用一对一匹配结果给重评分标签。
+集合处理与抑制重复的匹配标签均非新概念。
+其多类扩展只重打分，不改变候选类别；不能据此断言语义重判决已被完全覆盖。
+适用边界：原研究PETS/COCO，框存在且可用；匹配监督并不保证本地类别歧义或极小定位得到解决。
+本地同协议状态：未找到DEIM同协议复现
+剩余缺口：未证实仅依赖本地框/分数能识别被丢失的正确类别；新集合标签必须避免D044已被简单增删复制的版本。
+
+R03 / Q01：Rank-DETR for High Quality Object Detection
+身份与版本：Rank-DETR for High Quality Object Detection
+Yifan Pu et al. 2023
+v3，2023-11-03；本地旧记录主要为v1，当前方法判断明确绑定v3
+原始链接：https://arxiv.org/html/2310.08854v3
+实际阅读与定位：§3.1–3.4及§4.1–4.2的设定与总体表述。
+§3.1 L91–95区分encoder与decoder排序
+§3.2 Eq1–4，rank bias和query排序
+§3.3 Eq6–8，GIoU软目标及高阶matching；§3.4与已有质量评分关系
+问题先例：是
+已有办法与支持：排序感知分类偏置、query重排表示、定位质量目标及匹配共同优化。
+encoder准入与decoder输出排序是不同阶段，文献也明确区分。
+质量感知目标和排序结构已存在，不能只改名立项。
+适用边界：COCO上的H-DETR/DINO及各自预算；不等于当前DEIM300query、VisDrone极小GT同协议。
+本地同协议状态：未找到忠实同协议比较；D043编码器pairwise softplus不等同此完整方法。
+剩余缺口：本地native已有LQE/MAL，需先说明剩余信息而非重复增加质量头；现有证据未证明本地超越该方法的必要增量。
+
+R04 / Q01：EASE-DETR: Easing the Competition among Object Queries
+身份与版本：EASE-DETR: Easing the Competition among Object Queries
+Yulu Gao; Yifan Sun; Xudong Ding; Chuyang Zhao; Si Liu 2024
+CVPR2024正式页
+原始链接：https://openaccess.thecvf.com/content/CVPR2024/html/Gao_EASE-DETR_Easing_the_Competition_among_Object_Queries_CVPR_2024_paper.html
+实际阅读与定位：官网摘要；搜索结果提供原文摘要。直接open返回403，未据此声称方法全文或公式核对。
+官方摘要
+问题先例：相近
+已有办法与支持：摘要说明借领先/落后关系促进领先query胜出。
+query竞争不是本地新问题定义。
+适用边界：摘要不足以作与具体新设计的精确等价判断；本地表现未知。
+本地同协议状态：未找到同协议结果
+剩余缺口：若以后以query竞争作为新机制，需要补正文和作者代码；本轮不作等价或首创结论。
+
+R05 / Q01,Q03：MDS-DETR: DETR with Masked Duplicate Suppressor
+身份与版本：MDS-DETR: DETR with Masked Duplicate Suppressor
+Chanho Lee; Seunghee Koh; Yunho Jeon; Junmo Kim 2026
+arXiv v1，2026-05-22；只按预印本引用，首页DOI为占位文本，不能据此称IEEE正式发表
+原始链接：https://arxiv.org/html/2605.23507v1
+实际阅读与定位：§IV-A/B与§V-E中NMS/层数分析，摘要及表I用于设定。
+§IV L110–121：末层移除cross-attention及几何精修，保留分类/抑制
+§IV-A Eq3：按每query最大类分数排序的因果mask
+§IV-B Eq4–6：对称相对位置关系
+§V-E L286–289：末层NMS无额外收益，早期O2M层不同
+问题先例：是，O2M供给和O2O去重的冲突
+已有办法与支持：单decoder前段O2M监督，后段O2O分类抑制层以分数排序mask引入非对称性。
+固定框、只改分类和重复处理的末层也有直接先例。
+不同训练层和监督方案对NMS收益不同，支持保留本地成熟度/监督竞争解释。
+适用边界：COCO/Deformable-DETR及300或900query；不等同本地DEIM300、MAL/GO-LSD及tiny口径；原文结果不是本地效应。
+本地同协议状态：未发现本地忠实同协议训练
+剩余缺口：不能把本地NMS阳性直接作为新抑制层必要性；简单NMS、Soft-NMS与该架构尚缺本地比较。
+
+R06 / Q01：Decoupled Classification Refinement: Hard False Positive Suppression for Object Detection
+身份与版本：Decoupled Classification Refinement: Hard False Positive Suppression for Object Detection
+Bowen Cheng et al. 2020
+arXiv v2，2020-12-09；为ECCV2018 Revisiting RCNN的扩展版本，两个版本不当两次独立证据
+原始链接：https://arxiv.org/html/1810.04002v2
+实际阅读与定位：§4.1–4.3中分类/定位解耦、两版本输入与分数融合；§5表3融合/框回归消融。
+§4.1 L164–178，独立分类器可退化、乘积有益的受测情形
+§4.2 L179–184，图像裁块独立分类与逐元素乘积
+§4.3 L185–198，早期共享特征ROI分类
+§5 Table3 L362–381，乘积与平均等必要对照
+问题先例：是，相近错误类型
+已有办法与支持：在固定原检测框上作较强分类修正，分数可与原检测器融合。
+固定框、解耦分类、增加分类支路并非新设计。
+单独强分类器并不自动更好，必须保留直接分类与简单融合参照。
+适用边界：Faster-RCNN/VOC/COCO，额外ROI/分类计算；不等于特权供体H40或可部署query语义修复已成功。
+本地同协议状态：仅有D042特权局部诊断及历史代码对照，未有本地可部署DCR同协议收益
+剩余缺口：推理可用语义能否保留真类且减少高分背景错误未知；保持分数集合可能限制背景抑制，不能先宣称安全。
+
+R07 / Q01,Q02：D-FINE: Redefine Regression Task in DETRs as Fine-grained Distribution Refinement
+身份与版本：D-FINE: Redefine Regression Task in DETRs as Fine-grained Distribution Refinement
+Yansong Peng et al. 2024
+固定v1，2024-10-17，作为原生设计说明，不把预印本与后续会版混作多来源效应
+原始链接：https://arxiv.org/html/2410.13842v1
+实际阅读与定位：§4.1 FDR定义及Eq2–3；原生项目源码LQE前向与调用。
+§4.1 Eq2–3，固定初始参考边距离、分布残差、按参考宽高缩放
+本地dfine_decoder.py L315–359 LQE与L499调用
+问题先例：原生设计已覆盖部分精定位与质量评分问题
+已有办法与支持：迭代分布精修；本地实现已有基于边分布统计的类无关logit修正。
+已有FDR分布不等于经标定的真实标注不确定性后验。
+本地LQE加同一质量标量到每query所有类别，不能单独改变query内部类别次序。
+适用边界：后一结论是本地源码的代数解释，来源是scores+quality_score广播，不是原论文实测结论。
+本地同协议状态：本地基础实现使用，新增替代是否更好未知
+剩余缺口：Q01剩余语义和选择问题不可定义为没有质量头；Q02也不能只以换坐标声称扩大原生分布族。
+
+R21 / Q02：A Normalized Gaussian Wasserstein Distance for Tiny Object Detection
+身份与版本：A Normalized Gaussian Wasserstein Distance for Tiny Object Detection
+Jinwang Wang; Chang Xu; Wen Yang; Lei Yu 2021
+arXiv:2110.13389v2，2022-06-14修订；初稿2021-10-26。本条引用该预印本，不与2022扩展期刊论文混记。
+原始链接：https://arxiv.org/abs/2110.13389v2
+实际阅读与定位：原PDF§3.1–3.3（式4、7、8、9）、§4训练/评测设定及§4.1；作者仓库README/依赖与配置入口。未逐文件复核可运行实现，未复现。
+§3.1 Eq4；§3.2 Eq7–8；§3.3 Eq9；PDF pp4–7；§4.1/Table1
+问题先例：直接研究小框对绝对像素偏移的IoU敏感性及anchor正负分配问题；与本地tiny问题接近，但不是本地FDR固定支持/标注量化机制的证明。
+已有办法与支持：将框映为均值(cx,cy)、协方差diag(w²/4,h²/4)的高斯；NWD=exp(−sqrt(W2²)/C)，替换anchor分配、NMS和回归损失(1−NWD)。
+
+适用边界：AI-TOD与VisDrone2019；原方法主要anchor-based，示例Faster R-CNN；C按数据集尺度设置。实验的12轮SGD、R50-FPN及RPN/RCNN采样，不能与本地12轮DEIM等价。
+reader-inferred：固定像素单位的C及anchor阈值移植到640归一化DEIM时需一致换算；本文式8及§3.3不建立真实标注误差后验。
+本地同协议状态：在372索引和本轮原件核对范围未找到当前DEIM-D-FINE-S、同输入/初始化/预算的NWD验收；记录为比较缺口，不能说从未有人运行。
+剩余缺口：需要识别本地是否是同一种分配/损失尺度问题；公式不能单独证明能补回丢失像素或修复FDR支持。
+
+R22 / Q02：Unbiased Regression Loss for DETRs
+身份与版本：Unbiased Regression Loss for DETRs
+Edric; Ueta Daisuke; Kurokawa Yukimasa; Karlekar Jayashree; Sugiri Pranata 2024
+arXiv:2410.22638v1，2024-10-30；本轮未核独立正式出版身份。
+原始链接：https://arxiv.org/abs/2410.22638v1
+实际阅读与定位：HTML§3.2–3.4、§4.1–4.3及表1–4；本地372文献L213仅作定位。未核作者代码，未验证所有消融。
+§3.4的未编号权重公式；§4.2；Tables1–4
+问题先例：DETR图像归一化L1对不同框尺度的相对误差权重不均，是已有问题定义。
+已有办法与支持：L1各项乘GT尺寸倒数：x/width项为1/w_i，y/height项为1/h_i；可再用平均尺寸补偿整体损失幅度。全监督仅替换Co-DETR主头，辅助头保持原损失。
+
+适用边界：COCO；Semi-DETR/DINO-R50、900 queries；Co-DETR全监督。表4总体AP52.1→53.8、small35.4→38.2；表1的1%半监督却30.5→28.5/28.8，不能概括全面稳定增益。
+reader-inferred：若tiny标签本身不可靠，尺寸倒数也会放大其监督；本文已读§3.4/§4并未识别VisDrone真实噪声或检验本地FDR支持。
+本地同协议状态：在372及本轮已核原件未找到当前300query DEIM同协议训练比较；普通改坐标、FDR范围或集合期望预检不等价于Sized L1验收。
+剩余缺口：本地几何失败是否来自相对误差权重，而非输入/预算/标签问题未知；先验存在只形成比较缺口。
+
+R23 / Q02：Noise-Robust Tiny Object Localization with Flows
+身份与版本：Noise-Robust Tiny Object Localization with Flows
+Huixin Sun; Linlin Yang; Ronyu Chen; Kerui Gu; Baochang Zhang; Angela Yao; Xianbin Cao 2026
+arXiv:2601.00617v1，2026-01-02；HTML标Pattern Recognition，出版社入口403，本轮未核卷期/最终出版文本。
+原始链接：https://arxiv.org/abs/2601.00617v1
+实际阅读与定位：HTML引言的AI-TOD噪声抽查说明，§3.1–3.2式9–15，§4.1–4.4及表1的DINO行；未核作者代码/所有补充资料。
+Introduction/Figs1–2；§3.2 Eqs9–15；§4.1；Table1
+问题先例：已直接提出tiny对不精确定位标签敏感、严格拟合可能过拟合噪声的问题；不能再声称首次发现。
+已有办法与支持：预测坐标均值和不确定性，建模标准化残差(T−T_hat)/sigma_hat的flow密度，用负对数似然及不确定性相关梯度调节训练。
+
+适用边界：AI-TOD、DOTA-v2.0、TinyPerson及额外COCO；DINO-5scale基线36轮，Table1总体23.2→24.4。引言噪声抽查仅10张AI-TOD test、532框，不能当VisDrone噪声率。
+reader-inferred：由灵活残差密度获得抗噪性能不等于识别真实标注量化器；与集合期望能否叠加、是否适配DEIM/FGL仍未知。
+本地同协议状态：本地已保存/读过部分原文，但未找到当前DEIM同协议TOLF训练比较；368均匀xywh期望不是TOLF。
+剩余缺口：单一标签下预测残差含模型误差和视觉歧义；本地真实噪声是否主因未识别，不能把文献条件泛化为全部几何失败。
+
+R24 / Q02：Can We Trust Bounding Box Annotations for Object Detection?
+身份与版本：Can We Trust Bounding Box Annotations for Object Detection?
+Jeffri Murrugarra-Llerena; L. N. Kirsten; Claudio R. Jung 2022
+CVPR Workshops 2022，VDU；原始CVF会议版本。
+原始链接：https://openaccess.thecvf.com/content/CVPR2022W/VDU/html/Murrugarra-Llerena_Can_We_Trust_Bounding_Box_Annotations_for_Object_Detection_CVPRW_2022_paper.html
+实际阅读与定位：原CVF PDF经检索返回的首页摘要/引言、§3的Fig2–3及Eq4相关片段；未完整取得可连续读取全文。二手ResearchGate长摘录未作为技术证据。
+§3/Figs2–3；Eq4周围原PDF检索片段；首页摘要
+问题先例：明确研究小/窄框对亚像素标注差异和IoU门槛的敏感性，以及AP受标注质量影响。
+已有办法与支持：本条是数据/评估可靠性研究；在实际读到的部分不提供新的检测训练目标。
+
+适用边界：原PDF比较COCO/VOC的框/分割诱导框与微小几何差异；这些参照不自动代表VisDrone的标注生成规则。
+未完整取得全文，方法整体弱点不作评定；只在实际读过片段内引用。
+本地同协议状态：项目367已引用其问题先例；没有独立VisDrone重复标注/标注工具机制证据，不能将文献结论当本地噪声测量。
+剩余缺口：本地需要区分真实模型失配与评估标签不确定性；整数存储不能唯一决定±0.5像素误差分布。
+
+R25 / Q02：Noise-Aware Evaluation of Object Detectors
+身份与版本：Noise-Aware Evaluation of Object Detectors
+Jeffri Murrugarra Llerena; Claudio R. Jung 2025
+WACV 2025 CVF版本，CVF/作者仓库列页9304–9313；本轮不采用二手数据库的不同页码。
+原始链接：https://openaccess.thecvf.com/content/WACV2025/html/Llerena_Noise-Aware_Evaluation_of_Object_Detectors_WACV_2025_paper.html
+实际阅读与定位：原CVF PDF搜索返回§3.2–3.3（式5–7）、§4–5片段；作者仓库README。§3.4 Eq10仅本地367提及，本轮未取得该完整公式，不作精确等价判断。
+§3.2 Eqs5–7；§3.3；§4；§5；作者README Cite our work
+问题先例：框标注角点差异会使基准IoU/AP高估或低估，小框及严格阈值更敏感。
+已有办法与支持：在噪声模型下给IoU/AP评估上下界，重评既有检测器；并非检测器训练损失。
+
+适用边界：COCO原/修订标注配对，§3.3将修订框假定为GT并过滤匹配；学习角点噪声分布后计算期望量。该过程不等价于已知量化器的逆胞内精确max IoU。
+author-acknowledged于§3.3：修订标注视为真实GT、角点误差作iid假设；reader-inferred：其误差模型不能直接移植为VisDrone后验。
+本地同协议状态：本地文献对照存在，但未识别VisDrone噪声分布；本轮不重评、不修改正式评价口径。
+剩余缺口：需要实测本地标注分歧；文献中的评估上界不能当可部署AP增益。
+
+R26 / Q02：SA-Matching DETR: A Lightweight Transformer Detector with Enhanced Scale Adaptive Matching
+身份与版本：SA-Matching DETR: A Lightweight Transformer Detector with Enhanced Scale Adaptive Matching
+Chengshan Yang; Pengnian Zhang; Jinjing Zhao 2026
+CVPR Findings 2026，6695–6705；CVF开放版本。
+原始链接：https://openaccess.thecvf.com/content/CVPR2026F/html/Yang_SA-Matching_DETR_A_Lightweight_Transformer_Detector_with_Enhanced_Scale_Adaptive_CVPRF_2026_paper.html
+实际阅读与定位：正式页摘要；本地PDF pp6698–6699 §3.2及Eq3–4、§3.3开头。372的pdf_text只提取前两页，未误当全文。未核实验全部消融或作者运行代码。
+§3.2 Eqs3–4；PDF pp6698–6699
+问题先例：处理尺度相关的监督稀疏；其明确动机包括Hungarian对大目标的稀疏正监督，不是专门修复tiny标注精度。
+已有办法与支持：按面积阈值给每GT生成s/m/l个副本，再做一对一Hungarian；small最优设s=1，增加medium/large正例。
+
+适用边界：COCO、Partial ViT/ViTDet式多尺度检测框架；复制GT与本地GO union、DN、FDR支持并不等价。
+reader-inferred，限§3.2：面积分组复制是监督分配规则，未直接增加像素证据或刻画标注误差。未用全文数据推断其在本地效果。
+本地同协议状态：372及本轮核查范围未找到当前DEIM同协议比较；论文页称代码将发布，本轮未确认可运行作者实现。
+剩余缺口：不能仅凭其名称否定tiny几何/横向误差问题，也不能认为已有方法已在本地消除相应失败。
+
+R41 / Q02,Q03：An Analysis of Scale Invariance in Object Detection – SNIP
+身份与版本：An Analysis of Scale Invariance in Object Detection – SNIP
+Bharat Singh
+Larry S. Davis 2018
+CVF CVPR2018正式版本；本地主文221_SNIP_CVPR2018_Publisher.pdf
+原始链接：https://openaccess.thecvf.com/content_cvpr_2018/html/Singh_An_Analysis_of_CVPR_2018_paper.html
+实际阅读与定位：path: C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/221_SNIP_CVPR2018_Publisher_Claude复核_20261006_v1.txt
+locator: L310-520，§5、表1、§6.1–6.2前部
+web: 官方发表页/摘要身份；PDF直接打开403，未将失败算全文阅读；作者仓库身份页读到，未读实现
+
+兼R62：§4背景、§5尺度/数据变化分析和Table1、§6.1尺度归一化与§6.2裁块；没有核读全部后续性能表。
+问题先例：已有相近定义：极端尺度、训练/测试尺度错配与保留数据多样性的权衡。
+已有办法与支持：选择合适训练尺度及尺度条件监督；其最直接简单参照为全实例固定尺度、只保留小对象与普通多尺度训练。
+claim: 尺度归一化训练与单纯增加像素、只保留小对象训练、多尺度随机训练是不同干预；SNIP在每个金字塔尺度仅对适当实例反传，同时跨尺度保留整体外观多样性。
+locator: §5表1；§6.1
+claim: 其训练及推理采用图像金字塔，输出跨尺度合并。
+locator: §6.1图6及正文
+适用边界：COCO、提案式D-RFCN/Faster R-CNN和ImageNet预训练尺度背景；包含多分辨率推理与合并，不是单视图640固定成本。
+provenance: reader-inferred
+text: 多尺度训练/测试与跨尺度NMS共同改变资源和输出；直接把其收益移植给单视图640会混淆预算。
+checked_scope: §5–6.2
+本地同协议状态：372与D048/D049中未找到SNIP完整同协议复现；本地效果未知。
+剩余缺口：本地短程保护的净收益是否超出标准尺度训练与一般曝光分配尚未测；该比较缺口不是新方法增量。
+
+R42 / Q03：Scale Match for Tiny Person Detection
+身份与版本：Scale Match for Tiny Person Detection
+Xuehui Yu
+Yuqi Gong
+Nan Jiang
+Qixiang Ye
+Zhenjun Han 2020
+WACV2020正式版；arXiv1912.10664为预印本身份。原作者TinyBenchmark链接当前重定向ucas-vg/PointTinyBenchmark。
+原始链接：https://openaccess.thecvf.com/content_WACV_2020/html/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.html
+实际阅读与定位：path: C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/新主线筛选_20261019_P10.txt
+locator: L235-565，§3.2、§4、§4.1–4.2、式3–6、算法1–2
+web: CVF元数据/摘要；官方PDF直接打开403；作者仓库README/重定向身份，无实现级复现
+
+问题先例：已有相近问题：预训练与目标检测的尺度分布错配。
+已有办法与支持：外部预训练数据的尺度分布匹配，SM/MSM；必要简单参照是相同外部数据/预算的普通预训练及直接缩放。
+claim: 用目标训练集估计尺寸分布，将额外有标签数据集的整图缩放，使其物体尺度分布更接近目标；MSM保持尺度映射单调。
+locator: §4式3；§4.1算法1–2；§4.2式6
+claim: 直接上采样不消除TinyPerson的大背景/小相对尺寸困难。
+locator: §3.2表3及正文
+适用边界：有额外COCO等标注数据与目标训练尺度统计；TinyPerson单person，定义2–20像素与MR/AP@.5/.25，非本地短边<4和COCO APs。
+provenance: reader-inferred
+text: 额外有标签数据与预训练资源是方法输入；同项目短预算比较必须对齐这些输入，不能仅比较AP数字。
+checked_scope: §4.1–4.2；本轮未读§5全部实验
+本地同协议状态：372/D048/D049中未找到该SM/MSM同数据/预算的完整比较；不能据其存在判本地问题解决。
+剩余缺口：本地公共初始化是否存在相关错配及普通尺度匹配可解释多少保护收益未知；增加预训练数据/预算不作为新模块收益。
+
+R43 / Q03：Scale-Aware Mosaic Augmentation and GSIoU-Based Varifocal Loss for Robust Object Detection Under Scale Imbalance
+身份与版本：Scale-Aware Mosaic Augmentation and GSIoU-Based Varifocal Loss for Robust Object Detection Under Scale Imbalance
+Gyeongseo Kim
+Jeonghyeon Kim
+Sounghwan Hwang
+Han Sol Kim 2026
+2026-03-04出版社正式版，本地已保存主文。
+原始链接：https://www.mdpi.com/2079-9292/15/5/1075
+实际阅读与定位：path: C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/ScaleAwareMosaic_Electronics2026_DOI10_3390_electronics15051075.txt
+locator: §3.1 L320-390；§4.1 L432-460；表2 L555-561；§4.3开始；Appendix A算法A1 L715-814；声明L700-712
+web: 官方索引全文片段及DOI元数据；直接HTML429。未据此声称完整网页读通。
+
+问题先例：已有尺度不平衡/监督曝光不足定义；不等同本地小目标多数且极tiny受损的条件。
+已有办法与支持：按尺度不平衡补样本的Mosaic；普通Mosaic和slice-aided fine-tuning是文中简单增强比较。
+claim: 按COCO尺度组补采样至数量目标，围目标裁patch后拼640；改变采样频率与标签集合。
+locator: §3.1；Algorithm A1
+claim: 其可见比例阈值0.3，最小宽/高10像素；模型为RT-DETRv2、单类HRSC2016-MS，按最佳整体AP选权。
+locator: §4.1；图4；算法A1
+适用边界：单类船只数据、小目标不足于大目标；预构造尺度平衡样本集。过滤<10像素，与本地保留sub4曝光目标不同。
+provenance: reader-inferred
+text: 标签过滤与尺度平衡共同改变有效训练分布；本地若关注sub4，原法min-size10无法直接支撑其受益。
+checked_scope: §3.1/4.1及A1
+本地同协议状态：未找到该原法的本地同协议结果。D050 risk/all_count不是其复现，D048 source替换也不是。
+剩余缺口：在本地数据结构/极tiny保留约束下有效性未知；过滤规则不能原样当已解决sub4，也不能凭不同阈值认定创新。
+
+R44 / Q03：DEIM: DETR with Improved Matching for Fast Convergence
+身份与版本：DEIM: DETR with Improved Matching for Fast Convergence
+Shihua Huang
+Zhichao Lu
+Xiaodong Cun
+Yongjun Yu
+Xiao Zhou
+Xi Shen 2025
+CVPR2025主文；arXiv2412.04234；作者原ShihuaHuang95链接转现组织。代码main为本轮阅读状态，未绑定历史commit。
+原始链接：https://openaccess.thecvf.com/content/CVPR2025/html/Huang_DEIM_DETR_with_Improved_Matching_for_Fast_Convergence_CVPR_2025_paper.html
+实际阅读与定位：path: C:/Users/jiwei/Desktop/小论文投稿/英文小论文/文献_相关原始论文_20261004/_text/14_DEIM_CVPR2025_improved-matching.txt
+locator: §3.2 L370-407；§4.1 L475-486；§4.5表4/6和正文 L639-734
+web: CVF全文索引表4；作者configs/base/deim.yml全文件；engine/data/transforms/container.py stop_epoch_forward；engine/deim/denoising.py构组；deim_criterion.py _get_go_indices及DN分母/索引。
+
+问题先例：已研究监督数量/质量和增强收敛；未据本轮所读原文建立本地极tiny/过密源的净伤害归因。
+已有办法与支持：原生Dense O2O+MAL与增强日程；已知简单参照为无Mosaic/无MixUp、各单独以及不同预算的原配方。
+claim: Dense O2O通过拼图/混合增加每图目标数，保持每目标一对一；MAL处理低质量匹配。已有监督增密并不保证超过普通query数的GT都获普通几何正配对。
+locator: §3.2；_get_go_indices（后半句为代码约束推导）
+claim: Mosaic/MixUp的组合效果依训练轮数，作者有增强warmup/退出日程；DN槽数随批GT而变，不能把配置100看成最多100。
+locator: §4.1/4.5表4；configs/base/deim.yml；denoising.py
+适用边界：论文COCO RT-DETRv2-R50及D-FINE-L等；本地VisDrone更密、模型/日程不同。作者main [4,29,50]不能覆盖本地132配方[4,64,120]历史身份。
+provenance: reader-inferred
+text: 增加每图GT的正例增密逻辑在N接近/超过Q的稠密输入不自动线性延续；代码约束不等于已证实本地坏处。
+checked_scope: §3.2及普通union/DN代码
+本地同协议状态：BASE12/BASE24是DEIM-D-FINE本地实现；D048在其上替换部分Mosaic。未找到完整同协议Mosaic/MixUp开关/日程与保护的成套比较。
+剩余缺口：同样的GT曝光、普通几何正目标和DN贡献如何随保护改变尚无历史全程归因；DN对共享特征可有梯度，不能据不直接监督encoder头说无上游作用。
+
+R45 / Q03：Dynamic Scale Training for Object Detection
+身份与版本：Dynamic Scale Training for Object Detection
+Yukang Chen
+Peizhen Zhang
+Zeming Li
+Yanwei Li
+Xiangyu Zhang
+Lu Qi
+Jian Sun
+Jiaya Jia 2021
+v1 2020-04-26；v2 2021-03-14；作者仓库仍名Stitcher并引用旧题名，属同预印本修订链。
+原始链接：https://arxiv.org/abs/2004.12432v2
+实际阅读与定位：web: arXiv元数据；HTML §3.1–3.2.2、式1；§4.1；§4.2.3(d)长预算讨论/表5；§4.3/表11–12；作者README。trainer.py打开cache miss，未声称核实现。
+locators: HTML L114-152, L216-245, L291-328
+
+问题先例：已有‘输入尺度数量不等于优化贡献、样本准备需考虑训练反馈’近似问题。
+已有办法与支持：反馈驱动尺度训练与普通/随机拼图等强简单参照。不能把‘依据训练反馈选择Mosaic’当未有先例。
+claim: 用本迭代小目标loss占比控制下一迭代普通图或缩小拼接图；分辨率保持，k=4为主，阈值为需调超参数。
+locator: §3.2式1；§4.3
+claim: 全拼图、全普通、随机、输入数量反馈及损失反馈是原文已有比较；长训练预算也是原文反例/比较轴。
+locator: §4.3表11；§4.2.3(d)表5
+适用边界：Faster R-CNN/FPN、RetinaNet/FCOS等COCO/VOC，非Hungarian ordinary/DN；其COCO small和loss分母不等于本地sub4及普通/GO/DN。
+provenance: reader-inferred
+text: loss比例是特定检测器与归一化下的优化代理，不直接等于边际AP或有效监督；直接搬阈值可能改变选择。
+checked_scope: §3.2/4.1/4.3
+本地同协议状态：本轮372和D048/D049未找到DST完整本地对照；不能承诺它会解决或失败。
+剩余缺口：保护增量是否可由已有反馈日程/普通预算变化复制未知；若使用监督供给反馈，需先与此类已有控制量对照。
+
+R61 / Q02：Slicing Aided Hyper Inference and Fine-tuning for Small Object Detection
+身份与版本：Slicing Aided Hyper Inference and Fine-tuning for Small Object Detection
+Fatih Cagatay Akyon; Sinan Onur Altinuc; Alptekin Temizel 2022
+v5
+原始链接：https://arxiv.org/html/2202.06934v5
+实际阅读与定位：§3、§4（含表1/2、评价协议、规模和误差讨论）、§5成本边界；不是全文所有参考文献精读。
+§3 Slicing Aided Fine-tuning / Slicing Aided Hyper Inference; HTML L65-79
+§4 HTML L135-147; maxDets500与AP50定义
+Table1/2及L139-141，重叠与full-image收益/损害
+问题先例：是，像素不足/尺度改变及切片补充观测。
+已有办法与支持：重叠切片、保持比例放大、逐片独立检测；可加入整图，映射原图后NMS；训练可混合原图与切片。
+切片和整图加回均已有成熟先例；作者指出切片过小会损害大物体，且增加整图并不保证所有尺寸组同时变好。
+原文结果用AP50及maxDets=500，VisDrone推理640×640切片、25%重叠；不能把其增幅直接填入本项目APs[.5:.95]或maxDets100。
+适用边界：观测次数、像素尺度、上下文、融合与训练分布一起改变；有推理成本，非等成本零开销改进。
+type: author-acknowledged
+locator: §3 L77；§4 L139-141；§5 L147
+note: 切片边界及小切片会带来大目标FP/漏失；计算随切片增多。
+type: reader-inferred
+locator: §4协议及本地373材料
+note: 换成当前DETR和原生评价可能改变收益，尚未实测。
+本地同协议状态：未发现SAHI忠实同协议比较。旧独立whole/crop/merge是相似家族证据，不等同原文复现；349/350冻结换形状也不是SAHI训练阴性。
+剩余缺口：本地应记比较缺口：同视图/同计算/同权重与评价下，标准切片及原有强crop能解释多少tiny几何不足未知。
+
+R63 / Q02：SNIPER: Efficient Multi-Scale Training
+身份与版本：SNIPER: Efficient Multi-Scale Training
+Bharat Singh; Mahyar Najibi; Larry S. Davis 2018
+NeurIPS2018 published PDF
+原始链接：https://proceedings.neurips.cc/paper/2018/file/166cee72e93a992007a89b39eb29628b-Paper.pdf
+实际阅读与定位：§3.1–3.5 chip选择/标签/成本、§4.1–4.4与Table2；没有运行代码或读取所有补充材料。
+§3.2 PDF p3：完整覆盖chip且相交GT裁剪保留
+§3.4 PDF p5：crop GT参与标签，按proposal尺度筛选
+§3.5 PDF p5：512² chips/处理像素量；§4.2 Table2 PDF p7
+§4.4 PDF p7：金字塔推理及Soft-NMS
+问题先例：是，尺度、上下文与多尺度处理成本的权衡。
+已有办法与支持：只处理合适尺度的正样本chips，同时挖掘难背景负chips；以512²子图代替处理完整高分辨率金字塔，并维持尺度对应的标签和多尺度推理。
+§3.2每GT有完整chip机会，同时保留相交GT的裁剪框；§3.4并不把局部裁剪框视作原图完整框。
+§4.2 Table2无负chip AP43.4，完整46.1；§3.5约比单尺度800×1333多30%处理像素，说明裁块优势可能混有难负样本/优化与批量因素。
+适用边界：并非严格相同FLOPs或相同时延比较；约30%像素量不等于本项目30%成本。裁剪GT、有效区间和负样本机制不能直接移植为收益承诺。
+type: author-acknowledged
+locator: §3.3及§4.2
+note: 只用GT正chip会遗漏难背景并增加FP；需要负chip。
+type: reader-inferred
+locator: §3.5与§4.3
+note: 其硬件/架构和batch变化使像素比例不能等同本地时延。
+本地同协议状态：没有本地SNIPER忠实比较；旧平均6.1861个视图/原图也不是等成本SNIPER结果。
+剩余缺口：本地强裁块参照是否已充分处理难背景及尺度/曝光差异未知；若只发现crop比whole好，仍不能证明需新几何结构。
+
+R64 / Q02：SAHI author implementation: sliced annotations, IoS matching, and Non-Maximum Merging
+身份与版本：SAHI author implementation: sliced annotations, IoS matching, and Non-Maximum Merging
+obss/sahi contributors None
+main observed 2026-10-26; unpinned
+原始链接：https://github.com/obss/sahi/blob/main/sahi/postprocess/combine.py
+实际阅读与定位：静态读取slicing.py/process_coco_annotations、combine.py/NMSPostprocess/NMMPostprocess/GreedyNMMPostprocess、utils.py/calculate_bbox_ios/calculate_box_union/merge_object_prediction_pair；未import或执行。
+slicing.py L114-135及slice_image min_area_ratio
+combine.py L350-383 NMM/GreedyNMM
+utils.py L226-241 union，L287-327 IoS，L364-444 score及合框
+问题先例：实现直接支持重叠切片输出合并；不是证明所有截断现象都被解决。
+已有办法与支持：局部annotation先裁剪再按保留面积筛选；NMM可使用IoS匹配，匹配框取坐标并集、分数最大值，避免只能删除重复框的限制。
+源码明确IoS分母是较小框面积；合框用min左上/max右下，不是把完整框与截断框边坐标简单平均。
+代码显示已存在这类简单几何合并，不能仅以“融合多个裁块边界”作为新意。
+适用边界：是否同物体仍由类别/重叠匹配规则决定；拥挤邻居误合、框扩张及所有视图都缺边时的恢复无保证。此限制为读码推断，未做本地效果实验。NMM不等于观测约束概率推断。
+type: reader-inferred
+locator: 所列源码函数
+note: 仅按重叠合并时，临近不同实例可能被并为大框，未必提高IoU/AP；不具备知道裁块外完整边的能力。
+本地同协议状态：未找到本地该作者NMM/IoS代码的忠实结果；D072的类内NMS重选属于不同事件/不同方案。
+剩余缺口：真实跨视图关联及净新增/损害、合并预算和成熟权重表现未验证；不能由源码存在否定Q02。
+
+R65 / Q02：A unified framework for scale-adaptive and truncation-aware remote sensing object detection
+身份与版本：A unified framework for scale-adaptive and truncation-aware remote sensing object detection
+Disheng Miao; Xiaohui He; Beibei Zhang; Panle Li; Xijie Cheng; Mengjia Qiao; Huijie Zhao; Zirui Zheng; Guangyi Yang 2026
+出版方预览首面和摘要/图题；未取得全文
+原始链接：https://doi.org/10.1088/1361-6501/ae7ea2
+实际阅读与定位：仅IOP提供的publisher preview首面、摘要和公开图题；全文方法章节、公式、SC-NMS定义及效果表均未读。
+publisher preview首面，ResearchGate L74-107身份/出版日期
+摘要L39-42；图题L43-47：SC-NMS/截断情形
+问题先例：是，摘要层面明确切片截断；精确定义未知。
+已有办法与支持：摘要称有边界感知框融合，图题称SC-NMS；精确规则未知。
+可补全旧90号记录的题名、作者和出版身份；确有以切片截断为问题的直接先例。
+适用边界：摘要报告DOTA/DIOR场景；是否支持本地水平框、具体截断假设、成本及同约束收益未核。
+not assessed (read scope: abstract/publisher preview only)
+本地同协议状态：未找到。
+剩余缺口：需方法全文才能做操作级差异/等价性判断；本次不据此否决问题或宣称新意。
+
+检索与访问原记录（包含完整检索式和失败）
+
+S001 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[0]", "problem_ids": ["Q01"], "id": "SR01", "date": "2026-10-26", "tool": "web.run.search_query", "queries": ["site:openaccess.thecvf.com Learning Non-Maximum Suppression 2017 Hosang", "site:openaccess.thecvf.com Soft-NMS Improving Object Detection With One Line of Code 2017", "site:arxiv.org Rank-DETR for High Quality Object Detection", "site:openaccess.thecvf.com DETR duplicate detection classification uncertainty ranking"], "result": "定位经典NMS/Soft-NMS、Rank-DETR和EASE-DETR；二手解释不作证据；未获得检索引擎完整命中总数，不捏造筛选数量。"}
+
+S002 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[1]", "problem_ids": ["Q01"], "id": "SR02", "date": "2026-10-26", "tool": "web.run.open", "queries": ["CVF Soft-NMS PDF", "CVF Learning NMS PDF", "arxiv.org/html/2310.08854v3", "CVF GFLv2 PDF"], "result": "Rank正文可读；CVF直接打开出现403/不可访问。GFLv2不另增加机制结论，优先本地原生LQE源码。"}
+
+S003 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[2]", "problem_ids": ["Q01"], "id": "SR03", "date": "2026-10-26", "tool": "web.run.search_query", "queries": ["\"Soft-NMS\" arxiv 1704", "\"Learning non-maximum suppression\" arxiv 1705", "site:arxiv.org MDS-DETR Masked Duplicate Suppressor 2605.23507", "site:openaccess.thecvf.com Decoupled Classification Refinement Hard False Positive Suppression ECCV 2018"], "result": "核实1704.04503、1705.02950、2605.23507，DCR原会版题名Revisiting RCNN；仅使用原始arXiv/CVF。"}
+
+S004 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[3]", "problem_ids": ["Q01", "Q02"], "id": "SR04", "date": "2026-10-26", "tool": "web.run.open/find", "queries": ["arxiv.org/html/1704.04503v2 §3–6", "arxiv.org/html/1705.02950v2 §3–4.2", "arxiv.org/html/2605.23507v1 §IV-A/B §V-E", "arxiv.org/html/2410.13842v1 §4.1"], "result": "已读上述实际范围；CVF不可达后的原文替代，非摘要外推。"}
+
+S005 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[4]", "problem_ids": ["Q01"], "id": "SR05", "date": "2026-10-26", "tool": "web.run.search_query", "queries": ["\"non maximum suppression\" \"class confusion\" object detection", "\"multi-class\" \"non-maximum suppression\" \"uncertainty\"", "\"joint\" \"classification\" \"suppression\" \"GossipNet\""], "domains": ["openaccess.thecvf.com", "arxiv.org"], "result": "返回许多解释/跨任务条目，无足以判定具体联合类别-重复设计首创的证据；LaserNet为3D跨任务，不作本地直接解法。未检到完全相同设计不构成不存在证明。"}
+
+S006 {"source_file": "literature_Q01_ranking.json", "source_locator": "$.search_log[5]", "problem_ids": ["Q01"], "id": "SR06", "date": "2026-10-26", "tool": "web.run.open/find", "queries": ["arxiv.org/html/1810.04002v2 §4.1–4.3 Table3", "github.com/bharatsingh430/soft-nms"], "result": "DCR原文方法与简单融合表可读；作者仓库身份已核，未运行代码；EASE-DETR官网摘要可检索、直接open403，保持摘要范围。"}
+
+S007 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[0]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["\"Sized-L1\" object detection", "site:arxiv.org/abs/2601.00617", "\"A Normalized Gaussian Wasserstein Distance for Tiny Object Detection\" 2110.13389", "\"Can We Trust Bounding Box Annotations for Object Detection\" Murrugarra 2022"], "result": "定位NWD与CVF2022原PDF；Sized-L1和TOLF在该批返回不足，采用原页打开及题名变体。"}
+
+S008 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[1]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["\"Sized L1\" loss detector", "\"Sized-L1\" detector OR detection", "\"SA-Matching DETR\""], "result": "Sized-L1二手结果仅作导航，随后取得arXiv原文；SA-Matching正式CVF页身份成功。"}
+
+S009 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[2]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["\"Unbiased Regression Loss for DETRs\" arxiv", "\"Noise-Robust Tiny Object Localization with Flows\" code", "\"Noise-Aware Evaluation of Object Detectors\" WACV2025", "\"Sized L1\" \"Unbiased Regression\" Edric"], "result": "确认Sized-L1 arXiv2410.22638；TOLF原文2601.00617；CVF2025正式页/原PDF及作者仓库。未确认TOLF/Sized-L1作者可运行代码。"}
+
+S010 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[3]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["\"Can We Trust Bounding Box Annotations for Object Detection\" arxiv", "\"Noise-Aware Evaluation of Object Detectors\" arxiv", "\"Noise-Aware Evaluation of Object Detectors\" \"3.4\"", "\"Can We Trust Bounding Box Annotations\" \"round\""], "result": "未确认R24/R25 arXiv版本；获取CVF原PDF搜索正文片段；ResearchGate及其他二手长总结未作为技术证据。"}
+
+S011 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[4]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["site:openaccess.thecvf.com/content/CVPR2022W/VDU/ \"Murrugarra\" \"3.\" \"round\"", "site:openaccess.thecvf.com/content/WACV2025/ \"Noise-Aware\" \"3.4\"", "site:openaccess.thecvf.com/content/WACV2025/ \"Noise-Aware\" \"η\" \"IoU\"", "site:inf.ufrgs.br \"Can we trust bounding box\""], "result": "获取R25原PDF§3.2–3.3式5–7及标注配对模型；其余定向问题未返回有用原文，不当成不存在证明。"}
+
+S012 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.search_log[5]", "problem_ids": ["Q02"], "date": "2026-10-26", "queries": ["site:openaccess.thecvf.com \"Murrugarra-Llerena_Can_We_Trust\" \"3. Evaluating\"", "site:openaccess.thecvf.com \"Murrugarra-Llerena_Can_We_Trust\" \"rounded\"", "site:openaccess.thecvf.com \"Llerena_Noise-Aware\" \"3.4.\" \"10\"", "site:openaccess.thecvf.com \"Llerena_Noise-Aware\" \"normal distribution\""], "result": "该批无结果；未据此推断论文没有对应机制，R24/R25精确阅读范围保持partial。"}
+
+S013 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[0]", "problem_ids": ["Q02"], "url": "https://arxiv.org/html/2410.22638v1", "status": "success", "used": "Sized L1 §3.4公式及表1–4"}
+
+S014 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[1]", "problem_ids": ["Q02"], "url": "https://arxiv.org/html/2601.00617v1", "status": "success", "used": "TOLF方法/实验设定"}
+
+S015 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[2]", "problem_ids": ["Q02"], "url": "https://arxiv.org/pdf/2110.13389v2", "status": "success", "used": "NWD原公式/适用模型与训练设定"}
+
+S016 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[3]", "problem_ids": ["Q02"], "url": "https://github.com/jwwangchn/NWD", "status": "success", "used": "官方实现身份与配置入口；未运行"}
+
+S017 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[4]", "problem_ids": ["Q02"], "url": "https://github.com/Artcs1/Error-Aware", "status": "success", "used": "作者仓库身份和正式引文；未运行"}
+
+S018 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[5]", "problem_ids": ["Q02"], "url": "https://openaccess.thecvf.com/content/CVPR2022W/VDU/html/Murrugarra-Llerena_Can_We_Trust_Bounding_Box_Annotations_for_Object_Detection_CVPRW_2022_paper.html", "status": "direct_open_403", "fallback": "原CVF PDF搜索返回的摘要和§3片段"}
+
+S019 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[6]", "problem_ids": ["Q02"], "url": "https://openaccess.thecvf.com/content/CVPR2022W/VDU/papers/Murrugarra-Llerena_Can_We_Trust_Bounding_Box_Annotations_for_Object_Detection_CVPRW_2022_paper.pdf", "status": "direct_open_403", "fallback": "同原URL的搜索正文片段，未完整取得全文"}
+
+S020 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[7]", "problem_ids": ["Q02"], "url": "https://openaccess.thecvf.com/content/WACV2025/papers/Llerena_Noise-Aware_Evaluation_of_Object_Detectors_WACV_2025_paper.pdf", "status": "direct_open_403", "fallback": "原CVF PDF搜索返回方法/讨论片段及作者仓库"}
+
+S021 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[8]", "problem_ids": ["Q02"], "url": "https://openaccess.thecvf.com/content/WACV2025/html/Llerena_Noise-Aware_Evaluation_of_Object_Detectors_WACV_2025_paper.html", "status": "direct_open_403", "fallback": "正式页搜索结果及作者BibTeX"}
+
+S022 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[9]", "problem_ids": ["Q02"], "url": "https://openaccess.thecvf.com/content/CVPR2026F/papers/Yang_SA-Matching_DETR_A_Lightweight_Transformer_Detector_with_Enhanced_Scale_Adaptive_CVPRF_2026_paper.pdf", "status": "direct_open_403", "fallback": "本地已保存原PDF pp6698–6699，由pypdf只读提取"}
+
+S023 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[10]", "problem_ids": ["Q02"], "url": "https://www.sciencedirect.com/science/article/pii/S003132032600004X", "status": "403", "fallback": "arXiv2601.00617v1；期刊最终版本未核"}
+
+S024 {"source_file": "literature_Q02_geometry.json", "source_locator": "$.access_log[11]", "problem_ids": ["Q02"], "url": "https://api.semanticscholar.org/graph/v1/paper/ARXIV:2410.22638?fields=title,year,authors,externalIds", "status": "tool_inaccessible", "fallback": "S2_API_UNAVAILABLE；按arXiv/CVF原始身份核验，无S2_VERIFIED声称"}
+
+S025 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[0]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "本地JSON/PowerShell只读", "query": "literature_table_data.json: title =~ SAHI|SNIP|Slicing|truncat|Truncat|scale normalization|Scale Normalization|Weighted Boxes Fusion", "result": "定位L115/L116/L258及历史阅读和使用边界；无SNIPER题名记录命中", "retain_reason": "先利用本地身份与阅读证据，未把无命中当不存在"}
+
+S026 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[1]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.search_query", "query": "\"Slicing Aided Hyper Inference and Fine-Tuning for Small Object Detection\" SAHI 2202.06934", "result": "作者arXiv/项目及二手讲解", "retain": "R61", "retain_reason": "保留原文和作者项目，不采用二手技术判断"}
+
+S027 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[2]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.search_query", "query": "\"SNIPER: Efficient Multi-Scale Training\" NeurIPS 2018", "result": "官方出版页及PDF、作者arXiv", "retain": "R63", "retain_reason": "尺度/计算/难负样本的经典直接解释"}
+
+S028 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[3]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.search_query", "query": "\"scale-adaptive\" \"truncation-aware\" 1361-6501 ae7ea2", "result": "Science Explorer元数据与二手索引", "retain": "R65（只在随后原出版预览身份核对后保留）", "retain_reason": "补本地缺题名的高相关近邻，不用二手方法描述得等价结论"}
+
+S029 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[4]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.search_query", "query": "\"Weighted boxes fusion\" original paper 2019", "result": "原arXiv1910.13302", "retain": null, "retain_reason": "未深读/未纳入：通用模型集成坐标融合不直接补足当前截断语义，已有更贴近的作者NMM代码；不为凑量扩展"}
+
+S030 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[5]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open", "query": "https://arxiv.org/html/2202.06934v5", "result": "§3–5、表1/2全文可读", "retain": "R61", "retain_reason": "验证输入/视图、AP50/maxDets500和成本边界"}
+
+S031 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[6]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open", "query": "https://openaccess.thecvf.com/content_cvpr_2018/papers/Singh_An_Analysis_of_CVPR_2018_paper.pdf ; https://openaccess.thecvf.com/content_cvpr_2018/html/Singh_An_Analysis_of_CVPR_2018_paper.html", "result": "均403", "retain": "R62 via arXiv/local text", "failure": "出版方访问失败未解释为论文不存在；改读公开原文版本"}
+
+S032 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[7]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open", "query": "https://arxiv.org/abs/1711.08189 ; https://arxiv.org/html/1711.08189v2 ; https://arxiv.org/pdf/1711.08189v2", "result": "摘要确认camera-ready，HTML只有指向PDF占位，PDF正文可读", "retain": "R62", "retain_reason": "固定v2并核方法/Table1，HTML占位未算全文"}
+
+S033 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[8]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open/find", "query": "https://proceedings.neurips.cc/paper/2018/file/166cee72e93a992007a89b39eb29628b-Paper.pdf ; find=4.2 ; official abstract page", "result": "官方PDF/身份页可读；核§3与Table2/§4.4", "retain": "R63", "retain_reason": "验证裁剪GT、完整chip、难负样本、成本及多尺度推理"}
+
+S034 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[9]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open/find", "query": "https://github.com/obss/sahi/blob/main/sahi/postprocess/combine.py ; raw main combine.py,utils.py,slicing.py ; find=get_merged_bbox,calculate_bbox_ios,class GreedyNMMPostprocess,min_area_ratio", "result": "原始源码可读；GitHub页与raw视图行数不一致，结论定位以raw函数和本次日期为准", "retain": "R64", "retain_reason": "直接静态核实简单融合及局部目标处理，未运行代码"}
+
+S035 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[10]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open", "query": "https://api.github.com/repos/obss/sahi/commits/main", "result": "工具不可访问", "retain": "R64 unpinned main", "failure": "未取得commit，记录版本复现限制而不假造SHA"}
+
+S036 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[11]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open/search_query", "query": "https://iopscience.iop.org/article/10.1088/1361-6501/ae7ea2 ; site:iopscience.iop.org \"10.1088/1361-6501/ae7ea2\" ; \"A unified framework for scale-adaptive and truncation-aware remote sensing object detection\"", "result": "出版社robots/访问不可用；检到IOP提供的ResearchGate publisher preview", "retain": "R65 partial", "failure": "只取得首面/摘要/图题，不得声称全文/公式核查完成"}
+
+S037 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[12]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open/find", "query": "https://www.researchgate.net/publication/407234152_A_unified_framework_for_scale-adaptive_and_truncation-aware_remote_sensing_object_detection?_fam=1 ; find=3.3", "result": "显示IOP publisher preview；无方法§3.3命中", "retain": "R65 partial", "retain_reason": "确认题名作者日期，技术机制仍未知"}
+
+S038 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[13]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.screenshot", "query": "SNIP PDF page4(0-based)；SNIPER PDF page6(0-based)", "result": "直接URL初次识别失败，随后使用已返回PDF ref重试返回截图引用；主要表数值另与本地/原文抽取文本核对", "retain": "R62/R63", "note": "不将截图调用成功当全文阅读证明"}
+
+S039 {"source_file": "literature_Q02_input.json", "source_locator": "$.search_log[14]", "problem_ids": ["Q02"], "date": "2026-10-26", "tool": "web.open", "query": "https://api.semanticscholar.org/graph/v1/paper/ARXIV:2202.06934?fields=title,year,externalIds ; ARXIV:1711.08189 ; ARXIV:1805.09300 ; DOI:10.1088/1361-6501/ae7ea2（后三个使用相同fields参数）", "result": "四项均为tool不可访问，未取得S2 ID", "failure": "S2-API-UNAVAILABLE；采用原始arXiv/出版页/首面身份核对，不宣称S2_VERIFIED"}
+
+S040 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[0]", "problem_ids": ["Q03"], "search_id": "Q03-S01", "date": "2026-10-26", "type": "web_search", "query": "\"An Analysis of Scale Invariance in Object Detection\" SNIP CVPR 2018", "primary_links": ["https://openaccess.thecvf.com/content_cvpr_2018/html/Singh_An_Analysis_of_CVPR_2018_paper.html"], "outcome": "官方身份/摘要与PDF索引"}
+
+S041 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[1]", "problem_ids": ["Q03"], "search_id": "Q03-S02", "date": "2026-10-26", "type": "web_search", "query": "\"Scale Match for Tiny Person Detection\" WACV 2020", "primary_links": ["https://openaccess.thecvf.com/content_WACV_2020/html/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.html"], "outcome": "官方身份/摘要"}
+
+S042 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[2]", "problem_ids": ["Q03"], "search_id": "Q03-S03", "date": "2026-10-26", "type": "web_search", "query": "\"Scale-Aware Mosaic Augmentation\" \"1075\"", "primary_links": ["https://www.mdpi.com/2079-9292/15/5/1075"], "outcome": "官方全文索引和2026题名作者"}
+
+S043 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[3]", "problem_ids": ["Q03"], "search_id": "Q03-S04", "date": "2026-10-26", "type": "web_search", "query": "\"DEIM\" \"Dense O2O\" \"Mosaic\" CVPR 2025", "primary_links": ["https://openaccess.thecvf.com/content/CVPR2025/papers/Huang_DEIM_DETR_with_Improved_Matching_for_Fast_Convergence_CVPR_2025_paper.pdf"], "outcome": "原文表4/机制定位；未用博客证据"}
+
+S044 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[4]", "problem_ids": ["Q03"], "search_id": "Q03-S05", "date": "2026-10-26", "type": "web_search", "query": "DEIM official GitHub Shihua Huang Dense O2O configs epoch mosaic_probability", "primary_links": ["https://github.com/Intellindust-AI-Lab/DEIM/blob/main/configs/base/deim.yml"], "outcome": "作者配置定位"}
+
+S045 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[5]", "problem_ids": ["Q03"], "search_id": "Q03-S06", "date": "2026-10-26", "type": "web_search", "query": "\"Scale-Aware Mosaic Augmentation\" github 2026 1075", "primary_links": ["https://doi.org/10.3390/electronics15051075"], "outcome": "未核到方法代码；声明仅给HRSC数据"}
+
+S046 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[6]", "problem_ids": ["Q03"], "search_id": "Q03-S07", "date": "2026-10-26", "type": "web_search", "query": "\"RA-MOSAIC\" \"3715133\"", "primary_links": ["https://doi.org/10.1145/3715133"], "outcome": "近邻线索；主要结果为第三方元数据，不作为新增方法正文依据；未列入五篇主来源"}
+
+S047 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[7]", "problem_ids": ["Q03"], "search_id": "Q03-S08", "date": "2026-10-26", "type": "web_search", "query": "\"SNIP\" \"SNIPER\" bharatsingh430 github", "primary_links": ["https://github.com/bharatsingh430/snip"], "outcome": "作者仓库身份"}
+
+S048 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[8]", "problem_ids": ["Q03"], "search_id": "Q03-S09", "date": "2026-10-26", "type": "web_search", "query": "\"Dynamic Scale Training for Object Detection\" \"2004.12432\"", "primary_links": [], "outcome": "该批搜索未直接返回所需原文，随后直接打开已知arXiv"}
+
+S049 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[9]", "problem_ids": ["Q03"], "search_id": "Q03-S10", "date": "2026-10-26", "type": "web_search", "query": "\"Scale Match for Tiny Person Detection\" github scale_match.py", "primary_links": ["https://github.com/ucas-vg/TinyBenchmark"], "outcome": "作者仓库链接，未核到scale_match.py实现"}
+
+S050 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[10]", "problem_ids": ["Q03"], "search_id": "Q03-S11", "date": "2026-10-26", "type": "web_search", "query": "\"Scale-Aware Mosaic Augmentation\" \"minimum\" \"10\"", "primary_links": ["https://www.mdpi.com/2079-9292/15/5/1075"], "outcome": "官方索引§4.1确认min-width/height10"}
+
+S051 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[11]", "problem_ids": ["Q03"], "search_id": "Q03-S12", "date": "2026-10-26", "type": "web_search", "query": "site:github.com/Intellindust-AI-Lab/DEIM \"num_denoising\" \"denoising.py\"", "primary_links": ["https://github.com/Intellindust-AI-Lab/DEIM/blob/main/engine/deim/denoising.py"], "outcome": "作者DN元数据代码"}
+
+S052 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[12]", "problem_ids": ["Q03"], "search_id": "Q03-O01", "date": "2026-10-26", "type": "direct_open", "url": "https://www.mdpi.com/2079-9292/15/5/1075", "result": "429 Too Many Requests", "actual_scope_or_fallback": "改读已有本地主文全文提取；官方搜索索引确认身份/方法/阈值，不假装网页读通"}
+
+S053 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[13]", "problem_ids": ["Q03"], "search_id": "Q03-O02", "date": "2026-10-26", "type": "direct_open", "url": "https://openaccess.thecvf.com/content_cvpr_2018/papers/Singh_An_Analysis_of_CVPR_2018_paper.pdf", "result": "403 Forbidden", "actual_scope_or_fallback": "本地主文方法段落"}
+
+S054 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[14]", "problem_ids": ["Q03"], "search_id": "Q03-O03", "date": "2026-10-26", "type": "direct_open", "url": "https://openaccess.thecvf.com/content_WACV_2020/papers/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.pdf", "result": "403 Forbidden", "actual_scope_or_fallback": "本地主文§3.2/4"}
+
+S055 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[15]", "problem_ids": ["Q03"], "search_id": "Q03-O04", "date": "2026-10-26", "type": "direct_open", "url": "https://openaccess.thecvf.com/content/CVPR2025/papers/Huang_DEIM_DETR_with_Improved_Matching_for_Fast_Convergence_CVPR_2025_paper.pdf", "result": "403 Forbidden", "actual_scope_or_fallback": "本地主文§3.2/4.5加官方全文搜索索引"}
+
+S056 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[16]", "problem_ids": ["Q03"], "search_id": "Q03-O05", "date": "2026-10-26", "type": "direct_open", "url": "https://arxiv.org/abs/2004.12432", "result": "success", "actual_scope_or_fallback": "身份v2及作者链接"}
+
+S057 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[17]", "problem_ids": ["Q03"], "search_id": "Q03-O06", "date": "2026-10-26", "type": "direct_open", "url": "https://arxiv.org/html/2004.12432v2", "result": "success", "actual_scope_or_fallback": "§3.1/3.2/4.1/4.2.3(d)/4.3"}
+
+S058 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[18]", "problem_ids": ["Q03"], "search_id": "Q03-O07", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/yukang2017/Stitcher", "result": "success", "actual_scope_or_fallback": "README/作者原文链接"}
+
+S059 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[19]", "problem_ids": ["Q03"], "search_id": "Q03-O08", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/yukang2017/Stitcher/blob/master/maskrcnn_benchmark/engine/trainer.py", "result": "Cache miss", "actual_scope_or_fallback": "未核实现，不将失败当不存在"}
+
+S060 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[20]", "problem_ids": ["Q03"], "search_id": "Q03-O09", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/ucas-vg/TinyBenchmark", "result": "redirect_success", "actual_scope_or_fallback": "重定向作者PointTinyBenchmark；未核具体SM实现"}
+
+S061 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[21]", "problem_ids": ["Q03"], "search_id": "Q03-O10", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/bharatsingh430/snip", "result": "success", "actual_scope_or_fallback": "仓库身份页，未核实现"}
+
+S062 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[22]", "problem_ids": ["Q03"], "search_id": "Q03-O11", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/Intellindust-AI-Lab/DEIM/blob/main/configs/base/deim.yml", "result": "success", "actual_scope_or_fallback": "main全配置与raw链接"}
+
+S063 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[23]", "problem_ids": ["Q03"], "search_id": "Q03-O12", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/Intellindust-AI-Lab/DEIM/blob/main/engine/data/transforms/container.py", "result": "success", "actual_scope_or_fallback": "Compose.stop_epoch_forward"}
+
+S064 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[24]", "problem_ids": ["Q03"], "search_id": "Q03-O13", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/Intellindust-AI-Lab/DEIM/blob/main/engine/deim/denoising.py", "result": "success", "actual_scope_or_fallback": "DN分组/槽数/掩码/元数据"}
+
+S065 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[25]", "problem_ids": ["Q03"], "search_id": "Q03-O14", "date": "2026-10-26", "type": "direct_open", "url": "https://github.com/Intellindust-AI-Lab/DEIM/blob/main/engine/deim/deim_criterion.py", "result": "success", "actual_scope_or_fallback": "_get_go_indices与DN匹配及分母"}
+
+S066 {"source_file": "literature_Q03_augmentation.json", "source_locator": "$.search_log[26]", "problem_ids": ["Q03"], "search_id": "Q03-O15", "date": "2026-10-26", "type": "direct_open", "url": "https://api.semanticscholar.org/graph/v1/paper/ARXIV:1711.08189?fields=paperId,title,year,url,externalIds", "result": "tool_not_accessible", "actual_scope_or_fallback": "S2 API在当前工具不可访问；官方原始来源替代，无S2_VERIFIED标记"}

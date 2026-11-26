@@ -1,0 +1,181 @@
+PaQ-DETR: Learning Pattern and Quality-Aware Dynamic Queries for Object
+Detection
+Zhengjian Kang1*, Jun Zhuang2, Kangtong Mo3, Qi Chen4, Rui Liu5, Ye Zhang6*†
+1New York University 2Boise State University 3University of Illinois at Urbana-Champaign
+4University of California, Irvine 5Illinois Institute of Technology 6University of Pittsburgh
+Abstract
+Detection Transformer (DETR) has redefined object detec-
+tion by casting it as a set prediction task within an end-to-
+end framework. Despite its elegance, DETR and its vari-
+ants still rely on fixed learnable queries and suffer from
+severe query utilization imbalance, which limits adaptabil-
+ity and leaves the model capacity underused. We propose
+PaQ-DETR (Pattern and Quality-Aware DETR), a unified
+framework that enhances both query adaptivity and super-
+vision balance. It learns a compact set of shared latent
+patterns capturing global semantics and dynamically gen-
+erates image-specific queries through content-conditioned
+weighting. In parallel, a quality-aware one-to-many as-
+signment strategy adaptively selects positive samples based
+on localization–classification consistency, enriching super-
+vision and promoting balanced query optimization. Exper-
+iments on COCO, CityScapes, and other benchmarks show
+consistent gains of 1.5%–4.2% mAP across DETR back-
+bones, including ResNet and Swin-Transformer. Beyond
+accuracy improvement, our method provides interpretable
+insights into how dynamic patterns cluster semantically
+across object categories.
+1. Introduction
+Object detection [49], widely used in autonomous driv-
+ing [39] and event-based perception [43], aims to localize
+and classify objects within an image. Traditional CNN-
+based detectors [11, 32, 33] rely on dense anchors and
+heuristic post-processing (e.g., NMS), which hinder fully
+end-to-end learning. Transformers have redefined this
+paradigm: DETR [2] formulates detection as a set pre-
+diction task trained with one-to-one Hungarian matching.
+Despite progress from follow-up variants [20, 22, 24, 30,
+42, 47, 48], two main challenges remain. First, content-
+dependent object queries improve adaptivity [7, 28, 47] but
+*These authors contributed equally to this work.
+†Corresponding author. Email: yez12@pitt.edu
+(a) Deformable-DETR (b) DN-DETR (c) DINO
+(a) PaQ-Deformable-DETR (b) PaQ-DN-DETR (c) PaQ-DINO
+Figure 1. Query activation distributions of baseline DETRs vs.
+PaQ-DETR. Standard DETRs show highly skewed, long-tailed ac-
+tivations, while PaQ-DETR reduces imbalance and lowers Gini
+coefficients.
+often exhibit unstable semantics across scenes [42]. Sec-
+ond, the one-to-one matching scheme leads to highly sparse
+supervision: only a few queries consistently receive strong
+gradients, leaving many weakly optimized or under-used,
+which limits model capacity.
+Prior works primarily pursue two directions for object
+queries: (1) static queries that maintain semantic stabil-
+ity but lack adaptability, and (2) content-dependent dy-
+namic queries that increase flexibility but introduce insta-
+bility. However, these directions only partially address the
+underlying optimization issue. Our analysis shows that
+both challenges arise from a structuralquery activation im-
+balancecaused by DETR’s one-to-one matching, where a
+few “winning” queries receive most of the gradients while
+the majority remain weakly optimized. This perspective
+links query representation and supervision as two sides of
+the same problem, suggesting that mitigating imbalance re-
+quires jointly improving how queries are parameterized and
+how supervision signals are distributed.
+To address this issue, we propose PaQ-DETR, which in-
+tegrates two complementary components. First, we intro-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+25504
+
+
+---PAGE---
+
+duce a pattern-based dynamic query formulation that learns
+a compact set of shared patterns and composes image-
+specific queries via encoder-conditioned weighting. Unlike
+prior dynamic-query approaches (e.g., DDQ-DETR [44],
+Dy-DETR [7], EASE-DETR [10]), which improve adap-
+tivity without explicitly addressing optimization imbalance,
+our formulation enables gradient sharing through a common
+representational basis, promoting more balanced and se-
+mantically coherent query evolution. Second, we introduce
+a quality-aware adaptive assignment strategy that selects
+positive samples according to localization–classification
+consistency, enriching supervision without auxiliary de-
+coders or additional inference cost.
+To validate the imbalance phenomenon, we ana-
+lyze query activations across several DETR variants:
+Deformable-DETR [47], DN-DETR [22], and DINO [42].
+As shown in Fig. 1, the activation distribution exhibits a
+substantial long-tail pattern, and the Gini coefficient reaches
+0.97 in DINO, demonstrating severe inequality in query uti-
+lization and confirming the structural origin of imbalance.
+Building on these insights, PaQ-DETR jointly improves
+query adaptivity and supervision balance, forming a unified
+optimization framework that enhances DETR training dy-
+namics while keeping the architecture lightweight.
+Our contributions are threefold:
+• We empirically reveal and quantify severequery activa-
+tion imbalancein DETR models and trace its origin to
+the one-to-one Hungarian matching mechanism.
+• We propose apattern-based dynamic query genera-
+tionmechanism that unifies shared semantics and image-
+conditioned adaptivity, alleviating imbalance.
+• We introduce aquality-aware adaptive assignment
+strategy that balances supervision strength and further
+stabilizes optimization.
+2. Related Work
+DETR and Query Design.DETR [2] formulates ob-
+ject detection as a set prediction task trained with one-
+to-one Hungarian matching, using a fixed set of learnable
+queries shared across all images. Subsequent efforts im-
+prove convergence and adaptivity. Deformable-DETR [47]
+introduces multi-scale deformable attention and generates
+encoder-derived proposals as content-dependent queries.
+Conditional DETR [29] decomposes each query into con-
+tent and spatial components, and Anchor DETR [38] injects
+spatial priors through anchor initialization. Later works
+such as DINO [42] observed that encoder-driven queries of-
+ten suffer from semantic instability and reverted to purely
+learnable queries combined with denoising and contrastive
+objectives. DN-DETR [22] and DAB-DETR [24] further
+stabilize optimization via denoising and anchor parameter-
+ization. RT-DETR [46] and RT-DETRv2 [28] reintroduce
+content-dependence by selecting top-Kencoder tokens as
+decoder queries for efficient adaptivity. Overall, static
+queries provide stability but limited flexibility, whereas
+content-dependent queries improve adaptivity at the cost of
+semantic consistency. PaQ-DETR bridges these paradigms
+by combining the semantic stability of static queries with
+the adaptivity of content-dependent queries.
+Dynamic and Pattern-Based Queries.DETR models of-
+ten suffer from uneven query activation, where only a small
+subset of queries actively contribute to detection while
+remainings redundant [3, 10, 17, 44]. This imbalance
+motivates exploration of dynamic mechanisms. Dynamic
+DETR [8] adaptively aggregates features at the head level.
+DDQ-DETR [44] constructs queries as static combinations
+of shared bases, encouraging diversity yet remaining image-
+independent. Dy-DETR [7] fuses 900 queries into 300 us-
+ing encoder-conditioned fusion to reduce redundancy, while
+EASE-DETR [10] mitigates query competition via atten-
+tion routing. DQ-DETR [18] dynamically adjusts the num-
+ber of queries according to object density to improve small-
+object recall. Although these works enhance efficiency and
+diversity, they often overlook semantic coherence between
+dynamic and shared queries. Pattern-based formulations
+learn shared representations as reusable bases [34, 37]. Our
+approach extends it with content-dependent weighting to
+achieve both semantic stability and per-image adaptivity.
+One-to-Many and Hybrid Assignments.Beyond query
+formulation, several DETR variants revisit label assign-
+ment to enrich the sparse supervision of one-to-one match-
+ing. Group-DETR [4] divides queries into fixed groups
+per ground truth, MS-DETR [45] applies mixed supervi-
+sion across decoder stages, and H-DETR [19] introduces
+hybrid auxiliary branches to increase positive samples.
+Co-DETR [48] proposes collaborative hybrid assignments
+that jointly optimize one-to-one and one-to-many branches
+through gradient sharing. While these strategies accelerate
+convergence, they rely on fixed group sizes or additional
+decoders, and lack adaptive control over supervision qual-
+ity. We integrate pattern-based dynamic query generation
+with a quality-aware adaptive assignment, jointly address-
+ing query and supervision imbalance in DETR training.
+3. Methodology
+PaQ-DETR is designed from a unified optimization per-
+spective to alleviate the structuralquery activation imbal-
+ancein one-to-one matching. This imbalance causes only a
+few “winning” queries to dominate gradient updates, leav-
+ing most queries weakly optimized. Alleviating this issue
+requires addressing two complementary aspects of DETR
+training: (1) therepresentationof object queries, which de-
+termines how gradients propagate across queries, and (2)
+thedistribution of supervision, which determines how many
+queries receive meaningful training signals.
+Accordingly, PaQ-DETR introduces two synergistic
+25505

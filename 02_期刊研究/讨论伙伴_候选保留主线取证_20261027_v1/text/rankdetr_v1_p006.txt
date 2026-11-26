@@ -1,0 +1,51 @@
+challenging negative predictions with high classification scores but low localization IoU scores. This
+is achieved by magnifying the advantage of a more accurate localization score using γα, where γ
+is the ratio of accurate localization score to less accurate score. Empirical results show significant
+boosts in AP75 with GIoU-aware classification loss (52.9%→54.1%) or high-order matching cost
+design (52.9%→54.0%). Detailed comparisons are provided in the experiment section.
+3.4 Discussion
+The concept of GIoU-aware classification loss has been explored in several prior works [23, 28, 62, 10]
+predating the era of DETR. These works aimed to address the discrepancy between classification
+scores and localization accuracy. In line with recent concurrent research [1, 34], our method shares
+the same insight in designing rank-oriented matching cost and loss functions. However, our approach
+distinguishes itself by emphasizing the ranking aspect and introducing an additional rank-oriented
+architecture design, which includes the rank-adaptive classification head and query rank layer.
+Furthermore, our empirical results demonstrate the complementarity between the rank-oriented
+architecture design and the rank-oriented matching cost and loss design.
+4 Experiment
+In section, we first introduce the experiment setup in Section 4.1, including datasets and training
+configurations. Then the main results of our method combined with recent state-of-the-art DETR-
+based detectors are presented in Section 4.2. Finally, in Section 4.3, the ablation studies, analysis of
+each module, and the qualitative results further validate the effectiveness of the proposed method.
+4.1 Experiment Setting
+We perform object detection experiments using the COCO object detection benchmark [ 32]. Our
+model is trained on the train set and evaluated on the val set. We adhere to the same experimental
+setup as the original papers for H-DETR [22] and DINO-DETR [61].
+4.2 Main Results
+Comparison with competing methods. Table 1 compares Rank-DETR with other high-performing
+DETR-based methods on the COCO object detection val dataset. The evaluation demonstrates
+that Rank-DETR achieves remarkable results, attaining an AP score of 50.2% with only 12 training
+epochs. This performance surpasses H-DETR [22] by +1.5% and outperforms the recent state-of-the-
+art method DINO-DETR [61] by +1.2% AP. Notably, we observe significant improvements in AP75,
+highlighting the advantage of our approach at higher IoU thresholds.
+Method Backbone #query #epochs AP AP 50 AP75 APS APM APL
+Deformable-DETR [64] R50 300 50 46.9 65 .6 51 .0 29 .6 50 .1 61 .6
+DN-DETR [25] R50 300 12 43.4 61 .9 47 .2 24 .8 46 .8 59 .4
+DINO-DETR [61] R50 900 12 49.0 66 .6 53 .5 32 .0 52 .3 63 .0
+H-DETR [22] R50 300 12 48.7 66 .4 52 .9 31 .2 51 .5 63 .5
+Rank-DETR R50 300 12 50.2 67 .7 55 .0 34 .1 53 .6 64 .0
+Table 1: Comparison with previous highly performant DETR-based detectors on COCO val2017 with R50.
+Improving H-DETR [22]. Table 2 presents a detailed comparison of our proposed approach with the
+highly competitive H-DETR [22]. The experimental evaluation demonstrates consistent enhancements
+in object detection performance across various backbone networks and training schedules. For
+example, under the 12 epochs training schedule, our method achieves superior AP scores of 50.2%,
+52.7%, and 57.3% with ResNet-50, Swin-Tiny, and Swin-Large backbone networks, respectively.
+These results surpass the baseline methods by +1.5%, +2.1%, and +1.4%, respectively. Extending
+the training schedule to 36 epochs consistently improves the AP scores, resulting in + 1.2% for
+ResNet-50, +1.5% for Swin-Tiny, and +1.1% for Swin-Large. The AP improvement in performance
+is more significant under high IoU thresholds, which outperform the baseline by +2.1%, +2.7%, and
++1.9% in AP75 with ResNet-50, Swin-Tiny, and Swin-Large, respectively. These findings validate our
+proposed mechanism’s consistent and substantial performance improvements across diverse settings
+and with different backbone networks, especially under high IoU thresholds. We also validate our
+performance gain by providing the PR curves under different IoU thresholds in Figure 3a.
+6

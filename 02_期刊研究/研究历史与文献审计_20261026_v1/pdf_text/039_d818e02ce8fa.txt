@@ -1,0 +1,90 @@
+ZOU, XIAO, YU, LEE: DEL VING DEEPER INTO ANTI-ALIASING IN CONVNETS 1
+Delving Deeper into Anti-aliasing in ConvNets
+Xueyan Zou1
+zxyzou@ucdavis.edu
+Fanyi Xiao1
+fyxiao@ucdavis.edu
+Zhiding Y u2
+zhidingy@nvidia.com
+Y ong Jae Lee1
+yongjaelee@ucdavis.edu
+1 University of California, Davis
+Davis, CA, USA
+2 NVIDIA
+Santa Clara, CA, USA
+Abstract
+Aliasing refers to the phenomenon that high frequency signals degenerate into com-
+pletely different ones after sampling. It arises as a problem in the context of deep learning
+as downsampling layers are widely adopted in deep architectures to reduce parameters
+and computation. The standard solution is to apply a low-pass ﬁlter (e.g., Gaussian blur)
+before downsampling [37]. However, it can be suboptimal to apply the same ﬁlter across
+the entire content, as the frequency of feature maps can vary across both spatial locations
+and feature channels. To tackle this, we propose an adaptive content-aware low-pass
+ﬁltering layer, whichpredicts separate ﬁlter weights for each spatial location and chan-
+nel group of the input feature maps. We investigate the effectiveness and generalization
+of the proposed method across multiple tasks including ImageNet classiﬁcation, COCO
+instance segmentation, and Cityscapes semantic segmentation. Qualitative and quanti-
+tative results demonstrate that our approach effectively adapts to the different feature
+frequencies to avoid aliasing while preserving useful information for recognition. Code
+is available at https://maureenzou.github.io/ddac/.
+1 Introduction
+Deep neural networks have led to impressive breakthroughs in visual recognition, speech
+recognition, and natural language processing. On certain benchmarks such as ImageNet and
+SQuAD, they can even achieve “human-level” performance [11, 24, 26, 31]. However, com-
+mon mistakes that these networks make are often quite unhuman like. For example, a tiny
+shift in the input image can lead to drastic changes in the output prediction of convolutional
+neural networks (ConvNets) [1, 28, 31]. This phenomenon was demonstrated to be partially
+due to aliasing when downsampling in ConvNets [37].
+Aliasing refers to the phenomenon that high frequency information in a signal is distorted
+during subsampling [9]. The Nyquist theorem states that the sampling rate must be at least
+twice the highest frequency of the signal in order to prevent aliasing. Without proper anti-
+aliasing techniques, a subsampled signal can look completely different compared to its input.
+Below is a toy example demonstrating this problem on 1D signals:
+c⃝ 2020. The copyright of this document resides with its authors.
+It may be distributed unchanged freely in print or electronic forms.
+arXiv:2008.09604v1  [cs.CV]  21 Aug 2020
+
+---PAGE---
+
+2 ZOU, XIAO, YU, LEE: DEL VING DEEPER INTO ANTI-ALIASING IN CONVNETS
+(a)Input (b)4xDown (c)Gaussian+4xDown (d)Adaptive+4xDown
+Figure 1: Effect of adaptive ﬁltering for anti-aliasing. (a) Input image. (b) Result of direct
+downsampling. (c) Result of downsampling after applying a single Gaussian ﬁlter tuned
+to match the frequency of the noise. (d) Result of downsampling after applying spatially-
+adaptive Gaussian ﬁlters (stronger blurring for background noise and weaker for edges).
+001100110011 k=2, stride=2−−−−−−−→
+maxpool
+010101
+011001100110 k=2, stride=2−−−−−−−→
+maxpool
+111111
+(1)
+Here k is the kernel size (1× 2). Because of aliasing, a one position shift in the origi-
+nal signal leads to a completely different sampled signal (bottom) compared to the original
+sampled one (top). As downsampling layers in ConvNets are critical for reducing parame-
+ters and inducing invariance in the learned representations, the aliasing issue accompanying
+these layers will likely result in a performance drop as well as undesired shift variance in the
+output if not handled carefully.
+To tackle this, [37] proposed to insert a Gaussian blur layer before each downsampling
+module in ConvNets. Though simple and effective to a certain degree, we argue that the
+design choice of applying a universal Gaussian ﬁlter is not optimal – as signal frequencies
+in a natural image (or feature map) generally vary throughout spatial locations and channels,
+different blurring ﬁlters are needed in order to satisfy the Nyquist theorem to avoid aliasing.
+For example, the image in Fig. 1 (a) contains high frequency impulse noise in the background
+and relatively lower frequency edges in the foreground. Directly applying a downsampling
+operation produces discontinuous edges and distorted impulse noise shown in (b) due to
+aliasing. By applying a Gaussian ﬁlter before downsampling, we can avoid aliasing as shown
+in (c). However, as the high frequency impulse noise needs to be blurred more compared to
+the lower frequency edges, when using a single Gaussian ﬁlter tuned for the impulse noise,
+the edges are over-blurred leading to signiﬁcant information loss. To solve this issue, what
+we need is to apply different Gaussian ﬁlters to the foreground and background separately,
+so that we can avoid aliasing while preserving useful information, as in (d).
+With the above observation, we propose a content-aware anti-aliasing module, which
+adaptively predicts low-pass ﬁlter weights for different spatial locations. Furthermore, as
+different feature channels can also have different frequencies (e.g., certain channels capture
+edges, others capture color blobs), we also predict different ﬁlters for different channels.
+In this way, our proposed module adaptively blurs the input content to avoid aliasing while
+preserving useful information for downstream tasks. To summarize, our contributions are:
+• We propose a novel adaptive and architecture-independent low-pass ﬁltering layer in Con-
+vNets for anti-aliasing.
+• We propose novel evaluation metrics, which measure shift consistency for semantic and

@@ -1,0 +1,159 @@
+Comprehensive Analysis of the Object Detection Pipeline on UAVs (https://www.mdpi.com/2072-4292/14/21/5508)
+ [wordlim: 200] Published: 4.0 years ago; Crawled: 2 weeks ago; 
+#### 2.2.2. Compression
+
+Compression is used to reduce the required space of a recording. There are two types of compressions: lossless and lossy compressions. The image format PNG belongs to lossless compression techniques. The compression time for PNG is very high. Therefore, it is not usable for online compression. JPEG is faster, but also a lossy compression. The compression removes information. Nevertheless, JPEG is a common choice. It provides a sufficient trade-off between loss of information, file size, and speed.
+
+The compression quality of JPEG is defined as a value between 1 and 100 (default: 90). Higher values cause less compression.
+
+We check the relation between compression and detector performance. A lower compression quality would result in smaller file sizes. This directly leads to a higher throughput of the system. For the inferences of models, the decompressed data is used. A lower compression quality would, therefore, mainly affect the throughput from the camera to the processing unit memory. Since this is also a limiting factor for high-resolution or high-speed cameras, it is worth checking. In our experiments, we evaluate the influence of no compression and compression quality for JPEG of 90 and 70 (see Figure 2). The difference is difficult to see with the human eye, so we have included more examples in the Appendix D.3.
+
+Image
+
+Figure 2. Example images for Compression. (a) No comp.; (b) 90 comp. quality; (c) 70 comp. quality.
+
+#### 2.2.3. Color Model
+
+The color model defines the representation of the colors. The most common is RGB [20]. It is an additive color model based on three colors red, green, and blue. For object detection and object classification, this representation is mostly used [14,16]. Besides RGB, non-linear transformations of RGB are also worth considering. HLS and HSV are based on a combination of hue and saturation. Both differ in the brightness’s definition value. YCbCr considers human perception and encodes information more suitably for humans.
+
+In some applications, HSV outperforms RGB. Cucchiara et al. [21] and Shuhua et al. [22] could confirm this performance improvement. Kim et al. demonstrated RGB outperforms the other color models (HSV, YCbCr, and CIE Lab) in traffic signal detection. Which color model is best depends strongly on the application and the model.
+
+The color model is also a design decision, so we evaluate the performance of RGB, HSV, HLS, and YCbCr color models for object detection in remote sensing. We also review the performance of gray-scale images. To achieve comparable results, the backbones are not pre-trained for these experiments.
+
+#### 2.2.4. Resolution
+
+Higher resolutions reveal more details but also result in larger recordings. Especially for the small objects of remote sensing, the details are crucial [23]. Therefore, choosing an optimal resolution is important [24].
+
+Besides the maximally available resolution defined by the used camera, the GPU memory often limits the training size. The reason lies in the gradient calculation within the backpropagation step. Some techniques reduce this problem [18,25]. To allow a fair comparison, we limit the maximum training size to 1024 pixels for the length of the larger side. This training size is processable with all models used. The experiments should show the performance reduction for smaller image sizes. So we trained on the training sizes of 256 pixels, 512 pixels, 756 pixels, and 1024 pixels (see examples in Figure 3). Further, we evaluated each training size with three test sizes, defined by the training size × the factors 0.5, 1, and 2.
+
+Image
+
+Figure 3. Example images for image resolutions with max side length. (a) Full resolution; (b) Max 768 pixels; (c) Max 256 pixels.
+
+#### 2.2.5. Multispectral Recordings
+
+In recent years, the usage of multispectral cameras on drones has gotten more popular [26,27,28]. These have additional channels, which increase the recording size, but can also provide important information. The additional channels normally lie outside the visible light (e.g., near-infrared or thermal). In pedestrian and traffic monitoring, multispectral imaging can increase the detector performance, as shown by Takumi et al. [29], Maarten et al. [30], and Dayan et al. [31]. And for precision agriculture, they are one of the key components [26,27,28]. We want to create awareness that multispectral recordings can be helpful in some situations. But we also want to check how easy integration into existing object detection pipelines is. So, the focus is not on evaluating multimodal models [32]. Our experiments are limited to the early fusion approach [33] as we see multispectral recordings as a special case of color images.
+
+We used multispectral images from the SeaDronesSee [2] data set for our experiments. These were acquired with a MicaSense RedEdge MX and thus provided wavelengths of 475 nm (blue), 560 nm (green), 668 nm (red), 717 nm (red edge), and 842 nm (near infrared). We evaluate how the additional wavelengths affect the performance of the object detectors in detecting swimmers. In theory, the near-infrared channel provides a foreground mask for objects in water (see example in Figure 4). These experiments should provide a general trend, even if the exact results apply only to the maritime environment. It is worth considering if additional channels could carry helpful information.
+
+Image
+
+Figure 4. Example images for multispectral recordings in maritime environment. In the NIR recordings, the swimmers are fully visible. (a) RGB; (b) Near-infrared.
+
+--------------------------------------------------------------------------------
+Cancers | Instructions for Authors (https://www.mdpi.com/journal/cancers/instructions)
+ [wordlim: 200] Crawled: last week; 
+## Preparing Figures, Schemes and Tables
+
+Cancers can publish multimedia files in articles or as supplementary materials. Please contact the Editorial Office for further information.
+
+Our guidance regarding various aspects of figures, schemes and tables is described below.
+
+Resolution, color and format:
+
+  * All figures should be of a high quality (preferably no less than 600 dpi) in PNG, JPEG or TIFF formats.
+  * Authors are encouraged to prepare figures and schemes in color (RGB at 8-bit per channel). There is no additional cost for publishing full-color graphics.
+  * Images should be combined to avoid any issues during formatting changes. There should be no editable parts in the images.
+  * All table columns should have an explanatory heading. To facilitate the copy-editing of larger tables, smaller fonts (no smaller than 8 pt.) may be used. Authors should use the “Table” option in Microsoft Word to create tables.
+
+Order:
+
+  * All figures, schemes and tables should be inserted into the main text close to their first citation and must be numbered following their order of appearance (e.g., Figure 1, Scheme 1, Figure 2, Scheme 2, Table 1, etc.).
+
+Please note that MDPI offers professional support for creating publication-ready figures and tables that clearly communicate your research to readers. Learn more about the Figure and Table Editing service here.
+
+## Original Images Requirements
+
+To ensure the integrity and scientific validity of electrophoretic blots, gels, and microscopy images, the Editorial Office reserves the right to request original, uncropped, and unadjusted images upon submission. Original images must be provided in a single zip archive as Supplementary Material files at a sufficiently high resolution (a minimum of 1000 pixels in width/height, or a resolution of 300 dpi or higher) or a link where original unprocessed images were deposited at the time of initial submission. Preferred formats for gels, blots, and microscopy images (light and electron microscopy e.g., TEM, SEM, Cryo-EM, etc.) are TIFF, PNG, GIF, and EPS. Failing to provide original images before the final decision might result in the rejection of the paper, and the issue may be raised with the authors' institutions.
+
+Digital images within the manuscript submitted should be minimally processed. A certain degree of image processing is acceptable for publication, but the final image must correctly represent the original data and conform to community standards. Please note that electron microscopy images submitted with a manuscript should be presented in full, without cropping the image, and with all the relevant details clearly visible.
+
+Where cropped images are shown in figures, a full scan of the entire original image(s) must be submitted as part of the Supplementary Material. Where control images are re-used for illustrative purposes, this must be clearly declared in the figure legend. If any form of image processing is legitimately required for the interpretation of the data, the software and the enhancement technique used must be declared in the methods section of the manuscript. Image grouping and splicing must be clearly stated in the manuscript and the figure text.
+
+The use of software filters to improve image quality is not recommended. 
+We encourage the inclusion of the following with the final revised version of the manuscript for publication:
+
+In the Methods section, specify the type of equipment (microscopes/objective lenses, cameras, detectors, filter model, and batch number), the acquisition software used, and the magnification or the scale bar in the figure caption. Although we appreciate that there is some variation between instruments, equipment settings for critical measurements should also be listed.
+
+We encourage the deposition of unprocessed image files in a publicly available database (a link to the downloadable table from data availability instructions should be shared here) (including relevant metadata for acquisition information, including time and space resolution data (xyzt and pixel dimensions); image bit depth; experimental conditions such as temperature and imaging medium; and fluorochromes (excitation and emission wavelengths or ranges, filters, and dichroic beam splitters) if any).
+
+Processing software should be named in the Methods section and any manipulations should be indicated in the relevant figure legends (such as type of deconvolution, three-dimensional reconstructions, surface and volume rendering, “gamma changes”, filtering, thresholding, and projection).
+
+Comprehensive guidelines on data management and the ethical handling of digital images can obtained from The Office of Research Integrity: http://ori.hhs.gov/images/ddblock/data.pdf
+
+MDPI is a member of the Committee on Publication Ethics and takes the responsibility to uphold strict ethical policies and standards very seriously.
+
+--------------------------------------------------------------------------------
+Self-Learning for Few-Shot Remote Sensing Image Captioning (https://www.mdpi.com/2072-4292/14/18/4606)
+ [wordlim: 200] Published: 4.1 years ago; Crawled: 4 months ago; 
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+Remote Sens. 2022, 14(18), 4606; https://doi.org/10.3390/rs14184606
+
+Submission received: 11 July 2022 / Revised: 8 September 2022 / Accepted: 13 September 2022 / Published: 15 September 2022
+
+(This article belongs to the Section Remote Sensing Image Processing)
+
+Download keyboard_arrow_down
+
+Download PDF
+Download PDF with Cover
+Download XML
+Download Epub
+
+Browse Figures
+
+Review Reports Versions Notes
+
+## Abstract
+
+:
+
+Large-scale caption-labeled remote sensing image samples are expensive to acquire, and the training samples available in practical application scenarios are generally limited. Therefore, remote sensing image caption generation tasks will inevitably fall into the dilemma of few-shot, resulting in poor qualities of the generated text descriptions. In this study, we propose a self-learning method named SFRC for few-shot remote sensing image captioning. There is a range of publicly available remote sensing image captioning datasets, but the variety and number of samples in these datasets are still small compared to natural image caption datasets. The problem of the shortage of remote sensing image samples that can be used for training becomes more prevalent when faced with actual remote sensing scenarios. Although the number of remote sensing images is large, the size and number of training targets contained in a single remote sensing image are small. At the same time, the semantic interpretation caption of a single remote sensing image is tedious and requires certain expertise. The caption cost of the samples is very high. In such a few-shot scenario, training the remote sensing caption generation model will overfit and lead to poor quality of the generated captions. Therefore, it is important to solve the few-shot problem in remote sensing image caption generation and reduce the reliance of model training on a large amount of caption-labeled samples to promote the implementation of caption generation methods in practical scenarios.
+In remote sensing scenarios, the key role of the encoder is usually played by the scene classification model, which is obtained by supervised training in a large number of class-labeled remote sensing samples. However, a small number of remote sensing image samples with semantic captions can only be used to train the image captioning models. Directly using these remote sensing images with semantic captions but no class labels results in difficulty training to obtain scene classification models with sufficient performance to further improve the performance of remote sensing image captioning models.
+
+  * The training of both remote sensing image captioning and scene classification models requires a large amount of labeled training data to obtain good performance; otherwise, overfitting will occur, which eventually leads to poor model transferability.
+
+  * The methods for handling few-shot image captioning in natural images are highly dependent on external supplementary knowledge and additional trained models, which leads to many image captioning methods in natural images that cannot be directly applied to few-shot remote sensing scenarios.
+
+In order to address the above challenges, we propose a self-learning method named SFRC for few-shot remote sensing image captioning. We enhance the model’s utilization of limited samples and knowledge contained in the model itself from different perspectives and improve the performance of the few-shot remote sensing image captioning model by self-learning without using additional caption-labeled remote sensing images. Specifically, the contributions of this work are divided into four aspects:
+
+From the perspective of providing effective supervision information for model training, these three datasets are still small compared with the natural image captioning datasets. The methods are prone to overfitting problems in these datasets due to the sparse samples. Therefore, it is reasonable and feasible for us to use these datasets to train, validate and test the few-shot remote sensing image captioning methods. Here we will pay special attention to the results of the methods in the Sydney-Captions dataset containing definitely sparse samples.
+
+#### 4.2. Evaluation Metrics
+
+When evaluating the quality of remote sensing image captions, we select BLEU, ROUGE, CIDEr, SPICE, and METEOR as evaluation metrics.
+
+BLEU (Bilingual Evaluation Understudy): BLEU is an evaluation metric for machine translation proposed by IBM in 2002 [63]. It can evaluate co-occurrences between generated captions and ground truth captions. According to the n-gram matching rules, BLEU-1, BLEU-2, BLEU-3 and BLEU-4 are calculated to measure the accuracy of word translation and the fluency of generating description sentences. At the same time, the remote sensing image samples and the corresponding description sentences obtained by SFRC processing the remote sensing images can form pairs of samples to train the multi-modal model, such as training a visual question answering (VQA) about key information of remote sensing images. The recent training of a multimodal visual language model named “Flamingo” [78] only requires a small number of labeled samples and can quickly adapt to many tasks. The captions output from the SFRC model can provide sample support for training similar powerful models in remote sensing images. The subsequent optimization work can focus on integrating the structure of the method into an end-to-end structure, using a more powerful decoder or encoder, designing more efficient encoder training methods with higher data utilization efficiency, and so on.
+
+## Author Contributions
+
+Conceptualization, H.Z.; methodology, H.Z.; software, H.Z.; validation, H.Z.; formal analysis, H.Z.; investigation, S.L.; resources, X.D.; data curation, H.Z.; writing—original draft preparation, H.Z.; writing—review and editing, H.Z.; visualization, H.Z.; supervision, L.X.; project administration, H.Z. All authors have read and agreed to the published version of the manuscript.
+
+## Funding
+
+This research received no external funding.
+
+## Data Availability Statement
+
+The UCM-Captions dataset can be obtained at https://pan.baidu.com/s/1mjPToHq (accessed on 8 July 2022). The Sydney-Captions dataset can be obtained at https://pan.baidu.com/s/1hujEmcG (accessed on 8 July 2022). The RSICD dataset can be obtained at https://github.com/201528014227051/RSICD_optimal (accessed on 8 July 2022).
+
+## Conflicts of Interest
+
+The authors declare no conflict of interest.
+
+--------------------------------------------------------------------------------
+Bladder Cancer Cells Exert Pleiotropic Effects on Human Adipose-Derived Stem Cells (https://www.mdpi.com/2075-1729/12/4/549/pdf?version=1649304432)
+ [wordlim: 200] Published: 4.6 years ago; Crawled: 4.6 years ago; 
+Life 2022, 12, 549                                                                 5 of 14
+
+---
+
+by JuLi Stage software. All wells of the multi-well plate unused during the experiment were filled with sterile, deionized water. The imaging system was enclosed inside a CO₂ incubator for at least 24 h before the experiment to guarantee temperature equalization and minimize thermal drift. JPEG files from each well site were combined into time-lapse .tif files for neural network training and analysis. All image analyzes were performed on a Dell T5820 workstation equipped with an Nvidia Quadro P2200 video card.
+
+### 2.14. Neural Network Training
+
+Artificial neural networks (U-net based) were generated via a Deep Learning addon (demo version of the software provided via Olympus Poland) and were based on a ground truth consisting of at least 20 images. Images selected for the training were, by design, varied in quality, consisting of images with a consistent and non-ideal background to improve the final neural network quality. 

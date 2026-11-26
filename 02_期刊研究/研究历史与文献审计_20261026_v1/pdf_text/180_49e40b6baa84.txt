@@ -1,0 +1,78 @@
+Energy-Based Models for
+Deep Probabilistic Regression
+Fredrik K. Gustafsson1, Martin Danelljan 2,
+Goutam Bhat2, and Thomas B. Sch¨ on1
+1 Department of Information Technology, Uppsala University, Sweden
+2 Computer Vision Lab, ETH Z¨ urich, Switzerland
+Abstract. While deep learning-based classiﬁcation is generally tackled
+using standardized approaches, a wide variety of techniques are employed
+for regression. In computer vision, one particularly popular such tech-
+nique is that of conﬁdence-based regression, which entails predicting a
+conﬁdence value for each input-target pair (x,y ). While this approach has
+demonstrated impressive results, it requires important task-dependent
+design choices, and the predicted conﬁdences lack a natural probabilistic
+meaning. We address these issues by proposing a general and conceptu-
+ally simple regression method with a clear probabilistic interpretation.
+In our proposed approach, we create an energy-based model of the con-
+ditional target density p(y|x), using a deep neural network to predict
+the un-normalized density from (x,y ). This model of p(y|x) is trained by
+directly minimizing the associated negative log-likelihood, approximated
+using Monte Carlo sampling. We perform comprehensive experiments on
+four computer vision regression tasks. Our approach outperforms direct
+regression, as well as other probabilistic and conﬁdence-based methods.
+Notably, our model achieves a 2.2% AP improvement over Faster-RCNN
+for object detection on the COCO dataset, and sets a new state-of-the-art
+on visual tracking when applied for bounding box estimation. In contrast
+to conﬁdence-based methods, our approach is also shown to be directly
+applicable to more general tasks such as age and head-pose estimation.
+Code is available at https://github.com/fregu856/ebms_regression.
+1 Introduction
+Supervised regression entails learning a model capable of predicting a continu-
+ous target value y from an input x, given a set of paired training examples. It
+is a fundamental machine learning problem with many important applications
+within computer vision and other domains. Common regression tasks within
+computer vision include object detection [47, 23, 28, 63], head- and body-pose
+estimation [5, 57, 52, 59], age estimation [48, 42, 4], visual tracking [38, 64, 31, 8]
+and medical image registration [39, 6], just to mention a few. Today, such re-
+gression problems are commonly tackled using Deep Neural Networks (DNNs),
+due to their ability to learn powerful feature representations directly from data.
+
+---PAGE---
+
+2 F.K. Gustafsson et al.
+p(y | x; θ)
+x
+y
+Deep Neural Network Target Density
+θ1 θ2
+p(y | x; θ)
+x
+y
+Deep Neural Network
+Fig. 1. An overview of the proposed regression method (top). We train an energy-
+based model p(y|x;θ)∝efθ (x,y) of the conditional target density p(y|x), using a DNN
+fθ to predict the un-normalized density directly from the input-target pair ( x,y ). Our
+approach is capable of predicting highly ﬂexible densities and produce highly accurate
+estimates. This is demonstrated for the problem of bounding box regression (bottom),
+visualizing the marginal density for the top right box corner as a heatmap.
+While classiﬁcation is generally addressed using standardized losses and out-
+put representations, a wide variety of diﬀerent techniques are employed for re-
+gression. The most conventional strategy is to train a DNN to directly pre-
+dict a target y given an input x [27]. In such direct regression approaches,
+the model parameters of the DNN are learned by minimizing a loss function,
+for example the L2 or L1 loss, penalizing discrepancy between the predicted
+and ground truth target values. From a probabilistic perspective, this approach
+corresponds to creating a simple parametric model of the conditional target
+density p(y|x), and minimizing the associated negative log-likelihood. The L2
+loss, for example, corresponds to a ﬁxed-variance Gaussian model. More recent
+work [24, 26, 7, 15, 54, 45] has also explored learning more expressive models of
+p(y|x), by letting a DNN instead output the full set of parameters of a certain
+family of probability distributions. To allow for straightforward implementation
+and training, many of these probabilistic regression approaches however restrict
+the parametric model to unimodal distributions such as Gaussian [26, 7] or
+Laplace [24, 15, 22], still severely limiting the expressiveness of the learned con-
+ditional target density. While these methods beneﬁt from a clear probabilistic
+interpretation, they thus fail to fully exploit the predictive power of the DNN.
+The quest for improved regression accuracy has also led to the development of
+more specialized methods, designed for a speciﬁc set of tasks. In computer vision,
+one particularly popular approach is that of conﬁdence-based regression. Here,

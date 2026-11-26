@@ -1,0 +1,53 @@
+Published as a conference paper at ICLR 2025
+A A PPENDIX
+A.1 I MPLEMENTATION DETAILS
+A.1.1 H YPERPARAMETER CONFIGURATIONS
+Table 6 summarizes the hyperparameter configurations for the D-FINE models. All variants use
+HGNetV2 backbones pretrained on ImageNet (Cui et al., 2021; Russakovsky et al., 2015) and the
+AdamW optimizer. D-FINE-X is set with an embedding dimension of 384 and a feedforward dimen-
+sion of 2048, while the other models use 256 and 1024, respectively. The D-FINE-X and D-FINE-L
+have 6 decoder layers, while D-FINE-M and D-FINE-S have 4 and 3 decoder layers. The GELAN
+module progressively reduces hidden dimension and depth from D-FINE-X with 192 dimensions
+and 3 layers to D-FINE-S with 64 dimensions and 1 layer. The base learning rate and weight decay
+for D-FINE-X and D-FINE-L are 2.5 × 10−4 and 1.25 × 10−4, respectively, while D-FINE-M and
+D-FINE-S use 2 × 10−4 and 1 × 10−4. Smaller models also have higher backbone learning rates
+than larger models. The total batch size is 32 across all variants. Training schedules include 72
+epochs with advanced augmentation ( RandomPhotometricDistort, RandomZoomOut,
+RandomIoUCrop, and RMultiScaleInput) followed by 2 epochs without advanced augmen-
+tation for D-FINE-X and D-FINE-L, and 120 epochs with advanced augmentation followed by 4
+epochs without advanced augmentation for D-FINE-M and D-FINE-S (RT-DETRv2 Training Strat-
+egy (Lv et al., 2024) in Table 4). The number of pretraining epochs is 21 for D-FINE-X and D-
+FINE-L models, while for D-FINE-M and D-FINE-S models, it ranges from 28 to 29 epochs.
+Table 6: Hyperparameter configurations for different D-FINE models.
+Setting D-FINE-X D-FINE-L D-FINE-M D-FINE-S
+Backbone Name HGNetv2-B5 HGNetv2-B4 HGNetv2-B2 HGNetv2-B0
+Optimizer AdamW AdamW AdamW AdamW
+Embedding Dimension 384 256 256 256
+Feedforward Dimension 2048 1024 1024 1024
+GELAN Hidden Dimension 192 128 128 64
+GELAN Depth 3 3 2 1
+Decoder Layers 6 6 4 3
+Queries 300 300 300 300
+a, c in W(n) 0.5, 0.125 0.5, 0.25 0.5, 0.25 0.5, 0.25
+Bin NumberN 32 32 32 32
+Sampling Point Number (S: 3, M: 6, L: 3) (S: 3, M: 6, L: 3) (S: 3, M: 6, L: 3) (S: 3, M: 6, L: 3)
+TemporatureT 5 5 5 5
+Base LR 2.5e-4 2.5e-4 2e-4 2e-4
+Backbone LR 2.5e-6 1.25e-5 2e-5 1e-4
+Weight Decay 1.25e-4 1.25e-4 1e-4 1e-4
+Weight ofLVFL 1 1 1 1
+Weight ofLBBox 5 5 5 5
+Weight ofLGIOU 2 2 2 2
+Weight ofLFGL 0.15 0.15 0.15 0.15
+Weight ofLDDF 1.5 1.5 1.5 1.5
+Total Batch Size 32 32 32 32
+EMA Decay 0.9999 0.9999 0.9999 0.9999
+Epochs (w/ + w/o Adv. Aug.) 72 + 2 72 + 2 120 + 4 120 + 4
+Epochs (Pretrain + Finetune) 21 + 31 21 + 32 29 + 49 28 + 58
+A.1.2 D ATASETS SETTINGS
+For pretraining, following the approach in (Chen et al., 2022b; Zhang et al., 2022; Chen et al., 2024),
+we combine the images from the Objects365 (Shao et al., 2019) train set with the validate set, exclud-
+ing the first 5k images. To further improve training efficiency, we resize all images with resolutions
+exceeding 640 × 640 down to 640 × 640 beforehand. We use the standard COCO2017 (Lin et al.,
+2014b) data splitting policy, training on COCO train2017, and evaluating on COCO val2017.
+14

@@ -1,0 +1,31 @@
+4. Lecture notes on matroid optimization March 20th, 2009 7
+• For a graphic matroid M(G) deﬁned on graph G = (V,E ), the rank function is equal
+to:
+rM (G)(F ) =n −K(V,F ),
+where n = |V | and K(V,F ) denotes the number of connected components (including
+isolated vertices) of the graph with edges F .
+The rank function of any matroid M = (E, I) has the following properties:
+(R1) 0 ≤r(X) ≤ |X| and is integer valued for all X ⊆E
+(R2) X ⊆Y ⇒r(X) ≤r(Y ),
+(R3) r(X) +r(Y ) ≥r(X ∩Y ) +r(X ∪Y ).
+The last property is called submodularity and is a key concept in combinatorial optimization.
+It is clear that, as deﬁned, any rank function satisﬁes (R1) and (R2). Showing that the rank
+function satisﬁes submodularity needs a proof.
+Lemma 4.3 The rank function of any matroid is submodular.
+Proof: Consider any two sets X,Y ⊆. Let J be a maximal independent subset of
+X ∩Y ; thus, |J| = r(X ∩Y ). By ( I2), J can be extended to a maximal (thus maximum)
+indenpendent subset of X, call it JX. We have that J ⊆ JX ⊆ X and |JX| = r(X).
+Furthermore, by maximality of J within X ∩Y , we know
+JX \Y =JX \J. (1)
+Now extend JX to a maximal independent set JXY of X ∪Y . Thus, |JXY | =r(X ∪Y ).
+In order to be able to prove that
+r(X) +r(Y ) ≥r(X ∩Y ) +r(X ∪Y )
+or equivalently
+|JX| +r(Y ) ≥ |J| + |JXY |,
+we need to show that r(Y ) ≥ |J| + |JXY | − |JX|. Observe that JXY ∩Y is independent (by
+(I1)) and a subset of Y , and thus r(Y ) ≥ |JXY ∩Y |. Observe now that
+JXY ∩Y =JXY \ (JX \Y ) =JXY \ (JX \J),
+the ﬁrst equality following from the fact that JX is a maximal independent subset of X and
+the second equality by (1). Therefore,
+r(Y ) ≥ |JXY ∩Y | = |JXY \ (JX \J)| = |JXY | − |JX| + |J|,
+proving the lemma. △

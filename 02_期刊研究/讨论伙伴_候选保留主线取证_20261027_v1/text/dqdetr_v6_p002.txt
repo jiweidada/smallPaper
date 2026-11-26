@@ -1,0 +1,42 @@
+2 Y. Huang et al.
+former decoder for final detection results. Moreover, a series of DETR-like meth-
+ods [7,11,28,31] aim to advance DETR performance and accelerate convergence
+speed. For example, Deformable-DETR [31] uses multi-scale feature maps to im-
+prove its ability to detect different sizes of objects. Also, the use of deformable
+attention modules can not only capture more informative and contextually rel-
+evant features but accelerate training convergence as well.
+T able 1:Comparison of DETR-like models’ query strategies under different situations.
+Sparse Dense Imbalance Characteristics
+Deformable DETR [31]✓ Sparse Queries (K=300) with One-To-One Assignment; Low Recall
+DDQ-DETR [29] ✓ ✓ Dense Distinct Queries (K=900); Low Recall if #Object≫#Query
+DQ-DETR (Ours)✓ ✓ ✓ Dynamically adjust the "Number" and "Position" of Queries
+In this work, we argue that the previous DETR-like methods are inappropri-
+ate in aerial image datasets, which only contain tiny objects and have an imbal-
+ance of instances between different images. In the previous DETR-like methods,
+the object queries used in the transformer decoder do not consider the number
+and position of instances in the image. Generally, they apply a fixed number
+K of object queries, where K represents the maximum number of the detec-
+tion objects, e.g., K=100, 300 in DETR and Deformable-DETR, respectively.
+DETR [2] and Deformable-DETR [31] apply a fixed number of sparse queries,
+suffering from a low recall rate. To address this problem, DDQ [29] selects dense
+distinct queries, K=900, with a class-agnostic NMS based on a hand-designed
+IoU threshold. Though DDQ applies dense queries for detection, the number of
+queries is still limited.
+However, aerial datasets often exhibit imbalances in the distribution of in-
+stances across different images. A fixed number of queries can lead to poor de-
+tection accuracy when the number of objects varies drastically between images.
+For example, in the AI-TOD-V2 dataset [25], some images have more than 1500
+objects, but others have less than 10 objects. Under the situation that the num-
+ber of objects in images is more than DETR’s query number K, a low recall rate
+is an expected issue. Using smaller K restricts the recall of the objects in dense
+images, leaving many instances undetected (FN). Conversely, using a large K in
+the sparse images not only introduces many underlying false positive samples
+(FP) but also causes a waste of computing resources since the computing com-
+plexity in the decoder’s self-attention layers grows quadratic with the number of
+queries K.
+Furthermore, in the previous DETR-like methods, the object queries do not
+consider the position of instances in the image. The position of object queries
+is a set of learned embeddings, which are irrelevant to the current image and
+do not have explicit physical meaning to tell where the queries are focusing on.
+The static positions of object queries are unsuitable for aerial image datasets,
+where the distribution of instances varies extremely in different images, i.e., some

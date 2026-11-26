@@ -1,0 +1,1523 @@
+Article
+
+Small-Object Detection in Foggy Scenes via High-Frequency-Enhanced
+Feature Fusion and Compact State-Space Modeling
+Yue Chen, Feng Xu * and Jinghao Song
+
+
+                                         School of Public Security Information Technology and Intelligence, Criminal Investigation Police University
+                                         of China, Shenyang 110854, China; 13338939052@163.com (Y.C.); baborben1113@outlook.com (J.S.)
+                                         * Correspondence: xufeng@cipuc.edu.cn
+
+
+                                         Abstract
+                                         In adverse weather and rapidly changing scenes, fog severely reduces image contrast and
+                                         obscures target textures, causing small-object detection to suffer from feature weakening
+                                         and background interference. Many existing detectors, meanwhile, rely on computation-
+                                         ally intensive feature modeling, making it difficult to achieve real-time inference while
+                                         effectively mitigating fog-induced degradation. To address these challenges, we propose
+                                         HS-MambaDet, a frequency-compensated hidden-state state-space detection network for
+                                         accurate and efficient small-object detection in foggy environments. Specifically, we embed
+                                         a lightweight SSD-based state-space modeling module with frequency-domain window
+                                         attention (FWS-SSD) into the backbone, preserving long-range dependency modeling with
+                                         low computational overhead while emphasizing informative high-frequency details and
+                                         attenuating low-frequency haze interference. This study highlights a symmetry-inspired
+                                         balance between global context modeling and local detail restoration. In the neck network,
+                                         a multi-scale frequency-spatial fusion (MFSF) module further strengthens fine-grained
+                                         object representations and cross-scale contextual interactions. In addition, we introduce
+                                         a fog-aware detection loss to better supervise low-contrast and detail-deficient regions,
+                                         improving detection robustness in foggy scenes. Extensive experiments on RTTS and
+                                         Cityscapes demonstrate clear and consistent gains: HS-MambaDet outperforms represen-
+                                         tative one-stage, two-stage, and state-space-based detectors by up to 4.3% in mAP@0.5
+                                         and 6.5% in mAP@0.5:0.95, while maintaining competitive inference efficiency, thereby
+                                         achieving a favorable accuracy-efficiency trade-off for foggy small-object detection.
+
+                                         Keywords: object detection; Mamba; high-frequency perception; fusion hidden state
+                                         compression
+
+
+
+
+                                         1. Introduction
+Academic Editor: Shuang Xu
+                                              Small-object detection in adverse weather conditions is essential for intelligent trans-
+                                         portation systems, traffic surveillance, and autonomous perception [1–3]. In realistic out-
+Received: 9 January 2026
+Revised: 4 February 2026
+                                         door environments, fog is among the most common and challenging forms of degrada-
+Accepted: 6 February 2026                tion, as it reduces scene contrast, weakens high-frequency edge and texture cues, and
+Published: 10 February 2026              increases background clutter [4,5]. These effects are particularly detrimental to small tar-
+Copyright: © 2026 by the authors.        gets, whose visual evidence is inherently limited and therefore more easily overwhelmed
+Licensee MDPI, Basel, Switzerland.       by fog-induced noise and low-contrast regions [6]. Consequently, achieving fog-robust and
+This article is an open access article
+                                         real-time small-object detection remains a challenging problem [7,8].
+distributed under the terms and
+                                              In recent years, deep learning-based detectors have achieved substantial progress
+conditions of the Creative Commons
+Attribution (CC BY) license.             under clear-weather conditions. Feature pyramid designs such as the Feature Pyramid
+
+
+Symmetry 2026, 18, 320                                                                                           https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                            2 of 28
+
+
+
+                         Network (FPN) enhance multi-scale representation through hierarchical fusion [9]. How-
+                         ever, small objects may still suffer from detail loss due to repeated downsampling and
+                         imperfect cross-level alignment, which can propagate errors to subsequent prediction
+                         layers. Transformer-based architectures model global interactions via self-attention [10],
+                         but their quadratic complexity with respect to token number leads to considerable latency
+                         and memory overhead, limiting real-time deployment on resource-constrained platforms.
+                         Convolutional neural networks (CNNs) remain effective for local feature extraction [11],
+                         yet they are less capable of capturing long-range dependencies and global semantics, which
+                         become increasingly critical when fog suppresses local cues.
+                              State space models (SSMs) [12], particularly selective state space architectures like
+                         Mamba, have recently been explored as efficient alternatives to self-attention for long-range
+                         dependency modeling [13]. By adopting linear-time sequence processing and recursive
+                         state propagation, SSM-based approaches offer improved scalability and inference effi-
+                         ciency. Motivated by these advantages, several studies have integrated SSM modules into
+                         detection frameworks to enhance global context reasoning. However, in foggy scenes,
+                         existing SSM-based detectors still exhibit notable limitations [14]. First, the recursive
+                         smoothing behavior of state propagation can attenuate high-frequency components, making
+                         small-object features more susceptible to over-smoothing and information loss [15]. Sec-
+                         ond, many SSM-based detection methods do not explicitly suppress low-frequency haze
+                         interference or compensate for contrast attenuation, which are key to fog degradation [16].
+                              To mitigate fog effects, prior work has investigated dehazing as a preprocessing
+                         step, along with frequency-domain enhancement and multi-scale fusion within detection
+                         networks [17]. While these strategies can partially restore visual details, standalone dehaz-
+                         ing models introduce extra computational cost and may cause domain mismatch. Moreover,
+                         frequency-aware detection approaches are often designed without tightly coupling efficient
+                         global sequence modeling mechanisms [18]. Therefore, integrating efficient global model-
+                         ing, high-frequency compensation, and fog-aware optimization into a unified detection
+                         framework remains underexplored.
+                              In this paper, we propose a frequency-compensated hidden-state object detection
+                         network for robust and efficient small-object detection in foggy scenarios. The proposed
+                         backbone adopts a hidden-state-compressed state space modeling design, where channel
+                         mixing and gating are performed in a low-dimensional latent state, reducing computational
+                         cost while preserving long-range dependency modeling. To address the over-smoothing
+                         tendency of state space models in fog, we incorporate frequency-domain window at-
+                         tention to selectively enhance high-frequency details and suppress low-frequency fog
+                         interference. In the neck network, we design a multi-scale frequency-spatial fusion module
+                         to jointly strengthen fine-grained object cues and cross-scale contextual dependencies.
+                         Moreover, a fog-aware detection loss is introduced to adaptively constrain low-contrast
+                         and detail-deficient regions, improving training stability and detection robustness un-
+                         der foggy degradation. Unlike existing frequency-aware detection methods or visual
+                         models based on state space modeling (SSM), the core innovation of HS-MambaDet does
+                         not lie in the introduction of an isolated architectural component, but rather in a sys-
+                         tematic compensation mechanism designed to address the over-smoothing issue of state
+                         space modeling under foggy conditions. Specifically, we are the first to analyze, from a
+                         frequency-domain perspective, the suppressive effect of Mamba/SSD state propagation on
+                         high-frequency details under fog-induced degradation. Based on this observation, we pro-
+                         pose a frequency-compensation-driven state space detection paradigm. By incorporating
+                         frequency-window attention into the state-compressed SSD backbone, our method dynam-
+                         ically balances global sequential modeling and local high-frequency detail recovery. In
+                         contrast to existing frequency-aware detection approaches, which primarily operate on con-
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                           3 of 28
+
+
+
+                         volutional or attention-based structures, our method explicitly embeds frequency-domain
+                         enhancement into the corrective mechanism of state space recurrence itself, targeting its
+                         inherent functional limitations. As a result, we establish a unified optimization framework
+                         that synergistically integrates state-aware modeling, frequency-domain compensation, and
+                         fog-aware supervision. The main contributions are summarized as follows:
+                         •   We propose a hybrid architecture that integrates Mamba-style state space modeling
+                             with frequency-windowed attention for foggy image understanding. Specifically, we
+                             embed a lightweight SSD-based state space module with frequency-windowed atten-
+                             tion, termed FWS-SSD, into the backbone. This design enables efficient long-range
+                             dependency modeling and feature extraction at low computational cost, strengthening
+                             global context perception and spatial dependency capture, while alleviating the limi-
+                             tations of existing visual Mamba variants when processing degraded foggy imagery.
+                         •   We design a multi-scale frequency-spatial fusion module for the neck network, referred
+                             to as MFSF, to jointly aggregate spatial cues and frequency-aware representations.
+                             By enhancing fine-grained small-object cues and improving spatial perception across
+                             scales, the module increases robustness in complex weather conditions [19].
+                         •   We introduce a fog-aware detection loss that emphasizes low-contrast and
+                             detail-deficient regions under fog degradation. This adaptive supervision improves
+                             feature recovery and stabilizes training and inference in foggy scenarios.
+                         •   We develop a complete HS-MambaDet framework and conduct systematic evalua-
+                             tions on RTTS and CityScapes. The experimental results demonstrate a favorable
+                             accuracy-efficiency trade-off, showing that the proposed method outperforms repre-
+                             sentative state-of-the-art baselines.
+
+                         2. Related Work
+                               Over the past decade, object detection has evolved from proposal-driven pipelines to
+                         end-to-end single-stage frameworks, and has recently expanded toward hybrid architec-
+                         tures that incorporate state space modeling. For small-object detection in adverse weather
+                         conditions such as fog, existing approaches can be broadly categorized into two-stage
+                         detectors, single-stage detectors typified by the YOLO series, and emerging detectors
+                         that integrate state space models into the detection pipeline. In parallel, fog-oriented
+                         enhancement and preprocessing techniques have become an active research direction,
+                         aiming to alleviate visibility degradation before or during detection. The following review
+                         summarizes these lines of research, highlighting their relevance to this study and their
+                         remaining limitations.
+                               Two-stage detectors, represented by Faster R-CNN [20], first generate candidate re-
+                         gions using a Region Proposal Network and then perform classification and bounding
+                         box regression in a second stage. These methods are often treated as accuracy-oriented
+                         baselines due to their proposal refinement and feature sharing. Subsequent develop-
+                         ments have further enhanced two-stage performance. For example, the Feature Pyramid
+                         Network (FPN) [21,22] improves multi-scale representation through a top-down pyramid,
+                         and Cascade R-CNN [23] increases detection quality by progressively raising intersection
+                         over union thresholds across stages. Although two-stage methods can achieve strong
+                         performance in complex scenes, their multi-stage inference introduces latency and compu-
+                         tational cost, limiting real-time deployment. Moreover, these methods typically assume
+                         relatively clear textures and sufficient contrast. Under fog-induced contrast reduction and
+                         high-frequency detail loss, both proposal generation and downstream discrimination can
+                         degrade, reducing the robustness of small-object detection.
+                               The YOLO family is widely used in real-time settings because it completes detection
+                         in a single forward pass. Early versions such as YOLOv3 and YOLOv4 improved the
+
+
+
+                                                                                    https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                            4 of 28
+
+
+
+                         speed-accuracy balance through stronger backbones and multi-scale detection heads [24].
+                         More recent implementations, such as YOLOv5 [25] and YOLOv8 [26], have been adopted
+                         in a wide range of engineering applications. Prior studies indicate that YOLO is advanta-
+                         geous for low-latency and resource-limited deployment, with improvements in pyramid
+                         fusion and attention design enhancing small-object performance in clear conditions. How-
+                         ever, as a regression-oriented single-stage framework, YOLO often relies on local textures
+                         and edge cues, which are weakened by fog, thereby reducing localization and classifica-
+                         tion reliability. Additionally, standard multi-scale fusion can become ambiguous under
+                         low-contrast conditions, hindering the detection of distant and tiny objects. Therefore, prac-
+                         tical foggy-scene deployment often requires dedicated robustness enhancements beyond
+                         standard YOLO improvements.
+                               State space models and the recently proposed Mamba framework [17] provide an
+                         alternative to self-attention through linear-complexity sequence scanning. Mamba has
+                         demonstrated high throughput and strong long-sequence modeling capabilities in language,
+                         audio, and selected vision tasks, making it a promising mechanism for combining efficiency
+                         with long-range dependency modeling. Motivated by these advantages, recent studies have
+                         integrated Mamba or state space modules into detection backbones or replaced attention
+                         blocks with state space layers, forming hybrid designs such as Mamba-YOLO and other
+                         state space-based variants [27]. These detectors aim to strengthen global context reasoning
+                         while preserving real-time inference, improving discrimination under occlusion and clutter.
+                         Nevertheless, in foggy scenes, existing state space-based detectors still face challenges
+                         due to severe attenuation of high-frequency details. The smoothing behavior of state
+                         propagation further weakens small-object signals during hidden-state updates, and state
+                         space modeling alone does not explicitly compensate for high-frequency loss or address
+                         low-contrast regions. This motivates the integration of frequency-aware enhancement
+                         mechanisms to complement efficient global modeling.
+                               Methods that mitigate fog degradation can be grouped into two main directions.
+                         The first direction performs image restoration or dehazing as preprocessing, including
+                         end-to-end dehazing networks such as DehazeNet [28] and AOD-Net [29]. The second
+                         direction introduces dehazing principles or fog-aware objectives directly into detectors to
+                         support end-to-end robustness [3]. Preprocessing-based dehazing can recover part of the
+                         missing high-frequency information at the input stage, which may benefit downstream
+                         detection. However, standalone restoration networks usually introduce additional com-
+                         putational cost and may suffer from domain shift when deployed across different fog
+                         conditions. For small-object detection, related work has emphasized improved multi-scale
+                         fusion, channel attention, spatial attention, and super-resolution enhancement, such as
+                         CE-FPN [30] and super-resolution assisted detection. These methods help preserve resolu-
+                         tion and amplify small-object cues. However, in real foggy scenes, they typically still need
+                         to be combined with strategies that explicitly address low contrast and frequency-domain
+                         noise. Overall, improving small-object detection in foggy scenes requires a coordinated
+                         design that combines efficient global modeling, local enhancement for high-frequency
+                         detail recovery, and fog-aware detection objectives [31].
+                               Based on the above discussion, existing methods have not yet achieved a satisfac-
+                         tory balance among real-time efficiency, global modeling capability, and high-frequency
+                         detail preservation. Two-stage detectors can deliver strong accuracy but at substantial
+                         computational cost. The YOLO family is efficient but remains sensitive to the weakening
+                         of edge and texture cues in fog. Mamba and state space modeling provide efficient global
+                         reasoning but are comparatively insensitive to fine high-frequency details. The proposed
+                         HS-MambaDet addresses these gaps by combining a hidden-state-compressed lightweight
+                         state space backbone for efficient global modeling with frequency-windowed attention and
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                           5 of 28
+
+
+
+                         high-frequency-aware enhancement to recover fine details in foggy scenes. In addition,
+                         a fog-aware detection loss is employed to adaptively constrain low-contrast regions. To-
+                         gether, these components yield an improved accuracy-efficiency trade-off for small-object
+                         detection in foggy environments.
+
+                         3. HS-MambaDet Method
+                         3.1. Overall Framework
+                              In this section, we introduce the overall architecture of the proposed HS-MambaDet.
+                         As shown in Figure 1, HS-MambaDet consists of three main components: the backbone
+                         network, the neck network, and the detection head. The backbone employs a four-stage
+                         hierarchical structure jointly constructed by CNNs and FWS-SSD Blocks, where each stage’s
+                         FWS-SSD Block outputs multi-scale features, denoted as C3, C4, C5, which are subsequently
+                         fed into the neck network for feature fusion and downstream object detection. The detailed
+                         structure of the FWS-SSD Block will be described in Section 3.2.
+
+
+
+
+                         Figure 1. HS-MambaDet Model Block Diagram.
+
+                              For a given input image of size H × W × 3, it is first projected into a C-dimensional
+                         embedding space by a stem consisting of two consecutive 3 × 3 CNN layers. Subsequently,
+                         features are rapidly extracted at the high input resolution and downsampled into overlap-
+                         ping patches of size H/4 × W/4 × 3 using CNN-based feature extraction layers. To ensure
+                         faster convergence and training stability, residual connections are also employed in this
+                         process. This procedure can be expressed as:
+
+                                                       ẑ = GELU(BN(Conv3×3 (z)))                                   (1)
+
+                                                         z = BN(Conv3×3 (ẑ)) + z                                   (2)
+
+                         Here, GELU and BN denote the Gaussian Error Linear Unit activation function and Batch
+                         Normalization, respectively.
+                               After preliminary feature extraction by the convolutional layers, the image features
+                         are fed into the stage-wise feature extraction network composed of FWS-SSD Blocks, where
+
+
+
+
+                                                                                    https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                 6 of 28
+
+
+
+                         different levels of image features are obtained through downsampling. This process can be
+                         expressed as:
+                                                    zi+1 = Merge ( FWS − SSDBlock (zi ))                        (3)
+
+                         Here, zi and zi+1 denote the image features from the previous and the subsequent
+                         stages, respectively.
+                              After multi-stage and multi-level feature extraction by the backbone network, the
+                         resulting multi-scale features {C3, C4, C5} are fed into the neck network for further fusion.
+                         As shown in Figure 1, the neck network adopts a top-down multi-scale feature fusion
+                         structure. At each scale, the current layer feature Ci from the backbone is concatenated
+                         with the upsampled result Pi from the lower-level feature, and then enhanced and fused
+                         through the proposed multi-scale frequency-spatial fusion module (MFSF). For the topmost
+                         feature, only the adjusted upper-level feature is used. This process can be expressed as:
+
+                                                          f i = MFSF(concat( Pi , Ci ))                                   (4)
+
+                               As illustrated in Figure 1, the proposed MFSF module is applied right after
+                         the concatenation of the upsampled pyramid feature Pi and the backbone feature Ci ,
+                         i.e., concat( Pi , Ci ) → MFSF(·) → f i . For readability, we explicitly annotate the MFSF
+                         block (including the HFP and SDP submodules) in the revised Figure 1. The proposed
+                         multi-scale frequency-spatial fusion (MFSF) module performs collaborative modeling in
+                         both the spatial and frequency domains to address the degradation characteristics of foggy
+                         images. It effectively enhances fine-grained object information across different scales while
+                         suppressing low-frequency noise introduced by fog. The resulting fused multi-scale fea-
+                         tures f i are then fed into the corresponding detection heads to achieve precise detection of
+                         objects at various scales.
+
+                         3.2. FWS-SSD Block Based on Mamba and Frequency Domain Attention
+                              In this section, we describe the FWS-SSD block, which serves as the fundamental
+                         unit of the proposed backbone. As illustrated in Figure 2, FWS-SSD is a hybrid feature
+                         modeling module that combines state space modeling with frequency-windowed attention.
+                         The block follows a two-branch architecture that captures global dependencies and local
+                         discriminative cues, while maintaining high throughput and low computational complexity.
+                         Specifically, it contains a Mamba-inspired state space branch and a frequency-windowed
+                         attention branch. The two branches are designed to be complementary. Such symmetry
+                         arises from a dual view: global dependencies versus local high-frequency structures.
+                         The state space branch provides efficient long-range dependency modeling, whereas the
+                         attention branch enhances high-frequency detail responses, which are often weakened in
+                         foggy scenes and not sufficiently emphasized by standard state space propagation.
+                              We first present the Mamba state space branch. In this branch, we employ a lightweight
+                         hidden-state module named HSM-SSD. The key motivation is to perform channel mixing
+                         and gating in a low-dimensional latent hidden state, reducing computation while retaining
+                         the ability to model long-sequence dependencies. As shown in Figure 3, HSM-SSD includes
+                         two symmetric sub-branches. This symmetry forms a paired pathway for modeling and
+                         compensation. One sub-branch performs SSD-based state space modeling, while the
+                         other serves as a compensation path without SSD. The compensation path uses additional
+                         convolution layers along with Sigmoid Linear Unit activations, introduced to compensate
+                         for possible information loss caused by sequential constraints in SSD. The outputs of the
+                         two sub-branches are concatenated along the channel dimension and then fused using a
+                         linear projection layer. This operation produces an integrated representation that balances
+
+
+
+
+                                                                                          https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                            7 of 28
+
+
+
+                         sequential modeling capability with spatial feature expressiveness. The overall procedure
+                         can be formulated as:
+
+                                                    X1 = HSM − SSD(σ (Conv(Linear( Xin ))))                          (5)
+
+                                                          X2 = σ (Conv(Linear( Xin )))                               (6)
+
+                                                       Xmamba = Linear(Concat( X1 , X2 ))                            (7)
+
+                         Here, Xin denotes the input to the HSM-SSD module, and Xout represents its final output.
+                         This combination ensures that the resulting feature representation integrates both sequential
+                         and spatial information, leveraging the advantages of both branches.
+
+
+
+
+                         Figure 2. FWS-SSD Block.
+
+
+
+
+                         Figure 3. HSM-SSD Module.
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                  8 of 28
+
+
+
+                              For HSM-SSD, we provide a detailed mathematical derivation to demonstrate its low
+                         computational complexity. First, we briefly discuss the computational cost of the NC-SSD
+                         layer in existing works. The entire process of the NC-SSD layer can be summarized as:
+
+                                                          B̂, C, ∆, x, z = Linear( xin )                                   (8)
+
+                                                         a, B = Discretization ( â, B̂, ∆)                                (9)
+
+                                                          B, C, x := DWConv( B, C, x )                                    (10)
+
+                                                            y = NC-SSD( x, a, B, C )                                      (11)
+
+                                                            xout = Linear(y ⊙ σ (z))                                      (12)
+
+                               Here, xin , xout , x, z ∈ R L× D , and σ denotes the activation function. Assuming a fixed
+                         kernel size, the computational cost is O LD2 + LND . Considering that the number of
+                                                                                       
+
+                         states N is typically much smaller than the number of channels D (i.e., N ≪ D), the overall
+                         complexity is primarily driven by the linear projections involved in producing xout , x, and
+                         z, resulting in O LD2 . Therefore, optimizing the linear projections within the SSD block is
+                                                    
+
+                         crucial for scalability.
+                               To this end, we further investigate optimizing these computations for efficient layer
+                         design. The NC-SSD can be decomposed into two steps. First, a shared global hidden state
+                         h ∈ R N × D is obtained via a weighted linear combination of the input states B ∈ R N × D
+                         using importance weights a ∈ R L . Second, the output for each input is generated by
+                         projecting a hidden state using its corresponding C ∈ R L× N . Here, if the projected input x
+                         is expressed as xin Win with DWConv removed, the following equality holds:
+
+                                                                   h = hin Win                                            (13)
+
+                         Here, hin ∈ R N × D and Win ∈ RD× D . By first computing hin , a linear projection can be
+                         performed in the hidden state space. This approach reduces the state-dependent cost from
+                         O LD2 to O ND2 . In other words, by adjusting the number of states such that N ≪ L,
+                                               
+
+                         the primary computational cost of the layer can be significantly reduced.
+                              This work focuses on a shared global hidden state h. It is worth noting that the hidden
+                         state h itself is a simplified latent array that compresses the input data into a much shorter
+                         sequence length n. Based on this observation, we propose a hidden-state mixer that directly
+                         performs channel mixing on the compact latent array h, including gating control and
+                         output projection, as illustrated in Figure 3. Accordingly, the output of the NC-SSD layer is
+                         approximated as follows:
+                                                            xout = f (y)
+                                                               = Linear (y ⊙ σ(z))
+                                                               =(Ch ⊙σ( xin Wz ))Wout                                     (14)
+                                                               ≈C (h ⊙ σ(hin Wz ))Wout
+                                                               =C f ( h)
+                         In this formulation, y = Ch, and f denotes the channel-mixing gating function, which
+                         is followed by a linear projection with a learnable matrix Wout ∈ RD× D . In contrast to
+                         the original NC-SSD layer, where Ch is first computed and then fed into f , the proposed
+                         HSM directly applies gating and projection operations to the hidden state. The final output
+                         xout is subsequently generated using the projection-updated hidden state. As a result, the
+                         computational complexity of the HSM-SSD module is reduced from O LD2 + LND to
+                                                                                                                 
+
+                         O ND2 + LND . Since N is much smaller than L, this additional computational over-
+                                         
+
+                         head becomes negligible as N decreases. Although reducing the number of hidden
+
+
+
+                                                                                           https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                            9 of 28
+
+
+
+                         states N significantly lowers computational complexity from O( LD2 ) to O( ND2 ), we
+                         empirically found that moderate values of N are sufficient to preserve detection accuracy.
+                         Increasing N beyond this range yields diminishing performance gains while incurring
+                         higher computational cost. (All experiments below use a fixed number of hidden states N,
+                         which was chosen based on the balance between efficiency and accuracy achieved in the
+                         initial experiments).
+                               Furthermore, in foggy object detection, performance degradation is largely caused
+                         by dense fog obscuring key visual cues and introducing strong background disturbance.
+                         Existing studies and frequency-domain analyses indicate that fog effects are mainly man-
+                         ifested as low-frequency components in feature representations, whereas object details
+                         such as edges and textures are more concentrated in mid-frequency and high-frequency
+                         bands. Therefore, purely spatial-domain feature modeling often struggles to simultaneously
+                         suppress fog interference and retain fine object details.
+                               To address this challenge, we adopt a frequency-domain viewpoint and design a
+                         window-based frequency-domain attention module, termed FW-MSA, to compensate
+                         for the limited ability of Mamba-style state space modeling to explicitly capture contex-
+                         tual relationships. As shown in Figure 2, and following the window partition strategy
+                         used in the Swin Transformer, we compute self-attention within local windows, but op-
+                         erate in the frequency domain rather than directly in the spatial domain. Specifically,
+                         given an input feature map, we first partition it into a set of non-overlapping spatial
+                         windows. For each window, we apply a Fourier transform to obtain the corresponding
+                         frequency representation, as illustrated in Figure 4. We then compute self-attention weights
+                         within each frequency-domain window, allowing the module to down-weight redundant
+                         low-frequency components related to fog and amplify mid-frequency and high-frequency
+                         responses that encode object structures.
+
+
+
+
+                         Figure 4. Frequency Domain Attention.
+
+                               Moreover, to alleviate block artifacts caused by strictly local windows, a
+                         shifted-window strategy (SFW-MSA) is further introduced, in which windows are periodi-
+                         cally shifted in adjacent layers. This design allows features from different spatial locations
+                         to interact across windows after multi-layer stacking, thereby achieving frequency-domain
+                         context modeling over a larger receptive field while maintaining controllable computa-
+                         tional cost. Through serial or parallel integration with the Mamba module, the proposed
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                              10 of 28
+
+
+
+                         window-based frequency-domain attention plays a complementary role in suppressing fog
+                         interference and restoring object structural details, ultimately improving object detection
+                         performance in foggy scenarios.
+
+                                                       (1)
+                                                      Zı = FW − MSA(LN( Zi )) + Zi                                     (15)
+                                                      d
+
+                                                                            
+                                                       (1)             (1)            (1)
+                                                      Zi     = MLP LN Zı           + Zı                                (16)
+                                                                      d              d
+
+                                                                          
+                                                   (2)                  (1)        (1)
+                                                  Zı = SFW − MSA LN Zi         + Zi                                    (17)
+                                                  d
+
+                                                                     
+                                                       (2)         (2)         (2)
+                                                     Zi = MLP LN Zı         + Zı                                       (18)
+                                                                  d           d
+
+
+                         Here, Zi denotes the input feature of the i-th stage, while W-MSA and SW-MSA represent
+                         the first and second shifted attention windows, respectively. In this work, we innovatively
+                         transform the queries (Q) and keys (K) of the attention mechanism into the frequency
+                         domain, and compute the attention weights using the frequency-domain Q and K:
+
+                                                       Q = FFT( D Conv(Conv( Zi )))                                    (19)
+
+                                                       K = FFT( D Conv(Conv( Zi )))                                    (20)
+
+                                                          V = D Conv(Conv( Zi ))                                       (21)
+                                                                                  Q · KT
+                                                                                       
+                                             Attention( Q, K, V ) = Softmax IFFT √          V                          (22)
+                                                                                     dh
+                               Here, Q, K, and V denote the query, key, and value, respectively. Performing
+                         the attention computation in the frequency domain enables more efficient extraction of
+                         high-frequency image features while being more robust to low-frequency noise, such as
+                         fog-induced interference.
+                               Finally, to combine the complementary advantages of the state space modeling branch
+                         and the frequency-windowed attention branch, we introduce a gated fusion strategy in the
+                         FWS-SSD block to adaptively merge the two outputs. The Mamba-based state space branch
+                         efficiently captures long-range dependencies and global contextual cues, but it can attenuate
+                         high-frequency details in foggy scenes. In contrast, the frequency-windowed attention
+                         branch focuses on enhancing edge and texture responses and suppressing low-frequency
+                         fog noise, although its capability for global dependency modeling is relatively limited.
+                               Based on these complementary characteristics, the gating unit learns data-dependent
+                         weighting coefficients to modulate and aggregate the responses from both branches. This
+                         design enables the network to balance global sequential cues and local high-frequency
+                         discriminative information across spatial locations and feature semantics. Consequently,
+                         the output of the FWS-SSD block preserves the efficiency benefits of state space model-
+                         ing for global context extraction, while also incorporating frequency-domain attention
+                         for detail restoration and noise suppression, producing more robust and discriminative
+                         representations. The gated fused features are used as the final output of the FWS-SSD block
+                         for subsequent multi-scale fusion and object detection, and can be formulated as follows:
+
+                                                           g = Sigmoid(linear( Xin ))                                  (23)
+
+                                                     Y = Xmamba · g + Xattention · (1 − g)                             (24)
+
+                         Let Fs and Fd denote the features produced by the state-space branch and the
+                         frequency-enhanced branch, respectively. The gated fusion is defined as:
+
+
+
+                                                                                        https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                               11 of 28
+
+
+
+                                                          Fout = g · Ff + (1 − g) · Fs
+
+                         where the gating coefficient where g ∈ [0, 1] is predicted by a lightweight gating network
+                         composed of global pooling and a sigmoid activation.
+                               Intuitively, under dense fog conditions, contrast degradation suppresses
+                         low-frequency dominant structures, causing the gating network to assign higher weights
+                         to frequency-enhanced features. In contrast, under light fog or clear conditions, the
+                         gating coefficient shifts towards the state-space branch, which provides stable global
+                         contextual modeling.
+                               Although explicit supervision is not applied to the gating coefficient, we observe that
+                         the learned gate adaptively balances global context modeling and frequency compensation
+                         across different fog densities, contributing to stable performance under severe degradation.
+
+                         3.3. Implementation Details of FWS-SSD
+                               In all experiments, the hidden state dimension N of the FWS-SSD module is uniformly
+                         set to 16, while the dimensionality of the gating vectors is kept consistent with the number
+                         of feature channels in the backbone. The frequency-window attention adopts a local FFT
+                         windowing strategy, where the window sizes for Stage 3 and Stage 4 are set to 14 × 14 and
+                         7 × 7, respectively, in accordance with the resolutions of the corresponding feature maps.
+                         Unless otherwise specified, all FFT operations are implemented using two-dimensional
+                         Fast Fourier Transform (2D FFT), and the computation of attention weights is performed
+                         entirely in the frequency domain. The hyperparameter settings of the key modules used in
+                         all experiments are summarized in Table 1.
+
+                         Table 1. Hyperparameter Settings of Key Modules.
+
+                          Module                         Hyperparameter                                Value
+                          HSM-SSD                        Hidden state dimension N                         16
+                          Gate                           Gating dimension                                 C
+                          FWS-SSD                        FFT window size (Stage 3)                     14 × 14
+                          FWS-SSD                        FFT window size (Stage 4)                      7×7
+
+                         3.4. Object Detection Module Based on High-Frequency Awareness and Spatial Dependency
+                              Although Mamba-based state space models provide efficient long-range dependency
+                         modeling with linear computational complexity, they still exhibit clear weaknesses in foggy
+                         small-object detection. Fog degradation is typically associated with the amplification of
+                         low-frequency components and the suppression of high-frequency details. Due to recursive
+                         state propagation, Mamba tends to emphasize dominant and smooth patterns, which
+                         reduces its responsiveness to high-frequency cues such as edges and textures. Consequently,
+                         restoring fine-grained features weakened by fog becomes difficult. Additionally, small
+                         objects cover only a few pixels, and their representations can be easily over-smoothed
+                         in deep networks, further impairing localization accuracy and classification reliability.
+                         Moreover, conventional Feature Pyramid Networks (FPNs) support multi-scale fusion but
+                         do not explicitly model cross-scale spatial dependencies, limiting contextual reasoning
+                         when small targets are blurred and embedded in complex foggy backgrounds.
+                              To overcome these limitations, we propose a Multi-Scale Frequency-Spatial Fusion
+                         module, termed MFSF, which enhances detail cues and spatial context in fog-degraded
+                         images through a coordinated design that includes a High-Frequency Perception module,
+                         denoted as HFP, and a Spatial Dependency Perception module, denoted as SDP. The HFP
+                         module explicitly extracts and strengthens high-frequency components such as edges and
+                         textures through high-pass filtering, thereby suppressing low-frequency interference caused
+
+
+
+                                                                                         https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                           12 of 28
+
+
+
+                         by fog. The SDP module captures contextual correlations across feature levels by modeling
+                         cross-scale spatial dependencies, improving feature alignment and semantic consistency.
+                         With these two components, MFSF produces strengthened multi-scale representations and
+                         enhances the robustness of small-object detection in challenging foggy scenes.
+
+                         3.4.1. High-Frequency Perception Module
+                               The proposed High-Frequency Perception (HFP) module is illustrated in Figure 5.
+                         Under foggy conditions, high-frequency components of the image, such as edges and
+                         textures, are often severely attenuated. Although the Mamba mechanism excels at modeling
+                         sequential dependencies, its sensitivity to high-frequency details is relatively limited.
+                         The HFP module is designed to compensate for this deficiency, forming a functionally
+                         complementary relationship with the HSM-SSD module to jointly enhance the model’s
+                         perception of small objects in foggy scenes. The HFP first applies a wavelet transform to the
+                         input feature Ci to obtain the high-frequency response Fi , which has the same dimensions
+                         as Ci . Subsequently, Fi is used as input to generate two sets of attention weights: channel
+                         attention weights ucp and spatial attention weights usp . This process can be expressed as:
+
+                                                     Y1 = Conv1×1 (sigmoid(GAP( Fi )))                              (25)
+
+                                                     Y2 = Conv1×1 (sigmoid(GMP( Fi )))                              (26)
+
+                                                  ucp = sigmoid(Conv1×1 (concat(Y1 , Y2 )))                         (27)
+
+                                                        usp = sigmoid(Conv1×1 ( Fi ))                               (28)
+
+                         Here, GAP and GMP denote Global Average Pooling and Global Max Pooling, respectively.
+                         The use of wavelet transform in the HFP module is motivated by its ability to decompose
+                         features into spatially localized frequency components, enabling simultaneous preservation
+                         of edge, texture, and directional information. Unlike fixed high-pass filters that uniformly
+                         amplify noise-sensitive frequencies, wavelet-based decomposition provides adaptive
+                         multi-scale responses that are more robust to fog-induced degradation. (In all experiments,
+                         the discrete wavelet transform is implemented using the Haar wavelet, which provides
+                         a favorable balance between computational efficiency and edge-preserving capability for
+                         real-time detection tasks.)
+
+
+
+
+                         Figure 5. High-Frequency Perception Module.
+
+                              Moreover, the dual-branch attention mechanism (GAP/GMP) does not aim to intro-
+                         duce redundant feature suppression. Instead, global average pooling captures the overall
+                         frequency energy distribution, while global max pooling emphasizes localized salient
+
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                            13 of 28
+
+
+
+                         responses. Their combination allows the network to selectively enhance discriminative
+                         high-frequency cues while suppressing noise-amplified artifacts.
+                              These weights are broadcast along the spatial and channel dimensions, respectively,
+                         and multiplied element-wise with Ci . Finally, the results from the two branches are summed
+                         and passed through a 3 × 3 convolution to obtain the output of the HFP module, denoted
+                         as CiHFP .
+
+                         3.4.2. Spatial Dependency Perception Module
+                               The HS-MambaDet backbone, through FWS-SSD Blocks, already possesses strong
+                         sequential modeling capability. However, in complex foggy scenarios, relying solely on
+                         sequential modeling is insufficient to fully capture the spatial structural relationships
+                         among objects in images. Although the Mamba model enables long-sequence modeling
+                         with linear complexity, its scanning mechanism still has inherent limitations in handling
+                         two-dimensional spatial relationships. To address this, we design a Spatial Dependency
+                         Perception (SDP) module, which aims to establish cross-scale spatial dependencies and
+                         enhance the model’s perception of spatial context in foggy environments.
+                               As shown in Figure 6, we propose an SDP module capable of fusing multi-level
+                         features to capture the mappings between pixels in {Ci , Pi }, where Pi denotes the feature
+                         used for the final detection task in the feature pyramid. Specifically, the module performs
+                         parallel mappings on the input features using multiple convolutional kernels to explicitly
+                         capture multi-scale spatial information. Given the features from the adjacent upper layer
+                         Piu+1 and the current layer feature Ci , the module employs convolutional kernels of different
+                         scales (e.g., 1 × 1, 3 × 3, and 5 × 5) to generate multi-scale feature branches, thereby
+                         obtaining spatial representations with varying receptive fields. For each scale, convolutional
+                         operations of appropriate size are applied to map Piu+1 and Ci into the corresponding query
+                         Q(s) , key K (s) , and value V (s) .
+                                                              Q(s) = Convs×s ∗ Ci                                   (29)
+
+                                                              K (s) = Convs×s ∗ Ci                                   (30)
+
+                                                             V (s) = Convs×s ∗ Ci                                    (31)
+
+                         Here, Convs×s denotes a convolutional layer with kernel size s × s, and ∗ represents the
+                         convolution operator. Furthermore, for each scale-specific Q(s) , K (s) , and V (s) , a spatial
+                         correlation matrix is computed based on the dot-product similarity:
+                                                                             T        
+                                                                         ( s )     ( s )
+                                                                     Q           K 
+                                                      a(s) = softmax       √                                      (32)
+                                                                                d
+
+                         Here, d denotes the channel dimension, used for scaling normalization. The final spatially
+                         enhanced feature at this scale is obtained as:
+
+                                                                O(s) = V (s) a(s) .                                  (33)
+
+                               Finally, the module performs element-wise summation of the attention outputs across
+                         all scales and applies a residual connection with the original feature to obtain the output
+                         feature CiSDP :
+                                                           CiSDP = Ci + ∑ O(s)                                   (34)
+                                                                          s∈{1,3,5}
+
+                              This process effectively enriches the feature representation of small objects and injects
+                         rich semantics from higher-level features. The final fused feature CiSDP is then fed into the
+                         corresponding detection head for the object detection task.
+
+
+
+                                                                                      https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                           14 of 28
+
+
+
+
+                         Figure 6. Spatial Dependency Perception Module.
+
+                         3.5. Loss Function
+                              In object detection tasks, the loss function typically consists of multiple components,
+                         including classification loss, bounding box regression loss, and optional auxiliary con-
+                         straints. To ensure efficient and stable detection of small objects in foggy environments,
+                         we design two types of loss functions: the standard loss function used in general object
+                         detection, and a fog-aware loss function specifically tailored for fog-degraded images.
+
+                         3.5.1. General Object Detection Loss Function
+                               In general object detection tasks, the loss function consists of two components: classi-
+                         fication loss and bounding box regression loss. Given the class label y and the bounding
+                         box coordinates b = ( x, y, w, h) for each object, our goal is to minimize the errors in both
+                         classification and regression. The specific loss function is defined as:
+
+                                                             Ltotal = Lcls + Lloc                                   (35)
+
+                         Here, the classification loss Lcls is typically implemented using cross-entropy loss, which
+                         measures the discrepancy between the predicted class probabilities and the ground-truth
+                         labels for each object:
+                                                              Lcls = − ∑ yi log (ŷi )                           (36)
+                                                                       i
+
+                         Here, yi denotes the ground-truth label for the i-th class, and ŷi represents the predicted
+                         probability from the model. The bounding box regression loss Lloc is typically implemented
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                               15 of 28
+
+
+
+                         using the smooth L1 loss, which measures the discrepancy between the predicted bounding
+                         boxes and the ground-truth boxes:
+                                                                                  
+                                                       Lloc = ∑ smooth L1 b̂i − bi                           (37)
+                                                                  i
+
+                         Here, b̂i and bi denote the coordinates of the predicted and ground-truth bounding boxes,
+                         respectively, and smooth L1 (·) represents the smooth L1 loss function.
+
+                         3.5.2. Fog-Aware Loss Function
+                               Under foggy conditions, image degradation is mainly manifested as the diffusion
+                         of low-frequency components and the pronounced attenuation of high-frequency de-
+                         tails such as edges and textures. This degradation directly weakens the expressive ca-
+                         pacity of intermediate features in detection networks, making it harder to discriminate
+                         small objects. Although the proposed frequency-windowed attention and multi-scale
+                         frequency-spatial fusion modules can structurally alleviate fog interference, it is still nec-
+                         essary during training to explicitly constrain the network and encourage richer detail
+                         responses in regions severely affected by fog.
+
+                                                         Lfog = λ · Ldet + α · Lcontrast ,
+
+                         where Lcontrast adaptively increases the penalty for low-contrast regions based on estimated
+                         fog density, encouraging stable optimization under severe visibility degradation.
+                              Unlike focal loss or IoU-based losses that primarily address class imbalance or local-
+                         ization accuracy, the proposed fog-aware loss explicitly regularizes low-contrast regions,
+                         acting as a training-stage stabilization mechanism rather than a replacement for standard
+                         detection objectives.
+                              To this end, we propose a fog-aware loss function based on frequency-domain detail
+                         regularization. Unlike conventional loss designs that rely on additional supervision signals
+                         or pseudo-labels, this loss introduces no extra manual annotations. Instead, it acts as a
+                         feature-level regularization term directly applied to intermediate feature representations
+                         in the detection network. Specifically, the fog-aware loss is imposed on the feature maps
+                         yi output by the Multi-Scale Frequency-Spatial Fusion (MFSF) module, with the goal of
+                         strengthening high-frequency detail representations in fog-degraded regions.
+                              First, to characterize high-frequency responses in the feature maps, we employ a
+                         Laplacian operator to extract high-frequency components. The high-frequency response of
+                         the feature map yi is defined as:
+                                                                H (yi ) = |∆(yi )|                                (38)
+
+                         Here, ∆(·) denotes the Laplacian operator, which is used to emphasize edges and texture
+                         information in the feature maps.
+                              Second, to adaptively emphasize regions severely affected by fog degradation, a
+                         fog-weight map W is constructed. This weight map is automatically computed from local
+                         contrast and gradient statistics of the input image. Regions with lower contrast and edge
+                         strength are assigned larger weight values, thereby receiving higher importance in the loss
+                         computation. The specific form of the fog-weight map can be expressed as:
+
+                                               W ( p) = 1 + λ · σ(α(τc − C ( p)) + β(τe − E( p)))                       (39)
+
+                         Here, C ( p) and E( p) denote the local contrast and gradient magnitude at pixel location p,
+                         respectively; σ (·) is the Sigmoid function; τc and τe are adaptive thresholds; and λ, α, and
+                         β are hyperparameters. Based on this, the fog-aware loss is defined as:
+
+
+
+                                                                                         https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                             16 of 28
+
+
+
+                                                             1
+                                                             N∑
+                                                  Lfog = −       (W ( p) − 1) · ∥ H (yi )( p)∥1                       (40)
+                                                               p
+
+
+                         Here, N denotes the number of pixels in the feature map. This loss encourages stronger
+                         high-frequency responses in regions with higher fog weights, thereby suppressing the
+                         over-smoothing of features caused by fog degradation.
+                              Finally, the fog-aware loss is incorporated as a regularization term and jointly opti-
+                         mized with the standard object detection loss. The overall loss function can be expressed as:
+
+                                                         Ltotal = µ · Lfog + Lcls + Lloc                              (41)
+
+                         Here, µ is the weighting coefficient for the fog-aware loss, used to balance the contributions
+                         between the conventional object detection loss and the fog-aware loss.
+                               The fog-aware loss involves several hyperparameters, including λ, α, β, τc , and τe ,
+                         which are used to modulate the weighting response under different levels of fog degrada-
+                         tion. In this work, the default parameter configuration is determined via grid search on the
+                         RTTS training set and subsequently validated on the Cityscapes-foggy benchmarks. Exper-
+                         imental results indicate that perturbing these hyperparameters within a ±20% range leads
+                         to performance variations of less than 0.3 mAP, suggesting that the proposed fog-aware
+                         loss exhibits stable behavior across datasets and fog intensities.
+
+                         4. Numerical Experiment
+                         4.1. Experimental Preparation
+                              In terms of hardware, the model training and inference were conducted on an NVIDIA
+                         RTX A6000 GPU. For software, the PyTorch (version 2.1.0) deep learning framework was
+                         used. All models were optimized using the AdamW optimizer with a batch size of 16 and a
+                         learning rate of 4 × 10−3 . The self-attention modules in Stage 3 and Stage 4 of the model em-
+                         ployed window sizes of 14 and 7, respectively. To evaluate downstream task performance,
+                         the RTTS and CityScapes datasets were used for model assessment. All experimental results
+                         are reported as the average of three independent training runs with different random seeds,
+                         along with the corresponding standard deviations. Unless otherwise specified, the variance
+                         across runs is consistently below ±0.5% for all reported metrics.
+
+                         4.2. Experimental Results and Comparative Analysis
+                         4.2.1. Ablation Test Results
+                              First, we evaluate the contribution of individual components in the proposed method
+                         through an ablation study. Specifically, we test variants that remove the attention mod-
+                         ules in the backbone, remove the MFSF, and replace the hidden-state-based HSM-SSD
+                         module. As reported in Table 2, disabling these components leads to different levels of
+                         performance reduction. For clarity, the best results in all tables are highlighted in bold
+                         throughout the manuscript. In particular, removing the MFSF network and the atten-
+                         tion modules produces the most noticeable degradation. Precision, recall, mAP@0.5, and
+                         mAP@0.5–0.95 decrease by 3.4%, 4.2%, 3.6%, and 4.5% when MFSF is removed. The same
+                         metrics drop by 2.3%, 3.5%, 3.1%, and 3.8% after removing the attention modules. In
+                         comparison, replacing HSM-SSD with a standard SSM module results in only a minor
+                         accuracy decrease. These results suggest that the attention modules and the MFSF play the
+                         most important roles in enhancing fine-grained feature perception and improving overall
+                         detection performance. To quantitatively analyze the computational overhead introduced
+                         by frequency-domain attention, we compare the proposed FFT-based window attention in
+                         FWS-SSD with spatial-domain window attention of identical window size. Under the same
+                         input resolution, the FFT-based attention incurs an increase of approximately 8% in FLOPs.
+
+
+
+                                                                                       https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                             17 of 28
+
+
+
+                                      However, due to the use of hidden-state compression and localized window constraints,
+                                      the corresponding increase in end-to-end inference latency is limited to 30 ms. These
+                                      results indicate that the additional computational cost introduced by frequency-domain
+                                      operations is controllable and remains well-balanced with the performance gains achieved
+                                      by enhanced high-frequency feature modeling. In addition, removing the fog-aware loss
+                                      (by setting µ = 0) leads to a consistent drop in mAP, especially under dense fog, indicating
+                                      that the proposed regularization effectively emphasizes detail-deficient regions without
+                                      extra supervision.
+
+                                      Table 2. Ablation Experiment Results.
+
+                                   Prediction         Recall                        Reasoning
+           Module                                                   mAP@0.5/%                          mAP@0.5–0.95/%       FLOPs/G
+                                   Accuracy/%         Rate/%                         Time/s
+ Remove attention module                83.9            69.5            77.7             0.22               47.2               39.8
+  Remove MFSF module                    83.1            70.8            78.1             0.25               46.5               41.3
+ Remove HSM-SSD model                   86.2            71.9            80.1             0.28               49.5               44.9
+    Complete model                      87.3            73.1            81.2             0.26               51.0               45.6
+  Remove fog-aware loss                 86.9            72.0            80.3             0.26               49.6               45.6
+
+
+                                           Although HSM-SSD has a smaller influence on accuracy, it provides a clear efficiency
+                                      benefit. Compared with the standard SSM module, HSM-SSD achieves faster inference,
+                                      indicating that hidden-state compression effectively reduces runtime cost. In contrast, the
+                                      attention modules have a pronounced impact on inference speed. Moreover, replacing the
+                                      conventional FPN with the proposed MFSF yields only a negligible change in inference
+                                      time. This observation indicates that the MFSF network improves detection robustness
+                                      without imposing a substantial burden on real-time deployment.
+
+                                      4.2.2. Comparative Analysis of Target Detection Results
+                                           To comprehensively assess the detection performance of HS-MambaDet in chal-
+                                      lenging foggy scenes, we select four representative detectors as baselines, including the
+                                      single-stage models YOLOv5 and YOLOv8, the two-stage detector Faster R-CNN, and
+                                      the state space based model Mamba-YOLO. Table 3 reports the results under identical
+                                      experimental settings. In addition to single-image inference latency, we further report
+                                      batch-level throughput and peak GPU memory usage to provide a more comprehen-
+                                      sive runtime analysis. Experimental results show that, despite the introduction of
+                                      frequency-domain operations, HS-MambaDet maintains competitive efficiency. Specifi-
+                                      cally, at a batch size of 8, the proposed model achieves a throughput of approximately
+                                      28 images/s, while the peak GPU memory consumption increases by only about
+                                      7% compared to baseline models. These results indicate that the frequency-domain enhance-
+                                      ment introduces a manageable overhead and does not significantly compromise practical
+                                      deployment efficiency.
+
+                                      Table 3. Comparison Results of Different Models.
+
+                         Prediction        Recall                      Reasoning
+      Model                                            mAP@0.5/%                     mAP@0.5–0.95/%         Parameters/M     FLOPs/G
+                         Accuracy/%        Rate/%                       Time/s
+  HS-MambaDet               88.0               74.5        85.2           0.26                  55.1            46.0           47.5
+    YOLOv5                  83.2               70.1        78.4           0.23                  42.5            24.0           64.2
+    YOLOv8                  85.7               71.8        80.9           0.22                  48.6            28.6           78.9
+  Faster R-CNN              81.5               68.7        77.3           0.56                  40.2            42.0           155.4
+  Mamba-YOLO                84.5               69.9        79.8           0.28                  46.8            18.5           50.0
+
+
+
+
+                                                                                                       https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                         18 of 28
+
+
+
+                              Overall, HS-MambaDet achieves the strongest performance on all major metrics, in-
+                         cluding Precision, Recall, mAP@0.5, and mAP@0.5–0.95. In particular, HS-MambaDet
+                         attains an mAP@0.5 of 85.2 percent, which exceeds the best baseline, YOLOv8 at 80.9 per-
+                         cent, by 4.3 percentage points. The advantage becomes even larger under the stricter
+                         mAP@0.5–0.95 metric. HS-MambaDet reaches 55.1 percent, while YOLOv5, YOLOv8, and
+                         Mamba-YOLO obtain 42.5 percent, 48.6 percent, and 46.8 percent, respectively. These
+                         results indicate that frequency-windowed attention, the Multi-Scale Frequency-Spatial
+                         Fusion module, and the fog-aware loss improve the recovery of fog-degraded features,
+                         leading to more stable detection across object scales and degradation levels.
+                              Comparisons with the YOLO series further highlight the benefits of the proposed
+                         design. YOLOv5 and YOLOv8 are widely used real-time detectors with lightweight
+                         implementations and fast inference. However, when fog reduces contrast and sup-
+                         presses high-frequency details, their convolutional features can be easily disturbed, re-
+                         sulting in relatively low mAP@0.5–0.95 scores of 42.5 percent and 48.6 percent. By in-
+                         tegrating frequency-domain attention and the HSM-SSD state space module into the
+                         backbone, HS-MambaDet improves sensitivity to edges and textures while maintain-
+                         ing computational efficiency. This allows the model to preserve higher accuracy in
+                         fog-degraded environments.
+                              For Faster R-CNN, the two-stage design provides strong semantic representations and
+                         high-quality region proposals under normal visibility. Under foggy conditions, however,
+                         the Region Proposal Network depends on clear structural cues, and reduced contrast de-
+                         grades proposal quality, limiting final detection performance. In addition, Faster R-CNN
+                         requires 0.56 s per image, which is notably slower than the 0.26 s of HS-MambaDet. This
+                         runtime gap reduces its suitability for real-time deployment. In contrast, HS-MambaDet
+                         maintains an accuracy advantage while offering faster inference, improving both effective-
+                         ness and efficiency.
+                              Mamba-YOLO incorporates state space modeling and benefits from improved global
+                         dependency reasoning. Nevertheless, its ability to recover high-frequency detail remains
+                         insufficient. In dense fog, relying mainly on sequential state propagation can increase
+                         feature smoothing, weakening representations for small targets. As shown in Table 3,
+                         Mamba-YOLO achieves an mAP@0.5–0.95 of 46.8 percent, which is lower than the
+                         55.1 percent obtained by HS-MambaDet. Although Mamba-YOLO preserves relatively
+                         fast inference at 0.28 s per image, its robustness and accuracy remain inferior to the
+                         proposed approach.
+                              In summary, HS-MambaDet provides clear benefits for foggy-scene small-object
+                         detection. It improves accuracy and recall compared to YOLOv5, YOLOv8, Faster
+                         R-CNN, and Mamba-YOLO, while maintaining a favorable balance between inference
+                         time and model complexity. These results support the effectiveness of the proposed
+                         frequency and spatial joint modeling strategy for robust real-time detection in practical
+                         adverse-weather scenarios.
+
+                         4.2.3. Comparison with Fog-Specific Detectors
+                              To further validate the fog-domain specificity of HS-MambaDet, we additionally
+                         compare with recent fog-oriented detection approaches (e.g., dehazing-assisted detection
+                         and fog-aware feature enhancement detectors) under the same training/testing protocol.
+                         All methods are trained on the same foggy datasets and evaluated using identical metrics to
+                         ensure fairness. The comparison results with fog-specific object detectors are summarized
+                         in Table 4.
+
+
+
+
+                                                                                   https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                     19 of 28
+
+
+
+                         Table 4. Comparison with Fog-specific Object Detectors on the Public Foggy Benchmark.
+
+                          Method                            Precision (%)   Recall (%)   mAP@0.5 (%)   mAP@0.5:0.95 (%)   Time (s)
+                          FogDet-A (Dehaze+Det [28])            82.4           76.1         80.3             49.2           0.41
+                          FogDet-B (Fog-aware Attn. [30])       84.7           72.8         82.1             51.0           0.33
+                          FogDet-C (Freq-enhanced [31])         85.1           73.4         83.0             52.4           0.30
+                          HS-MambaDet (ours)                    88.0           74.5         85.2             55.1           0.26
+
+
+                               To demonstrate the effectiveness of the improved algorithm in detecting objects under
+                         varying fog densities and to verify its robustness, the detection results of the proposed
+                         method were compared with those of mainstream models across three scenarios: Light Fog,
+                         Moderate Fog, and Dense Fog.
+                               As illustrated in Figure 7, in light-fog scenarios, all mainstream models can effectively
+                         detect vehicle targets because the weather introduces relatively limited interference in the
+                         images. Under these conditions, noise levels are low and the extracted features remain
+                         highly discriminative. Even so, the proposed method achieves higher detection confi-
+                         dence. We observe two typical failure modes under fog: (i) low-contrast suppression causes
+                         missed detections of distant small objects; and (ii) over-smoothing weakens edge/texture
+                         cues, leading to inaccurate localization for partially occluded targets. HS-MambaDet
+                         alleviates (i) by suppressing low-frequency haze components via frequency-windowed
+                         attention, and mitigates (ii) by explicitly enhancing high-frequency responses through the
+                         HFP/SDP-driven MFSF. These effects are most evident in the Dense-Fog column, where
+                         our method yields fewer false negatives on small and occluded vehicles.
+                               In moderate-fog scenarios, Faster R-CNN, which relies primarily on local texture cues,
+                         begins to suffer from missed detections due to fog-induced degradation. Specifically, three
+                         targets are missed, including two distant vehicles and one bus. Although Mamba-YOLO
+                         benefits from stronger global context modeling, it still produces two missed detections,
+                         similar to YOLOv5. YOLOv8 balances global and local feature extraction more effectively
+                         and detects most targets, but it still misses the distant bus. By contrast, the proposed
+                         HS-MambaDet preserves and exploits high-frequency information more effectively and
+                         successfully detects the distant bus as well.
+                               In dense-fog scenarios, extremely low visibility and partial occlusions caused by power
+                         lines severely interfere with edge and other local feature cues, substantially increasing the
+                         difficulty of target recognition. As shown in Figure 7c, Faster R-CNN exhibits multiple
+                         missed detections for small and occluded objects under dense fog. Other methods also suf-
+                         fer from varying degrees of missed detections, as they struggle to separate high-frequency
+                         and low-frequency components in heavily degraded images, leading to blurred representa-
+                         tions of small targets. In contrast, the proposed approach integrates global modeling, local
+                         detail enhancement, and high-frequency component extraction, enabling reliable detection
+                         of small and occluded vehicles even under strong interference. As a result, HS-MambaDet
+                         significantly reduces missed detections in foggy scenes, demonstrating higher detection
+                         accuracy, stronger robustness, and substantial potential for real-world deployment.
+
+                         4.2.4. Detection Results of Complex Scenes
+                              To evaluate the model’s performance in complex foggy scenarios, we conduct
+                         category-level experiments on five representative classes: pedestrian, car, bus, bicycle,
+                         and motorcycle. The detailed results are provided in Tables 5–8. As shown in these tables,
+                         HS-MambaDet achieves the best performance across all classes and evaluation metrics,
+                         suggesting strong generalization and consistent superiority.
+
+
+
+
+                                                                                               https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                   20 of 28
+
+
+
+                     Mist                             Medium Fog                   Dense Fog
+
+
+
+
+                                                    (a) Ground Truth
+
+
+
+
+                                                   (b) HS-MambaDet
+
+
+
+
+                                                    (c) Faster R-CNN
+
+
+
+
+                                                       (d) YOLOv5
+
+
+
+
+                                                    (e) Mamba-YOLO
+
+
+
+
+                                                       (f) YOLOv8
+
+                            Figure 7. Fog Detection Visualization Results.
+
+
+
+
+                                                                             https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                             21 of 28
+
+
+
+                         Table 5. Prediction Accuracy Results.
+
+                                                                        Prediction Accuracy/%
+                                 Model
+                                                    Pedestrian   Car            Bus           Bicycle       Motorcycle
+                            HS-MambaDet                92.2      96.8           72.7            76.6            74.0
+                              YOLOv8                   89.5      95.1           70.2            74.8            71.5
+                            Mamba-YOLO                 88.1      94.2           69.0            73.6            70.0
+                              YOLOv5                   87.0      93.0           67.8            72.4            68.9
+                            Faster R-CNN               85.9      92.3           66.4            70.1            67.2
+
+
+                         Table 6. Recall Results.
+
+                                                                              Recall/%
+                                 Model
+                                                    Pedestrian   Car            Bus           Bicycle       Motorcycle
+                            HS-MambaDet                77.4      79.8           56.7            59.2            65.4
+                              YOLOv8                   75.5      78.6           55.0            57.9            63.0
+                            Mamba-YOLO                 74.9      77.8           54.3            57.1            62.0
+                              YOLOv5                   74.0      77.1           53.1            55.8            61.2
+                            Faster R-CNN               72.8      75.9           51.9            54.3            59.5
+
+
+                         Table 7. AP50 Results.
+
+                                                                              AP50/%
+                                 Model
+                                                    Pedestrian   Car            Bus           Bicycle       Motorcycle
+                            HS-MambaDet                85.9      91.0           66.6            69.9            74.3
+                              YOLOv8                   83.6      89.4           64.8            67.5            71.2
+                            Mamba-YOLO                 82.8      88.5           63.9            66.7            70.4
+                              YOLOv5                   81.7      87.6           62.8            65.4            69.3
+                            Faster R-CNN               80.3      86.9           61.1            64.0            68.2
+
+
+                         Table 8. AP50-95 Results.
+
+                                                                             AP50-95/%
+                                 Model
+                                                    Pedestrian   Car            Bus           Bicycle       Motorcycle
+                            HS-MambaDet                51.3      56.6           39.8            42.9            46.9
+                              YOLOv8                   48.5      54.0           37.6            41.1            44.2
+                            Mamba-YOLO                 47.2      53.1           36.8            40.4            43.5
+                              YOLOv5                   45.9      51.8           35.4            39.0            42.1
+                            Faster R-CNN               44.7      50.3           34.2            37.6            40.9
+
+
+                              Under the AP50-95 metric, HS-MambaDet outperforms all comparison methods
+                         for each of the five categories. For dominant classes such as pedestrians and cars,
+                         HS-MambaDet reaches 51.3 percent and 56.6 percent, respectively, which corresponds
+                         to an improvement of about 2.5 percent to 3.0 percent over YOLOv8. For fog-sensitive cate-
+                         gories, including buses and bicycles, the gains remain evident, indicating that the proposed
+                         design improves robustness even when visibility is severely degraded. These results imply
+                         that frequency-aware enhancement and spatial dependency modeling alleviate the loss
+                         of high-frequency details under fog, thereby supporting stable performance across object
+                         scales and different degradation levels.
+                              HS-MambaDet also shows a clear advantage in precision and recall. For instance,
+                         precision for pedestrians and cars reaches 92.2 percent and 96.8 percent, respectively. Ad-
+                         ditionally, recall values exceed those of YOLOv5, YOLOv8, Mamba-YOLO, and Faster
+
+
+
+                                                                                       https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                           22 of 28
+
+
+
+                         R-CNN for all categories, suggesting that the model can more reliably extract discrimina-
+                         tive cues from low-contrast backgrounds and improve recognition of distant targets and
+                         small-scale objects.
+                               Moreover, HS-MambaDet maintains consistent improvements under the AP50 metric,
+                         with particularly notable gains for challenging categories such as buses and bicycles.
+                         This observation further supports that the High-Frequency Perception module and the
+                         Spatial Dependency Perception module play important roles in recovering weak texture
+                         information and improving cross-scale semantic alignment in foggy conditions.
+                               Overall, the results in Tables 5–8 demonstrate that HS-MambaDet achieves higher
+                         detection accuracy, more reliable small-object recognition, and better category-level sta-
+                         bility in complex foggy scenes, outperforming mainstream baselines including YOLOv5,
+                         YOLOv8, Mamba-YOLO, and Faster R-CNN.
+                               To further examine model behavior across multiple categories from the perspective of
+                         classifier discriminability, we plot precision-recall curves and receiver operating character-
+                         istic curves for each class, as shown in Figure 8.
+                               For the precision-recall curves, the area under the curve provides an intuitive in-
+                         dicator of how well a method balances precision and recall. It can be observed that
+                         HS-MambaDet yields the most saturated curve and covers the largest area, indicating the
+                         strongest overall trade-off. In particular, its precision declines more gradually as recall
+                         increases, suggesting that the model maintains high precision at higher recall levels, thereby
+                         reducing false-positive predictions. By comparison, YOLOv8 produces the second-best
+                         curve, whereas Faster R-CNN exhibits a pronounced precision drop at relatively low re-
+                         call, implying difficulty in simultaneously achieving high precision and high recall in
+                         challenging foggy scenes.
+                               For the receiver operating characteristic curves, HS-MambaDet is closest to the
+                         upper-left corner and achieves the highest area under the curve, demonstrating stronger
+                         category-wise separability and more effective suppression of background interference. The
+                         ROC curves of Mamba-YOLO and YOLOv5 are similar and remain at an intermediate level,
+                         which is consistent with the overall ranking reported in Table 3.
+                               Overall, this curve-based analysis aligns with the quantitative results discussed above.
+                         Together, these observations confirm that the joint use of global context modeling and
+                         detail-preserving enhancement in HS-MambaDet improves feature discriminability, en-
+                         abling more accurate category recognition in complex multi-object foggy scenarios.
+                               Moreover, the consistently larger PR/ROC areas indicate that the proposed
+                         frequency-aware enhancement and fog-aware regularization improve feature discriminabil-
+                         ity under fog, which aligns with the quantitative gains reported in Tables 3 and 9.
+                               In particular, the proposed method exhibits stronger robustness and enhanced de-
+                         tail perception in small-object detection scenarios. To this end, scenes containing a large
+                         number of small objects were selected for evaluation. As shown in Table 9, HS-MambaDet
+                         demonstrates a substantial advantage over other methods in small-object scenarios, owing
+                         to its high-frequency-aware detection strategy. In addition, partial visualizations of test
+                         samples under small-object conditions are provided to facilitate a more intuitive compari-
+                         son among different algorithms. As illustrated in Figure 9, for distant vehicles, buses, and
+                         pedestrians in the scene, HS-MambaDet is able to effectively detect a greater number of
+                         targets due to its distinctive high-frequency and spatial perception capabilities, whereas
+                         other models exhibit inferior performance. Overall, the improved algorithm not only signif-
+                         icantly enhances detection accuracy across multiple object categories but also demonstrates
+                         superior recognition performance and stability in small-object scenarios, fully validating
+                         its potential and value for practical real-world applications. Notably, small objects contain
+                         fewer pixels and thus rely more on high-frequency structures (edges and fine textures).
+
+
+
+                                                                                     https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                        23 of 28
+
+
+
+                         By explicitly strengthening high-frequency components and cross-scale spatial alignment,
+                         HS-MambaDet improves recall for tiny/distant instances in fog, as qualitatively shown
+                         in Figure 9 and quantitatively verified in Table 9.
+
+                                    PR Curve                            ROC Curve
+
+
+
+
+                                                (a) HS-MambaDet
+
+
+
+
+                                                (b) Faster R-CNN
+
+
+
+
+                                                (c) Mamba-YOLO
+
+
+
+
+                                                  (d) YOLOv8
+
+
+
+
+                                                  (e) YOLOv5
+
+                         Figure 8. PR Curve and ROC Curve.
+
+
+
+                                                                                  https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                              24 of 28
+
+
+
+                         Table 9. Small Target Detection Results.
+
+                                 Model               Prediction Accuracy/%         Recall Rate/%          mAP@0.5/%
+                             HS-MambaDet                     81.2                      68.6                  76.7
+                               YOLOv8                        79.4                      67.3                  74.9
+                             Mamba-YOLO                      78.1                      66.2                  73.6
+                               YOLOv5                        76.9                      65.1                  72.1
+                             Faster R-CNN                    75.4                      63.8                  70.5
+
+
+
+
+                                                  (a) Original Image
+
+
+
+
+                                                  (b) HS-MambaDet
+
+
+
+
+                                                  (c) Faster R-CNN
+
+
+
+
+                                                     (d) YOLOv5
+
+
+
+
+                                                  (e) Mamba-YOLO
+
+
+
+
+                                                     (f) YOLOv8
+
+                         Figure 9. Small Target Detection Visualization Results.
+
+
+
+
+                                                                                        https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                        25 of 28
+
+
+
+                                4.3. Generalization Experiment
+                                     To verify the generalization ability of HS-MambaDet under different fog intensities,
+                                we directly evaluate the trained model on CityScapes-foggy-low and CityScapes-foggy-high
+                                without additional fine-tuning, and compare it with Faster R-CNN, YOLOv5,
+                                Mamba-YOLO, and YOLOv8. The detailed results are reported in Tables 10–12.
+                                     On the low fog intensity benchmark, CityScapes-foggy-low, HS-MambaDet achieves
+                                the best results for all five categories. The improvements are particularly evident for
+                                small-object classes such as buses and bicycles, indicating that detail-preserving enhance-
+                                ment and spatial dependency modeling support more reliable recognition when object cues
+                                are weakened.
+                                     On the high fog intensity benchmark, CityScapes-foggy-high, the performance of all
+                                methods decreases further. The degradation is more pronounced for architectures that rely
+                                heavily on convolutional texture cues, such as ConvNeXt, which are sensitive to severe
+                                texture suppression. In contrast, HS-MambaDet retains a clear advantage under dense fog,
+                                suggesting stronger robustness in cross-intensity and cross-domain evaluation.
+
+                                Table 10. Prediction Accuracy Results.
+
+                                                                   Prediction Accuracy/%
+        Model             Pedestrian                  Car                     Bus             Bicycle              Motorcycle
+                         Low       High        Low          High       Low          High   Low        High       Low        High
+   HS-MambaDet           79.6       36.4       82.8         40.9       63.7         27.0   66.9        30.6       72.8       33.8
+     YOLOv8              77.1       34.2       80.3         38.6       61.2         25.3   64.4        28.9       70.3       31.7
+   Mamba-YOLO            76.0       33.5       79.4         37.8       60.1         24.7   63.3        28.3       69.1       31.1
+     YOLOv5              74.9       32.1       78.1         36.2       58.7         23.1   61.9        26.8       67.5       29.7
+   Faster R-CNN          73.4       31.0       76.3         34.9       57.3         22.2   60.1        25.6       65.9       28.3
+
+                                Table 11. Recall Results.
+
+                                                                     Recall Results/%
+        Model             Pedestrian                  Car                     Bus             Bicycle              Motorcycle
+                         Low       High        Low          High       Low          High   Low        High       Low        High
+   HS-MambaDet           63.1       54.4       66.3         58.1       48.8         39.7   50.2        42.8       59.7       48.5
+     YOLOv8              60.9       52.1       64.2         56.6       46.9         38.2   48.4        41.3       58.1       47.1
+   Mamba-YOLO            60.1       51.3       63.0         55.5       46.1         37.6   47.6        40.6       57.0       46.2
+     YOLOv5              59.3       50.0       61.8         54.2       44.7         36.1   46.1        39.2       55.8       45.0
+   Faster R-CNN          57.8       48.9       60.2         52.8       43.3         35.0   44.8        38.0       54.1       43.6
+
+                                Table 12. AP50 Results.
+
+                                                                      AP50 Results/%
+        Model             Pedestrian                  Car                     Bus             Bicycle              Motorcycle
+                         Low       High        Low          High       Low          High   Low        High       Low        High
+   HS-MambaDet           70.4       59.4       75.1         63.7       52.4         41.8   56.0        44.9       61.2       48.2
+     YOLOv8              67.9       57.0       72.6         61.4       50.1         39.9   54.1        43.4       59.0       46.5
+   Mamba-YOLO            66.8       55.9       71.4         60.3       49.0         39.0   53.2        42.1       57.8       45.8
+     YOLOv5              65.4       54.3       69.9         58.9       47.6         37.5   51.3        40.6       56.3       44.3
+   Faster R-CNN          63.8       52.8       68.4         57.3       46.0         36.3   49.9        39.4       54.9       43.2
+
+
+                                   In addition, HS-MambaDet shows smaller performance drops than the competing
+                                models on the CityScapes foggy benchmarks, indicating superior generalization. This
+
+
+
+                                                                                                  https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                             26 of 28
+
+
+
+                                robustness can be attributed to the proposed multi-level feature extraction and fusion
+                                design, which encourages more domain-invariant representations. The high-frequency
+                                perception module emphasizes geometric structure cues such as edges and textures, which
+                                are comparatively less affected by appearance changes induced by fog, supporting stable
+                                discriminability across datasets. Meanwhile, the spatial dependency perception module
+                                captures contextual relations across pixels, reducing reliance on local textures that vary
+                                across domains and enabling inference based on more robust global spatial organization.
+                                     Moreover, the selective state space mechanism in the HSM-SSD backbone dynamically
+                                emphasizes informative signals and suppresses domain-specific noise. The hybrid CNN,
+                                Transformer, and Mamba design further provides complementary capabilities, allowing dif-
+                                ferent components to cooperate for stable inference under unseen data distributions. As a
+                                result, even on previously unseen datasets with varying fog intensity, HS-MambaDet
+                                preserves detection accuracy to a larger extent, demonstrating practical potential for
+                                real-world deployment.
+                                     In Tables 10–12, “low” denotes CityScapes-foggy-low, and “high” denotes CityScapes-
+                                foggy-high.
+
+                                5. Conclusions
+                                     This study presented HS-MambaDet, a frequency-compensated state-space detec-
+                                tor for small-object detection in foggy and dynamic environments. The proposed
+                                method embedded a lightweight Frequency-Window-Attention state-space module, termed
+                                FWS-SSD, into the backbone to enable efficient long-range modeling. In FWS-SSD, channel
+                                mixing and gating were performed in a low-dimensional hidden-state space to reduce
+                                computational cost, while frequency-window attention enhances high-frequency details
+                                and suppresses low-frequency fog interference, mitigating detail loss caused by recursive
+                                state propagation. Additionally, a Multi-Scale Frequency-Spatial Fusion (MFSF) module
+                                was introduced in the neck to strengthen fine-grained cues and cross-scale spatial con-
+                                text. A fog-aware detection loss was further designed to emphasize low-contrast and
+                                detail-deficient regions, improving detection stability under fog degradation. Experiments
+                                on RTTS and CityScapes verified the effectiveness of the proposed approach. HS-MambaDet
+                                achieves 85.2% mAP@0.5 and 55.1% mAP@0.5–0.95 on RTTS, outperforms representative
+                                one-stage, two-stage, and state-space baselines, and maintains competitive inference effi-
+                                ciency, demonstrating a favorable accuracy-efficiency trade-off for real-time foggy-scene
+                                small-object detection.
+
+                                Author Contributions: Conceptualization, F.X.; Methodology, F.X.; Validation, F.X.; Formal analysis,
+                                F.X. and J.S.; Investigation, J.S.; Data curation, J.S.; Writing–original draft, Y.C.; Supervision, F.X.;
+                                Funding acquisition, F.X. All authors have read and agreed to the published version of the manuscript.
+
+                                Funding: The APC was funded by the 2022 Major Fundamental Research Project of the Liaon-
+                                ing Provincial Department of Education (LJKZZ20220007) and the Major Cultivation Project for
+                                Fundamental Research in Central Universities (3242022004).
+
+                                Data Availability Statement: The original contributions presented in this study are included in the
+                                article. Further inquiries can be directed to the corresponding author.
+
+                                Conflicts of Interest: The authors declare no conflicts of interest.
+
+
+References
+1.   Liu, Y.F.; Cao, L.H.; Li, N.; Zhang, Y.F. Detection of space infrared weak target based on YOLOv4. Chin. J. Liq. Cryst. Displays
+     2021, 36, 615–623. [CrossRef]
+2.   Ren, B.; Wang, Y.Q.; Cong, Z.; Nie, H.T.; Yang, H. Design of aerial image target detection systembased on MPSOC. Chin. J. Liq.
+     Cryst. Displays 2021, 36, 1006–1017. [CrossRef]
+
+
+
+                                                                                                       https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                              27 of 28
+
+
+
+3.    Kumar, D.; Naveed, M. Object Detection in Adverse Weather for Autonomous Driving through Data Merging and YOLOv8.
+      Sensors 2023, 23, 8471. [CrossRef] [PubMed]
+4.    Chen, X.; He, B.; Long, Y.J.; Song, X.Y.; Bi, G.L. Adaptive ship target detection in complex background. Chin. J. Liq. Cryst. Displays
+      2022, 37, 405–414. [CrossRef]
+5.    Sakaridis, C.; Dai, D.; Van Gool, L. Semantic foggy scene understanding with synthetic data. Int. J. Comput. Vis. 2018, 126, 973–992.
+      [CrossRef]
+6.    Meng, X.; Liu, Y.; Fan, L.; Fan, J. YOLOv5s-Fog: An improved model based on YOLOv5s for object detection in foggy weather
+      scenarios. Sensors 2023, 23, 5321. [CrossRef]
+7.    Zhang, Z.; Li, X.; Chen, S. Small object detection algorithm in UAV aerial images based on improved YOLO11. Chin. J. Liq.
+      Cryst. Displays 2025, 40, 915–930. [CrossRef]
+8.    Wang, D.; Luo, Y.; Zhang, F.; Huang, S. CORM-YOLO: Pedestrian detection algorithm in low-light conditions for traffic
+      environments. Chin. J. Liq. Cryst. Displays 2025, 40, 1369–1380.
+9.    Luo, Y.; Cao, X.; Zhang, J.; Guo, J.; Shen, H.; Wang, T.; Feng, Q. CE-FPN: Enhancing channel information for object detection.
+      Multimed. Tools Appl. 2022, 81, 30685–30704. [CrossRef]
+10.   Dosovitskiy, A.; Beyer, L.; Kolesnikov, A.; Weissenborn, D.; Zhai, X.; Unterthiner, T.; Dehghani, M.; Minderer, M.; Heigold, G.;
+      Gelly, S.; et al. An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale. In Proceedings of the International
+      Conference on Learning Representations, ICLR 2021, Vienna, Austria, 4 May 2021.
+11.   Zhu, L.; Liao, B.; Zhang, Q.; Wang, X.; Liu, W.; Wang, X. Vision mamba: Efficient visual representation learning with bidirectional
+      state space model. arXiv 2024, arXiv:2401.09417. [CrossRef]
+12.   Ge, Z.; Liu, S.; Wang, F.; Li, Z.; Sun, J. Yolox: Exceeding yolo series in 2021. arXiv 2021, arXiv:2107.08430. [CrossRef]
+13.   Gu, A.; Dao, T. Mamba: Linear-time sequence modeling with selective state spaces. In Proceedings of the First Conference on
+      Language Modeling, Philadelphia, PA, USA, 7–9 October 2024.
+14.   Fang, W.; Zhang, G.; Zheng, Y.; Chen, Y. Multi-task learning for uav aerial object detection in foggy weather condition.
+      Remote Sens. 2023, 15, 4617. [CrossRef]
+15.   Kumar, A. Perceptual Piercing: Human Visual Cue-Based Object Detection in Low Visibility Conditions. In Proceedings of the
+      International Conference on Learning Representations, ICLR 2025, Singapore, 24–28 April 2025.
+16.   Chu, Z. D-YOLO a robust framework for object detection in adverse weather conditions. arXiv 2024, arXiv:2403.09233. [CrossRef]
+17.   Kisantal, M.; Wojna, Z.; Murawski, J.; Naruniec, J.; Cho, K. Augmentation for small object detection. arXiv 2019, arXiv:1902.07296.
+      [CrossRef]
+18.   Dao, T.; Gu, A. Transformers are ssms: Generalized models and efficient algorithms through structured state space duality.
+      arXiv 2024, arXiv:2405.21060. [CrossRef]
+19.   Qiao, S.; Chen, L.C.; Yuille, A. Detectors: Detecting objects with recursive feature pyramid and switchable atrous convolution. In
+      Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, Nashville, TN, USA, 20–25 June 2021;
+      pp. 10213–10224.
+20.   Ren, S.; He, K.; Girshick, R.; Sun, J. Faster r-cnn: Towards real-time object detection with region proposal networks. In Advances
+      in Neural Information Processing Systems 28: Annual Conference on Neural Information Processing Systems 2015, Montreal, QC, Canada,
+      7–12 December 2015; ACM Digital Library: New York, NY, USA, 2015.
+21.   Park, H.J.; Kang, J.W.; Kim, B.G. ssFPN: Scale sequence (S 2) feature-based feature pyramid network for object detection. Sensors
+      2023, 23, 4432. [CrossRef]
+22.   Lin, T.Y.; Dollár, P.; Girshick, R.; He, K.; Hariharan, B.; Belongie, S. Feature pyramid networks for object detection. In Proceedings
+      of the IEEE Conference on Computer Vision and Pattern Recognition, Honolulu, HI, USA, 21–26 July 2017; pp. 2117–2125.
+23.   Cai, Z.; Vasconcelos, N. Cascade r-cnn: Delving into high quality object detection. In Proceedings of the IEEE Conference on
+      Computer Vision and Pattern Recognition, Salt Lake City, UT, USA, 18–23 June 2018; pp. 6154–6162.
+24.   Bochkovskiy, A.; Wang, C.Y.; Liao, H.Y.M. Yolov4: Optimal speed and accuracy of object detection. arXiv 2020, arXiv:2004.10934.
+      [CrossRef]
+25.   Li, A.; Xu, G.; Yue, W.; Xu, C.; Gong, C.; Cao, J. Object detection in hazy environments, based on an all-in-one dehazing network
+      and the YOLOv5 algorithm. Electronics 2024, 13, 1862. [CrossRef]
+26.   Sun, J.; Zhang, X.; Zeng, Y. Research on Multi object Detection in Foggy Sky Based on Fog Mod YOLOV8n. Acad. J. Sci. Technol.
+      2025, 15, 185–191. [CrossRef]
+27.   Wang, Z.; Li, C.; Xu, H.; Zhu, X.; Li, H. Mamba yolo: A simple baseline for object detection with state space model.
+      Proc. Aaai Conf. Artif. Intell. 2025, 39, 8205–8213. [CrossRef]
+28.   Cai, B.; Xu, X.; Jia, K.; Qing, C.; Tao, D.                 Dehazenet: An end-to-end system for single image haze removal.
+      IEEE Trans. Image Process. 2016, 25, 5187–5198. [CrossRef] [PubMed]
+29.   Li, B.; Peng, X.; Wang, Z.; Xu, J.; Feng, D. Aod-net: All-in-one dehazing network. In Proceedings of the IEEE International
+      Conference on Computer Vision, Venice, Italy, 22–29 October 2017; pp. 4770–4778.
+
+
+
+                                                                                                       https://doi.org/10.3390/sym18020320
+Symmetry 2026, 18, 320                                                                                                          28 of 28
+
+
+
+30.   Park, J.; Woo, S.; Lee, J.Y.; Kweon, I.S. Bam: Bottleneck attention module. arXiv 2018, arXiv:1807.06514. [CrossRef]
+31.   Gharatappeh, S.; Neshatfar, S.; Sekeh, S.Y.; Dhiman, V. FogGuard: Guarding YOLO against fog using perceptual loss. In Intelligent
+      Computing: Proceedings of the Computing Conference; Springer Nature: Cham, Switzerland, 2025; pp. 135–150.
+
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.
+
+
+
+
+                                                                                                   https://doi.org/10.3390/sym18020320
+

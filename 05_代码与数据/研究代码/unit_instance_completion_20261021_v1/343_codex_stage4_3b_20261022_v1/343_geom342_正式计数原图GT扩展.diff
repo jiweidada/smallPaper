@@ -1,0 +1,13 @@
+--- 343_geometry/geom342.py
++++ 343_geometry_v2/geom342.py
+@@ -234,3 +234,10 @@
+     wh=(upper-lower).clamp_min(0);inter=wh[...,0]*wh[...,1]
+     aa=(a[:,2:]-a[:,:2]).clamp_min(0).prod(-1);bb=(b[:,2:]-b[:,:2]).prod(-1)
+     return inter/(aa[:,None]+bb[None,:]-inter).clamp_min(1e-12)
++
++
++# 343 formal counting: original COCO GT xywh -> original xyxy, no scaling.
++def orig_xywh_to_orig_xyxy(boxes):
++    b=torch.as_tensor(boxes)
++    assert b.ndim==2 and b.shape[1]==4 and torch.isfinite(b).all() and (b[:,2:]>0).all()
++    return _boxes(torch.cat((b[:,:2],b[:,:2]+b[:,2:]),-1))

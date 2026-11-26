@@ -1,0 +1,246 @@
+DisCo DETR: Distance-Aware Multi-View Contrastive Learning for DETR
+Pre-Training
+Chao Ouyang1, Yuyang Bai1, Jun Zhang 1*, Tianlu Gao1, Jun Hao 2, Lijun Kong3,
+David Wenzhong Gao1
+1School of Electrical Engineering and Automation, Wuhan University
+2China Datang Technology Innovation Co., Ltd.
+3China Yangtze Power Co., Ltd.
+jun.zhang.ee@whu.edu.cn
+Abstract
+Recent self-supervised pre-training methods for object detec-
+tion often rely on generic object proposals for localization
+and semantic feature learning for classification, but they yield
+limited improvements when applied to Detection Transform-
+ers (DETR) due to a lack of architectural alignment. Hence,
+we propose an elegant and versatile self-supervised frame-
+work tailored for DETR-like models called Distance-aware
+Multi-view Contrastive Learning (DisCo DETR). DisCo
+DETR enhances localization and semantic features through
+two core components. (i) Distance-aware Multi-view Ob-
+ject Query Fusion explicitly guides object queries to focus
+on spatially close objects across views, stabilizing training
+and improving localization accuracy. (ii)Contrastive Learn-
+ing for DETR uses native bipartite matching to identify pos-
+itive output pairs across views and pull them closer, enhanc-
+ing semantic features discrimination with no extra matching.
+DisCo DETR can be seamlessly integrated into DETR-like
+models and achieves SOTA transfer performance on PAS-
+CAL VOC and COCO benchmarks across multiple variants.
+Code — https://github.com/oooyc/DisCo
+DETR
+Introduction
+DETR (Carion et al. 2020) reformulates object detection as a
+set prediction task using a Transformer encoder-decoder, re-
+moving hand-crafted components like Non-maximum sup-
+pression and providing a clean detection pipeline. However,
+it converges slowly and heavily relies on large-scale labeled
+data, limiting scalability in real-world scenarios.
+To reduce this dependency, recent self-/unsupervised ap-
+proaches tackle two key challenges corresponding to detec-
+tion’s core tasks: (1) object localization, often via heuris-
+tic proposals (Dai et al. 2021; Chen et al. 2023b; Bar et al.
+2022; Jin et al. 2023; Li et al. 2023) or attention cues (Melas-
+Kyriazi et al. 2022; Metaxas et al. 2024; Wang et al. 2023a,
+2022a, 2023b; Sim´eoni et al. 2023); and (2) learning seman-
+tic image feature for classification, using contrastive learn-
+ing (Bouniot et al. 2023; J ¨ackl et al. 2024; Kumar et al.
+2024; Li et al. 2023; Wang et al. 2021; Xie et al. 2021; Jin
+*Corresponding Author. E-mail: jun.zhang.ee@whu.edu.cn.
+Copyright © 2026, Association for the Advancement of Artificial
+Intelligence (www.aaai.org). All rights reserved.
+cls
+Object 
+f
+eatures
+Object 
+Queries
+  
+No 
+object
+Randomly Add
+box
+cls
+Backbone
+Backbone
+  
+k/v k2/v2
+Offline
+O
+bjects
+rec
+q
+x1 x2
+Object 
+f
+eatures
+Object 
+Queries
+  
+No object
+Distance-aware Fusion
+box
+Backbone
+Backbone
+  
+k1/v1
+O
+ffline
+Ob
+jects
+rec
+q1
+x1 x2
+Decoder
+k2/v2
+contrast
+(a) ( b)
+Encoder Encoder
+Decoder
+Encoder Encoder
+Decoder
+Figure 1: Comparison of self-supervised pre-training for
+DETR. (a) Previous methods. (b) DisCo DETR fuses cross-
+view features into spatially close queries and aligns matched
+outputs via contrastive learning.
+et al. 2023; Grill et al. 2020), clustering (Caron et al. 2020;
+Metaxas et al. 2024), or feature reconstruction (Chen et al.
+2023b; Dai et al. 2021). While effective for CNN-based de-
+tectors, these methods often yield limited gains on DETR
+due to the lack of architectural alignment.
+Recent works attempt to address this by adapting self-
+supervised learning to DETR. Some methods rely on high-
+level supervision, such as DETReg (Bar et al. 2022) distill-
+ing knowledge from external modules, SeqCo-DETR (Jin
+et al. 2023) ensuring output sequence consistency, and Apt-
+Det (Metaxas et al. 2024) using self-training with pseudo-
+labels. These approaches, however, largely treat DETR as
+a black box. Others, like UP-DETR (Dai et al. 2021) and
+Siamese-DETR (Chen et al. 2023b), interact more directly
+with object queries but suffer from unstable supervision
+due to random injection of object features into queries.
+Consequently, existing methods (as shown in Figure 1 (a))
+either overlook or fail to stably leverage DETR’s core
+designs—learnable object queries and bipartite matching,
+showing limited fine-tuning improvements and highlighting
+the need for a more architecture-aligned solution.
+In DETR, localization is driven by learnable object
+queries, which serve as positional embeddings that attend
+to spatially relevant regions via cross-attention and regress
+The Fortieth AAAI Conference on Artificial Intelligence (AAAI-26)
+24656
+
+---PAGE---
+
+offsets to the object. Inspired by this, we propose Distance-
+aware Multi-view Object Query Fusion (DMOQF) to im-
+prove query stability and localization. Given offline pro-
+posals (e.g., EdgeBoxes (Zitnick and Doll ´ar 2014)) from
+different views, we use bipartite matching to find spatially
+close query-proposal pairs, then fuse proposal features into
+queries. Unlike previous methods (Chen et al. 2023b; Dai
+et al. 2021) that randomly inject features, our approach pro-
+vides stable and distance-aware supervision. This explicitly
+guides queries to always focus on nearby objects, leading
+to smaller offsets and thus easier regression, which in turn
+stabilizes convergence and improves localization.
+Beyond localization, we revisit DETR’s bipartite match-
+ing for semantic feature learning. Prior methods often rely
+on coarse pseudo classification labels that merely indicate
+object presence, offering little semantic discrimination. In
+contrast, we observe that when applied independently to two
+augmented views, DETR’s intrinsic bipartite matching nat-
+urally identifies queries matched to the same object. Unlike
+previous work (Jin et al. 2023; Li et al. 2023), which requires
+extra matching steps, this insight allows us to create positive
+samples for contrastive learning without any overhead. Our
+proposed Contrastive Learning on Decoder outputs (CLD)
+thus fully exploits DETR’s intrinsic matching mechanism to
+inject semantic discrimination in a principled manner.
+Our contributions can be summarized as:
+• DMOQF: Fuses spatially close object features into
+queries, improving localization and stabilizing training.
+• CLD: Leverages DETR’s native bipartite matching to
+align semantic features across views, achieving stronger
+discrimination in a principled manner.
+Moreover, DisCo DETR, as shown in Figure 1 (b), requires
+no architectural changes and can be easily integrated with
+various DETR variants, offering improved transferability
+and stronger detection performance.
+Related Work
+Unsupervised Pre-Training for Object Detectors
+Recent unsupervised pre-training methods for object detec-
+tion focus on generating object proposals and learning se-
+mantically discriminative features without manual annota-
+tions. For anchor generation, most approaches leverage self-
+supervised features (Metaxas et al. 2024; Wang et al. 2022a,
+2023a,b; Sim ´eoni et al. 2023; Melas-Kyriazi et al. 2022)
+(e.g., DINO (Caron et al. 2021)) to identify potential ob-
+ject regions. For instance, TokenCut (Wang et al. 2023b)
+segments objects by constructing a graph of image patches
+with self-supervised Transformer features and applying nor-
+malized cuts to cluster semantically coherent regions, while
+AptDet (Metaxas et al. 2024) generates region proposals
+through spectral clustering and K-means on feature maps
+from a self-supervised backbone. Other methods use heuris-
+tic anchors including (Dai et al. 2021; Bar et al. 2022; Chen
+et al. 2023b; Jin et al. 2023; Li et al. 2023)
+To learn semantically discriminative features for classi-
+fication, some works use contrastive learning, which often
+involves feature-matching computation (Wang et al. 2021;
+Xie et al. 2021; Li et al. 2023; Jin et al. 2023), aggressive
+color & cropping augmentations (J ¨ackl et al. 2024; Kumar
+et al. 2024), and other complex and computationally costly
+mechanisms (Bouniot et al. 2023). While AptDet (Metaxas
+et al. 2024) used cluster methods to group proposals into se-
+mantic categories to generate discriminative pseudo-labels.
+Other works (Dai et al. 2021; Chen et al. 2023b), focusing on
+DETR-like models, used feature reconstruction to preserve
+semantic features from the frozen pre-trained backbone.
+Unsupervised Pre-Training for DETR
+As initial DETR encountered challenges such as slow con-
+vergence and high computational costs, recent improve-
+ments to DETR have focused on three main areas: (1) reduc-
+ing computational costs through deformable attention mech-
+anisms (Zhu et al. 2020), hierarchical salience filtering (Hou
+et al. 2024), hybrid encoders like (Zhao et al. 2024b) and
+rethinking multi-scale features (Lin et al. 2023), (2) treat-
+ing queries as anchors with positional priors to speed up
+convergence such as (Wang et al. 2022b; Meng et al. 2021;
+Liu et al. 2022; Zhang et al. 2022; Lin et al. 2023), and (3)
+implementing auxiliary training methods like denoising (Li
+et al. 2022; Zhang et al. 2022) and one-to-many label as-
+signment (Chen et al. 2023a; Zong, Song, and Liu 2023; Jia
+et al. 2023; Zhao et al. 2024a; Huang et al. 2024) to enhance
+supervision for accelerating DETR’s convergence.
+Despite these improvements, DETR and its variants still
+require extensive training data. To address this, researchers
+have explored various self-supervised pre-training methods.
+UP-DETR (Dai et al. 2021) randomly cropped patches from
+each image, extracted patch features using a frozen back-
+bone, and randomly added them to object queries, thus guid-
+ing DETR to detect areas corresponding to the patch fea-
+tures to accelerate convergence. Besides, UP-DETR also re-
+constructed patch features with outputs to inherit the frozen
+backbone’s discriminative features of high-level semantic
+information. DETReg (Bar et al. 2022) subsequently uses
+Selective Search (Uijlings et al. 2013) to generate object
+proposals as annotations but overlooks classification without
+feature reconstruction. Siamese DETR (Chen et al. 2023b)
+used EdgeBox (Zitnick and Doll´ar 2014) to generate propos-
+als and introduced multi-view cross-attention, which adds
+cross-view object features to object queries for learning
+view-invariant local features with cross-view feature recon-
+struction. SeqCo DETR (Jin et al. 2023) proposed sequence
+consistency as a pretext task, which could also provide dis-
+criminative features, and combined with a masking strategy.
+Method
+DETR Review
+Given an input image x ∈ R3×H0×W0, DETR first uses the
+backbone to encode the input image h = Backbone(x),
+then refines image features h ∈ RC×H1×W1 to get the
+global context c ∈ RC×H1×W1 via a Transformer en-
+coder c = Encoder(h, ϕ p) with positional embedding ϕp ∈
+RC×H1×W1. The decoder is composed of self-attention lay-
+ers and cross-attention layers. Firstly,N randomly initialized
+object queries ϕq ∈ RN ×C pass through the self-attention
+24657

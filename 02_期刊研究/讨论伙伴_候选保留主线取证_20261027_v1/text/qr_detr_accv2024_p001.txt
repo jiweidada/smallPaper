@@ -1,0 +1,42 @@
+QR-DETR: Query Routing for Detection Transformer
+Tharsan Senthivel1,2 and Ngoc-Son Vu2
+1 PMU, Pari Mutuel Urbain, France
+2 ETIS - CY Cergy Paris University, ENSEA, CNRS, France
+Abstract. DetectionTransformer(DETR)predictsobjectboundingboxes
+and classes from learned object queries. However, DETR exhibits three
+major flaws: (1) Only asubset of object queries contribute to the final
+predictions, leading to inefficient utilization of computational resources.
+(2) The self-attention and cross-attention layersindiscriminately mix in-
+formation across object querieswithout any guidance, potentially hin-
+dering effective learning of object representations. (3) At each decoder
+stack layers, a query are processed eitherpositively, refining its bound-
+ing box and class attributes correctly, ornegatively, shifting to predict
+a different object or increasing its bounding box erroneously. This sug-
+gest that query informativeness is non-uniform, and enabling inter-query
+communication could impede the learning of specialized representations
+for individual queries. To address these concerns, we propose a learnable
+query routing method that introduces a routing model to identify the
+object queries requiring processing at each transformer decoder layer.
+Selected queries pass through the full decoder, while others exit early,
+and all are scattered back after processing. This prevents indiscriminate
+informationsharing.ExtensiveCOCOexperimentsshowconsistentmAP
+improvements across various DETR models.
+1 Introduction
+Object detection is a fundamental task in computer vision that involves recog-
+nizing objects and precisely localizing them in an image using bounding boxes.
+Recently, DETR (DEtection TRansformer) [2] has been introduced to perform
+end-to-end object detection. By utilizing a transformer encoder-decoder archi-
+tecture, DETR leverages a set of learnable object queries to perform detection,
+thereby eliminating hand-crafted components like non-maximum suppression
+(NMS). This approach takes advantage of the powerful learning capabilities of
+transformers. However, DETR suffers from high computational complexity and
+requires long training schedules.
+A key component in DETR are the object queriesQ, which are learnable
+embeddings that are processed through the transformer layers to provide the
+final predictions. These queries communicate and share information across the
+different stacks of the transformer decoder. However, the object queries often
+share redundant information, which hinders their evolution [14,39,43]. Rather
+This ACCV 2024 paper, provided here by the Computer Vision Foundation, is the author-created version.
+The content of this paper is identical to the content of the officially published ACCV 2024
+LNCS version of the paper as available on SpringerLink: https://link.springer.com/conference/accv
+354

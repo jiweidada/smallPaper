@@ -1,0 +1,1211 @@
+                                              RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+                                            Vitaliy Chiley 1 Vithursan Thangarasa 1 Abhay Gupta 1 Anshul Samar 1 Joel Hestness 1 Dennis DeCoste 1
+
+
+                                                                  Abstract
+
+
+
+
+                                                                                                           Per Sample Train Memory Usage (GB)
+                                                                                                                                                5      M ODEL               T OP 1    MAC S    M EM                EfficientNet-B7
+                                              This work introduces the RevSilo, the first re-                                                          RevBiFPN-S4          83.0%      11B     0.11
+                                                                                                                                                       E FFICIENT N ET-B5   83.6%      10B     1.44
+                                              versible module for bidirectional multi-scale fea-                                                4      RevBiFPN-S5          83.7%      22B     0.23
+                                                                                                                                                       E FFICIENT N ET-B6   84.0%      19B     2.61
+arXiv:2206.14098v1 [cs.LG] 28 Jun 2022
+
+
+
+
+                                              ture fusion. Like other reversible methods,
+                                                                                                                                                3
+                                                                                                                                                       RevBiFPN-S6          84.2%      38B     0.25
+                                                                                                                                                       E FFICIENT N ET-B7   84.3%      37B     5.05
+                                              RevSilo eliminates the need to store hidden acti-                                                                                                        B6
+                                              vations by recomputing them. Existing reversible                                                  2
+                                              methods, however, do not apply to multi-scale                                                                                      B5
+                                                                                                                                                1
+                                              feature fusion and are therefore not applicable                                                                                                           S5               RevBiFPN-S6
+                                                                                                                                                                            S4
+                                              to a large class of networks. Bidirectional multi-                                                0
+                                                                                                                                                 0.0            0.5         1.0          1.5           2.0   2.5   3.0       3.5
+                                              scale feature fusion promotes local and global                                                                                                          MACs                           1e10
+                                              coherence and has become a de facto design prin-
+                                                                                                           Figure 1. MACs vs Measured Memory Usage for ImageNet
+                                              ciple for networks targeting spatially sensitive
+                                                                                                           Training on 1 GPU: RevBiFPNs significantly outperform Effi-
+                                              tasks e.g. HRNet (Sun et al., 2019a) and Efficient-
+                                                                                                           cientNets at all scales. In particular, RevBiFPN-S6 achieves com-
+                                              Det (Tan et al., 2020). When paired with high-               parable accuracy (84.2%) to EfficientNet-B7 on ImageNet while
+                                              resolution inputs, these networks achieve state-             using comparable MACs (38.1B) and 19.8x lesser training memory
+                                              of-the-art results across various computer vision            per sample. Details in Table 2 and Table 11 (in Appendix F).
+                                              tasks, but training them requires substantial accel-
+                                              erator memory for saving large, multi-resolution
+                                              activations. These memory requirements cap net-              Even when resources are optimally allocated, scaling net-
+                                              work size and limit progress. Using reversible               works produces large feature maps thus training requires
+                                              recomputation, the RevSilo alleviates memory is-             large amount of accelerator memory (Figure 1). While low-
+                                              sues while still operating across resolution scales.         resolution intermediate representations work well for classi-
+                                              Stacking RevSilos, we create RevBiFPN, a fully               fication tasks (LeCun et al., 1998; Krizhevsky et al., 2012;
+                                              reversible bidirectional feature pyramid network.            Simonyan & Zisserman, 2015; Tan & Le, 2019), dense pre-
+                                              For classification, RevBiFPN is competitive with             diction tasks, such as detection and segmentation, require
+                                              networks such as EfficientNet while using up to              the construction of spatially informative, high-resolution
+                                              19.8x lesser training memory. When fine-tuned on             feature maps which further exacerbates memory issues.
+                                              COCO, RevBiFPN provides up to a 2.5% boost                   U-Net (Ronneberger et al., 2015), used for segmentation,
+                                              in AP over HRNet using fewer MACs and a 2.4x                 was one of the first multi-scale feature fusion networks.
+                                              reduction in training-time memory.                           Initially, detection networks would perform multi-scale in-
+                                                                                                           ference by processing every scale of an image pyramid
+                                                                                                           independently, but they soon adopted multi-scale feature
+                                         1. Introduction                                                   fusion to directly produce a feature pyramid, i.e. multi-scale
+                                         State-of-the-art (SOTA) computer vision (CV) networks             features (Lin et al., 2017a;b; Redmon & Farhadi, 2018).
+                                         have large memory requirements that complicate training           Bidirectional multi-scale feature fusion networks iteratively
+                                         and limit scalability. Tan & Le (2019) and Dollár et al.         merge information between high and low resolution feature
+                                         (2021) show how compound scaling, i.e. scaling input res-         maps, producing robust (Hendrycks & Dietterich, 2019)
+                                         olution, network width, and depth, results in efficient net-      scale invariant models. These models promote local and
+                                         works across a wide range of parameter and MAC counts.            global coherence by iteratively aligning the semantic rep-
+                                                                                                           resentations of fine-grained and high-level features. As a
+                                            1
+                                              Cerebras Systems, Sunnyvale, CA, USA. Correspondence to:     result, these networks are often the backbone of SOTA com-
+                                         Vitaliy Chiley <vitaliy@cerebras.net>.                            puter vision systems (Liu et al., 2018; Cai & Vasconcelos,
+                                         Presented at the ICML 2022 Workshop on Hardware Aware Effi-       2018; Sun et al., 2019a; Tan et al., 2020), but the memory re-
+                                         cient Training, Baltimore, Maryland, USA. Copyright 2022 by the   quirements of backpropagating through multi-scale feature
+                                         author(s).                                                        fusion complicate training and limit scalability. Training
+                            RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+                                                                       ImageNet (Deng et al., 2009) to accuracies competitive
+                                                                       with networks designed specifically for classification
+                                                                       (Figure 1 and Section 4.1).
+                                                                   4. To our knowledge, this work is the first to fine-tune a
+                                                                      reversible backbone on downstream CV tasks. With
+                                                                      the appropriate heads, RevBiFPN is competitive with
+                                                                      similar networks on detection and segmentation tasks
+                                                                      while using a fraction of the accelerator memory for
+                                                                      training (Section 4.2).
+
+Figure 2. An N = 4 RevSilo. The left half generalizes the affine
+coupling block of Dinh et al. (2014).                              2. Reversible Residual Silo
+                                                                   The Reversible Residual Silo, or RevSilo, generalizes both
+                                                                   affine coupling (Dinh et al., 2014) and the reversible residual
+CV networks pushes the memory bounds of modern hard-               block (Gomez et al., 2017) to create an invertible module for
+ware with hardware memory setting a hard limit on how far          bidirectional multi-scale feature fusion. Figure 2 shows two
+researchers scale these networks, enforcing an upper bound         halves of the RevSilo with N = 4 spatial resolutions. The
+on network performance.                                            left half communicates information down the feature pyra-
+Hidden activations are needed to compute the gradient of           mid and the right sends information up the feature pyramid.
+the loss with respect to a neural network’s parameters. Tra-       gi can be any, potentially parameterized, invertible trans-
+ditionally, the activations computed during the forward pass       formation. In this work, gi is element-wise addition, and
+are cached for use in the backward pass. While this method         therefore its inverse, gi−1 , is element-wise subtraction for all
+of neural network training has worked well in the past, the        i. If hi and hj are on the same row, i.e. i % N == j % N ,
+growth of neural networks has outpaced increases in accel-         the RevSilo’s residual structure requires that the shape of
+erator memory. Motivated by flow structures (Dinh et al.,          hi equals the shape of hj . Otherwise, Fi should transform
+2017; Kingma & Dhariwal, 2018), Gomez et al. (2017)                the shape of its inputs to match the shape of hi . Besides
+recognized that if a network is designed using a series of         this shape constraint, Fi can be any transformation. The
+invertible operations the activations can be recomputed dur-       RevSilo construct remain invertible even if some inputs are
+ing the backward pass. Using this paradigm, reversible             set to 0. Setting h3 to 0 can, for example, be used to expand
+networks perform “backpropagation without storing activa-          an N = 3 feature pyramid into an N = 4 feature pyramid.
+tions” (Gomez et al., 2017), reducing their activation mem-        Appendix B shows the equations for the N = 4 RevSilo
+ory complexity with respect to depth from linear to constant.      depicted in Figure 2.
+Although reversible structures have been successfully used
+in image classification (Gomez et al., 2017; Jacobsen et al.,      3. RevBiFPN
+2018) and language modeling (Kitaev et al., 2020; MacKay           RevBiFPN uses the RevSilo to create a fully reversible
+et al., 2018), they have yet to be used where they are needed      backbone that utilizes bidirectional multi-scale feature fu-
+most: in multi-scale feature fusion networks to produce            sion and produces a feature pyramid output. Directly using
+high-resolution feature maps. Appendix A provides further          a reversible multi-scale feature fusion module, RevBiFPN
+context for this work.                                             circumvents the issues seen in the RevNet and i-RevNet
+                                                                   design (Appendix A). The high-level network structure of
+1.1. Contributions                                                 RevBiFPN is shown in Figure 3. The output feature pyramid
+To address the memory challenges of training models for            can then be used as an input to different task-specific heads
+spatially sensitive tasks, this work introduces the RevSilo        (Appendix C.5).
+and the network built with it, RevBiFPN. The main contri-
+butions of this work are:                                          The network uses the invertible SpaceToDepth stem (Ridnik
+                                                                   et al., 2021; Shi et al., 2016; Dinh et al., 2017; Jacobsen
+1. The RevSilo (Figure 2), the first bidirectional multi-scale     et al., 2018) to initially downsample the input by a factor
+   feature fusion module that is invertible.                       of 4 and produce c = 42 × 3 = 48 channels. The baseline
+2. RevBiFPN (Figure 3) is the first fully reversible bidi-         model (RevBiFPN-S0) uses c0 = 48, c1 = 64, c2 = 80,
+   rectional multi-scale feature fusion pyramid network.           and c3 = 160 channels in its N = 4 spatial resolutions.
+   It is built using the RevSilo and uses a fraction of the        As the network size is increased, the input image channels
+   memory when compared to the same network without                are duplicated to ensure the network is fully reversible re-
+   reversible recomputation (Figures 1, 4 to 6 and 12).            gardless of network width. The rest of the network has a
+                                                                   structure similar to HRNet (Sun et al., 2019a) where transfor-
+3. With a classification head, RevBiFPN is pretrained on
+                            RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+           Reversible
+          Downsample
+                              Reversible
+                               Residual
+                                 Silo              Reversible
+                                                    Residual
+                                                      Silo                                    Reversible           Reversible               Reversible
+                                                                                               Residual             Residual                 Residual
+                                                                                                 Silo                 Silo                     Silo
+
+
+
+
+         RevBiFPN Backbone
+
+Figure 3. A RevBiFPN that creates an N = 4 feature pyramid. Given the output feature pyramid, all activations can be recomputed
+going backwards through the network. The I components are reversible residual blocks. The network builds an N = 4 multi-scale hidden
+representation using 3 RevSilos and has an extra depth of d = 2 RevSilos for further feature fusion.
+
+mations in the same spatial resolution use reversible residual                                    16
+                                                                                                  14
+
+
+
+
+                                                                     Measured Memory Usage (GB)
+blocks (Gomez et al., 2017).
+For simplicity, the network uses the RevSilo variant shown                                        12
+in Figure 11 (in Appendix B.1). Here, the F operations                                            10                                               Memory Limit
+                                                                                                   8                                               w/o RevRecomp
+independently transform each input and sum them together.                                                                                          w/ RevRecomp
+The network isn’t designed with a specific hardware target in                                      6
+mind and therefore uses the MBConv Block (Howard et al.,                                           4
+2017), a building block that efficiently utilizes parameters                                       2
+and multiply-accumulates (MAC). 2 The MBConv Block                                                     3   4   5      6           7     8      9         10        11
+is used for both transformations in the reversible residual                                                                     Depth
+blocks and also the F transformations of the RevSilo. Using         Figure 4. Single GPU memory usage with batch size 64 for training
+the MBConv Block in network design produces networks                RevBiFPN-S0 on ImageNet with and without reversible recompu-
+that have fast on inference devices (Howard et al., 2017;           tation (RevRecomp) as depth is scaled. Reversible recomputation
+Sandler et al., 2018; Howard et al., 2019; Tan & Le, 2019;          decreases the activation memory complexity from linear to con-
+Mehta & Rastegari, 2021).                                           stant. These memory savings can be reallocated to scaling network
+                                                                    width and input resolution to produce RevBiFPN S1-S6.
+Within its RevSilos, RevBiFPN upsamples and downsam-
+ples features by factors of 2. To upsample a feature by
+a factor of 2k , the depthwise convolution of the MBConv            ing network has a parameter and MAC profile similar to
+Block uses a stride of 1 and a kernel size of 3 or 5; this          common classification networks. RevBiFPN-S0 is then
+is then followed by bilinear upsampling. To downsample              scaled (Appendix C.6) and compared to other network
+a feature by a factor of 2k , the depthwise convolution of          families on the commonly used ImageNet (Deng et al.,
+the MBConv Block uses a stride of 2k and a kernel size              2009) benchmark. The heads used and how the network is
+of 2k+1 ± 1. As a result, the network uses a diverse set            scaled are described in Appendices C.5 and C.6 respectively.
+of kernel sizes as suggested by Tan et al. (2019). Network          The reference implementation can be found at https:
+parameters are initialized using Kaiming initialization (He         //github.com/CerebrasResearch/RevBiFPN.
+et al., 2015). Batch Normalization biases are initialized to
+zero and weights are initialized to one, except the weights         3.1. Memory Savings
+of the normalization layer before a residual add which are          The activation memory complexity of training a CV network
+initialized to zero to promote stability (Kingma & Dhariwal,        is O(nchwd) where n is the batch size, c is the number of
+2018).                                                              channels representing the network’s width, h and w specify
+The network uses the MBConv variant with squeeze-excite             the input resolution, and d denotes the depth of the network.
+layers (Tan & Le, 2019) and the hard-swish non-linearity            By decoupling depth from activation memory requirements,
+(Howard et al., 2019). The network has larger expan-                reversible networks have an activation memory complexity
+sion ratios on the lower resolution streams and uses larger         of O(nchw). Figure 4 shows the measured memory usage
+squeeze-excite ratios on the large resolution streams (Rid-         of the RevBiFPN-S0 network as the network depth is scaled
+nik et al., 2021). With a classification head, the result-          with and without reversible recomputation. This demon-
+                                                                    strates that measured memory usage is approximately con-
+    2
+      ML researchers often use FLOP when they mean MAC. This        stant when reversible recomputation is used but increases
+work uses MAC to mean multiply-accumulate since FLOP means          linearly otherwise. Appendix C.4 shows how memory scales
+a single floating point operation.
+                                                                    as the input resolution is scaled.
+                          RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+      Table 1. ImageNet accuracy. Extended in Table 11.              42                                              RevBiFPN-S6
+                                                                                                         S5
+                                                                     40
+                                                                                                                                                     HRNetV2p-W48
+                                                                                                  S4
+    M ODEL           PARAMS     R ES    MAC S       T OP 1                                              ResNet-101-FPN
+                                                                                                                                W32
+                                                                     38             S3
+
+    RevBiFPN-S0       3.42M     224     0.31B     72.8%
+
+
+
+
+                                                                AP
+                                                                                                                       BACKBONE             MAC S      M EM     AP
+    RevBiFPN-S1       5.11M     256     0.62B     75.9%              36        S2        ResNet-50-FPN
+                                                                                                               W18     RevBiFPN-S3         180.99B   1.31 GB   38.7
+                                                                                                                       RevBiFPN-S5         328.91B   2.75 GB   41.3
+    RevBiFPN-S2       10.6M     256     1.37B     79.0%
+                                                                     34
+                                                                                                                       RevBiFPN-S6         465.43B   3.69 GB   42.2
+    RevBiFPN-S3       19.6M     288     3.33B     81.1%                                                                HRN ET V2 P -W18
+                                                                                                                       HRN ET V2 P -W32
+                                                                                                                                           196.18B
+                                                                                                                                           298.96B
+                                                                                                                                                     3.13 GB
+                                                                                                                                                     4.31 GB
+                                                                                                                                                               36.2
+                                                                                                                                                               39.6
+    RevBiFPN-S4       48.7M     320     10.6B     83.0%              32   S1
+                                                                                                                       HRN ET V2 P -W48    481.92B   5.82 GB   41.3
+                                                                                                                       R ES N ET-101-FPN   296.58B   2.72 GB   39.2
+    RevBiFPN-S5       82.0M     352     21.8B     83.7%
+    RevBiFPN-S6      142.3M     352     38.1B     84.2%                   1                   2            3          4           5                        6
+                                                                                                   Per Sample Train Memory Usage (GB)
+
+                                                                Figure 5. Object detection results on COCO minival in the
+       Table 2. Training Memory (GB) used per sample.           Faster R-CNN framework using a 1x learning schedule.
+
+                               I NPUT R ESOLUTION                    38                                                                      RevBiFPN-S6
+    MODEL                                                                                                                S5                           HRNetV2p-W32
+                          T RAIN R ES      224      384                                                   S4
+                                                                     36                                                   ResNet-101-FPN
+    RevBiFPN-S6                0.254     0.086    0.291                                  S3
+
+    E FFICIENT N ET-B7         5.047     0.673    1.786              34
+
+
+
+                                                                AP
+                                                                                                       ResNet-50-FPN                       W18
+                                                                                    S2
+                                                                                                                       BACKBONE             MAC S      M EM     AP
+
+                                                                     32                                                RevBiFPN-S2
+                                                                                                                       RevBiFPN-S4
+                                                                                                                                           210.49B
+                                                                                                                                           304.09B
+                                                                                                                                                     1.06 GB
+                                                                                                                                                     2.05 GB
+                                                                                                                                                               33.7
+                                                                                                                                                               37.1
+                                                                                                                       RevBiFPN-S6         518.50B   3.71 GB   38.7
+                                                                              S1
+4. Experiments                                                       30
+                                                                              S0
+                                                                                                                       HRN ET V2 P -W18
+                                                                                                                       HRN ET V2 P -W32
+                                                                                                                                           249.25B
+                                                                                                                                           352.03B
+                                                                                                                                                     3.33 GB
+                                                                                                                                                     4.51 GB
+                                                                                                                                                               33.8
+                                                                                                                                                               36.7
+
+The RevBiFPN family of networks is pretrained on Ima-                                                                  R ES N ET-101-FPN   349.65B   2.88 GB   36.1
+
+
+geNet and fine-tuned with task-specific heads for detection                   1.0         1.5          2.0      2.5    3.0      3.5                  4.0        4.5
+                                                                                                   Per Sample Train Memory Usage (GB)
+and segmentation on MS COCO (Lin et al., 2014).
+                                                                Figure 6. Instance segmentation results on COCO minival in
+4.1. ImageNet Classification                                    the Mask R-CNN framework using a 1x learning schedule.
+The experimental setup for ImageNet classification is in
+                                                                schedule. When the scaled HRNetV2p-W48 is trained using
+Appendix D.1. Although RevBiFPN-S0 and RevBiFPN-
+                                                                a 2x schedule it uses ∼1.6x the memory and still does not
+S1 can be trained without reversible recomputation, all of
+                                                                outperform RevBiFPN-S6 trained using the 1x schedule.
+the results are shown for networks trained with reversible
+recomputation. Figure 14 (in Appendix D.3) shows that           Segmentation The overall performance of RevBiFPN-S2
+reversible recomputation does not hurt training. Table 1        is comparable to HRNetV2p-W18 but uses ∼1.2x fewer
+summarizes ImageNet classification results. RevBiFPN pro-       MACs and ∼2.5x less GPU memory during training.
+duces results comparable to classification specific networks.   RevBiFPN-S6 outperforms HRNetV2p-W32 by 2% Mask
+RevBiFPN-S6 uses 38.1B MACs and achieves 84.2% Ima-             AP and 2.4% Bbox AP while using 1.6GB less memory and
+geNet Top1 accuracy, making it comparable to EfficientNet-      still outperforms HRNetV2p-W32 when it is trained using
+B7 which uses 37B MACs to achieve 84.3% ImageNet Top1           the 2x schedule. Generally, RevBiFPN enables larger inputs
+accuracy (Figure 1). Table 2 shows that the GPU memory          for training detection and segmentation systems.
+usage of RevBiFPN-S6 is a fraction of the memory used
+by EfficientNet-B7 at the training resolution (352 and 600,     5. Conclusion
+respectively) as well as frequently used input resolutions of
+                                                                Bidirectional multi-scale feature fusion has driven progress
+224 and 384.
+                                                                in computer vision, but accelerator memory often limits net-
+                                                                work scale. Reversible methods decrease activation memory
+4.2. MS COCO                                                    complexity but were previously not applicable to bidirec-
+The experimental setup for detection and instance segmen-       tional multi-scale feature fusion. This work introduces the
+tation on MS COCO is in Appendix D.4. Figures 5 and 6           RevSilo, a bidirectional multi-scale feature fusion module
+summarize the results in appendix Tables 9 and 10.              that is invertible. The RevSilo is used to design RevBiFPN
+Detection Table 9 shows that RevBiFPN-S5 achieves an ab-        which is competitive on classification, segmentation, and
+solute gain of 3.3% in AP over HRNetV2p-W18 trained             detection tasks while using a fraction of the memory for
+using the 2x schedule while uses 0.75GB less memory.            training. This makes RevBiFPN applicable to memory-
+RevBiFPN-S3 achieves an absolute gain of 2.5% in AP             constrained settings such as high-resolution segmentation
+over HRNetV2p-W18 using fewer MACs and a ∼2.4x re-              and detection and enables SOTA research without needing
+duction in training-time memory usage and still outperforms     hardware with the latest memory capacity. Future work is
+HRNetV2p-W18 by 0.7% AP even if it is trained using a 2x        in Appendix E.
+                           RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+Acknowledgements                                                   Deep Nets with Sublinear Memory Cost. arXiv preprint
+We thank Shreyas Saxena, Nolan Dey, and Valentina                  arXiv:1604.06174, 2016.
+Popescu for their help and comments that improved the
+                                                                 Chen, Y., Wang, Z., Peng, Y., Zhang, Z., Yu, G., and Sun, J.
+manuscript. We also thank Ben Wang, Ross Wightman,
+                                                                   Cascaded Pyramid Network for Multi-Person Pose Esti-
+Lucas Nestler, Jan XMaster, Alexander Mattick, Atli Kos-
+                                                                   mation. In Proceedings of the IEEE Conference on Com-
+son, Abhinav Venigalla, Xin Wang, Vinay Rao, and Kenyon
+                                                                   puter Vision and Pattern Recognition, pp. 7103–7112,
+(Chuan-Yung) Tsai for insightful discussions.
+                                                                   2018b.
+
+References                                                       Cheng, B., Xiao, B., Wang, J., Shi, H., Huang, T. S., and
+                                                                   Zhang, L. HigherHRNet: Scale-Aware Representation
+Awiszus, M., Schubert, F., and Rosenhahn, B. TOAD-GAN:             Learning for Bottom-Up Human Pose Estimation. In
+  Coherent Style Level Generation From a Single Exam-              Proceedings of the IEEE/CVF Conference on Computer
+  ple. In Proceedings of the AAAI Conference on Artificial         Vision and Pattern Recognition, pp. 5386–5395, 2020.
+  Intelligence and Interactive Digital Entertainment, 2020.
+                                                                 Chiley, V., Sharapov, I., Kosson, A., Koster, U., Reece, R.,
+Bai, S., Kolter, J. Z., and Koltun, V. Deep Equilibrium            Samaniego de la Fuente, S., Subbiah, V., and James, M.
+  Models. In Wallach, H., Larochelle, H., Beygelzimer, A.,         Online Normalization for Training Neural Networks. In
+  d'Alché-Buc, F., Fox, E., and Garnett, R. (eds.), Advances      Wallach, H., Larochelle, H., Beygelzimer, A., d'Alché-
+  in Neural Information Processing Systems, volume 32.             Buc, F., Fox, E., and Garnett, R. (eds.), Advances in Neu-
+  Curran Associates, Inc., 2019.                                   ral Information Processing Systems, volume 32. Curran
+Behrmann, J., Grathwohl, W., Chen, R. T., Duvenaud, D.,            Associates, Inc., 2019.
+  and Jacobsen, J.-H. Invertible Residual Networks. In
+                                                                 Chun, I. Y., Huang, Z., Lim, H., and Fessler, J. A.
+  International Conference on Machine Learning, pp. 573–
+                                                                   Momentum-Net: Fast and Convergent Iterative Neural
+  582. PMLR, 2019.
+                                                                   Network for Inverse Problems. IEEE Transactions on
+Bochkovskiy, A., Wang, C.-Y., and Liao, H.-Y. M. YOLOv4:           Pattern Analysis and Machine Intelligence, 2020.
+  Optimal Speed and Accuracy of Object Detection. arXiv
+                                                                 Cubuk, E. D., Zoph, B., Shlens, J., and Le, Q. V. RandAug-
+  preprint arXiv:2004.10934, 2020.
+                                                                   ment: Practical Automated Data Augmentation with a
+Brock, A., De, S., Smith, S. L., and Simonyan, K. High-            Reduced Search Space. In Proceedings of the IEEE/CVF
+  Performance Large-Scale Image Recognition Without                Conference on Computer Vision and Pattern Recognition
+  Normalization. arXiv preprint arXiv:2102.06171, 2021.            Workshops, pp. 702–703, 2020.
+Brügger, R., Baumgartner, C. F., and Konukoglu, E. A            Dai, Z., Liu, H., Le, Q. V., and Tan, M. CoAtNet: Marrying
+  Partially Reversible U-Net for Memory-Efficient Volu-            Convolution and Attention for All Data Sizes. arXiv
+  metric Image Segmentation. In International Conference           preprint arXiv:2106.04803, 2021.
+  on Medical Image Computing and Computer-Assisted
+  Intervention, pp. 429–437. Springer, 2019.                     Dauvergne, B. and Hascoët, L. The Data-Flow Equations
+                                                                   of Checkpointing in Reverse Automatic Differentiation.
+Cai, Z. and Vasconcelos, N. Cascade R-CNN: Delving                 In International Conference on Computational Science,
+  into High Quality Object Detection. In Proceedings of            pp. 566–573. Springer, 2006.
+  the IEEE Conference on Computer Vision and Pattern
+  Recognition, pp. 6154–6162, 2018.                              Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K., and Fei-
+                                                                   Fei, L. ImageNet: A Large-Scale Hierarchical Image
+Chen, C.-C., Yang, C.-L., and Cheng, H.-Y. Efficient               Database. In 2009 IEEE Conference on Computer Vision
+  and Robust Parallel DNN Training Through Model                   and Pattern Recognition, pp. 248–255. IEEE, 2009.
+  Parallelism on Multi-GPU Platform. arXiv preprint
+  arXiv:1809.02839, 2018a.                                       Dinh, L., Krueger, D., and Bengio, Y. NICE: Non-Linear In-
+                                                                   dependent Components Estimation. In International Con-
+Chen, K., Wang, J., Pang, J., Cao, Y., Xiong, Y., Li, X., Sun,     ference on Learning Representations Workshop, 2014.
+  S., Feng, W., Liu, Z., Xu, J., Zhang, Z., Cheng, D., Zhu,
+  C., Cheng, T., Zhao, Q., Li, B., Lu, X., Zhu, R., Wu, Y.,      Dinh, L., Sohl-Dickstein, J., and Bengio, S. Density Esti-
+  Dai, J., Wang, J., Shi, J., Ouyang, W., Loy, C. C., and Lin,     mation using Real NVP. In International Conference on
+  D. MMDetection: Open MMLab Detection Toolbox and                 Learning Representations, 2017.
+  Benchmark. arXiv preprint arXiv:1906.07155, 2019.
+                                                                 Dollár, P., Singh, M., and Girshick, R. Fast and Accurate
+Chen, T., Xu, B., Zhang, C., and Guestrin, C. Training             Model Scaling. In Proceedings of the IEEE/CVF Con-
+                          RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+  ference on Computer Vision and Pattern Recognition, pp.         R-CNN. In Proceedings of the IEEE international con-
+  924–932, 2021.                                                  ference on computer vision, pp. 2961–2969, 2017.
+
+Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn,        He, K., Girshick, R., and Dollár, P. Rethinking ImageNet
+  D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer,          Pre-Training. In Proceedings of the IEEE/CVF Interna-
+  M., Heigold, G., Gelly, S., Uszkoreit, J., and Houlsby,         tional Conference on Computer Vision, pp. 4918–4927,
+  N. An Image is Worth 16x16 Words: Transformers for              2019.
+  Image Recognition at Scale. In International Conference
+                                                                Hendrycks, D. and Dietterich, T. Benchmarking Neural
+  on Learning Representations, 2021.
+                                                                  Network Robustness to Common Corruptions and Pertur-
+Fan, H., Xiong, B., Mangalam, K., Li, Y., Yan, Z., Malik, J.,     bations. In International Conference on Learning Repre-
+  and Feichtenhofer, C. Multiscale Vision Transformers. In        sentations, 2019.
+  Proceedings of the IEEE/CVF International Conference          Howard, A., Sandler, M., Chu, G., Chen, L.-C., Chen, B.,
+  on Computer Vision (ICCV), pp. 6824–6835, October              Tan, M., Wang, W., Zhu, Y., Pang, R., Vasudevan, V., Le,
+  2021.                                                           Q. V., and Adam, H. Searching for MobileNetV3. In
+Germain, M., Gregor, K., Murray, I., and Larochelle, H.          Proceedings of the IEEE/CVF International Conference
+  Made: Masked Autoencoder for Distribution Estimation.           on Computer Vision, pp. 1314–1324, 2019.
+  In International Conference on Machine Learning, pp.          Howard, A. G., Zhu, M., Chen, B., Kalenichenko, D.,
+  881–889. PMLR, 2015.                                           Wang, W., Weyand, T., Andreetto, M., and Adam,
+Ghiasi, G., Lin, T.-Y., and Le, Q. V. NAS-FPN: Learning           H. MobileNets: Efficient Convolutional Neural Net-
+  Scalable Feature Pyramid Architecture for Object De-           works for Mobile Vision Applications. arXiv preprint
+  tection. In Proceedings of the IEEE/CVF Conference              arXiv:1704.04861, 2017.
+  on Computer Vision and Pattern Recognition, pp. 7036–         Huang, C.-W., Krueger, D., Lacoste, A., and Courville,
+ 7045, 2019.                                                     A. Neural Autoregressive Flows. In International Con-
+                                                                  ference on Machine Learning, pp. 2078–2087. PMLR,
+Girshick, R. Fast R-CNN. In Proceedings of the IEEE
+                                                                  2018a.
+  international conference on computer vision, pp. 1440–
+  1448, 2015.                                                   Huang, G., Sun, Y., Liu, Z., Sedra, D., and Weinberger,
+                                                                  K. Q. Deep Networks with Stochastic Depth. In European
+Gomez, A. N., Ren, M., Urtasun, R., and Grosse, R. B. The
+                                                                 Conference on Computer Vision, pp. 646–661. Springer,
+  Reversible Residual Network: Backpropagation Without
+                                                                  2016.
+  Storing Activations. In Proceedings of the 31st Inter-
+  national Conference on Neural Information Processing          Huang, G., Chen, D., Li, T., Wu, F., van der Maaten, L.,
+  Systems, pp. 2211–2221, 2017.                                   and Weinberger, K. Multi-Scale Dense Networks for
+                                                                  Resource Efficient Image Classification. In International
+Goyal, A., Bochkovskiy, A., Deng, J., and Koltun, V. Non-        Conference on Learning Representations, 2018b.
+  deep Networks. arXiv preprint arXiv:2110.07641, 2021.
+                                                                Huang, Y., Cheng, Y., Bapna, A., Firat, O., Chen, D., Chen,
+Griewank, A. and Walther, A. Algorithm 799: Revolve:              M., Lee, H., Ngiam, J., Le, Q. V., Wu, Y., et al. GPipe: Ef-
+  An Implementation of Checkpointing for the Reverse or           ficient Training of Giant Neural Networks using Pipeline
+  Adjoint Mode of Computational Differentiation. ACM              Parallelism. Advances in Neural Information Processing
+  Transactions on Mathematical Software (TOMS), 26(1):            Systems, 32:103–112, 2019.
+  19–45, 2000.
+                                                                Ioffe, S. and Szegedy, C. Batch Normalization: Accelerating
+He, K., Zhang, X., Ren, S., and Sun, J. Delving Deep               Deep Network Training by Reducing Internal Covariate
+  into Rectifiers: Surpassing Human-Level Performance              Shift. In International Conference on Machine Learning,
+  on ImageNet Classification. In Proceedings of the IEEE           pp. 448–456. PMLR, 2015.
+  international conference on computer vision, pp. 1026–
+ 1034, 2015.                                                    Jacobsen, J.-H., Oyallon, E., Mallat, S., and Smeul-
+                                                                  ders, A. W. Multiscale Hierarchical Convolutional Net-
+He, K., Zhang, X., Ren, S., and Sun, J. Deep Residual Learn-      works. In International Conference on Machine Learning.
+  ing for Image Recognition. In Proceedings of the IEEE           PMLR, 2017.
+  Conference on Computer Vision and Pattern Recognition,
+  pp. 770–778, 2016.                                            Jacobsen, J.-H., Smeulders, A., and Oyallon, E. i-RevNet:
+                                                                  Deep Invertible Networks. In International Conference
+He, K., Gkioxari, G., Dollár, P., and Girshick, R. Mask          on Learning Representations, 2018.
+                           RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+Ke, T.-W., Maire, M., and Yu, S. X. Multigrid Neural                and Belongie, S. Feature Pyramid Networks for Ob-
+  Architectures. In Proceedings of the IEEE Conference              ject Detection. In Proceedings of the IEEE Conference
+  on Computer Vision and Pattern Recognition, pp. 6665–             on Computer Vision and Pattern Recognition, pp. 2117–
+  6673, 2017.                                                       2125, 2017a.
+Keller, T. A., Peters, J. W., Jaini, P., Hoogeboom, E., Forré,   Lin, T.-Y., Goyal, P., Girshick, R., He, K., and Dollár, P.
+  P., and Welling, M. Self Normalizing Flows. In Interna-           Focal Loss for Dense Object Detection. In Proceedings
+  tional Conference on Machine Learning, pp. 5378–5387.             of the IEEE international conference on computer vision,
+  PMLR, 2021.                                                       pp. 2980–2988, 2017b.
+Kingma, D. P. and Dhariwal, P. Glow: Generative Flow              Liu, S., Qi, L., Qin, H., Shi, J., and Jia, J. Path Aggregation
+  with Invertible 1x1 Convolutions. In Bengio, S., Wal-             Network for Instance Segmentation. In Proceedings of
+  lach, H., Larochelle, H., Grauman, K., Cesa-Bianchi, N.,          the IEEE Conference on Computer Vision and Pattern
+  and Garnett, R. (eds.), Advances in Neural Information            Recognition, pp. 8759–8768, 2018.
+  Processing Systems, volume 31. Curran Associates, Inc.,
+  2018.                                                           Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin,
+                                                                    S., and Guo, B. Swin Transformer: Hierarchical Vi-
+Kingma, D. P., Salimans, T., Jozefowicz, R., Chen, X.,              sion Transformer using Shifted Windows. arXiv preprint
+  Sutskever, I., and Welling, M. Improved Variational In-           arXiv:2103.14030, 2021.
+  ference with Inverse Autoregressive FLOW. Advances in
+  Neural Information Processing Systems, 29:4743–4751,            Loshchilov, I. and Hutter, F. SGDR: Stochastic Gradient
+  2016.                                                             Descent with Warm Restarts. In International Conference
+                                                                    on Learning Representations, 2017.
+Kitaev, N., Kaiser, Ł., and Levskaya, A. Reformer: The
+  Efficient Transformer. In International Conference on           Lu, G., Zhang, W., and Wang, Z. Optimizing Depthwise
+  Learning Representations, 2020.                                   Separable Convolution Operations on GPUs. IEEE Trans-
+                                                                    actions on Parallel and Distributed Systems, 2021.
+Kosson, A., Chiley, V., Venigalla, A., Hestness, J., and
+  Koster, U. Pipelined Backpropagation at Scale: Training         MacKay, M., Vicol, P., Ba, J., and Grosse, R. B. Reversible
+  Large Models without Batches. In Smola, A., Dimakis,             Recurrent Neural Networks. In Bengio, S., Wallach, H.,
+  A., and Stoica, I. (eds.), Proceedings of Machine Learning       Larochelle, H., Grauman, K., Cesa-Bianchi, N., and Gar-
+  and Systems, volume 3, pp. 479–501, 2021.                        nett, R. (eds.), Advances in Neural Information Process-
+                                                                   ing Systems, volume 31. Curran Associates, Inc., 2018.
+Krizhevsky, A., Sutskever, I., and Hinton, G. E. ImageNet
+  Classification with Deep Convolutional Neural Networks.         Mehta, S. and Rastegari, M. MobileViT: Light-weight,
+  Advances in Neural Information Processing Systems, 25:           General-purpose, and Mobile-friendly Vision Trans-
+  1097–1105, 2012.                                                 former. arXiv preprint arXiv:2110.02178, 2021.
+Labatie, A., Masters, D., Eaton-Rosen, Z., and Luschi,            Narayanan, D., Harlap, A., Phanishayee, A., Seshadri, V.,
+  C. Proxy-Normalizing Activations to Match Batch Nor-              Devanur, N., Granger, G., Gibbons, P., and Zaharia, M.
+  malization while Removing Batch Dependence. arXiv                 PipeDream: Generalized Pipeline Parallelism for DNN
+  preprint arXiv:2106.03743, 2021.                                  Training. In ACM Symposium on Operating Systems
+LeCun, Y. A., Bottou, L., Bengio, Y., and Haffner, P.               Principles (SOSP 2019), October 2019.
+  Gradient-Based Learning Applied to Document Recogni-            Nestler, L. and Gill, D. HomebrewNLP. https:
+  tion. Proceedings of the IEEE, 86(11):2278–2324, 1998.           //github.com/HomebrewNLP/HomebrewNLP,
+  doi: 10.1109/5.726791.                                            2021.
+Li, Y., Wu, C.-Y., Fan, H., Mangalam, K., Xiong, B., Malik,
+                                                                  Newell, A., Yang, K., and Deng, J. Stacked Hourglass Net-
+  J., and Feichtenhofer, C. Improved Multiscale Vision
+                                                                    works for Human Pose Estimation. In European Confer-
+  Transformers for Classification and Detection. arXiv
+                                                                    ence on Computer Vision, pp. 483–499. Springer, 2016.
+   preprint arXiv:2112.01526, 2021.
+                                                                  Papamakarios, G., Pavlakou, T., and Murray, I. Masked
+Lin, T.-Y., Maire, M., Belongie, S., Hays, J., Perona, P.,
+                                                                    Autoregressive Flow for Density Estimation. In Guyon,
+  Ramanan, D., Dollár, P., and Zitnick, C. L. Microsoft
+                                                                    I., Luxburg, U. V., Bengio, S., Wallach, H., Fergus, R.,
+  COCO: Common Objects in Context. In European con-
+                                                                    Vishwanathan, S., and Garnett, R. (eds.), Advances in
+  ference on computer vision, pp. 740–755. Springer, 2014.
+                                                                    Neural Information Processing Systems, volume 30. Cur-
+Lin, T.-Y., Dollár, P., Girshick, R., He, K., Hariharan, B.,       ran Associates, Inc., 2017.
+                         RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+Pendse, M., Thangarasa, V., Chiley, V., Holmdahl, R., Hes-      tion. In International Conference on Medical image com-
+  tness, J., and DeCoste, D. Memory Efficient 3D U-Net          puting and computer-assisted intervention, pp. 234–241.
+  with Reversible Mobile Inverted Bottlenecks for Brain         Springer, 2015.
+  Tumor Segmentation. In BrainLes@MICCAI, 2020.
+                                                              Sander, M. E., Ablin, P., Blondel, M., and Peyre, G. Mo-
+Pétrowski, A., Dreyfus, G., and Girault, C. Performance        mentum Residual Neural Networks. In Proceedings of
+   Analysis of a Pipelined Backpropagation Parallel Algo-       the 38th International Conference on Machine Learning,
+   rithm. IEEE Transactions on Neural Networks, 4 6:970–        pp. 139:9276–9287. PMLR, 2021.
+   81, 1993.
+                                                              Sandler, M., Howard, A., Zhu, M., Zhmoginov, A., and
+Qin, Z., Zhang, Z., Li, D., Zhang, Y., and Peng, Y. Diago-      Chen, L.-C. MobileNetV2: Inverted Residuals and Linear
+  nalwise Refactorization: An Efficient Training Method         Bottlenecks. In Proceedings of the IEEE Conference
+  for Depthwise Convolutions. In 2018 International Joint       on Computer Vision and Pattern Recognition, pp. 4510–
+  Conference on Neural Networks (IJCNN), pp. 1–8. IEEE,         4520, 2018.
+  2018.
+                                                              Shi, W., Caballero, J., Huszár, F., Totz, J., Aitken, A. P.,
+Radosavovic, I., Kosaraju, R. P., Girshick, R., He, K., and     Bishop, R., Rueckert, D., and Wang, Z. Real-Time Single
+  Dollár, P. Designing Network Design Spaces. In Proceed-      Image and Video Super-Resolution using an Efficient Sub-
+  ings of the IEEE/CVF Conference on Computer Vision            Pixel Convolutional Neural Network. In Proceedings of
+  and Pattern Recognition, pp. 10428–10436, 2020.               the IEEE Conference on Computer Vision and Pattern
+                                                                Recognition, pp. 1874–1883, 2016.
+Rajbhandari, S., Ruwase, O., Rasley, J., Smith, S., and
+  He, Y. ZeRO-Infinity: Breaking the GPU Memory               Simonyan, K. and Zisserman, A. Very Deep Convolutional
+  Wall for Extreme Scale Deep Learning. arXiv preprint          Networks for Large-Scale Image Recognition. In Inter-
+  arXiv:2104.07857, 2021.                                       national Conference on Learning Representations, 2015.
+Rao, V. and Sohl-Dickstein, J. Is Batch Norm Unique? An       Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I.,
+  Empirical Investigation and Prescription to Emulate the       and Salakhutdinov, R. Dropout: A Simple Way to Pre-
+  Best Properties of Common Normalizers without Batch           vent Neural Networks from Overfitting. The Journal of
+  Dependence. arXiv preprint arXiv:2010.10687, 2020.            Machine Learning Research, 15(56):1929–1958, 2014.
+Redmon, J. and Farhadi, A. YOLO9000: Better, Faster,          Sun, K., Xiao, B., Liu, D., and Wang, J. Deep High-
+  Stronger. In Proceedings of the IEEE Conference on Com-       Resolution Representation Learning for Human Pose Es-
+  puter Vision and Pattern Recognition, pp. 7263–7271,          timation. In Proceedings of the IEEE/CVF Conference
+  2017.                                                         on Computer Vision and Pattern Recognition, pp. 5693–
+                                                                5703, 2019a.
+Redmon, J. and Farhadi, A. YOLOv3: An Incremental
+  Improvement. arXiv preprint arXiv:1804.02767, 2018.         Sun, K., Zhao, Y., Jiang, B., Cheng, T., Xiao, B., Liu, D.,
+                                                                Mu, Y., Wang, X., Liu, W., and Wang, J. High-Resolution
+Redmon, J., Divvala, S., Girshick, R., and Farhadi, A. You
+                                                                Representations for Labeling Pixels and Regions. arXiv
+  Only Look Once: Unified, Real-Time Object Detection.
+                                                                preprint arXiv:1904.04514, 2019b.
+  In Proceedings of the IEEE Conference on Computer
+  Vision and Pattern Recognition, pp. 779–788, 2016.          Szegedy, C., Vanhoucke, V., Ioffe, S., Shlens, J., and Wo-
+                                                                jna, Z. Rethinking the Inception Architecture for Com-
+Ren, S., He, K., Girshick, R., and Sun, J. Faster R-CNN:
+                                                                puter Vision. In Proceedings of the IEEE conference on
+  Towards Real-Time Object Detection with Region Pro-
+                                                                computer vision and pattern recognition, pp. 2818–2826,
+  posal Networks. In Cortes, C., Lawrence, N., Lee, D.,
+                                                                2016.
+  Sugiyama, M., and Garnett, R. (eds.), Advances in Neural
+  Information Processing Systems, volume 28, pp. 91–99.       Tan, M. and Le, Q. EfficientNet: Rethinking Model Scaling
+  Curran Associates, Inc., 2015.                                for Convolutional Neural Networks. In International Con-
+                                                                ference on Machine Learning, pp. 6105–6114. PMLR,
+Ridnik, T., Lawen, H., Noy, A., Baruch, E. B., Sharir, G.,
+                                                                2019.
+  and Friedman, I. TResNet: High Performance GPU-
+  Dedicated Architecture. In Proceedings of the IEEE/CVF      Tan, M. and Le, Q. V. EfficientNetV2: Smaller Models and
+  Winter Conference on Applications of Computer Vision,         Faster Training. arXiv preprint arXiv:2104.00298, 2021.
+  pp. 1400–1409, 2021.
+                                                              Tan, M., Chen, B., Pang, R., Vasudevan, V., Sandler, M.,
+Ronneberger, O., Fischer, P., and Brox, T. U-Net: Con-          Howard, A., and Le, Q. V. MnasNet: Platform-Aware
+  volutional Networks for Biomedical Image Segmenta-            Neural Architecture Search for Mobile. In Proceedings
+                           RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+  of the IEEE/CVF Conference on Computer Vision and                Yu, F. and Koltun, V. Multi-Scale Context Aggregation by
+  Pattern Recognition, pp. 2820–2828, 2019.                          Dilated Convolutions. In International Conference on
+                                                                     Learning Representations, 2016.
+Tan, M., Pang, R., and Le, Q. V. EfficientDet: Scalable
+  and Efficient Object Detection. In Proceedings of the            Yuan, L., Hou, Q., Jiang, Z., Feng, J., and Yan, S. VOLO:
+  IEEE/CVF Conference on Computer Vision and Pattern                 Vision Outlooker for Visual Recognition. arXiv preprint
+  Recognition, pp. 10781–10790, 2020.                                arXiv:2106.13112, 2021.
+
+Tao, A., Sapra, K., and Catanzaro, B. Hierarchical Multi-          Yun, S., Han, D., Oh, S. J., Chun, S., Choe, J., and Yoo, Y.
+  Scale Attention for Semantic Segmentation. arXiv                   CutMix: Regularization Strategy to Train Strong Classi-
+  preprint arXiv:2005.10821, 2020.                                   fiers With Localizable Features. In Proceedings of the
+                                                                     IEEE/CVF International Conference on Computer Vision,
+Thangarasa, V., Tsai, C.-Y., Taylor, G. W., and Köster, U.          pp. 6023–6032, 2019.
+  Reversible Fixup Networks for Memory-Efficient Train-
+  ing. In NeurIPS Systems for ML (SysML) Workshop,                 Zhang, H., Cisse, M., Dauphin, Y. N., and Lopez-Paz, D.
+  2019.                                                              mixup: Beyond Empirical Risk Minimization. In Inter-
+                                                                     national Conference on Learning Representations, 2018.
+Thoma, M. Solving Equations of Lower Unitriangu-
+                                                                   Zhang, W., Gupta, S., Lian, X., and Liu, J. Staleness-Aware
+  lar Matrices. https://martin-thoma.com/
+                                                                     Async-SGD for Distributed Deep Learning. In Proceed-
+  solving-equations-of-unipotent-lower-
+                                                                     ings of the Twenty-Fifth International Joint Conference on
+  triangular-matrices/, 2013.
+                                                                     Artificial Intelligence, IJCAI’16, pp. 2350–2356. AAAI
+Touvron, H., Cord, M., Sablayrolles, A., Synnaeve, G., and           Press, 2016. ISBN 9781577357704.
+  Jegou, H. Going Deeper With Image Transformers. In
+                                                                   Zhou, Y., Hu, X., and Zhang, B. Interlinked Convolutional
+  Proceedings of the IEEE/CVF International Conference
+                                                                     Neural Networks for face parsing. In International sym-
+  on Computer Vision (ICCV), pp. 32–42, October 2021.
+                                                                     posium on neural networks, pp. 222–231. Springer, 2015.
+Venigalla, A., Kosson, A., Chiley, V., and Köster, U. Adap-       Zhou, Z., Siddiquee, M. M. R., Tajbakhsh, N., and Liang,
+  tive Braking for Mitigating Gradient Delay. In Interna-            J. UNet++: A Nested U-Net Architecture for Medical
+  tional Conference on Machine Learning Deep Learning                Image Segmentation. In Deep Learning in Medical Image
+  Workshop, 2020.                                                    analysis and Multimodal Learning for Clinical Decision
+Volin, Y. M. and Ostrovskii, G. M. Automatic Computation             Support, pp. 3–11. Springer, 2018.
+  of Derivatives With the Use of The Multilevel Differen-
+  tiating Technique—1. Algorithmic Basis. Computers &
+  Mathematics with Applications, 11(11):1099–1114, 1985.
+Wang, J., Sun, K., Cheng, T., Jiang, B., Deng, C., Zhao,
+ Y., Liu, D., Mu, Y., Tan, M., Wang, X., Liu, W., and
+ Xiao, B. Deep High-Resolution Representation Learning
+ for Visual Recognition. IEEE Transactions on Pattern
+ Analysis and Machine Intelligence, 2020.
+Wightman, R.   PyTorch Image Models. https:
+ //github.com/rwightman/pytorch-image-
+ models, 2019.
+Wu, Y. and He, K. Group Normalization. In Proceedings of
+ the European Conference on Computer Vision (ECCV),
+ pp. 3–19, 2018.
+Yamazaki, K., Rathour, V. S., and Le, T. Invertible Residual
+  Network with Regularization for Effective Medical Image
+  Segmentation. arXiv preprint arXiv:2103.09042, 2021.
+Yang, B., Zhang, J., Li, J., Ré, C., Aberger, C., and De Sa, C.
+  PipeMare: Asynchronous Pipeline Parallel DNN Train-
+  ing. Proceedings of Machine Learning and Systems, 3,
+  2021.
+                                 RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+                                                                      Multi-Scale Feature Fusion Network            Bi-directional Multi-Scale Feature Fusion Network
+                                 Multi-Scale Feature Generation                                                     eg: RevBiFPN, HRNet, EfficientDet, U-Net++, ...
+                                 eg: VGG, ResNet, EfficientNet, ...   eg: U-Net, Mask R-CNN, RetinaNet, YOLO, ...
+
+          Input Image   Height
+
+              Width
+
+
+
+
+Figure 7. Connectivity of multi-scale networks: Features are depicted as boxes and the lines depict the possible connectivity of networks
+processing features at multiple scales. Networks like VGG (Simonyan & Zisserman, 2015), ResNet (He et al., 2016), and EfficientNet (Tan
+& Le, 2019) can be used to generate multi-scale features. These features are often fused by networks such as U-Net (Ronneberger et al.,
+2015), Mask R-CNN (He et al., 2017), or YOLO (Redmon & Farhadi, 2018) for completing spatially sensitive tasks. For example, the
+multi-scale connectivity of U-Net, with high-resolution outputs, is identified using red arrows. Low-resolution features communicate
+global information, while high-resolution features are able to capture detailed local information such as texture and object boundaries. By
+iteratively mixing high and low-resolution features, bidirectional multi-scale feature fusion networks such as HRNet (Sun et al., 2019a),
+EfficientDet (Tan et al., 2020), and UNet++ (Zhou et al., 2018) promote local and global coherence, boosting performance in CV.
+
+A. Background                                                                                            Achieving SOTA results frequently requires using bidirec-
+Systems using low-resolution features were often applied                                                 tional multi-scale feature fusion pyramid networks to pro-
+to image pyramids for detection (Girshick, 2015; Ren et al.,                                             cesses mega-pixel images. This can results in a single sam-
+2015; Redmon et al., 2016; Redmon & Farhadi, 2017). Lin                                                  ple’s activations consuming all accelerator memory (Tao
+et al. (2017a) proposed augmenting a pretrained classifi-                                                et al., 2020). Distributed training setups can accelerate these
+cation network with a low to high resolution decoder to                                                  workloads, but impose other limitations. For instance, need-
+perform multi-scale feature fusion similar to the U-Net de-                                              ing to use small per accelerator batch sizes precludes the
+sign. Rather than a single high-resolution feature map, the                                              use of Batch Normalization (Ioffe & Szegedy, 2015), re-
+network outputs features from multiple spatial resolutions                                               quiring alternative normalization methods (Wu & He, 2018;
+to create a feature pyramid. The success of the Feature Pyra-                                            Chiley et al., 2019; Rao & Sohl-Dickstein, 2020; Labatie
+mid Network (FPN) motivated similar methodologies to be                                                  et al., 2021). Alternatively, researchers can adopt model
+used throughout the computer vision community (Redmon                                                    parallel approaches to scaling models, but this often re-
+& Farhadi, 2018; Bochkovskiy et al., 2020; He et al., 2017;                                              sults in hardware utilization or network optimization issues
+Lin et al., 2017b; Goyal et al., 2021). Bidirectional Feature                                            (Huang et al., 2019; Chen et al., 2018a; Narayanan et al.,
+Pyramid Networks (BiFPNs) further improve performance                                                    2019; Kosson et al., 2021). Another approach to alleviat-
+by iteratively applying multi-scale feature fusion modules                                               ing accelerator memory usage is to offload activations to
+(Tan et al., 2020; Ghiasi et al., 2019; Liu et al., 2018; Cai &                                          host (Rajbhandari et al., 2021). However, for bandwidth-
+Vasconcelos, 2018; Chen et al., 2018b). This allows local                                                constrained systems, this results in poor FLOP utilization.
+information from high-resolution feature maps to be repeat-                                              When performing operations with low arithmetic intensity,
+edly fused with global input contexts from low-resolution                                                such as non-linearities or depthwise convolutions (Lu et al.,
+feature maps (Figure 7).                                                                                 2021; Qin et al., 2018), on GPUs, limited bandwidth from
+                                                                                                         device memory already results in poor FLOP utilization.
+FPNs are often created by using feature fusion modules                                                   Offloading activations to host memory uses bandwidth that
+to augment existing classification networks not originally                                               is even further constrained, exacerbating the issue.
+designed for feature fusion. However, Zhou et al. (2015),
+Jacobsen et al. (2017), Ke et al. (2017), Huang et al. (2018b),                                          Volin & Ostrovskii (1985), Griewank & Walther (2000),
+Sun et al. (2019a), Sun et al. (2019b), Wang et al. (2020),                                              Dauvergne & Hascoët (2006), and Chen et al. (2016) pro-
+Cheng et al. (2020), Fan et al. (2021), and Li et al. (2021)                                             pose gradient (or reverse) checkpointing where a subset
+advocate for treating bidirectional multi-scale feature fu-                                              of activations are recomputed instead of being stored. For
+sion as a first class design principle in computer vision                                                backpropagation, network activations are needed to com-
+networks and show the effectiveness of this approach for                                                 pute parameter gradients resulting in an activation mem-
+classification, detection, and segmentation. Bidirectional                                               ory complexity that is linear with respect to network depth.
+multi-scale feature fusion networks reduce the semantic gap                                              Checkpointing
+                                                                                                            √            can reduce this complexity from O(D) to
+between consecutive feature maps (Zhou et al., 2018). By                                                 O( D) (Chen et al., 2016).
+outputting a feature pyramid, i.e. multi-scale features, these                                            Reversible models (Gomez et al., 2017; MacKay et al., 2018;
+networks allow tasks to be completed at multiple scales.                                                  Brügger et al., 2019; Pendse et al., 2020; Yamazaki et al.,
+This improves performance, but their memory requirements                                                  2021; Sander et al., 2021; Chun et al., 2020; Kitaev et al.,
+complicate training and limit scalability.                                                                2020; Nestler & Gill, 2021) save memory by recomput-
+                                                  RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+                             16                                                                                                16
+                             14                                                                                                14
+Measured Memory Usage (GB)
+
+
+
+
+                                                                                                  Measured Memory Usage (GB)
+                             12                                                                                                12
+                                                                    Memory Limit                                                                                    Memory Limit
+                             10                                     RevSHNet w/o RevRecomp                                     10                                   RevSHNet w/o RevRecomp
+                              8                                     RevSHNet w/ RevRecomp                                       8                                   RevSHNet w/ RevRecomp
+                                                                    RevBiFPN w/o RevRecomp                                                                          RevBiFPN w/o RevRecomp
+                              6                                     RevBiFPN w/ RevRecomp                                       6                                   RevBiFPN w/ RevRecomp
+                              4                                                                                                 4
+                              2                                                                                                 2
+                                  2   3   4   5     6           7     8      9     10        11                                     2   3   4   5   6           7     8      9     10        11
+                                                        Depth                                                                                           Depth
+
+Figure 8. Memory used by RevBiFPN-S0 and a baseline RevSH-                                        Figure 9. Recreates Figure 8 with an input resolution of 288. This
+Net as depth is scaled with and without reversible recomputation                                  demonstrates how RevBiFPN becomes more favorable as resolu-
+(RevRecomp).                                                                                      tion is scaled.
+
+
+ing activations instead of storing them. This decreases the                                       entire subnetwork, such as each hourglass of the Stacked
+activation memory complexity from linear to constant.3                                            Hourglass Network (Newell et al., 2016). While feasible,
+Reversible recomputation enables SOTA research without                                            the entire subnetwork of activations would still need to be
+needing hardware with the latest memory capacity which                                            stored, limiting memory savings (Appendix A.1.1). The
+prolongs the useful life of existing hardware. As a result,                                       specific case of the hourglass design also produces high
+less e-waste is produced, but it comes at the cost of recom-                                      MAC count networks (Appendix A.1.2) and does not pro-
+puting activations which contributes to the carbon footprint                                      vide bidirectional multi-scale feature fusion with a feature
+of training reversible models. It should be noted that re-                                        pyramid output.
+versible networks relying only reversible residual block
+(RevBlock) (Gomez et al., 2017) are not fully reversible.                                         A.1. Reversible Stacked Hourglass Networks
+RevBlock cannot operate across different dimensionalities,                                        The reversible residual block (Gomez et al., 2017) is only
+therefore RevNet (Gomez et al., 2017), and other networks                                         applicable to networks that have constant hidden dimen-
+built using RevBlocks, must cache activations in compu-                                           sionality. Stacked Hourglass (Newell et al., 2016) networks
+tational blocks that change tensor shape. Fully reversible                                        are built using a stack of hourglass structures that maintain
+models have the added benefit of also being used for gener-                                       constant dimensionality. Placing each hourglass structure
+ation with Normalizing Flow (Dinh et al., 2014; Germain                                           inside a reversible residual block allows the network to pro-
+et al., 2015; Dinh et al., 2017; Kingma et al., 2016; Papa-                                       duce high-resolution feature maps without the need to store
+makarios et al., 2017; Kingma & Dhariwal, 2018; Huang                                             hidden activations. To enable comparisons with RevBiFPN
+et al., 2018a; Jacobsen et al., 2018; Keller et al., 2021) but                                    variants, we implement a Fully Reversible Stacked Hour-
+are often not as efficient. For instance, the injective version                                   glass Network, RevSHNet. The baseline RevSHNet uses
+of i-RevNet (Jacobsen et al., 2018) is a fully reversible vari-                                   the MBConv Block, a SpaceToDepth stem, channel counts
+ant of RevNet, but requires a 7x increase in size to match                                        similar to RevBiFPN-S0 channel counts, and a comparable
+RevNet’s performance. Other approaches to reversible re-                                          classification head.
+computation impose architectural limits (Bai et al., 2019),
+limit optimization (Behrmann et al., 2019; Thangarasa et al.,                                     A.1.1. M EMORY
+2019), or are computationally expensive (Behrmann et al.,                                         Even with reversible recomputation enabled, RevSHNet
+2019). While any reversible model or method could be                                              needs to store an entire hourglass of activations. With an
+used for saving activation memory, none were previously                                           input size of 224, this results in a memory usage increase of
+applicable to bidirectional multi-scale feature fusion.                                           about 40% when compared to the RevBiFPN network (Fig-
+As existing reversible structures keep tensor dimensional-                                        ure 8). When the input size is increased to 288, RevSHNet
+ity constant, they cannot be directly applied to multi-scale                                      uses almost twice the memory used by RevBiFPN (Figure 9).
+networks such as EfficientDet or HRNet. One approach                                              The increased memory usage limits the available memory
+to produce high-resolution feature maps would be to ap-                                           savings and ultimately limits how much the network can be
+ply the reversible residual block (Gomez et al., 2017) to an                                      scaled.
+                             3
+    When training in layer pipeline mode (Pétrowski et al., 1993;                                A.1.2. C OMPUTE C OMPLEXITY
+Kosson et al., 2021), activation complexity is quadratic with re-
+spect to depth. While gradient checkpointing decreases activation                                 When RevSHNet is scaled, the produced network has a
+memory complexity from O(D2 ) to O(D1.5 ) (Yang et al., 2021),                                    high compute complexity (Figure 10). This is potentially
+reversible recomputation decreases it to O(D).                                                    wasteful when scaling to large networks. It should be noted
+                                    RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+             1e9
+       1.2
+       1.0
+       0.8
+MACs
+
+
+
+
+       0.6
+       0.4                                                       RevSHNet
+                                                                 RevBiFPN
+       0.2
+                   3         4         5           6         7            8
+                                      Parameters                       1e6                 Figure 11. A RevSilo using additive coupling.
+Figure 10. MACs vs Parameter count of RevBiFPN-S0 and a base-
+line RevSHNet as depth is scaled.                                                 Table 3. Down & Up Sampling Operation’s influence on Accuracy.
+
+that the above analysis does not take into consideration net-                        D OWN / U P S AMPLING      PARAMS      MAC S      T OP 1
+work performance. Given comparable networks, we expect                               LD / SU                     3.49M      75.7M     61.5%
+RevBiFPN to outperform RevSHNet since RevBiFPN has                                   SD / SU                     3.28M      67.2M     60.8%
+                                                                                     SD / LU                     3.47M      69.5M     61.5%
+full bidirectional multi-scale feature fusion with a feature
+pyramid output, whereas RevSHNet does not.
+
+B. RevSilo Equations                                                              Equations (9) to (16). While the inverse equations must be
+The equations for the N = 4 RevSilo in Figure 2 are:                              computed in order, the forward equations allow the N hid-
+                                                                                  den tensors of the RevSilo to be computed simultaneously.
+                       h4 = h0                                              (1)   This enables more parallelism in the resulting inference net-
+                       h5 = g5 (h1 , F5 (h0 ))                              (2)   work. It should also be noted that if hi is a scalar, gi is an
+                                                                                  addition, and Fi is the dot product operation for all i, then
+                       h6 = g6 (h2 , F6 (h1 , h0 ))                         (3)   the forward equations can be rewritten as matrix-vector prod-
+                       h7 = g7 (h3 , F7 (h2 , h1 , h0 ))                    (4)   ucts with unitriangular matrices. The underlying structure
+                                                                                  that makes unitriangular matrices invertible (Thoma, 2013),
+followed by:                                                                      makes all coupling structures (Kingma et al., 2016; Germain
+                                                                                  et al., 2015; Papamakarios et al., 2017; Huang et al., 2018a;
+                        h8 = g8 (h4 , F8 (h7 , h6 , h5 ))                   (5)
+                                                                                  Dinh et al., 2014; Gomez et al., 2017) invertible.
+                        h9 = g9 (h5 , F9 (h7 , h6 ))                        (6)
+                       h10 = g10 (h6 , F10 (h7 ))                           (7)   B.1. RevSilo with Additive Coupling
+                       h11 = h7                                             (8)   While gi can be any invertible coupling function, this work
+                                                                                  uses additive coupling as shown in Figure 11.
+The corresponding inverse equations are:
+
+                       h7 = h11                                             (9)   C. Network Details
+                             −1                                                   As noted in Section 3, RevBiFPN is structurally similar to
+                       h6 = g10 (h10 , F10 (h7 ))                      (10)
+                                                                                  HRNet. In this section, RevBiFPN is trained on ImageNet
+                             −1
+                       h5 = g9 (h9 , F9 (h7 , h6 ))                    (11)       for 150 epoch at an input resolution of 96×96 to ablate
+                       h4 = g8−1 (h8 , F8 (h7 , h6 , h5 ))             (12)       architectural design decisions.
+
+and                                                                               C.1. Down and Up Sampling Operation
+                                                                                  HRNet uses k stride 2 convolution blocks to downsample
+                       h0 = h4                                         (13)       by 2k (ld). An alternative downsampling schema would
+                       h1 = g5−1 (h5 , F5 (h0 ))                       (14)       use a single block with stride 2k and increased kernel size
+                       h2 = g6−1 (h6 , F6 (h1 , h0 ))                  (15)       such that the entire input is used to produce the output (sd).
+                                                                                  To upsample feature maps, HRNet uses a 1×1 convolution
+                       h3 = g7−1 (h7 , F7 (h2 , h1 , h0 ))             (16)       paired with an upsample operation in ‘nearest’ mode (su).
+                                                                                  The 1×1 convolution does not operate in the spatial domain
+For the N = 4 RevSilo, Equations (1) to (8) are used to                           limiting expressivity. To rectify this, the ablations changes
+compute the forward pass. Instead of saving activations,                          the upsampling block to use a 3×3 convolution paired with
+they can be recomputed during the backward pass using                             bilinear upsampling (lu).
+                            RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+                                                                                              16
+             Table 4. Stem’s influence on Accuracy.
+
+
+
+
+                                                                 Measured Memory Usage (GB)
+     S TEM                  PARAMS      MAC S         T OP 1                                  8
+     C ONVOLUTIONAL          3.49M      75.7M     61.5%
+     S PACE T O D EPTH       3.49M      73.7M     61.5%
+                                                                                              4
+                                                                                                                                                        Memory Limit
+                                                                                                                                                        w/o RevRecomp
+       Table 5. Squeeze-Excite’s influence on Accuracy.                                       2                                                         w/ RevRecomp
+                                                                                               128               256              512                 1024          2048
+     S QUEEZE -E XCITE      PARAMS      MAC S         T OP 1                                                                Input Resolution
+
+     N ONE                   3.40M      75.5M     61.3%
+     LOW- RES PATH           3.49M      75.7M     61.4%          Figure 12. The measured activation memory of training a network
+     HIGH - RES PATH         3.46M      76.1M     61.6%          using a batch size of 16 on a single GPU with and without re-
+                                                                 versible recomputation (RevRecomp) as the input resolution is
+                                                                 scaled.
+
+While replacing ld with sd curbs accuracy on ImageNet,                                         MBConv
+                                                                                                        MBConv
+augmenting this change by replacing su with lu results in a
+                                                                                               MBConv
+total MAC decease of about 8% while having no affect on
+                                                                                                                   MBConv
+ImageNet accuracy (Table 3).
+                                                                                               MBConv
+
+                                                                                                                              MBConv
+C.2. Backbone Stem
+                                                                                               MBConv                                          Conv      Pool   Dense
+Common practice dictates the use of a convolutional stem
+for neural network design. Ridnik et al. (2021) propose re-
+                                                                 Figure 13. Neck and classification head with feature pyramid input.
+placing this with the SpaceToDepth stem. Their work shows
+this does not effect network accuracy, while increasing the
+networks GPU throughput performance. Table 4 reaffirms           C.5. Network Heads
+their results and highlights the resulting MAC decrease.         While the RevBiFPN backbone is fully reversible, it can be
+                                                                 used with non-reversible heads. Note that before each head
+C.3. Squeeze-Excite                                              is applied, a set of MBConv Blocks is used as a neck, with
+Ridnik et al. (2021) note that Squeeze-Excite, when ap-          reverse checkpointing, to transform the output channels of
+plied to “low-resolution maps, does not get a large accuracy     RevBiFPN-S0 to 48, 64, 128, and 320. The dimensionality
+benefit from the global average pooling operation that SE        of the neck and heads are scaled using the width multipli-
+provides.” They advocate for the use of Squeeze-Excite on        ers shown in Table 6. For the detection and segmentation
+large as opposed to small spatial resolutions as this provides   networks, the input resolution is also modified.
+a good accuracy vs throughput tradeoff. Table 5 affirms their
+                                                                 ImageNet classification is used to pretrain the RevBiFPN
+result by showing how Squeeze-Excite when applied to the
+                                                                 backbone before it is fine-tuned for object detection and
+low-resolution path leaves the network accuracy relatively
+                                                                 segmentation. The backbone outputs a feature pyramid
+unaffected, but when applied to the high resolution path,
+                                                                 which is transformed using the neck and non-reversible
+improves network performance.
+                                                                 classification head shown in Figure 13. In the head, the
+                                                                 highest resolution feature map is downsampled by a factor
+C.4. Memory as Resolution is Scaled
+                                                                 of 2 using an MBConv Block with stride 2 and is added
+When scaling width, batch size or input resolution, networks     to the next largest feature map. This is repeated multiple
+with and without reversible recomputation have the same          times until all information is aggregated into the lowest
+complexity, but using reversibility creates a memory offset      resolution feature map. At this point, a 1 × 1 convolution
+that enables larger variants to be trained. As an example,       is applied, followed by global average pooling and a dense
+Figure 12 shows the measured memory usage of RevBiFPN-           layer. This design is inspired by Sun et al. (2019a) but uses
+S0 as the resolution is varied. The reversible variant has       the MBConv block.
+an advantageous offset and can run resolutions about 4x
+larger than is possible with a network without reversible        Object detection and instance segmentation are done with
+recomputation. On a 16GB system, the largest image a             the Faster R-CNN and Mask R-CNN heads provided in
+network without reversible recomputation can process is          MMDetection (Chen et al., 2019).
+just over 2K×2K. With reversibility, the same network can
+process images with resolutions up to 8K×8K.
+                             RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+Table 6. Network width multiplier (mw ), depth (d), and input
+                                                                                                    70
+
+
+
+
+                                                                       ImageNet Eval Accuracy (%)
+height and width (h and w) of RevBiFPN variants trained on Ima-
+geNet at different scales. Without reversibility, the training setup                                65
+would need to be modified to accommodate scales past RevBiFPN-
+                                                                                                    60
+S1. Reversible recomputation allows us to train RevBiFPN-S6 with
+an activation set that is 24× larger than that of RevBiFPN-S14 .                                    55
+
+             M ODEL             mw      d    h AND w                                                50                                         w/o RevRecomp
+                                                                                                                                               w/ RevRecomp
+             RevBiFPN-S0         1      2      224                                                  45
+                                                                                                         0   50   100   150        200   250      300      350
+             RevBiFPN-S1       1.33     2      256                                                                            Epoch
+             RevBiFPN-S2         2      2      256
+             RevBiFPN-S3       2.67     3      288                     Figure 14. ImageNet validation accuracy when training RevBiFPN-
+             RevBiFPN-S4         4      4      320
+                                                                       S0 with and without reversible recomputation (RevRecomp).
+             RevBiFPN-S5       5.33     4      352
+             RevBiFPN-S6       6.67     5      352
+
+
+
+C.6. Network Scaling                                                   last 10 epochs use a constant learning rate of 10−4 . The
+Once the baseline network is designed, scaling the input               network uses batch normalization with a momentum of 0.9
+resolution, network width, and network depth generally                 and epsilon of 10−3 . The running means and standard de-
+results in better performance. Classically, networks such as           viations are averaged across all accelerators at the end of
+VGG (Simonyan & Zisserman, 2015) and ResNet (He et al.,                each epoch. Training is regularized using label smooth-
+2016) focus on scaling network depth. Tan & Le (2019)                  ing (Szegedy et al., 2016), weight decay, dropout (Srivas-
+shows how compound scaling, i.e. scaling all dimensions,               tava et al., 2014), stochastic depth (Huang et al., 2016),
+results in efficient networks across a range of parameter and          CutMix (Yun et al., 2019), mixup (Zhang et al., 2018), and
+MAC counts. Dollár et al. (2021) shows how to scale such              RandAugment (Cubuk et al., 2020). Details can be found
+that the network run-time is minimized for large networks.             in Appendix D.2. Tuning the hyperparameters above could
+Equations (4) and (5) of Dollár et al. (2021) produce a               result in further improvement.
+“family of scaling strategies parameterized by α.”
+This work uses these scaling strategies but sets α = 2/3.              D.2. ImageNet Training and Regularization
+While (Dollár et al., 2021) recommends α = 4/5, they also             Training is regularized using label smoothing (Szegedy
+show α = 2/3 is nearly as fast but enables more depth                  et al., 2016), weight decay, dropout (Srivastava et al., 2014),
+and resolution scaling. Scaling depth gives added memory               stochastic depth (Huang et al., 2016), CutMix (Yun et al.,
+benefits in the reversible setting (Section 3.1). Given the            2019), mixup (Zhang et al., 2018), and the timm library
+outputs of the scaling strategy, mw is chosen such that chan-          (Wightman, 2019) variant of RandAugment (Cubuk et al.,
+nel counts are multiples of 16, the depth is rounded to the            2020). To prevent larger scales of the network from over-
+nearest integer, and the resolution is set to a multiple of 25         fitting, regularization increases with network scale. With-
+(Table 6).                                                             out knowing how much augmentation was needed for each
+                                                                       network, training began with the regularization shown in
+D. Experiments Setup and Hyperparameters                               Table 8.
+D.1. Classification Setup                                              When the validation accuracy of the EMA model began
+The ImageNet dataset is used to pretrain the networks at               to plateau, the regularization of the models was increased.
+different scales before they are fine-tuned on downstream              The final regularization used for each network is shown in
+tasks. All RevBiFPN variants are pretrained for 350 epochs             Table 7.
+using 8 GPUs with a per GPU batch size of 64. SGD is used
+with a learning rate of 0.1 and momentum of 0.9, and an                D.3. Training With and Without Reversibility
+exponential moving average (EMA) of the network param-                 Under infinite precision, training with and without reversible
+eters is used with a decay of 0.9999. A 5 epoch learning               recomputation would produce identical results. Figure 14
+rate warm-up is used with a starting learning rate of 10−3             shows that while there are differences using finite preci-
+followed by cosine decay (Loshchilov & Hutter, 2017). The              sion, these are inconsequential. Training RevBiFPN-S0
+    4                                                                  with reversible recomputation requires only 2GB of acceler-
+      Without reversible recomputation, the memory used for acti-
+vations, n × c × h × w × d, dominates accelerator memory usage.        ator memory and produces results that are nearly indistin-
+|RevBiFPN-S6| / |RevBiFPN-S1| = (n × 6.67c × 352 × 352 ×               guishable from regular training which consumes 12GB of
+5)/(n × 1.33c × 256 × 256 × 2) = 23.7.                                 accelerator memory.
+                             RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+Table 7. Weight decay (WD), dropout, number of RandAugment ops applied (N), mixup, CutMix, and stochastic depth used at the end of
+training. Label smoothing uses a coefficient of 0.1 and RandAugment uses a magnitude of 9 and mstd of 0.5.
+
+                    M ODEL              WD             D ROP O UT   N    MIXUP     C UT M IX   STOCHASTIC DEPTH
+                                              −5
+                    RevBiFPN-S0       4 × 10             0.25        2    0.00        0.0              0.00
+                    RevBiFPN-S1       4 × 10−5           0.25        2    0.00        0.0              0.00
+                    RevBiFPN-S2       4 × 10−5            0.3        3    0.00        0.0              0.00
+                    RevBiFPN-S3       4 × 10−5            0.3        3    0.10        1.0              0.05
+                    RevBiFPN-S4       2 × 10−5            0.4        4    0.10        1.0              0.10
+                    RevBiFPN-S5       2 × 10−5            0.4        4    0.20        1.0              0.10
+                    RevBiFPN-S6       2 × 10−5            0.6        5    0.20        1.0              0.30
+
+
+                                                                         The Mask R-CNN (He et al., 2017) framework is used to
+Table 8. Initial dropout, number of RandAugment ops applied (N).
+                                                                         evaluate RevBiFPN for object detection and instance seg-
+Training initially uses a weight decay of 4 × 10−5 , label smooth-
+ing coefficient of 0.1, the RandAugment magnitude is set to 9,           mentation on MS COCO. The results are obtained on the
+and mstd is set to 0.5, and the network is trained without mixup,        MMDetection toolbox and are summarized in Table 10. 5
+CutMix, or stochastic depth.                                             Baseline results are from Wang et al. (2020). RevBiFPN
+               M ODEL            D ROP O UT    N
+                                                                         is pretrained for 350 epochs whereas Wang et al. (2020)
+                                                                         pretrains for 100 epochs. He et al. (2019) shows how longer
+               RevBiFPN-S0          0.25           2                     fine-tuning schedules can entirely eliminate the benefits of
+               RevBiFPN-S1          0.25           2
+               RevBiFPN-S2          0.25           2                     pretraining. This can make a network trained for 100 epochs
+               RevBiFPN-S3          0.25           2                     and fine-tuned with a 2x schedule comparable to a network
+               RevBiFPN-S4           0.4           4                     trained for 350 epochs and fine-tuned with a 1x schedule.
+               RevBiFPN-S5           0.4           4                     Tables 9 and 10 include results from 1x and 2x schedules
+               RevBiFPN-S6           0.5           5                     to enable such comparisons. Tan et al. (2020) fine-tunes
+                                                                         networks for up to 600 epochs. As a result, EfficientDet (Tan
+                                                                         et al., 2020) serves as a strong baseline for work pursuing
+                                                                         SOTA results. Being subject to resource constraints, we
+D.4. MS COCO Experiments Setup
+                                                                         do not make such comparisons and instead focus on the
+Experimental results are presented on the MS COCO 2017                   memory saving, but note that Tan et al. (2020) shows how
+detection dataset, which contains about 118k images for                  longer training schedules even further differentiate networks
+training, 5k for validation (minival) and ∼20k testing                   using bidirectional multi-scale feature fusion.
+without provided annotations (test-dev). The average
+precision (AP) metric is adopted, which is the standard                  Tables 9 and 10 extend the results in Figures 5 and 6
+COCO evaluation procedure. The multi-level feature rep-
+resentations from RevBiFPN, as shown in Figure 3, are                    E. Future Work
+applied for the task of object detection and instance segmen-            Reversible networks recompute activations during the back-
+tation. There is no additional data augmentation besides the             ward pass instead of storing the activations computed in the
+standard horizontal flipping. For training and testing, the              forward pass. The reconstruction error of recomputation, the
+input images are resized such that the shorter edge is 800               impact of numerical precision on this error, and the effect
+pixels (Lin et al., 2017a). Evaluation is performed using a              this has on optimization are all potential research directions.
+single image scale.                                                      Along with RevBiFPN’s sensitivity to numerical precision,
+RevBiFPN is compared with HRNet and ResNet. The object                   research could also look at RevBiFPN’s sensitivity to nor-
+detection performance is evaluated on COCO minival                       malizers, network sparsification methods, adversarial per-
+under the two-stage anchor-based framework, Faster R-                    turbations, and delayed gradient optimization along with
+CNN (Ren et al., 2015). Faster R-CNN models are trained                  its mitigation methods (Zhang et al., 2016; Venigalla et al.,
+using RevBiFPN, HRNet, and ResNet pretrained backbones                   2020). Additionally, RevBiFPN generates entire feature
+on the MMDetection open-source object detection toolbox                  pyramids at multiple semantic levels making it amenable to
+(Chen et al., 2019). Table 9 summarizes parameters, the                     5
+                                                                              The tool used to analyze the evaluation MACs
+evaluation MACs per sample,5 the GPU memory usage dur-                   per sample for the various models can be found here:
+ing training, and scores. Similar to (Sun et al., 2019a), the            https://github.com/open-mmlab/mmcv/blob/
+GPU memory usage is measured during training on a 4 GPU                  master/mmcv/cnn/utils/flops counter.py
+system, with an input size of 800×1333 and batch size of 8.
+                            RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+
+
+Table 9. Object detection results on COCO minival in the Faster R-CNN framework. LS = learning schedule. 1x = 12 epochs, 2x = 24
+epochs. Mem = per sample GPU memory used during training.
+
+         BACKBONE               PARAMS        MAC S       M EM    LS      AP    AP50     AP75    APS     APM     APL
+         RevBiFPN-S0            19.55M     135.12B     0.84GB     1X    31.4     51.5    33.3    17.8     34.3   40.9
+         RevBiFPN-S1            20.48M     140.66B     0.89GB     1X    32.0     52.0    34.1    18.3     35.7   43.0
+         RevBiFPN-S2            23.86M     157.42B     1.07GB     1X    36.3     57.4    39.3    20.8     39.6   46.6
+         RevBiFPN-S3            30.40M     180.99B     1.31GB     1X    38.7     60.0    41.4    23.1     42.0   50.4
+         RevBiFPN-S4            52.88M     251.02B     2.03GB     1X    40.3     60.5    44.0    23.7     44.3   52.4
+         RevBiFPN-S5            77.83M     328.91B     2.75GB     1X    41.3     62.7    44.8    24.8     45.6   52.5
+         RevBiFPN-S6           127.51M     465.43B     3.69GB     1X    42.2     63.5    45.8    25.7     46.5   54.0
+         HRN ET V2 P -W18       27.48M     196.18B     3.13GB     1X    36.2     57.3    39.3    20.7     39.0   46.8
+         HRN ET V2 P -W18       27.48M     196.18B     3.13GB     2X    38.0     58.9    41.5    22.6     40.8   49.6
+         HRN ET V2 P -W32       47.28M     298.96B     4.31GB     1X    39.6     61.0    43.3    23.7     42.5   50.5
+         HRN ET V2 P -W32       47.28M     298.96B     4.31GB     2X    40.9     61.8    44.8    24.4     43.7   53.3
+         HRN ET V2 P -W48       83.36M     481.92B     5.82GB     1X    41.3     62.8    45.1    25.1     44.5   52.9
+         HRN ET V2 P -W48       83.36M     481.92B     5.82GB     2X    41.8     62.8    45.9    25.0     44.7   54.6
+         R ES N ET-50-FPN       41.53M     216.70B     1.81GB     1X    36.7     58.3    39.9    20.9     39.8   47.9
+         R ES N ET-50-FPN       41.53M     216.70B     1.81GB     2X    37.6     58.7    41.3    21.4     40.8   49.7
+         R ES N ET-101-FPN      60.52M     296.58B     2.72GB     1X    39.2     61.1    43.0    22.3     42.9   50.9
+         R ES N ET-101-FPN      60.52M     296.58B     2.72GB     2X    39.8     61.4    43.4    22.9     43.6   52.4
+
+
+
+
+         Table 10. Instance segmentation and object detection results on COCO minival in the Mask R-CNN framework.
+
+                                                                           M ASK                           B BOX
+ BACKBONE               PARAMS        MAC S        M EM    LS
+                                                                   AP    APS APM         APL      AP     APS APM         APL
+ RevBiFPN-S0            22.19M      188.20B     0.87GB     1X    29.7    13.5    32.3    44.2    31.4    17.8    34.3    40.9
+ RevBiFPN-S1            23.12M      193.73B     0.91GB     1X    31.0    14.1    33.3    45.3    34.0    19.0    37.0    44.6
+ RevBiFPN-S2            26.50M      210.49B     1.06GB     1X    33.7    16.0    35.9    49.2    37.1    21.7    40.2    48.5
+ RevBiFPN-S3            33.04M      232.92B     1.32GB     1X    35.5    17.4    38.4    50.9    39.4    23.6    43.1    50.9
+ RevBiFPN-S4            55.50M      304.09B     2.05GB     1X    37.1    17.8    40.1    53.4    41.5    24.2    45.4    53.9
+ RevBiFPN-S5            80.47M      381.99B     2.77GB     1X    37.8    18.5    40.7    54.3    42.2    25.5    46.3    54.3
+ RevBiFPN-S6           130.15M      518.50B     3.71GB     1X    38.7    19.8    41.7    55.2    43.3    26.9    47.4    55.6
+ HRN ET V2 P -W18       30.13M      249.25B     3.33GB     1X    33.8    15.6    35.6    49.8    37.1    21.9    39.5    47.9
+ HRN ET V2 P -W18       30.13M      249.25B     3.33GB     2X    35.3    16.9    37.5    51.8    39.2    23.7    41.7    51.0
+ HRN ET V2 P -W32       49.92M      352.03B     4.51GB     1X    36.7    17.3    39.0    53.0    40.9    24.5    43.9    52.2
+ HRN ET V2 P -W32       49.92M      352.03B     4.51GB     2X    37.6    17.8    40.0    55.0    42.3    25.0    45.4    54.9
+ R ES N ET-50-FPN       44.17M      269.78B     2.09GB     1X    34.2    15.7    36.8    50.2    37.8    22.1    40.9    49.3
+ R ES N ET-50-FPN       44.17M      269.78B     2.09GB     2X    35.0    16.0    37.5    52.0    38.6    21.7    41.6    50.9
+ R ES N ET-101-FPN      63.16M      349.65B     2.88GB     1X    36.1    16.2    39.0    53.0    40.0    22.6    43.4    52.3
+ R ES N ET-101-FPN      63.16M      349.65B     2.88GB     2X    36.7    17.0    39.5    54.8    41.0    23.4    44.4    53.9
+                           RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+deep supervision which could aid optimization to improve
+performance (Newell et al., 2016; Zhou et al., 2018).
+Tuning a model for inference is an important aspect of a
+models development and it would be prudent to make device
+specific optimizations before deploying RevBiFPN to a spe-
+cific inference platform since GPU speeds does not correlate
+with speeds on inference devices (Mehta & Rastegari, 2021).
+Using the MBConv building block produces networks which
+are generally fast on mobile inference platforms (Howard
+et al., 2017; Sandler et al., 2018), but exploring the use of
+ResNet, ResNeXt, or Transformer blocks could produce
+networks better optimized for other metrics. The building
+block could also use 3D convolutions for application to
+highly memory-intensive 3D workloads. Future work could
+also explore other architectural modifications such as the
+use of dilated convolutions (Yu & Koltun, 2016) or weight
+sharing for repeated blocks in RevBiFPN to produce more
+parameter efficient networks. With regards to scaling, future
+work could investigate alternate strategies and the effects of
+modifying N , the number of spatial resolutions in the fea-
+ture pyramid. In general, the architectural design could be
+improved by Neural Architecture Search (Tan et al., 2019;
+Ghiasi et al., 2019; Tan & Le, 2019).
+Lastly, the RevSilo and RevBiFPN could be applied to other
+domains. The RevSilo can be used as a reversible multi-
+modal fusion module or for fusing information from multi-
+ple input sensors. For instance, self-driving cars use multi-
+ple imaging systems. Training these systems can be highly
+memory-intensive, but using RevSilo to fuse different inputs
+could provide a memory-efficient solution. Lastly, given
+RevBiFPN is fully reversible, it can be used for flow-based
+generation. Awiszus et al. (2020) argue that multi-scale
+processing is needed in GAN generation as it provides lo-
+cal and global coherence. Prior to this work, bidirectional
+multi-scale feature fusion wasn’t possible in flow models,
+but now the RevSilo and RevBiFPN can provide local and
+global coherence for flow-based generation.
+
+F. ImageNet Model Comparisons
+Table 11 extends Table 1. This enable comparisons of RevB-
+iFPN variants to other state of the art networks trained on
+ImageNet1k.
+                              RevBiFPN: The Fully Reversible Bidirectional Feature Pyramid Network
+
+
+Table 11. Models trained using only ImageNet1k. While most networks are trained using 300 to 400 epochs, HRNet and RegNetY use a
+100 epoch training schedule.
+
+                     M ODEL                                                PARAMS   T RAIN R ES   R ES   MACS      T OP 1
+                    RevBiFPN-S0                                             3.42M          224    224     0.31B   72.8%
+                    RevBiFPN-S1                                             5.11M          256    256     0.62B   75.9%
+                    RevBiFPN-S2                                             10.6M          256    256     1.37B   79.0%
+                    RevBiFPN-S3                                             19.6M          288    288     3.33B   81.1%
+                    RevBiFPN-S4                                             48.7M          320    320     10.6B   83.0%
+                    RevBiFPN-S5                                             82.0M          352    352     21.8B   83.7%
+                    RevBiFPN-S6                                            142.3M          352    352     38.1B   84.2%
+                     E FFICIENT N ET-B0                                      5.3M          224    224     0.39B   77.1%
+                     E FFICIENT N ET-B1                                      7.8M          240    240     0.70B   79.1%
+                     E FFICIENT N ET-B2                                      9.2M          260    260      1.0B   80.1%
+                     E FFICIENT N ET-B3          (TAN & L E , 2019)           12M          300    300      1.8B   81.6%
+                     E FFICIENT N ET-B4                                       19M          380    380      4.2B   82.9%
+                     E FFICIENT N ET-B5                                       30M          456    456      9.9B   83.6%
+                     E FFICIENT N ET-B6                                       43M          528    528       19B   84.0%
+                     E FFICIENT N ET-B7                                       66M          600    600       37B   84.3%
+                     E FFICIENT N ET-B5        (C UBUK ET AL ., 2020)        30M           456    456      9.9B   83.9%
+                     E FFICIENT N ET-B7                                      66M           600    600       37B   85.0%
+                     E FFICIENT N ET V2-S                                    24M     128 - 300    300      8.8B   83.9%
+                     E FFICIENT N ET V2-M        (TAN & L E , 2021)          55M     128 - 380    380       24B   85.1%
+                     E FFICIENT N ET V2-L                                   121M     128 - 380    380       53B   85.7%
+                     NFN ET-F0                                              72.0M          192    256      12B    83.6%
+                     NFN ET-F1                                               133M          224    320      36B    84.7%
+                     NFN ET-F2                 (B ROCK ET AL ., 2021)        194M          256    352      63B    85.1%
+                     NFN ET-F3                                               255M          320    416     115B    85.7%
+                     NFN ET-F4                                               316M          384    512     215B    85.9%
+                     NFN ET-F5                                               377M          416    544     290B    86.0%
+                     VOLO-D1                                                 27M           224    384     22.8B   85.2%
+                     VOLO-D2                                                 59M           224    384     46.1B   86.0%
+                     VOLO-D3                    (Y UAN ET AL ., 2021)        86M           224    448     67.9B   86.3%
+                     VOLO-D4                                                193M           224    448      197B   86.8%
+                     VOLO-D5                                                269M           224    448      304B   87.0%
+                     VOLO-D5                                                269M           224    512      412B   87.1%
+                    ViT-B/16                (D OSOVITSKIY ET AL ., 2021)    86.0M          384    384     55.4B   77.91%
+                    ViT-L/16                                                 307M          384    384      191B   76.53%
+                     S WIN -T                                                29M           224    224      4.5B   81.3%
+                     S WIN -S                    (L IU ET AL ., 2021)        50M           224    224      8.7B   83.0%
+                     S WIN -B                                                88M           224    384     47.0B   84.5%
+                     C OAT N ET-0                                            25M           224    384     13.4B   83.9%
+                     C OAT N ET-1                                            42M           224    384     27.4B   85.1%
+                     C OAT N ET-2                (DAI ET AL ., 2021)         75M           224    384     49.8B   85.7%
+                     C OAT N ET-2                                            75M           224    512     96.7B   85.9%
+                     C OAT N ET-3                                           168M           224    384      107B   85.8%
+                     C OAT N ET-3                                           168M           224    512      203B   86.0%
+                     C AI T-XXS-24                                          12.0M          224    384      9.5B   80.4%
+                     C AI T-XXS-36                                          17.3M          224    384     14.2B   81.8%
+                     C AI T-XS-24                                           26.6M          224    384     19.3B   83.8%
+                     C AI T-XS-36                                           38.6M          224    384     28.8B   84.3%
+                     C AI T-S-24              (T OUVRON ET AL ., 2021)      46.9M          224    384     32.2B   84.3%
+                     C AI T-S-36                                            68.2M          224    384     48.0B   85.0%
+                     C AI T-S-48                                            89.5M          224    384     63.8B   85.1%
+                     C AI T-M-24                                           185.9M          224    384    116.1B   84.5%
+                     C AI T-M-36                                           270.9M          224    384    173.3B   84.9%
+                     HRN ET-W18-C                                           21.3M          224    224     3.99B   76.8%
+                     HRN ET-W30-C                                           37.7M          224    224     7.55B   78.2%
+                     HRN ET-W32-C                                           41.2M          224    224     8.31B   78.5%
+                     HRN ET-W40-C               (S UN ET AL ., 2019 A )     57.6M          224    224     11.8B   78.9%
+                     HRN ET-W44-C                                           67.1M          224    224     13.9B   78.9%
+                     HRN ET-W48-C                                           77.5M          224    224     16.1B   79.3%
+                     HRN ET-W64-C                                            128M          224    224     26.9B   79.5%
+                     R EG N ET Y-200MF                                       3.2M          224    224      0.2B   70.4%
+                     R EG N ET Y-400MF                                       4.3M          224    224      0.4B   74.1%
+                     R EG N ET Y-600MF                                       6.1M          224    224      0.6B   75.5%
+                     R EG N ET Y-800MF                                       6.3M          224    224      0.8B   76.3%
+                     R EG N ET Y-1.6GF                                      11.2M          224    224      1.6B   78.0%
+                     R EG N ET Y-3.2GF                                      19.4M          224    224      3.2B   79.0%
+                     R EG N ET Y-4.0GF      (R ADOSAVOVIC ET AL ., 2020)    20.6M          224    224      4.0B   79.4%
+                     R EG N ET Y-6.4GF                                      30.6M          224    224      6.4B   79.9%
+                     R EG N ET Y-8.0GF                                      39.2M          224    224      8.0B   79.9%
+                     R EG N ET Y-12GF                                       51.8M          224    224     12.1B   80.3%
+                     R EG N ET Y-16GF                                       83.6M          224    224     15.9B   80.4%
+                     R EG N ET Y-32GF                                      145.0M          224    224     32.3B   81.0%
+

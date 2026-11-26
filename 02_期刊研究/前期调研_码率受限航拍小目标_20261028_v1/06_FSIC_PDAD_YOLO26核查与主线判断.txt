@@ -1,0 +1,163 @@
+FSIC、PDAD 全文与 YOLO26 小目标分配源码核查
+版本 v1；日期 2026-10-28（客户端，America/Los_Angeles）
+academic-research-suite / 定向前期调研；单助手完成，不是系统综述或独立复现。
+
+当前判断：可以继续验证一个具体问题，尚不能确定一条有新颖性的算法主线。
+保留的问题是：普通 JPEG 增强训练后，航拍小目标还剩哪些压缩相关漏检；同一 JPEG 文件上的恢复是否还有独立收益？
+推荐验证载体：VisDrone2019-DET + YOLO26s + 固定 640 输入。具体方案见 07_VisDrone_YOLO26s最小验证方案.txt。
+
+证据标签：【原文】论文自己的设定/报告；【源码】实际读到的静态实现；【推断】本次综合判断；【假设】未来才能验证；【方案】尚未执行。
+本轮没有模型构建、权重加载、推理、训练、数据集压缩扫描、评价重跑、GPU或远端任务。论文 PDF 的解析、页面渲染和源码文本读取不属于检测实验。
+
+1. 本次新增证据与阅读边界
+
+FSIC：用户提供的出版商排版 PDF，共9页，Digital Signal Processing 156 (2025), 104822；2024-10-18 online。正文 PDF p1–8已通读，p3–8的公式、方法图与结果表已目视核对；p9参考文献未逐条外查。
+DOI：10.1016/j.dsp.2024.104822。
+归档：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\文献_相关原始论文_20261004\20261028_深入核查_FSIC_用户提供.pdf
+SHA256：7e27952f483593f4439c16b9453e5db0b130a682b482cfc720cf0e5a5cfec2ea。
+
+PDAD：用户提供的13页 Accepted Manuscript / Article in Press，属于接收稿，不能冒充最终校样版。正文 PDF p2–11已通读，p4–10的方法图、公式和表1–5已目视核对；p1版本页及p12–13参考文献/声明也已读取。下列复现问题限定于这份接收稿。
+DOI：10.1038/s41598-026-63984-0。
+归档：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\文献_相关原始论文_20261004\20261028_深入核查_PDAD_用户提供.pdf
+SHA256：97557651a68fa7b3a9e72767e79d266955772c6c44a5c8573678a184ff846b3d。
+
+两份原件均已通过结构预检。PASS只说明页面/文本结构可读，不证明论文结论正确；阅读范围由上述实际阅读记录决定。用户文件只在本地读取、复制，没有上传外部服务。
+
+YOLO26：读取官方仓库静态源码，不导入执行。主要锁定 Ultralytics v8.4.191，commit 2004cba021c68a46429be460e26954ab171b2862；另读 v8.4.24，commit e95ce53a7f7ffbc695d012bd755345adc7d84926，核查近邻 JCRR 所述版本与当前版本的差异。
+这是已审计的固定版本，不声称它永远是最新软件补丁。模型族仍采用用户要求的 YOLO26。
+完整核心文件保存在 深入核查_20261028_v1\source_code；augment.py、detect/val.py 的原文件下载失败，相关逻辑通过固定 tag 的官方 raw 网页选段核对。没有把网页片段记为完整本地文件。
+文件 SHA256 和下载 URL 见各 retrieval receipts；额外 Git tree/blob 交叉核验因网络失败未完成，不能声称通过了该项核验。
+
+2. FSIC究竟做了什么
+
+【原文，p3–6，图2–3，式6–14】FSIC训练一套学习式图像编解码器。编码器产生潜变量，量化后通过算术编码发送；解码得到完整重建图像。网络采用残差块和GDN/IGDN，通道数N=128；训练量化用均匀噪声近似，推理用取整；熵模型采用fully factorized设计以控制编码开销。
+
+“频率分离”体现在分析和训练监督中。以5×5均值低通核计算 X_L，再令 X_H=X−X_L。完整重建图像承担全图MSE；重建图的高频分量送入检测器，产生目标性、分类和CIoU框损失。
+总目标：L_total = L_rate + λ L_mse + β L_detection。
+不能把它描述成两条分别传输的“高频码流/低频码流”，也不能描述成保留标准JPEG载荷的接收端后处理。
+
+【原文，p6 §5.2】YOLOv5s先在相应数据集训练300 epochs，然后在FSIC训练期间固定权重。检测损失仍能沿冻结检测器反传到编解码器。这里的联合目标不代表检测器和codec权重同时更新。
+检测器设置包括640输入、batch8、lr=1e-4，其预训练优化器未在该段明确。codec明确用Adam、batch8、lr=1e-4。五个λ为0.0002/0.0005/0.001/0.002/0.005；β在最低质量点为0.05，其余为0.1。
+复现缺口：正文没有清楚给出FSIC自身正式训练总轮数；高频有正负值，送入检测器前的数值处理也没有充分展开。p3诊断中Cheng2020的300轮，及比较方法的1000/2000轮，都不能移作FSIC自己的训练轮数。
+
+【原文，p6 §5.1】实验使用VisDrone和DOTA-v1.5。VisDrone的6471 train/548 val与10类任务明确；DOTA只能作为相邻航空/遥感证据，不能统称纯无人机数据。图像在进入codec前先缩放到640×640；是否严格保持宽高比没有充分说明。
+因此，FSIC在640图像上的bpp，不能直接与“原分辨率JPEG文件大小÷原图面积”的bpp横向排序。
+
+【原文，p7表5】作者在相近文件大小比较时，报告VisDrone FSIC为24.2 mAP@0.5、3.7KB；该表并非每一项都严格等比特。指标是总体mAP@0.5，不能改写成AP_s。图5显示优势随码率变化，不能说所有码率都优于所有codec。
+【原文，p7表6】25.8ms GPU / 282.1ms CPU是所报告硬件上的编码时间，不是编码、解码与检测的端到端总时延。
+
+【原文，p3表1】“压缩低频+原始高频”的重组诊断使用了原始图像的高频信息。例如bpp=0.122时，压缩图检测24.3，对应重组33.3 mAP@0.5。这是借助原图信息的诊断，不能作为相同已有码流上可部署恢复器的收益，也不能称为严格恢复上界。
+
+【原文，p8图6–7】消融主要检查残差结构与检测损失的作用，放在DOTA上；在已报告消融中，没有核到完整的“全图检测监督 vs 仅高频检测监督”控制。此限制不等于该方法无效，也不构成我们的新颖性证明。
+
+【推断】FSIC确立了高频与小目标检测感知压缩的强先例。它没有直接闭合“标准JPEG固定后，检测器先作普通压缩适配，再看恢复有无增量”的问题；但这一接口差异本身也不是算法贡献。
+
+3. PDAD究竟做了什么
+
+【原文，p4–6，图1，式1–8】从退化图像进入学生检测器，取neck特征F_neck。训练期增加两个辅助任务：
+DP退化预测器：d_pred = MLP(GAP(Conv(F_neck)))，以合成退化参数d_gt作MSE监督。例子包括模糊核、噪声和JPEG质量。梯度更新DP及学生backbone/neck。
+IRB恢复分支：将MLP(d_pred)与F_neck按通道拼接，得到条件特征，再生成对应高质量图像。使用L1重建损失、GAN生成器损失与VGG感知损失。
+总目标：L_det + α L_dp + β(L_rec + λ_adv L_adv + λ_perc L_perc)。
+训练后DP与IRB都移除；部署检测器的结构不增加这两个辅助分支。
+
+【阅读限制】图1画有KD和Real-ESRGAN连线，但式1–8没有明确的“干净图检测教师输出→学生特征/logit”项。正文可以还原上述辅助任务，却不能据此臆造一个固定教师检测器、某层特征距离或蒸馏温度。较准确的操作性描述是“作者称为蒸馏的退化预测与条件恢复辅助训练”。
+“progressive/两阶段”的叙述与“端到端联合训练”并存；稿件没有给出足以复现阶段切换/冻结日程的清晰协议。α、β、λ_adv、λ_perc数值、DP/IRB完整层宽、空间广播/多尺度融合方式、判别器结构与batch等细节也没有明确到可完整照写的程度。本次不代填。
+
+【原文，p6表1，p8–10表2–5】数据是室内HomeObjects-3K：2285训练、404验证、311测试，12类；不是UAV实证。表2作者报告YOLOv8s AP从39.3到52.2，差12.9个百分点；AP_s从23.6到32.9，差9.3个百分点。这些是原文报告值，未经本项目复现。其小目标面积坐标及完整AP实现没有在所读文字中充分明确，不能直接与我们的输入尺度指标比较。
+表3报告DP-only/IRB-only/完整方法AP为45.1/46.7/52.2；表4报告多个YOLO版本上的改善。表5称部署速度与原YOLOv8s相同；训练时间则由约2.5h增至6.5h（RTX3090、100轮，作者报告）。不能用该时间推算我们单卡训练耗时。
+
+3.1 接收稿中已目视确认的复现障碍
+
+位置 | 实际写法 | 造成的限制
+PDF p6“Dataset and Degradation Pipeline” | Gaussian blur→固定×4 bicubic→JPEG q∈[30,95] | 给出第一套退化协议。
+PDF p6“Experiment details”与p7开头 | Dlib人脸关键点裁剪、input facial image；随后s∈[10,200]、q∈[5,50] | 任务叙述与倍率/质量范围不能与上一段直接合并。
+PDF p7训练段 | 先训练micro-expression generation model，再嵌入重建/分类模型，使用cross-entropy | 不能据此恢复室内检测DP/IRB的实际阶段和训练预算。
+PDF p4图1 vs p5–6目标函数 | 图中的KD/Real-ESRGAN连接未被对应的教师输出损失充分定义 | 教师到底输出什么、怎样停梯度，仍不能完整确定。
+PDF p7–8比较说明与表2 | 文本提及退化无关KD比较，表2未列出可识别的独立KD方法行 | 不能把它当成已充分超越FGD/GID等所有蒸馏方法的证据。
+
+【推断】这些问题足以降低这份接收稿作为“直接照抄即可复现基线”的可信度；仍需作者代码、补充材料或明确勘误。它们不能用于指控学术不端，也不能推导作者所有结果错误。本轮没有联系作者。PDF只提供数据可合理请求的声明，没有核到作者实现仓库链接。
+【推断】PDAD仍然构成宽泛思路上的先例：显式退化预测、条件恢复辅助任务、训练后去分支，都不能换到VisDrone/YOLO26后直接称新创新。反过来，它也不能证明普通JPEG增强后的UAV小目标剩余漏检已经解决。
+
+4. YOLO26小目标分配：实际调用链与边界
+
+【源码】以下行号对应本地保存的v8.4.191原文件，而非网页重排后的行号。
+source_code根目录：C:\Users\jiwei\Desktop\小论文投稿\英文小论文\前期调研_码率受限航拍小目标_20261028_v1\深入核查_20261028_v1\source_code\v8.4.191_2004cba021c6
+
+文件/位置 | 已确认行为 | 对方案的影响
+ultralytics/cfg/models/26/yolo26.yaml | reg_max=1，end2end=True，P3/P4/P5输出 | 有双头结构；不据配置单独推断默认部署头。
+ultralytics/nn/tasks.py:651 | DetectionModel选择E2ELoss（有one2one头时） | 要追实际criterion，不能误读旁边旧E2EDetectLoss。
+ultralytics/utils/loss.py:1319 | one2many topk=10；one2one先topk=7、再topk2=1 | 不是直接把one2one初选topk写成1。
+ultralytics/nn/modules/head.py:194 | 训练时one2one输入特征detach | one2one分支损失不经这条路径更新backbone；不擅自改掉。
+ultralytics/utils/loss.py:1329、1343；engine/trainer.py:643 | 双头损失初始权重0.8/0.2，one2many衰减至0.1；每epoch调用update | 日程按原实现固定，不改为每optimizer step衰减。
+ultralytics/utils/tal.py:58、328 | 以中间stride为边长下限；P3/P4/P5=[8,16,32]时，对小于16的每条边独立扩到16 | 扩的是选候选点的区域；长边不会因此缩短。
+ultralytics/utils/ops.py:241；tal.py:169、get_targets | xyxy2xywh另建输出，返回监督框来自原GT | 不能说STAL把回归真值也扩大到16×16。
+ultralytics/utils/tal.py:200、233、361 | 几何候选后还有score^0.5×overlap^6排序、topk、GT间冲突处理、软分数归一化 | 候选覆盖不等于每个GT最后必有有效正监督。
+ultralytics/engine/predictor.py:475；engine/validator.py:173、198 | end2end由args.nms is False选择 | nms=None/True走one2many+NMS；显式False走one2one。所有比较固定同一路。
+
+4.1 版本差异不能忽略
+
+【源码】v8.4.24的tal.py:306触发条件是边长<最小stride（这里8），扩到stride_val（16）；v8.4.191的tal.py:346改为边长<stride_val（这里16），扩到16。因此8–16像素边长的候选规则不同。JCRR所述v8.4.24结果不能直接当成v8.4.191上的同版本复现。
+这项HBB逻辑位于共享TaskAlignedAssigner；同版本中复用该类的其他检测器也可能使用它，不能只凭模型名断言YOLO26独享。
+
+【推断】若GT、输入尺寸和几何变换相同，仅改变JPEG像素，不会直接改变这一步纯几何候选mask；预测分数、预测框、最终排序及软权重则可能改变。这是代码推断，不是已经测到的压缩故障。
+【推断】源码没有逐GT最低有效正样本的最终保证，不等于我们已经证明“正样本短缺是压缩漏检原因”。目前不能据此重启旧配额/分配修补路线。
+
+4.2 两个会影响“强基线”的配置细节
+
+【源码，固定tag augment.py网页选读】默认Albumentations列表中ImageCompression的p=0.0，不能说默认已有专门JPEG增强；其他低概率Blur/Gray/CLAHE是否生效依赖安装环境。未来两组必须使用同一环境、同一增强清单，并显式禁用额外可选Albumentations，避免隐形条件差异。
+【源码，engine/trainer.py:326、1183–1186】optimizer=auto并不保证用MuSGD。6171张fit、nbs64、100轮时，ceil(6171/64)×100=9700，落在AdamW分支；10类的lr_fit=0.000714。本次方案显式固定等价AdamW参数，不用“YOLO26默认一定MuSGD”作为预算描述。
+这些均是静态规则/算术结果，没有创建模型验证显存或吞吐。
+
+5. 与最接近工作的逐项对比
+
+维度 | JCRR [R1] | FSIC [R2] | PDAD [R16] | 本次拟验证问题
+作用位置 | JPEG解码后的恢复器 | 发送/接收两端的学习式codec | 检测器训练期DP+IRB辅助任务 | 先比较检测器普通增强，再检查恢复互补性。
+是否改传输文件 | 同一JPEG载荷 | 改编码与熵模型，非JPEG兼容后处理 | 研究合成退化，未核实际载荷协议 | JPEG条件逐文件共享；计算真实字节。
+检测器是否适配 | 已读设置未作专门压缩适配比较 | 检测器先训练后冻结 | 学生检测器参与训练；基线也称在退化数据上训练 | D0与DA从同一初始化、相同轮数与基本增强开始。
+数据/检测器 | VisDrone，YOLO26s/n | VisDrone+DOTA，YOLOv5s | HomeObjects-3K，多个YOLO版本 | VisDrone，固定版本YOLO26s。
+小目标/评价 | 640后small召回，非COCO AP_s | 总体mAP@0.5为主 | 报告AP_s，坐标和实现未充分明确 | 显式区分输入像素尺寸分层、原图面积与AP/召回。
+最关键缺口 | 恢复对压缩适配后检测器的收益未闭合 | 未回答固定JPEG下检测器适配与恢复的关系 | 不是UAV实际码率实验；复现协议有冲突 | 尚无任何新结果，先验证剩余问题是否足够大。
+
+补充查重[R20]：AERIS（ECCV2022，Exploring Resolution and Degradation Clues as Self-supervised Signal for Low Quality Object Detection）已经联合优化恢复辅助任务与检测，推理时不显式重建，并比较退化训练与原始/退化混合训练。它进一步限制“恢复辅助训练但不增加推理分支”的宽泛新颖性。当前仅核官方摘要、推理段与作者README；PDF存档下载失败，不引用其定量表格，不称全文已读。PDAD中的RestoreDet预印本题名与正式AERIS工作的关系尚未逐版核清，不重复计作两个独立效果证据。
+
+6. 还剩什么具体问题，以及算法增量可能在哪里
+
+【文献支持的比较缺口】在本次已读的直接UAV近邻中，尚未核到同一批JPEG文件、同版本检测器、相同训练预算下，D0(C)、DA(C)、D0(R(C))、DA(R(C))四项完整对照，并把漏检转移落实到相同GT实例。这里D0是原始训练，DA是普通压缩增强，R是已有恢复器。
+这是一个可检验的局部证据缺口；不能写成“该领域无人比较恢复与适配”，因为AERIS等相邻工作已有相关比较。也不能仅靠补齐这张表就宣称新算法论文成立。
+
+【假设H1】混合质量JPEG增强后，输入尺度<32²的小目标仍有超过普通随机波动的压缩相关漏检；其损失不能只由固定阈值、NMS、max_det或resize解释。
+【假设H2】已有恢复器对DA仍能找回一部分同实例漏检，而不是只给未适配D0带来收益；这种增益能在AP/误检约束下保持。
+【假设H3】如果有可重复的互补实例，可能需要更有选择性的训练监督；当前没有证据证明它优于既有KD/辅助恢复训练。
+
+可能增量 | 必须先出现的证据 | 与已有工作真正需要区分的点 | 主要风险
+针对可恢复实例的训练监督选择 | DA后仍有reference命中、JPEG漏检，且R可找回的稳定实例集合 | 不能只是GID实例筛选/FGD加权、PDAD退化预测或普通干净教师KD；须说明选择依据怎样识别压缩导致的可观测性差异 | 只学到尺寸/置信度，教师误差被放大；额外训练预算不公平。
+将已证实的恢复互补收益转入检测器 | DA(R(C))确实优于DA(C)，并且完整管线开销值得避免 | 不能把“去掉恢复分支”当贡献；AERIS/PDAD和privileged learning已有先例。需要新的具体失败机制和必要消融 | 恢复本身无独立收益；普通KD已够；跨码率不稳定。
+仅修阈值、NMS或候选扩展 | 差异主要来自后处理/软件版本 | 属于协议/强基线问题，先修正口径 | 不支持当前拟议算法主线，不强行包装创新。
+
+【推断】现在不选定上述任何一个作为论文创新，不设计“频率分支+蒸馏+小目标分配”的拼装方法。可承担的下一步是用07方案检验H1/H2；如果两者都不成立，应停止这条算法路线。PDAD复现困难不能降低我们需要证明新颖性和强基线效果的标准。
+
+7. 继续价值与停止条件
+
+值得继续的部分：问题可控，同一图像/同一GT可成对比较；直接近邻已有，便于约束主张；第一阶段只需两种训练配方，适合单卡资源规划。
+尚不值得投入的部分：codec重训、GAN重型辅助分支、多教师、大规模多数据集消融，以及“预期可发表”的写作承诺。
+
+继续算法设计须同时看到：普通增强之后仍有有意义的损失；简单编解码/分辨率取舍不能轻易解决；恢复或监督机制呈现稳定、可解释的补救空间；与最近机制的差异经再次检索成立。
+若普通增强或简单输入选择已覆盖主要收益，结束当前算法方向。若只是训练未收敛、标注/ignore实现不明或预算不足，结论应为“本次无法判定”，不能宣称压缩增强无效或方向无价值。
+一轮单种子筛选不构成期刊论文的充分验证。只有通过筛选，才讨论多种子、第二UAV域和最少必要消融；本轮没有启动这些任务。
+
+8. 本次可核验的关键原始来源
+
+[R2] Dai, C., Song, T., Chen, Q., Gong, H., Yang, B., & Song, G. (2025). FSIC: Frequency-separated image compression for small object detection. Digital Signal Processing, 156, 104822. https://doi.org/10.1016/j.dsp.2024.104822
+[R16] Gu, X., & Chen, J. (2026). Progressive degradation-aware distillation for robust indoor object detection. Scientific Reports. https://doi.org/10.1038/s41598-026-63984-0 （本次阅读版本：用户提供的Accepted Manuscript）
+[R1] Wang, L., & Zhang, H. (2026). Designing a JPEG-compatible receiver-side residual refinement pipeline for unmanned aerial vehicle image transmission and object detection. Design+, 3(3), 026260029. https://doi.org/10.36922/DP026260029 （本次未扩大原有选读范围）
+[R20] Cui, Z., Zhu, Y., Gu, L., Qi, G.-J., Li, X., Zhang, R., Zhang, Z., & Harada, T. (2022). Exploring resolution and degradation clues as self-supervised signal for low quality object detection. ECCV, 473–491. 官方论文：https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136690465.pdf ；作者代码：https://github.com/cuiziteng/ECCV_AERIS （有限选读）
+
+YOLO固定版本：https://github.com/ultralytics/ultralytics/tree/2004cba021c68a46429be460e26954ab171b2862
+分配源码：https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/tal.py#L328
+损失源码：https://github.com/ultralytics/ultralytics/blob/2004cba021c68a46429be460e26954ab171b2862/ultralytics/utils/loss.py#L1319
+旧版分配：https://github.com/ultralytics/ultralytics/blob/e95ce53a7f7ffbc695d012bd755345adc7d84926/ultralytics/utils/tal.py#L306
+默认增强（已核固定tag网页，未取得完整本地文件）：https://raw.githubusercontent.com/ultralytics/ultralytics/v8.4.191/ultralytics/data/augment.py
+
+全部20条文献的元数据、各自阅读范围及未取得原件的状态见01_核心文献矩阵.txt、03_来源核验与原件存档.json。不能将本报告的全文阅读状态扩展给其他只读摘要的文献。
+
+R20出版元数据补核：ECVA链接指向Springer，页码473–491及DOI 10.1007/978-3-031-20077-9_28 已由出版商页面确认；全文阅读范围不变。

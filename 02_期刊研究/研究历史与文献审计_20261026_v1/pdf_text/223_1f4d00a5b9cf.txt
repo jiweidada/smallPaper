@@ -1,0 +1,160 @@
+DM-EFS: Dynamically Multiplexed Expanded Features Set
+Form for Robust and Efficient Small Object Detection
+Aashish Sharma
+KLASS Engineering and Solutions, Singapore
+sharma.aashish@klasses.com.sg
+Abstract
+In this paper, we address the problem of small object detec-
+tion (SOD) by introducing our novel approach - Dynami-
+cally Multiplexed Expanded Features Set (DM-EFS) form.
+Detecting small objects is challenging as they usually suffer
+from inadequate feature representation. Hence, to address
+this, we propose the Expanded Features Set (EFS) form - a
+simple yet effective idea to improve the feature representa-
+tion of small objects by utilizing the untapped higher res-
+olution features from the shallower layers of the backbone
+module. We observe that the EFS form improves the SOD
+performance. However, due to processing of additional fea-
+tures, it has a higher computational cost which reduces in-
+ference efficiency. Hence, to address this, we propose Dy-
+namic Feature Multiplexing (DFM) - a novel design that
+optimizes the usage of the EFS form during inference by dy-
+namically multiplexing it to create our aforementioned DM-
+EFS form. Since our DM-EFS form is a multiplexed (or sub-
+sampled) optimal version of the EFS form, it improves the
+SOD performance like the EFS form but with a lower com-
+putational cost. Extensive experiments confirm the efficacy
+of our DM-EFS approach. Integrated with YOLOv7 base
+model, our DM-EFS achieves state-of-the art results on di-
+verse SOD datasets outperforming the base model and SOD
+baselines, with on-par or even better inference efficiency.
+1. Introduction
+Object detection is an imperative vision task and there are
+numerous methods [21, 22, 28, 35, 38] that have achieved
+significant performance. Despite this, when used for small
+object detection (SOD), e.g., for objects of size ≤ 20px,
+these methods do not work well. While there are several
+methods [13, 23, 40, 41, 44] specifically designed to ad-
+dress the SOD problem, it remains far from solved espe-
+cially when working with limited resolution images 1. This
+1In this paper, we assume we only have limited resolution images which
+we define as images with ≤ 640×640 spatial resolution.
+(a) CFINet [44]
+ (b) QueryDet [41]
+(c) YOLOv7 (Base)
+ (d) DM-EFS (Ours)
+Figure 1. For the example shown from the VisDrone [46] dataset,
+compared to SOD baselines CFINet [44] and QueryDet [41], and
+YOLOv7 [35] base model, our DM-EFS detects small objects
+more robustly and accurately. Green and red boxes are ground-
+truths and predictions respectively, shown without class labels on
+original resolution image. Please zoom-in for better visualization.
+can be observed from the results shown in Figs. 1a and 1b,
+where for a 640×640 image from the VisDrone [46] dataset,
+recent SOD methods, CFINet [44] and QueryDet [41], have
+inaccuracies in detecting small objects robustly.
+Detecting small objects is challenging given their in-
+adequate feature representation in limited resolution im-
+ages [6]. To address this, existing SOD methods have pro-
+posed various techniques such as feature imitation [39, 44]
+which aims to enrich features of small objects by learning to
+mimic the features of large objects, feature up-sampling [9,
+26] or GAN-based super-resolution [1, 2, 25] to generate
+high-resolution features for small objects. While GAN-
+based methods are known to create spurious artefacts that
+can adversely impact detection [6, 29, 30], feature imitation
+methods, including the recent CFINet [44], work on hand-
+crafted feature imitation designs which can be susceptible
+to errors or training instabilities. Also, while using high
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+24569
+
+
+---PAGE---
+
+Figure 2. (a) Different from the base (or original) form, in the proposed EFS form, the untapped higher resolution features from the
+backbone’s shallower layers are also utilized which expands the features set in the backbone module (and, subsequently, in the neck and
+head modules); (b), (c) AP50 and fps comparisons between the base and the EFS form of YOLOv7 base model on SOD datasets.
+resolution images could address the inadequate feature rep-
+resentation of small objects [23, 41], it is computationally
+expensive and often impractical in real scenarios. Hence, to
+address these issues, we propose our novel approach termed
+DM-EFS form which integrates our two main ideas: (1) Dy-
+namic Feature Multiplexing (DFM), and the (2) Expanded
+Features Set (EFS) form. We describe the EFS form first
+followed by our novel DFM design.
+In our investigations, we observe a simple yet effective
+way to improve the feature representation of small objects
+for limited resolution images; and, that is to utilize the un-
+tapped higher resolution features from the shallower layers
+of the backbone module. This extension of features in the
+backbone − and, subsequently in the neck and head mod-
+ules − is what we collectively refer to as the EFS form.
+Please refer to Fig. 2a that illustrates the proposed EFS form
+and the base (or original) form of a general detection model.
+Tested on VisDrone [46] and SODA-D [6] SOD datasets
+with YOLOv7 [35] as the base model, SOD results mea-
+sured by AP 50 metric show significant improvements with
+the EFS form as shown in Fig. 2b. However, due to the in-
+creased features processing in the EFS form, it also has a
+higher computational cost which reduces the inference fps
+efficiency as shown in Fig. 2c; and, to address this issue, we
+propose our novel DFM design.
+The core idea behind our DFM is to utilize the EFS
+form optimally during inference. This is carried out by
+dynamically multiplexing the EFS form to obtain the DM-
+EFS form with the help of feature multiplexers and their
+guiding control module. Hence, our control module is the
+module essentially responsible for obtaining the DM-EFS
+form. During training, our control module learns (1) a size-
+features codebook where each entry of the codebook indi-
+cates the smallest subsample of the EFS form that can be
+used to reliably detect an object of a given size; and (2)
+min and max object sizes present in an image. Then dur-
+ing inference, using the learnt size-features codebook, our
+control module guides the feature multiplexers to create the
+DM-EFS form, which is basically the smallest subsample of
+the EFS form that can be used to reliably detect the entire
+range of objects in an input image, the range being defined
+by its predicted min and max object sizes. This makes our
+DM-EFS form provide an improved SOD performance like
+the EFS form but with a lower computational cost. Fig. 1d
+shows that our DM-EFS approach used with YOLOv7 [35]
+base model 2 generates more robust and accurate SOD re-
+sults compared to the base model shown in Fig. 1c as well
+as other recent SOD baselines shown in Figs. 1a and 1b. In
+sum, in this paper, our main contributions are:
+1. We propose DM-EFS form - our novel approach for ro-
+bust and efficient small object detection (SOD).
+2. Our DM-EFS approach integrates our two ideas: (1) Ex-
+panded Features Set (EFS) form - a simple yet effec-
+tive way to improve the SOD performance by utilizing
+the untapped higher resolution features from the back-
+bone’s shallower layers; (2) Dynamic Feature Multiplex-
+ing (DFM) - our novel design to dynamically multiplex
+the EFS form to create our DM-EFS form. Our DM-EFS
+form is a multiplexed (or subsampled) optimal version
+of the EFS form that provides a similarly improved SOD
+performance but with a lower computational cost.
+3. Our experiments show that our DM-EFS combined with
+YOLOv7 base model achieves state-of-the-art results on
+diverse SOD datasets while keeping inference efficiency.
+2. Related Works
+Object detection is a widely researched area. Existing meth-
+ods for general detection are primarily either anchor-free
+or anchor-based designs. The anchor-free designs include
+FSAF [45], FCOS [34], and GFL [19]. The anchor-based
+designs are either multi-stage such as Fast-RCNN [10],
+Faster-RCNN [28], FPN [21], and Cascade-RCNN [3]; or
+single-stage such as SSD [24, 43], RetinaNet [22], and vari-
+ants of YOLO [27] series such as YOLOv7 [35].
+Despite the advancements in general detection, small ob-
+ject detection (SOD) remains a challenging and relatively
+unsolved research area. Earlier SOD works are developed
+on techniques such as over-sampling and data augmenta-
+2Note, while we use YOLOv7 base model owing to its general robust-
+ness, as shown in our experiments later, our proposed DM-EFS approach
+is generalizable and also works well with other base models.
+24570

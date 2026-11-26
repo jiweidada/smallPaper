@@ -1,0 +1,40 @@
+135｜128/129原生数值接口勘误；136修复版执行前冻结
+日期：2026-10-21。编写者：Astra B；执行者：root。
+本勘误和136编写过程中，未读取127缓存内容、PMF质量比较或方法gate；未运行/编译136。130、132的两次接口异常由root通报，尚无本候选质量结果。127 LK自身失败不用于修改本候选。
+
+1. 错误归因与保留
+128宣称“FP64 ref/target调用native bbox2distance即可拿到FP32权重”不成立，是我的实现/接口判断错误。
+原生weighting_function的cat路径要求reg_scale为FP32 tensor[1]；Python float会使部分节点成为0维量。129的root修复native_scale保留。
+原生translate_gt通过indices.float()创建FP32 destination；若four_lens为FP64，布尔索引赋值源为FP64，会报index_put dtype不匹配，不能用外层读取时再double()修复。
+不覆盖129、130、131、132。136从root当前129复制，保留CPU runtime、torch线程2/interop1、CPU affinity [13,15]、RAM>8 GiB和其他审计。
+复制时129 SHA256：48fbcb572fb2422c9ebc7c58b913c5a3ae6911b03ad7ce699f5e86e94bcef167。
+
+2. 修复后的双路径，及其不同用途
+A. 几何/支持路径不变：缓存值升为FP64；以固定25点dx,dy∈{-2,-1,0,1,2}、归一化位移d/640构造候选cxcywh；在FP64下转xyxy，并按distance2bbox逆式计算four_lens64。物理支持仍由four_lens64与原FP32节点升为FP64后的端点比较，支持外概率严格为0。不得用native端点clamp扩大支持。
+B. 原生FGL编码路径：将完整候选cxcywh64转换为FP32，调用原生box_cxcywh_to_xyxy得到target_xyxy32；ref取FP32，up和reg_scale均为FP32 tensor[1]，再调用原生bbox2distance。真实four_lens32通过对其唯一translate_gt调用的临时记录包装获取，随后立即恢复原函数。包装仅观察数学函数参数，不改函数结果，不涉及模型。
+目标框先cxcywh量化、再原生FP32 xyxy变换，是明确锁定的生产精度路径；不是把FP64 xyxy直接cast成另一种路径。
+能量仍使用原生两bin权重与原PMF log概率，不另换target编码。FP64支撑集合不依赖native FP32是否发生边界量化。
+
+3. 插值审计对象的纠正（不按实际数据调容差）
+插值审计以捕获的真实four_lens32为对象，而不是与four_lens64的差混在一起。
+对原生支持内值，核对两bin权重重建的distance与four_lens32；对原生支持外值，核对它与原生规定的端点值。原native clip仅用于验证其编码行为，绝不决定FP64物理支持。
+沿用此前锁定的数值限值：以实际FP32节点/权重升为双精度重建的distance误差<=5e-7；权重与同一four_lens32在同一两节点间的独立双精度比例误差<=1e-7；原生精度权重和为1，非负。没有用132后数据扩大容差。
+另行报告：four_lens32-four_lens64最大差、cxcywh/xyxy量化差、两种支持判定的点/边差异、native端点clamp量。量化差不当作插值实现错误；不以它改主gate或筛除样本。
+特别地，FP64支持外但FP32舍入到端点内的候选仍被严格屏蔽；FP64支持内而FP32计算略越端点的候选保留原FP64支持，并明示native端点编码及量化差。两者都不隐藏为“精确相同”。
+
+4. 在torch.load(127)之前运行的合成检查
+136内置、但本轮未执行：
+（a）固定FP32 tensor[1] up=.5/reg_scale=4、reg_max=32生成33节点，确认shape和单调性；
+（b）固定合成FP64候选输入，经修复包装实际以FP32 ref/target调用native，核验捕获four_lens、indices/weights dtype及插值；
+（c）同一合成几何若直接以FP64 ref/target调用旧native接口，应复现其dtype拒绝；作为已知接口边界，不作修复后实际调用路径；
+（d）直接检查原生最小/最大节点、零点、中点和端点外侧的translate_gt编码；
+（e）用二进制精确ref构造两边分别落在上下支持端点的合法框，再给中心加2^-30的归一化位移。其FP64框已在支持外，但FP32可舍回原端点；检查修复包装仍按FP64屏蔽该候选。这一反例不读取缓存，不改25点实际检验网格。
+合成检查任何失败均在读取127质量内容前停止。自检固定、无随机数、无模型/反传/优化器。
+
+5. 方法和唯一去留门槛均不变
+128的真类top300、query容量1、全GT确定性最大匹配、sub4配对过滤、25点、±2、单侧零均值delta0、两个轴分解、uniform同支持、同均值方差maxentropy、零质量=-inf、缺失处理、严格胜两个控制的主gate全部保留。末框重建和121计数核验继续保留。
+这不是新方法版本或对阴性门槛的修订。若完整质量比较失败，不修改方法救回。
+
+6. 新文件和输出
+136_C0_pmf_translation_prior_fp32.py，默认读取127_C0_attention_template_registration/01_cache.pt，输出新137_C0_pmf_translation_prior_fp32/00_results.json。既有目录一律不覆盖。
+输出哈希同时覆盖128原协议、135勘误、136脚本、native数学源码和127缓存；保留分阶段状态、合成检查、量化诊断、唯一质量gate。单C0开发组，不构成AP或训练许可。

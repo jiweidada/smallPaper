@@ -1,0 +1,39 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 5
+Cls Loc Cls+Loc Duplicate Bkgd Missed
+tftb0 1
+tftb0 1
+tftb0 1
+tftb0 1
+tftb0 1
+N/A
+Fig. 1: Error Type Deﬁnitions.We deﬁne 6 error types, illustrated in thetop row, where
+box colors are deﬁned as: = false positive detection; = ground truth; = true
+positive detection. The IoU with ground truth for each error type is indicated by an
+orange highlight and shown in the bottom row.
+2.2 Deﬁning Error Types
+Examining this computation, there are 3 places our detector can affectmAP : outputting
+false positives during the matching step, not outputting true positives (i.e., false negatives)
+for computing recall, and having incorrect calibration (i.e., outputting a higher conﬁdence
+for a false positive then a true positive).
+Main Error Types In order to create a meaningful distribution of errors that captures the
+components ofmAP , we bin all false positives and false negatives in the model into one
+of 6 types (see Fig. 1). Note that for some error types (classiﬁcation and localization),
+a false positive can be paired with a false negative. We will use IoUmax to denote a
+false positive’s maximum IoU overlap with a ground truth of the given category. The
+foreground IoU threshold is denoted astf and the background threshold is denoted astb,
+which are set to 0.5 and 0.1 (as in [14]) unless otherwise noted.
+1. Classiﬁcation Error: IoUmax≥ tf for GT of the incorrect class (i.e., localized
+correctly but classiﬁed incorrectly).
+2. Localization Error:tb≤IoUmax≤tf for GT of the correct class (i.e., classiﬁed
+correctly but localized incorrectly).
+3. Both Cls and Loc Error :tb≤ IoUmax≤ tf for GT of the incorrect class (i.e.,
+classiﬁed incorrectlyand localized incorrectly).
+4. Duplicate Detection Error:IoUmax≥ tf for GT of the correct class but another
+higher-scoring detection already matched that GT (i.e., would be correct if not for a
+higher scoring detection).
+5. Background Error: IoUmax≤ tb for all GT (i.e., detected background as fore-
+ground).
+6. Missed GT Error: All undetected ground truth (false negatives) not already covered
+by classiﬁcation or localization error.
+This differs from [14] in a few important ways. First, we combine both sim and
+other errors into one classiﬁcation error, since Hoiem et al.’ssim and other require

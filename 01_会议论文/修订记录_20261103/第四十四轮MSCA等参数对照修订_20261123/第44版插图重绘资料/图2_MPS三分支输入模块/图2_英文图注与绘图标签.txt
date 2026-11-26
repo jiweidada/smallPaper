@@ -1,0 +1,21 @@
+﻿图 2　MPS 三分支输入模块
+
+这幅图要表达什么
+说明同一张图像的主路、细节路和高频路怎样对齐、拼接、加权，再输出步幅为 4 的特征。
+
+可复制的英文绘图标签
+• Input X · 3 × 640 × 640
+• Main branch · 3 × 3 conv (stride 2) → 3 × 3 conv (stride 1) · 16 channels
+• Detail branch · two 3 × 3 convs (stride 1) → 2 × 2 average pooling (stride 2) · 8 channels
+• High-pass branch · X − AvgPool3×3(X) → 1 × 1 conv → 3 × 3 depthwise conv → bilinear resize · 4 channels
+• Concatenate [main, detail, high-pass] → Z · 28 × 320 × 320
+• Spatial gate A(Z) · 1 × 1 conv (28 → 2) → BN → SiLU → 7 × 7 conv (2 → 1) → sigmoid
+• Residual weighting · Z ⊙ (1 + A(Z))
+• Fusion · 1 × 1 conv (28 → 32) → 3 × 3 conv (32 → 16)
+• Final 3 × 3 conv (stride 2) → 16 × 160 × 160
+
+重绘时核对
+从 Z 分一路去求 A，另一路把 Z 接到加权节点。A 的空间尺寸是 320 × 320，单通道权重沿 28 个通道广播。
+
+第 44 版英文原图注
+Fig. 2. MPS for HGNetv2-B0 with H = W = 640 for the reported inputs. The three branches are concatenated, followed by residual weighting, fusion convolutions and a final stride-two convolution. BN denotes batch normalization.

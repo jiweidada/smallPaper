@@ -1,0 +1,30 @@
+Material Passport
+Origin: root执行170/171，实际输出172
+Date: 2026-10-21
+Verification: 先--synthetic-only成功且未读/哈希127，再完整脚本exit0、state=complete。原始03_results/04_execution优先。
+Scope: 单C0 online、四张反复使用的增强开发输入902GT/453原sub4；query容量1的必要上界，不是双seed、正式AP或允许多框独立容量的COCO上界。
+
+完整结果，顺序 original / tau=.1宽上界 / tau=.2描述
+allgeo .5          370 / 370 / 370
+sub4geo .5          66 /  66 /  66
+allgeo .75         184 / 185 / 184
+sub4geo .75         15 /  15 /  15
+alltrueclass .5    324 / 325 / 324
+sub4trueclass .5    51 /  52 /  51
+alltrueclass .75   162 / 163 / 162
+sub4trueclass .75   10 /  10 /  10
+
+主组分图净增[0,0,1,0]，总+1、1图正；要求+10及至少2图正，两个条件均失败，gate=false。停止170这个精确单边second-peak K2版本，不降低tau、不把单峰argmax或多边联合改名继续救它。tau=.2不能作事后赢家，实际也未增。
+
+候选频次并未隐藏：每图合法tau=.1单边副框17/17/25/17，共76；有合法副框query15/14/20/16，共65/1200。tau=.2仅1个合法副框。不能把这解释成所有PMF没有多峰，只有“达到本预定raw次峰质量且合法”的频次。
+原框保留，各query可由GT任选四个合法单边副框，是比实际“只选次峰质量最大的一边”更宽的oracle；原固定类资格不扩。原main优先的tie规则已事前明确。实际固定预算会丢一部分主候选，不能比这个主指标必要上界凭空获得更多可达边。但本论断不覆盖把同query多个假设当不同实例各匹配GT的另一指标或方法。
+原八项计数全部复现；±1e-8敏感性仅描述，不改主阈值。合法框、raw peak/plateau/端点、budget tie、同query容量合成均通过。没有依据84=135-51构造唯一GT集。
+
+执行事实
+CPU2、interop1、BelowNormal、affinity13/15、开始可用RAM约24.07GiB。完整缓存计算记录1.47秒（另有解释器/库加载），不按预估时间冒称实测。
+model forward/backward/VJP、cache autograd、optimizer step、checkpoint load全部0；127缓存load1。源与缓存SHA前后全部一致，原证据未改。无远端/GPU/训练/监测。
+协议170 SHA9c1556cef5cb98d0835c0e129c1e92bed3af5c60ea601161c1a4bf5771c23c05；171 SHA9fef9327857925a1d0cdc995f9b78d038dc274f9371b66fb210ddf2f1c943a82。
+
+原文边界与继续
+GFLv2利用Top-k分布值和均值估计质量；Deep Mixture Density Network有最高组件/期望切换。因此多峰或用峰不是泛称新。此结果本身也不足以否定所有概率框读出，只使168的这个便宜版本没有继续价值。
+158/159排序缓存前提核查仍另行进行，不用此阴性替代它；173正在设计不同分类监督作用变量，必须先分清secondary-only分类正确与同query同时多GT。持续目标未完成，继续探索，先不新增训练。

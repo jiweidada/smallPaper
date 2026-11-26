@@ -1,0 +1,38 @@
+2026-10-21 America/Los_Angeles。总目标已由用户恢复为active。本轮没有新增训练、远程、GPU或监测操作。
+
+一、实际完成的数据录制，不是旧轨迹重放
+原始图位于D:/数据集/visdrone2019/VisDrone2019-DET-train/images。训练标注复用旧正式归档，SHA32c1cae852e084430ea74503eb660f0707ec6b5e65d0998ce3ec8b448265c883。
+模型冻结工具的最小native环境没有自动导入数据transform注册模块；旧local_deps的COCO扩展又是cp310，当前Python是3.12。这两项初始化失败保存在45/46，无图像结果、模型或训练更新。改为显式导入原生注册模块，并复用已有主线循环验证目录中的cp312 COCO runtime，没有安装新依赖或修改历史代码。
+47运行完成，像素/GT/类别/RNG一致，但其named_modules没遍历到Compose的普通transforms列表，参数记录为空；没有把47冒充完整参数轨迹。
+49修复为显式遍历每个原生op及子模块，并用发生次数唯一的标签记录每个GT的source occurrence；完整运行成功。
+
+49结果：两增强seed各128主图、32个batch、epoch索引4。每seed原样、记录、标签追踪三种执行的像素、框、解码后类别、MixUp权重及Python/NumPy/Torch随机状态逐批完全相等。真实Mosaic事件69/62。记录了源图、原RGB哈希、实际Affine/Photo/Flip等参数、全部保留GT与source槽位，另保存首8个Mosaic图像/seed。
+与旧服务器data_probe的64批比较：像素0/64相同、框1/64、类别64/64、shape64/64。因此49明确标为新开发面板，不声称历史像素/框轨迹重放，不用它冒充旧模型的训练历史。
+49仅数据操作，无模型构造、forward/backward或optimizer，约77秒；CPU2线程、BelowNormal、affinity13/15，未碰heldout。
+
+源码事实也已纠正：use_cache=false，当前不是mosaic_cache路径。Resize320默认bilinear、Mosaic RandomAffine默认nearest、Photo在Affine之后；Mosaic分支跳ZoomOut/IoUCrop；后续PIL Resize640；batch F.interpolate未指定mode，默认nearest。不能把这些统称多次双线性，不能把非线性Photo挪到源图前。实际torch2.5.1+cpu、torchvision0.20.1+cpu，使用_get_params；不是2.10。
+
+二、27布局几何首检：通过资源条件，尚未证明复杂优化有价值
+事前50；实现51；原始51_mosaic_layout_geometry/02_results.json、逐事件01_rows.json及SHA清单。
+固定source occurrence、原生有效GT全部保留，固定640预算；采用真实可见mask及包含对应GT的容器，不把旋转后片段当四个矩形。所有臂同27可行布局、同保护约束，含原样；不因不能改变就剔除事件。
+
+增强seed1：69个Mosaic，GT12936，原sub4曝光5624。
+instance_objective跨4px=712/5624=12.6600%；simple_risk717/5624=12.7489%；fixed_random361/5624=6.4189%。
+增强seed2：62个Mosaic，GT10469，原sub4曝光4258。
+instance_objective689/4258=16.1813%；simple_risk706/4258=16.5806%；fixed_random440/4258=10.3335%。
+所有臂GT数量、source身份保持；原>=4向下跨档均为0。每seed存在原样之外可行布局的事件32/33；instance与simple_risk所选布局不同仅6/10个事件。
+原整数10*cross>=total_sub4门槛，两seed均通过，不改门槛。simple_risk跨档比instance还多5/17，不能说复杂策略已经更好。两个目标函数不同，跨档数也不是检测收益；是否有不同检测取舍，要用同图同模型输出比较，不能看到几何结果就额外换目标函数。
+本步计算约1.3秒，模型前向0。通过仅允许进入RGB重建与冻结检测鉴别，不是申请训练的通过票。
+
+三、近邻原文范围与实际差别
+Scale-Aware Mosaic Augmentation and GSIoU-Based Varifocal Loss，Electronics2026，DOI10.3390/electronics15051075：出版社网页web工具429，但官方mdpi-res PDF已取得并归档，SHA87f3ba048dbb2f95585a2ad7bd55c91986b74fe37207f75bcf26823aecccf975。读原§3.1和算法A1；已目视p7图3/4。它按尺度组不足量挑目标中心裁片、过滤截断或过小标注、固定2×2补足组曝光。本候选的剩余区别是固定同一批源片段和GT，改变单次画布分配；不是首次尺度感知Mosaic。
+https://www.mdpi.com/2079-9292/15/5/1075
+本地原PDF：文献_相关原始论文_20261004/ScaleAwareMosaic_Electronics2026_DOI10_3390_electronics15051075.pdf，来源/阅读范围/SHA在旁文件，原文提取在_text，未覆写旧文献。
+
+LZU是CVPR2023（不是ECCV2022），复用230号原PDF和正文提取，另核公开原HTML§3.2/4.1/4.2。它已有显著性引导的有限画布局部放大、轴可分离映射及特征逆变换；还明确做了没有额外高分辨率信息的upsampling实验。所以“固定画布给tiny更多像素”“放大后无需新增信息也可能有用”“保持矩形轴对齐”均不能当新原理。本候选训练时的固定曝光piecewise排版及逐源等比例/尺度保护约束，与LZU的推理warp/feature-unwarp不同，但仍需证明这些差别具有必要性，不能拿训练端/推理端位置差自动算贡献。
+https://arxiv.org/html/2303.15390v1
+FOVEA原PDF独立复核尚未完成（CVF网页403、arXiv一次下载SSL失败）；仅有官方摘要和LZU引用描述，不宣称已读其原方法。SNIP本项目221号原PDF可复用，已有尺度范围监督先例。
+
+四、当前取舍
+旧边界差分、真实source入选精确版本仍停止。新固定曝光布局有实际物理空间，值得做最低成本冻结检测；复杂目标目前没有优势证据，强简单风险和随机不能删。
+同一批输入全部来自训练图的开发面板，几何曝光不是独立目标样本，不作统计显著性、跨数据集或最终AP结论。还没找到符合总目标的可申请训练主线，不宣告完成。

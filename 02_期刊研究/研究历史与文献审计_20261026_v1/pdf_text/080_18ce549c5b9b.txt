@@ -1,0 +1,288 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+FMC-DETR: Frequency-Decoupled Multi-Domain
+Coordination for Aerial-View Object Detection
+Ben Liang,Graduate Student Member, IEEE, Hongguang Wei, Yuan Liu,Member, IEEE, Bingwen Qiu, Yihong
+Wang, Xiubao Sui, and Qian Chen
+Abstract—Remote sensing object detection is a critical tech-
+nology for real-world applications such as natural resource
+monitoring, traffic management, and UA V-based rescue. De-
+tecting tiny objects in high-resolution aerial imagery remains
+challenging due to weak visual cues and insufficient global
+context modeling in complex scenes. Existing methods often
+suffer from delayed contextual interaction and limited nonlin-
+ear reasoning, which restrict their ability to effectively refine
+shallow representations and ultimately lead to suboptimal per-
+formance. To address these challenges, we propose FMC-DETR,
+a frequency-decoupled fusion framework for aerial-view object
+detection. First, we propose the Wavelet Kolmogorov-Arnold
+Transformer (WeKat) backbone, which employs cascaded wavelet
+transforms to enhance global low-frequency structure perception
+in shallow features while preserving fine-grained details, and
+further leverages Kolmogorov-Arnold networks for adaptive
+nonlinear modeling of multi-scale dependencies. Second, we intro-
+duce the Multi-Domain Feature Coordination (MDFC) module,
+which refines cross-scale fused representations through partial-
+channel spatial, spectral, and structural coordination, thereby
+strengthening small-object-related feature responses in cluttered
+scenes. Finally, we design the Compact Partial Fusion (CPF)
+module, which performs compact multi-branch aggregation with
+progressive partial refinement to improve feature diversity and
+multi-scale interaction while preserving stable information flow
+and reducing redundant perturbation. Extensive experiments
+across multiple remote sensing benchmarks demonstrate that
+FMC-DETR achieves state-of-the-art performance and signifi-
+cantly outperforming the baseline detector. Code is available at
+https://github.com/bloomingvision/FMC-DETR.
+Index Terms—Remote sensing, object detection, frequency-
+decoupled fusion, multi-scale feature.
+I. INTRODUCTION
+Object detection, a cornerstone task in computer vision,
+has demonstrated profound utility in a multitude of industrial
+applications, including autonomous driving [1], [2], urban
+surveillance [3]–[6], and remote sensing [7]–[10]. Propelled by
+the rapid advances in deep learning, particularly Convolutional
+Neural Networks (CNNs), modern detection frameworks have
+This work was supported in part by the National Natural Science Foundation
+of China under Grant 62301253, Grant 62427818, and Grant U25A20502, and
+in part by the Fundamental Research Funds for the Central Universities under
+Grant 30925010511. (Ben Liang and Hongguang Wei contributed equally to
+this work.) (Corresponding author: Yuan Liu and Xiubao Sui.)
+Ben Liang, Hongguang Wei, Yuan Liu, Bingwen Qiu, Yihong Wang,
+Xiubao Sui, and Qian Chen are with the School of Electronic Engineering
+and Optoelectronic Technology, Nanjing University of Science and
+Technology, Nanjing 210094, China (e-mail: benliang@njust.edu.cn;
+weihg@njust.edu.cn; lyuan90 eo@njust.edu.cn; qbw0315@njust.edu.cn;
+h@njust.edu.cn; sxb@njust.edu.cn; chenqian@njust.edu.cn).
+Xiubao Sui is also with the State Key Laboratory of Extreme Environment
+Optoelectronic Dynamic Measurement Technology and Instrument, Nanjing
+210094, China.
+42.0
+44.0
+46.0
+48.0
+50.0
+24.0
+26.0
+28.0
+30.0
+32.0
+24.0
+26.0
+28.0
+30.0
+32.0
+18.0 19.0 20.0 21.0 22.0
+72.0
+73.0
+74.0
+75.0
+76.0
+60.0
+61.5
+63.0
+64.5
+66.0
+52.0
+53.0
+54.0
+55.0
+56.0
+18.0
+19.0
+20.0
+21.0
+22.0
+78.0
+79.0
+80.0
+81.0
+82.0
+70.0
+72.0
+74.0
+76.0
+78.0
+62.064.066.068.070.0 8.0
+9.5
+11.0
+12.5
+14.0
+22.0
+20.5
+19.0
+17.5
+16.0
+AP50
+(VisDrone)
+AP75(VisDrone)
+AP
+(VisDrone)
+APS
+(VisDrone)
+AP50
+(HazyDet)
+AP75
+(HazyDet)
+AP
+(HazyDet)
+APS(HazyDet)
+AP50(SIMD)
+AP75(SIMD)
+AP
+(SIMD)
+APS
+(SIMD)
+Params
+(M)
+FMC-DETR-B
+Baseline
+Fig. 1. Performance comparison between FMC-DETR-B and the Baseline
+[13] on the VisDrone, HazyDet, and SIMD datasets in terms of AP 50,
+AP75, AP, AP S, and model parameters. The outer regions indicate better
+performance.
+achieved remarkable success on natural images at relatively
+low resolution. However, these detectors often suffer from
+significant performance degradation on high-resolution remote
+sensing imagery, where objects are typically small, weakly
+featured, randomly distributed, and frequently occluded [11],
+[12].
+To mitigate the challenge of limited appearance informa-
+tion, enhancing the model’s perception of global context has
+emerged as a critical research direction [14], [15]. CNNs,
+while serving as the default backbone architecture due to their
+potent local feature extraction capabilities, are constrained by
+an inherent local inductive bias. Their progressively stacked
+convolutional layers result in a slowly expanding receptive
+field, fundamentally limiting their capacity to model the long-
+range dependencies (LRDs) essential for contextual reason-
+ing. This limitation is particularly disadvantageous for small
+objects, as distinguishing objects in complex backgrounds
+requires a comprehensive understanding of the overall scene
+structure. To transcend the locality of CNNs, researchers have
+increasingly turned to Transformer-based architectures [16],
+[17], which leverage self-attention mechanisms to explicitly
+capture LRDs. However, the computational complexity of
+Transformers scales quadratically (O(N 2)) with respect to the
+number of input tokens, making their direct application to
+high-resolution feature maps computationally prohibitive. As
+a result, a common solution is to adopt a hybrid architecture,
+where CNNs process high-resolution shallow layers and Trans-
+formers are reserved for low-resolution deeper layers. How-
+arXiv:2509.23056v2  [cs.CV]  13 May 2026
+
+---PAGE---
+
+JOURNAL OF LATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+ever, this design introduces a critical performance bottleneck.
+Shallow feature maps contain rich spatial details and fine-
+grained structures that are crucial for tiny object detection, but
+their global structural context is often insufficiently modeled.
+Delaying global context modeling to deeper layers often
+causes discriminative small-object cues to be weakened or lost
+during successive downsampling.
+Furthermore, we identify a more fundamental yet often
+overlooked limitation in how current Transformer models
+conceptualize contextual integration: they fail to adequately
+capture the inherently non-linear nature of contextual depen-
+dencies. This inadequacy stems from the reliance on Multi-
+Layer Perceptrons (MLPs) with static, data-agnostic activa-
+tion functions for feature transformation. In object detection,
+however, contextual relationships are profoundly non-linear:
+1) Strong Scene-Object Priors: The probability of an object’s
+presence can change abruptly with context. For instance,
+the likelihood of a ship drops to near zero when moving
+from water to land. Such step-like dependencies cannot be
+modeled by smooth, linear combinations. 2) Adaptive Cross-
+Scale Feature Fusion: Fusing semantic information from deep
+layers with fine-grained details from shallow layers is not a
+simple weighted average but a dynamic, non-linear process
+modulated by factors such as object scale and occlusion.
+To address these limitations, we propose the FMC-DETR, a
+frequency-based detector that enhances remote sensing object
+detection (RSOD) by introducing global context modeling
+into the high-resolution stages and incorporating adaptive non-
+linear reasoning into the contextual fusion process. First, the
+WeKat backbone improves shallow global perception and non-
+linear contextual modeling through frequency decoupling and
+asymmetric Kolmogorov-Arnold transformer, while preserving
+fine-grained high-frequency details. Then, the MDFC module
+generates an amplitude-guided shallow detail prior fromS2
+and refines cross-scale fused features by jointly exploiting
+spatial responses, edge-aware structural cues, and global spec-
+tral interactions, thereby enhancing the discriminability of tiny
+objects. Finally, the CPF module adopts a structured multi-
+branch fusion paradigm that combines stable feature preser-
+vation with progressive partial refinement, thereby promoting
+stronger cross-scale feature complementarity and more ex-
+pressive aggregation. Overall, the proposed framework jointly
+enhances shallow global awareness, detail-aware cross-scale
+coordination, and efficient multi-branch feature aggregation,
+resulting in more robust tiny object detection in complex
+scenes. Extensive experiments on publicly available remote
+sensing datasets, including VisDrone [18], HazyDet [19],
+and SIMD [20], demonstrate the superiority of FMC-DETR
+over the baseline detector. As shown in Fig. 1, FMC-DETR
+achieves AP scores of 33.7%, 55.0%, and 66.6% on VisDrone,
+HazyDet, and SIMD, respectively. The main contributions of
+this work are summarized as follows:
+•We design the WeKat backbone with a heterogeneous
+split-gating (HSG) mechanism, where HSG-W A VE en-
+hances shallow structure-aware spectral modeling and
+HSG-AKAT strengthens deep nonlinear semantic abstrac-
+tion, jointly enabling more expressive multi-stage feature
+learning.
+•We design the MDFC module to enhance small-object
+detection through multi-domain cross-scale coordination.
+Specifically, MDFC first converts shallow high-resolution
+features into an amplitude-guided detail prior, and then
+jointly refines the fused representation from spatial, spec-
+tral, and edge-aware structural perspectives, thereby en-
+hancing tiny-object feature saliency and boundary-aware
+representation.
+•We design the CPF module to address the redundancy
+and instability of conventional feature aggregation. By
+combining direct branch interaction, preserved feature
+pathways, and progressive partial refinement, CPF pro-
+motes stronger feature complementarity and more expres-
+sive multi-scale representations while maintaining stable
+information propagation.
+II. RELATEDWORK
+A. CNN-Transformer Object Detectors
+CNN and Transformer, as the two cornerstones of the visual
+domain, have given rise to numerous outstanding detection
+models. YOLO [21]–[26], a mainstream detection framework
+primarily built on CNNs, achieves a commendable balance
+between detection accuracy and inference speed. In paral-
+lel, frameworks based on Vision Transformers (ViTs) [17]
+leverage self-attention mechanisms to continuously advance
+detection accuracy. In recent years, hybrid architectures com-
+bining CNNs and Transformers, such as DETR [27], De-
+formable DETR [28], RT-DETR [13], D-FINE [29], and DEIM
+[30], have garnered increasing attention. These models utilize
+convolutional networks for feature extraction and interaction
+while employing Transformers for object classification and
+localization, establishing a new and effective collaborative
+paradigm. Nevertheless, despite their demonstrated success
+on public benchmarks like COCO with low-resolution natural
+images, their efficacy falters when applied to high-resolution
+aerial imagery. This performance degradation is particularly
+acute for tiny objects, a shortcoming that can be attributed
+to their inadequate attention to critical, detail-rich shallow
+features.
+B. Small Object Detection
+Detecting small objects has long been challenging. To
+tackle the persistent challenge of small object detection,
+recent works have explored various enhancement strategies.
+GLSAN [14] integrates global-local fusion strategies into a
+progressive scale-changing network for more accurate bound-
+ing box localization. CEASC [31] introduces context-enhanced
+sparse convolutions to enhance global information, achieving
+significant improvements in small object detection accuracy.
+YOLO-DCTI [15] proposes Contextual Transformer (CoT) to
+integrate global residual and local fusion mechanisms into
+the detection network, enhancing the contextual utilization of
+small target pixel information. FBRT-YOLO [11] introduces
+a Feature Complementary Mapping (FCM) module that inte-
+grates semantic and spatial location information, effectively
+alleviating the loss of small target information and improving
+small target localization capabilities. Although these methods

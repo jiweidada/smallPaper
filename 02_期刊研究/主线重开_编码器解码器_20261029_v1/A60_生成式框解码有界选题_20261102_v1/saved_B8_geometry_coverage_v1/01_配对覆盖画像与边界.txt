@@ -1,0 +1,13 @@
+B8保存预测的几何覆盖画像与B4配对比较
+两次GT逐项一致；每个GT独立取最佳预测，同一预测可复用。该统计是乐观候选覆盖，不是标准TP/召回/AP或正式TIDE分析。
+
+all: 38602个GT；任意类别均无IoU≥0.5保留预测：B4 45.169%，B8 42.480%，B8−B4 -2.689个百分点。
+配对转移：{"covered_both": 18609, "gained_coverage": 3595, "lost_coverage": 2557, "uncovered_both": 13841}
+
+small: 26444个GT；任意类别均无IoU≥0.5保留预测：B4 57.325%，B8 53.891%，B8−B4 -3.434个百分点。
+配对转移：{"covered_both": 9405, "gained_coverage": 2788, "lost_coverage": 1880, "uncovered_both": 12371}
+
+very_tiny: 5361个GT；任意类别均无IoU≥0.5保留预测：B4 86.085%，B8 82.317%，B8−B4 -3.768个百分点。
+配对转移：{"covered_both": 553, "gained_coverage": 395, "lost_coverage": 193, "uncovered_both": 4220}
+
+覆盖变化与权重训练阶段一起发生，不能归因于几何时刻；B8的缺口也可能与编码器、候选框、分类置信度和后处理有关。M/Q尚未训练，B12门槛不变。0新增模型推理、优化器更新、COCO重评或原始图像读取。

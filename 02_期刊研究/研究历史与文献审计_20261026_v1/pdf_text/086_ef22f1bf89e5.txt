@@ -1,0 +1,190 @@
+M4-SAM: Multi-Modal Mixture-of-Experts with Memory-Augmented SAM for
+RGB-D Video Salient Object Detection
+Jiyuan Liu1, Jia Lin1, Xiaofei Zhou1,∗, Runmin Cong2, Deyang Liu3, Zhi Liu4
+1Hangzhou Dianzi University, China 2Shandong University, China
+3Anqing Normal University, China 4Shanghai University, China
+{hankliu, lin j}@hdu.edu.cn, zxforchid@outlook.com, rmcong@sdu.edu.cn,
+deyang.liu@hotmail.com, liuzhi@staff.shu.edu.cn
+Abstract
+The Segment Anything Model 2 (SAM2) has emerged as a
+foundation model for universal segmentation. Owing to its
+generalizable visual representations, SAM2 has been suc-
+cessfully applied to various downstream tasks. However,
+extending SAM2 to the RGB-D video salient object detec-
+tion (RGB-D VSOD) task encounters three challenges in-
+cluding limited spatial modeling of linear LoRA, insuffi-
+cient employment of SAM’s multi-scale features, and de-
+pendence of initialization on explicit prompts. To address
+the issues, we presentMulti-ModalMixture-of-Experts with
+Memory-AugmentedSAM(M 4-SAM), which equips SAM2
+with modality-related PEFT, hierarchical feature fusion,
+and prompt-free memory initialization. Firstly, we in-
+jectModality-Aware MoE-LoRA, which employs convo-
+lutional experts to encode local spatial priors and intro-
+duces a modality dispatcher for efficient multi-modal fine-
+tuning, into SAM2’s encoder. Secondly, we deployGated
+Multi-Level F eature Fusion, which hierarchically aggre-
+gates multi-scale encoder features with an adaptive gating
+mechanism, to balance spatial details and semantic con-
+text. Finally, to conduct zero-shot VSOD without manual
+prompts, we utilize aPseudo-Guided Initialization, where
+a coarse mask is regarded as a pseudo prior and used to
+bootstrap the memory bank. Extensive experiments demon-
+strate that M 4-SAM achieves the state-of-the-art perfor-
+mance across all evaluation metrics on three public RGB-D
+VSOD datasets.
+Code – https://github.com/HankLiu2020/M4-SAM.
+1. Introduction
+Salient Object Detection (SOD) aims to identify and seg-
+ment the most visually prominent objects that naturally at-
+tract human attention in a scene [3]. It has been widely ap-
+*Corresponding author.
+plied in various vision tasks, such as image/video segmen-
+tation [20, 34], robotics [2] and defect detection [45, 54].
+However, RGB-based SOD methods struggle in challeng-
+ing scenarios, including complex backgrounds, poor illumi-
+nation, and motion blur caused by fast movements.
+To tackle these limitations, researchers have explored in-
+corporating additional modalities to provide complemen-
+tary information. RGB-D SOD methods [9, 35, 43] leverage
+depth information to introduce robust geometric cues, while
+video SOD (VSOD) methods [30, 47, 55] introduce tempo-
+ral information from video sequences to ensure consistent
+tracking and reduce motion ambiguity. Building upon both
+modalities, RGB-D Video Salient Object Detection (RGB-
+D VSOD) methods [22, 25, 29] leverage depth and temporal
+information simultaneously. However, most existing RGB-
+D VSOD methods are trained on limited-scale datasets,
+which restricts their generalization under real-world scenar-
+ios.
+The recent emergence of Segment Anything Model
+(SAM) [21] has revolutionized the segmentation field
+with its powerful pre-trained representations and impres-
+sive zero-shot generalization capabilities. Its successor
+SAM2 [36] further extends its generalization to video seg-
+mentation via introducing built-in memory bank mech-
+anisms. However, directly adapting SAM2 to RGB-D
+VSOD faces three critical challenges. Firstly, the large
+model size and the limited scale of datasets make full-
+parameter fine-tuning infeasible. Recent works [4, 15, 49,
+50] have explored incorporating Parameter-Efficient Fine-
+Tuning (PEFT) [11] strategies, such as adapter [18] or
+LoRA [19]. However, vanilla LoRA employs only linear
+projections, lacking spatial priors and modality-specific de-
+sign, thus limiting its ability to capture local structures and
+exploit cross-modal complementarity. Secondly, most ex-
+isting SAM-based methods only perform multi-scale fusion
+in the decoder through simple additive upsampling [15, 40],
+which restricts their ability to balance fine-grained spatial
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+24970
+
+
+---PAGE---
+
+details and high-level semantic context. Finally, memory-
+based methods [5, 6, 31] typically rely on user-provided
+prompts (e.g., points, boxes, or masks) for first-frame pre-
+diction and memory initialization. Without such prompts,
+the memory bank faces an unreliable cold-start, hindering
+prompt-free RGB-D VSOD.
+Motivated by the aforementioned issues, in this paper,
+we present a prompt-free framework, namelyMulti-Modal
+Mixture-of-Experts withMemory-AugmentedSAM(M 4-
+SAM), which adapts SAM2 for RGB-D video salient object
+detection. Our main contributions can be summarized as
+follows:
+• We propose M4-SAM to extend SAM2 to RGB-D VSOD,
+where the key components are modality-related PEFT, hi-
+erarchical feature fusion, and prompt-free memory initial-
+ization.
+• We design Modality-Aware MoE-LoRA, which elevates
+vanilla LoRA with convolutional experts and modality-
+specific routing, to conduct adaptive RGB-D feature fu-
+sion and efficient fine-tuning.
+• We develop a Pseudo-Guided Temporal Memory, which
+integrates a Gated Multi-Level Feature Fusion for hierar-
+chical feature aggregation, and a Pseudo-Guided Initial-
+ization Strategy to eliminate manual prompt requirements
+using coarse masks as pseudo priors.
+• Extensive experiments on three RGB-D VSOD datasets
+demonstrate that M 4-SAM achieves state-of-the-art per-
+formance.
+2. Related Work
+2.1. SOD: From Images to RGB-D Videos
+Salient Object Detection (SOD)SOD [16, 17, 26, 32,
+34, 41, 46, 56, 57] aims to detect and segment salient ob-
+jects, which naturally attract human attention, from nat-
+ural scenes [3]. Qinet al.[34] propose BASNet with a
+densely supervised encoder-decoder network to achieve ac-
+curate boundary delineation. Liuet al.[26] deploy a trans-
+former architecture VST, which leverages multi-level token
+fusion and patch-task-attention. However, RGB-based SOD
+encounters inherent limitations in several challenging sce-
+narios, such as complex backgrounds, poor illumination,
+and motion blur caused by fast movements [14, 44, 53].
+RGB-D SODRGB-D SOD methods incorporate depth
+information as a complementary modality, providing geo-
+metric cues that are robust to appearance variations. Exist-
+ing RGB-D methods can typically be categorized into three
+types [53], namely early fusion, late fusion, and multi-scale
+fusion. The early fusion methods [33, 35, 51] concate-
+nate cross-modal features at input or shallow layers, pre-
+serving low-level details but potentially losing modality-
+specific features. The late fusion methods [16, 46] pro-
+cess modalities independently until the decision-level pre-
+diction, extracting modality-specific features but missing
+cross-modal interactions. Unlike these, the multi-scale fu-
+sion strategies [9, 29, 43] perform cross-modal interaction
+at multiple network layers, effectively balancing low-level
+details and high-level semantic information. For instance,
+Conget al.[9] propose PICRNet, which employs a cross-
+modality point-aware interaction module to explore RGB-
+depth feature relationships under saliency guidance. Tang
+et al.[43] propose a two-stream HRFormer-based method
+HRTransNet, which integrates depth features as auxiliary
+features into the corresponding levels of the RGB branch.
+RGB-D VSODRGB-D VSOD further extends RGB-D
+SOD with temporal information, enabling consistent object
+segmentation across frames even under occlusions and mo-
+tion blur. For example, Liet al.[22] employ CRM [20]
+for layer-wise cross-modal fusion and STM [31] for tem-
+poral aggregation, where temporal modeling is achieved
+through simple concatenation without task-specific archi-
+tectural refinement. Linet al.[25] utilize optical flow for
+temporal modeling, treating RGB, depth, and flow inputs
+equally through cross-level interactions. Choet al.[8]
+leverage pre-trained video diffusion models to synthesize
+semantically-aware optical flows for temporal modeling.
+Mouet al.[29] regard RGB as the primary modality, and
+propose a Universal Interaction Module (UIM) to con-
+catenate high-level multi-modal features and generate a
+coarse map as a prior for refined feature fusion. However,
+these optical flow-based methods fail to capture long-term
+dependencies across multiple frames. Meanwhile, they
+are typically trained on domain-specific datasets with lim-
+ited scale, constraining generalization and requiring careful
+task-specific architectural design.
+2.2. SAM-based Segmentation Approaches
+Benefiting from massive-scale training datasets, Segment
+Anything Model (SAM) [21] and its successor SAM2 [36]
+bring powerful pre-trained visual representations across di-
+verse visual domains. However, their large model size,
+combined with the limited-scale task-specific downstream
+datasets, makes full-parameter fine-tuning infeasible.
+Inspired by LLM fine-tuning, researchers have applied
+PEFT methods [11] to SAM. For instance, Chenet al.[4]
+incorporate adapters [18] into SAM2’s transformer blocks,
+enhancing its performance across multiple downstream
+tasks. Zhanget al.[50] apply LoRA [19] to SAM’s en-
+coder, injecting low-rank matrices into the query and value
+projections of self-attention layers to adapt SAM for med-
+ical image segmentation. However, LoRA relies solely on
+linear projections, limiting its ability to model local spa-
+tial priors that are crucial for dense prediction tasks [52].
+In addition, the absence of modality-specific design forces
+multi-modal inputs to be processed through separate en-
+coders, resulting in redundant computation and consider-
+24971

@@ -1,0 +1,50 @@
+--- C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\345_codex_contracts_20261022_v1\345_flops_complete.py
++++ C:\Users\jiwei\Desktop\小论文投稿\英文小论文\code\unit_instance_completion_20261021_v1\345_codex_contracts_20261022_v1\345_flops_complete_v2.py
+@@ -17,6 +17,7 @@
+ def shape(x):
+     if torch.is_tensor(x):return {'shape':list(x.shape),'dtype':str(x.dtype)}
+     if isinstance(x,(tuple,list)):return [shape(v) for v in x]
++    if isinstance(x,float) and not math.isfinite(x):return 'nan' if math.isnan(x) else ('inf' if x>0 else '-inf')
+     if isinstance(x,(bool,int,float,str)) or x is None:return x
+     return str(type(x))
+ 
+@@ -90,11 +91,15 @@
+ 
+ def main():
+     assert len(C.read(C.HERE/'345_result_A合同总表_v2.json')['contracts'])==12
+-    C.write('345_FLOPs手算预定口径.json',{'primitive_convention':'multiply-add=2; exp/log/log1p/erf/rsqrt etc each mathematical primitive=1; comparisons/selection/data movement/integer=0. This is algorithmic FLOPs, not hardware instructions or fused-kernel implementation cost.',
+-        'softmax':'4N-rows arithmetic primitives; no max comparisons','normalization':'5N+2rows+N per affine weight/bias',
+-        'native_attention':'count fused projections/attention explicitly once when dispatcher does not register inner arithmetic',
+-        'coverage':'every observed dispatcher operator must be classified or profiling is implementation failure; all operation shapes and formulas persisted',
+-        '已执行':{'policy_writes':1,'model_forwards':0,'optimizer_steps':0},'未执行':['profile','B','真实训练'],'未核':['runtime coverage'],'source_sha256':C.sources()})
++    policy=C.HERE/'345_FLOPs手算预定口径.json'
++    assert policy.is_file()
++    previous=C.read(C.HERE/'345_FLOPs部分标准输出登记.json')['rows']
++    expected={(r['seed'],r['arm']):(r['registered'],r['manual'],r['sum']) for r in previous}
++    C.write('345_FLOPs序列化修订口径_v2.json',{
++        'authorization':str(C.SPEC/'345c_补充裁定_FLOPs写盘修正.txt'),
++        'inherited_policy':{'path':str(policy),'sha256':C.sha(policy)},
++        'metadata_encoding':'non-finite Python float constants only: inf/-inf/nan strings; tensor shape/dtype only; FLOPs integers unchanged',
++        'expected_previous_stdout':previous,'source_sha256':C.sources()})
+     rows=[];calls=0
+     try:
+         for seed in (1,2):
+@@ -111,14 +116,15 @@
+                 totals=collections.defaultdict(lambda:{'calls':0,'registered':0,'manual':0})
+                 for x in counter.events:
+                     d=totals[x['op']];d['calls']+=1;d['registered']+=x['registered'];d['manual']+=x['manual']
++                assert (registered,extra,registered+extra)==expected[(seed,arm)], ('345c total mismatch',seed,arm,registered,extra)
+                 rows.append({'seed':seed,'arm':arm,'image_id':1,'P_W':int(b['P_valid'].sum()),'registered_FLOPs':registered,
+                     'manual_FLOPs':extra,'registered_plus_manual_FLOPs':registered+extra,'op_totals':dict(totals),'events':counter.events})
+                 print(f'FLOPs seed={seed} arm={arm} registered={registered} manual={extra} total={registered+extra}',flush=True)
+-        C.write('345_result_FLOPs覆盖补足.json',{'status':'已验证（明确算法原语口径）','rows':rows,'scope':'current train344 heads, both seeds image1, B1 RGB128², aux retained; no loss/backward/global. Fused kernel arithmetic is represented by its mathematical algorithm, not a hardware-instruction claim.',
+-            'GPU':'NA','已执行':{'head_forwards':calls,'global_forwards':0,'optimizer_steps':0},
++        C.write('345_result_FLOPs覆盖补足_v2.json',{'status':'已验证（明确算法原语口径）','rows':rows,'scope':'current train344 heads, both seeds image1, B1 RGB128², aux retained; no loss/backward/global. Fused kernel arithmetic is represented by its mathematical algorithm, not a hardware-instruction claim.',
++            'metadata_encoding':'inf/-inf/nan strings for non-finite scalar metadata; numeric FLOPs unchanged','all_8_match_previous_stdout':True,'policy_sha256':C.sha(policy),'GPU':'NA','已执行':{'head_forwards':calls,'global_forwards':0,'optimizer_steps':0},
+             '未执行':['真实训练','GPU','hardware instruction counting'],'未核':['主控独立复算'],'source_sha256':C.sources()})
+     except Exception as ex:
+-        C.write('345_result_FLOPs实现失败_停止.json',{'status':'实现失败，B未执行','exception':repr(ex),'traceback':traceback.format_exc(),
++        C.write('345_result_FLOPs实现失败_停止_v2.json',{'status':'实现失败，B未执行','exception':repr(ex),'traceback':traceback.format_exc(),
+             '已执行':{'head_forwards_completed':calls,'optimizer_steps':0},'未执行':['B','真实训练','GPU'],'未核':['FLOPs补足'],'source_sha256':C.sources()});raise
+ 
+ if __name__=='__main__':main()

@@ -1,0 +1,183 @@
+RHCNet: Residual-Guided Hierarchical Calibration Network for Robust
+Underwater Object Detection
+Yueying Wang1 Yiteng Guo2 Weidong Zhang2,6∗ Jie Wen3
+Liquan Shen1 Huaicheng Yan4 Xin Xu5
+1Shanghai University 2Henan Institute of Science and Technology 3Harbin Institute of Technology
+4East China University of Science and Technology 5National University of Defense Technology
+6Zhengzhou University
+yueyingwang@shu.edu.cn, gyt@stu.hist.edu.cn, jiewen pr@126.com
+jsslq@shu.edu.cn, hcyan@ecust.edu.cn, xinxu@nudt.edu.cn, zwd@hist.edu.cn
+Abstract
+Underwater images commonly suffer from foreground-
+background ambiguity, loss of structural details, and
+severely reduced contrast, which collectively make under-
+water object detection (UOD) an inherently challenging
+task. To handle this issue, we present a residual-guided
+hierarchical calibration network (RHCNet) designed to
+achieve more efficient and robust UOD, which comprises a
+residual-guided feature enhancement module (RGFE) and
+a hierarchical feature calibration pyramid module (HFCP).
+Concretely, RHCNet extends the standard ResNet-50 back-
+bone by embedding the RGFE, which effectively strengthens
+the representation of edge and texture features in blurry re-
+gions by jointly leveraging convolutional operations and at-
+tention mechanisms to achieve more discriminative feature
+extraction for UOD. Subsequently, the HFCP integrates
+a bottom-up semantic enhancement path and a top-down
+fine-grained feature compensation path, while a K-means
+clustering–guided feature calibration module is jointly em-
+ployed to ensure multi-level cross-scale semantic consis-
+tency and accurate alignment of salient region features. Ex-
+tensive experiments on the DUO and UTDAC benchmark
+datasets demonstrated that our RHCNet attains the high-
+est AP scores of 70.53% and 53.35%, respectively. Be-
+sides, our RHCNet also maintains excellent detection ac-
+curacy and strong generalization capability on the COCO
+dataset for terrestrial scenarios. The code is available at
+https://github.com/YitengGuo/RHCNet.
+1. Introduction
+In complex underwater environments, object regions fre-
+quently exhibit significant blurring and low contrast [8, 34].
+The absence of critical structural information leads to cu-
+(a) (b) (c) (d) (e) (f)
+Figure 1. Detection results of our method for three typical un-
+derwater image interference scenarios. (a) and (b) are underwater
+scenes with high foreground–background similarity, (c) and (d) are
+blurred object boundaries with missing structural details, and (e)
+and (f) are underwater scenes with reduced visibility.
+mulative errors during feature extraction and localization
+stages, severely limiting the performance of conventional
+detectors in such scenarios [16, 27, 30, 32]. Currently, ex-
+isting methods typically rely on convolutional features to
+encode local texture patterns for capturing edge and contour
+information. Unfortunately, these features prove ineffective
+when objects become blurred or occluded [12, 15]. No-
+tably, most methods exhibit weak responses to low-contrast
+objects, leading to structural information loss that compro-
+mises detection accuracy and robustness.
+Despite significant advances in deep learning for un-
+derwater object detection in recent years, performance im-
+provements have primarily relied on increasing network
+complexity [3, 24]. For instance, some methods incorpo-
+rate multi-branch feature fusion, attention enhancement, or
+adaptive adjustment mechanisms [19, 22]. However, these
+methods often neglect feature focus and semantic consis-
+tency modelling, rendering detectors incapable of main-
+taining stable feature separation across multiple scales and
+complex backgrounds. Concurrently, commonly employed
+loss functions such as IoU and Dice lack sensitivity to edge
+blurring and object displacement, failing to guide mod-
+This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+4393
+
+
+---PAGE---
+
+els towards genuine object regions effectively [27]. Com-
+pounded by significant domain shift and noise disturbances
+inherent in underwater imagery, these factors collectively
+constrain the generalization capabilities and localization ac-
+curacy of existing detectors.
+This study shows that underwater object detection per-
+formance is mainly constrained by feature confusion and in-
+sufficient structural modeling. Specifically, the foreground
+object and background are highly similar in color, texture,
+and illumination distribution, making it difficult for tradi-
+tional detectors to focus on the real object area during train-
+ing. For instance, the ROI Pooling feature of FRCNN [7]
+includes extensive background information. This semantic
+confusion will cause the feature response to be incorrectly
+offset, weakening the object discrimination capability. Un-
+like ordinary natural scene detection, underwater detection
+requires stable semantic focus and cross-scale feature align-
+ment in complex interference environments. However, ex-
+isting methods often lack explicit mechanisms to separate
+foreground and background, resulting in noise accumula-
+tion in the feature transfer stage. Comprehensive analysis
+indicates that existing detectors face three major challenges:
+(1) lack of explicit structural modeling of blurred object
+areas; (2) difficulty in achieving effective semantic focus
+under severe foreground background interference; and (3)
+alignment deviations during multi-scale feature transmis-
+sion hinder efficient cross-scale fusion.
+Therefore, we present a Residue-guided Hierarchical
+Calibration Network (RHCNet) to systematically alleviate
+the three significant challenges of ambiguous boundaries,
+semantic misalignment, and uneven structure. Unlike pre-
+vious detectors that relied on complex structures, RHCNet
+has achieved systematic optimization through feature focus-
+ing, semantic calibration, and scale alignment via a three-
+level collaborative mechanism. Specifically, RHCNet in-
+corporates a RGFE into the ResNet backbone to address the
+loss of texture structures in blurred regions, which lever-
+ages residual information guidance and multi-level feature
+interaction strategies to strengthen the perception of edge
+contours and texture structures. Secondly, we design K-
+means cluster-guided calibration, position-aware, and nor-
+malized activation modules in the HFCP to alleviate the
+semantic defocusing caused by foreground–background in-
+terference, wherein bidirectional information flow is em-
+ployed to achieve effective feature concentration and back-
+ground suppression. Finally, we further incorporate a cross-
+scale calibration mechanism that addresses alignment devi-
+ations among multi-scale features by performing context-
+guided saliency aggregation, thereby achieving precise in-
+tegration of fine-grained structural cues and high-level se-
+mantic representations to improve the overall detection ro-
+bustness and feature coherence. Thanks to this end-to-end
+residual guidance and hierarchical calibration design, RHC-
+Net has significantly improved the accuracy and stability
+of detection in complex underwater scenarios. As illus-
+trated in Fig. 1, our RHCNet accurately focuses on the
+object region even in underwater scenarios characterized
+by background-object confusion, blurred object boundaries,
+and low-light conditions. Satisfactorily, the bounding box
+results demonstrate high consistency with the actual object
+locations. The visualization further validates the effective-
+ness of our proposed RHCNet in achieving precise object
+recognition within complex underwater environments.
+Specifically, the primary contributions of this study can
+be outlined as follows.
+1) We propose a residual attention–guided hierarchical
+calibration network (RHCNet) that centers on improving
+the structural saliency and optimizing the semantic con-
+sistency, thereby establishing a comprehensive detection
+framework that seamlessly integrates fine-grained struc-
+tural perception, discriminative region focusing, and cross-
+scale collaborative calibration to achieve robust and accu-
+rate UOD.
+2) We propose a residual-guided feature enhancement
+module (RGFE) that adopts a residual-information-driven
+strategy to reinforce texture perception and boundary sen-
+sitivity, thereby effectively restoring discriminative features
+in underwater scenes where object boundaries are blurred
+and structural details are degraded.
+3) We propose a hierarchical feature calibration pyramid
+module (HFCP) that integrates a hierarchical calibration
+strategy with bidirectional semantic flow to facilitate cross-
+level information exchange and adaptive feature alignment,
+thereby effectively mitigating semantic misalignment in-
+duced by foreground-object occlusion.
+4) We integrate residual guidance with a multi-path con-
+text calibration mechanism to achieve a synergistic en-
+hancement of fine-grained representations and high-level
+semantics, thereby effectively alleviating alignment bias
+and structural misalignment in fuzzy regions during multi-
+scale feature transfer in underwater scenes.
+2. Related Work
+Underwater object detection (UOD). UOD has long been
+affected by light attenuation, color distortion, and back-
+ground interference, resulting in blurred object boundaries,
+reduced contrast, and unstable features. Early research
+predominantly employed image enhancement and dehazing
+methods to improve visual quality. However, such prepro-
+cessing methods often compromise structural consistency
+and struggle to improve detection accuracy [4, 6, 23]. With
+the advancement of the deep detector Faster RCNN [9],
+end-to-end learning methods have been widely adopted for
+underwater detection. However, the structural expressive
+capability of convolutional features in ambiguous regions
+remains limited. Recent studies have introduced multi-scale
+4394

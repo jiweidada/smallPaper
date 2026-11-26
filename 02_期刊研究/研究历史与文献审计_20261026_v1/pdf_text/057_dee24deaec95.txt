@@ -1,0 +1,112 @@
+Learning Mesh-Free Discrete Differential Operators
+with Self-Supervised Graph Neural Networks
+Lucas Gerken Starepravo, 1,∗ Georgios Fourtakas,1 Steven Lind, 2
+Ajay B. Harish, 1 Tianning Tang, 1 and Jack R. C. King 1
+1School of Engineering, The University of Manchester, Manchester, UK
+2School of Engineering, Cardiff University, Cardiff, UK
+Mesh-free numerical methods provide flexible discretisations for complex geometries; however, clas-
+sical meshless discrete differential operators typically trade low computational cost for limited accu-
+racy or high accuracy for substantial per-stencil computation. We introduce a parametrised frame-
+work for learning mesh-free discrete differential operators using a graph neural network trained via
+polynomial moment constraints derived from truncated Taylor expansions. The model maps local
+stencils relative positions directly to discrete operator weights. The current work demonstrates that
+neural networks can learn classical polynomial consistency while retaining robustness to irregular
+neighbourhood geometry. The learned operators depend only on local geometry, are resolution-
+agnostic, and can be reused across particle configurations and governing equations. We evaluate the
+framework using standard numerical analysis diagnostics, showing improved accuracy over Smoothed
+Particle Hydrodynamics, and a favourable accuracy–cost trade-off relative to a representative high-
+order consistent mesh-free method in the moderate-accuracy regime. Applicability is demonstrated
+by solving the weakly compressible Navier–Stokes equations using the learned operators.
+I. INTRODUCTION
+Partial differential equations (PDEs) are foundational to the modelling of physical systems across science and
+engineering. Yet, analytical solutions are rarely available for realistic problems of interest. Thus, numerical methods
+are often used to approximate the governing equations.
+Mesh-based numerical methods, such as the finite difference method (FDM) [1], finite element method (FEM) [2],
+finite volume method (FVM) [3, 4], and spectral methods [5], have long been the standard tools for solving PDEs [6],
+given these methods can be made extremely accurate for simple geometries. Despite their maturity, these approaches
+face challenges regarding accuracy near interfaces [7] and the overhead associated with the mesh: this includes both the
+need for complex adaptation procedures [8] and initial generation phases that, for intricate geometries, may be more
+time-consuming than the simulation itself [9]. Mesh-free numerical methods have significant potential, as discretisation
+relies solely on local connectivity information between collocation points without requiring topological connectivity.
+Furthermore, collocations points can be positioned flexibly to satisfy resolution requirements and conform to complex
+geometries [6, 8].
+Developed in the 1970s, Smoothed Particle Hydrodynamics (SPH) [10] is perhaps the most widely used mesh-free
+numerical method. It is commonly employed in a Lagrangian formulation where particles are advected with the un-
+derlying velocity field, where differential operators are approximated via radial kernel interpolation over neighbouring
+particles. SPH was originally developed for astrophysical problems [10], formulated with symmetries which guarantee
+exact global conservation, and it has since been applied more broadly to terrestrial fluid dynamics [11], in which
+settings global conservation is often sacrified in favour of anti-symmetric formulations exhibiting improved local accu-
+racy. However, the method remains formally zero-th order consistent, limiting accuracy it can achieve, particularly in
+complex turbulent flows [8, 12]. This motivated the development of more accurate numerical methods that enforce
+polynomial consistency through the solution of a local or global linear system [13–16]. However, consistent mesh-
+free methods are typically implemented in an Eulerian framework [17, 18], as they require solving dense local linear
+systems for each local neighbourhood to obtain weights for each stencil. In a Lagrangian setting, where the particle
+configuration evolves in time, these methods require solving a local linear system for every particle at every time
+step, leading to substantial computational overhead. As a result, mesh-free simulations commonly face a trade-off
+between classical SPH kernels, which are computationally efficient but inconsistent and exhibit poor convergence, and
+consistency-corrected methods, which offer improved accuracy at the expense of significantly higher computational
+complexity.
+∗ lucas.gerkenstarepravo@postgrad.manchester.ac.uk
+arXiv:2603.24641v1  [cs.LG]  25 Mar 2026
+
+---PAGE---
+
+2
+In the current work, we introduce a self-supervised graph neural network framework that learns discretemesh-free
+differential operators directly from irregular particle configurations, named Neural Mesh-Free Differential Operator
+(NeMDO). Rather than learning PDE solutions or problem-specific closures, NeMDO constructs local operator weights
+by learning polynomial consistency constraints derived from Taylor expansions, yielding operators with a clear math-
+ematical foundation. Our results show that graph neural networks can learn these consistency constraints and predict
+operator weights with structural properties analogous to those of classical mesh-free discretisations.
+The primary objective of NeMDO is to demonstrate that neural networks can approximate polynomial consistency
+constraints for mesh-free discrete differential operators, and provide a flexible framework for constructing mesh-free
+operators whose accuracy and computational cost can be systematically controlled.
+The resulting operators are strictly local, generalise across heterogeneous node configurations and resolutions, and
+are independent of any particular governing equation. We validate the learned operators using established numerical
+analysis tools, including convergence studies, modal response and stability analyses, and test the robustness of the
+framework through parametric studies. We further demonstrate applicability by solving the weakly compressible
+Navier–Stokes equations. The remainder of this paper is organized as follows. Section II provides the theoretical
+background on discrete differential operators and machine learning for PDEs. In Section III, we detail traditional
+mesh-free operators, followed by a description of the proposed NeMDO methodology in Section IV. We then present
+a comprehensive series of experiments and discussions in Section V. A parametric ablation study is provided in Sec-
+tion VI, while Section VII highlights the limitations of the current framework. Finally, Section VIII offers concluding
+remarks and summarizes our key findings.
+II. BACKGROUND & RELATED WORK
+A. Classical Numerical Approximation of Differential Operators
+Given the discretisation of a spatial domain Ω by a set of collocation pointsP:={x i}N
+i=1 ⊂Ω⊂R d, a general
+local discrete approximation of a differential operator acting onϕcan be written as
+LD(ϕ(xi)) =
+X
+j∈ N i
+(ϕ(xj)−ϕ(x i))wD
+ji ,(1)
+whereL D denotes the discrete approximation of the differential operatorD,N i is the local support (or computational
+stencil) associated with nodei, andw D
+ji are the corresponding stencil weights. This formulation encompasses a
+broad class of numerical methods given appropriate stencils and indexing—including finite difference method [1],
+finite element method [2], SPH [10], and mesh-free high-order methods such as the Local Anisotropic Basis Function
+Method (LABFM) [16]—with the specific discretisation determined by how the weightsw D
+ji and neighbourhoodsN i
+are constructed.
+The accuracy and utility of the discretised solution depends on theconvergence, consistency, andstabilityof the
+numerical method. For a discretisation to be consistent, the discrete operator must reproduce the Taylor moments
+up to a prescribed order. In mesh-free methods, these consistency conditions are typically enforced by solving local
+reconstruction problems in each particle neighbourhood. Representative approaches include the reproducing kernel
+particle method [19], generalised moving least squares (GMLS) [20, 21], the radial basis function-finite difference
+methods (RB-FDM) [22–24], and LABFM [16]. While solving these local linear systems enforces polynomial con-
+sistency and can yield high-order convergence, these methods introduce high computational cost when computing
+stencil weights. This computational overhead can be prohibitive in Lagrangian/Semi-Lagrangian frameworks, when
+the particles move during time integration, and the stencil weights must be recomputed at every time step.
+In SPH, the stencil weights are obtained with a compact isotropic kernel [25]. The most used SPH kernel functions
+are the B-spline functions [26] and the Wendland functions [27], where the error of the integral approximation is
+O(h2) in the limit of largeh/s[28]—wherehis the smoothing length of the kernel (i.e. the radius of the neigh-
+bouring region about pointi) andsis the average collocation point spacing—with convergence ofO(h) or lower in
+practice [29–31]. This discrepancy is largely attributed to the discretization of the original SPH formulation, which
+assumes a continuum; furthermore, irregularities in collocation point distribution can lead to further deterioration
+in accuracy [12]. A consistency analysis of discrete SPH indicates that gradient operators are zeroth-order accurate
+inhon disordered particles, and certain Laplacian formulations may diverge as resolution increases. Nonetheless,
+convergence is often observed within a finite resolution window and for sufficiently well-behaved particle configura-
+tions and low wavenumbers [12]. The convergence behavior further depends on the neighbour countN i, which is
+kernel-dependent. In practice, achieving stable and convergent SPH discretisations typically requires large support
+sizes, often involving tens to hundreds of neighbours per particle [32].

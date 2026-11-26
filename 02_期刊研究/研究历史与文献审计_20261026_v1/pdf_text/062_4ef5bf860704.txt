@@ -1,0 +1,107 @@
+Academic Editors: Zhenwei Shi and
+Zhenming Peng
+Received: 26 May 2026
+Revised: 14 July 2026
+Accepted: 30 July 2026
+Published: 5 August 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+PSG-RTDETR: Towards Stable Cross-Scale Feature Fusion for
+Small Object Detection
+Keyu Zhang
+ and Haihui Wang *
+Hubei Provincial Key Laboratory of Intelligent Robot, School of Computer Science and Engineering, Wuhan
+Institute of Technology, Wuhan 430205, China; 22407010010@stu.wit.edu.cn
+* Correspondence: wanghaihui69@sina.com
+Highlights
+What are the main findings?
+• PSG-RTDETR improves UAV small object detection by introducing a P2-aware cross-
+scale feature fusion structure.
+• The proposed Softplus-Gated BiFPN encourages smoother feature aggregation and
+suppresses noisy or interfering shallow features.
+What are the implications of the main finding?
+• Stable and adaptive feature fusion can improve small object detection accuracy under a
+clear GPU-side computational trade-off.
+• The proposed method provides an effective solution for UAV remote-sensing detection
+under complex backgrounds and degraded visual conditions.
+Abstract
+Small object detection in UAV remote sensing remains challenging due to fine-grained
+feature loss during downsampling and unbalanced cross-scale feature aggregation. Con-
+ventional feature pyramid fusion may suffer from hard activation truncation or competitive
+weight suppression when heterogeneous feature scales are fused. To address these is-
+sues, we propose PSG-RTDETR, a P2-aware Softplus-Gated RT-DETR framework tailored
+for UAV-based dense small-object detection. Specifically, we integrate high-resolution
+P2 features into a bidirectional feature pyramid to preserve critical spatial details. Fur-
+thermore, we introduce Softplus normalization for smooth weight optimization and a
+sample-adaptive gating mechanism to dynamically suppress noisy shallow responses.
+Extensive experiments on VisDrone-DET demonstrate that, compared with the RT-DETR-
+ResNet18 baseline under the same ablation setting, PSG-RTDETR improves mAP50–95 and
+APsmall by 4.1 and 4.7 percentage points, respectively. Further validation on HIT-UAV con-
+firms its strong generalizability across infrared modalities. These accuracy gains involve a
+clear computational trade-off: GFLOPs increase from 57.20 to approximately 110.23, while
+FPS decreases from 126.18 to 80.02 on an RTX 3090. Thus, PSG-RTDETR is better suited to
+accuracy-oriented off-board or near-real-time GPU analysis than to direct deployment on
+resource-constrained onboard UAV devices without further compression or acceleration.
+Keywords: small object detection; feature pyramid network; cross-scale feature fusion;
+fusion weight normalization; gated feature selection; remote sensing; UAV imagery; object
+detection
+Remote Sens. 2026, 18, 2609 https://doi.org/10.3390/rs18152609
+
+---PAGE---
+
+Remote Sens. 2026, 18, 2609 2 of 21
+1. Introduction
+Small object detection in UAV-based remote sensing remains challenging due to
+low pixel occupancy, severe scale variation, and complex background interference [1,2].
+Although Feature Pyramid Networks (FPNs) have become a standard approach for multi-
+scale representation learning [3], their effectiveness remains limited for extremely small
+objects [4,5]. Specifically, deep features often lack sufficient spatial resolution, while shallow
+features preserve more detailed information but contain weaker semantic representations.
+As a result, small-object cues can be weakened during cross-scale feature fusion, leading to
+degraded detection performance.
+Existing UAV small-object detection methods have made progress in multi-scale
+feature modeling, but their performance is still constrained by the capability of cross-scale
+feature fusion. Classical FPN establishes the foundation of multi-scale fusion through
+top-down pathways and lateral connections [ 3]. Subsequent methods further enhance
+feature aggregation efficiency and detail representation through bidirectional connections,
+learnable weights, and improved pyramid structures [4,6,7]. Meanwhile, studies on UAV
+small-object detection usually introduce shallow high-resolution features, dual-path fusion,
+or context enhancement modules to improve the recall of fine-grained targets [8–10]. Recent
+UAV and remote-sensing small-object detectors further indicate that improving detection
+performance depends not only on more complex pyramid structures, but also on balancing
+high-resolution detail preservation, low-level texture and high-level semantic interaction,
+and cross-scale semantic calibration [11–14].
+However, most existing methods still rely on conventional weighting and normaliza-
+tion strategies, which makes it difficult to simultaneously achieve smooth weight allocation,
+cross-level coordination, and noise suppression during heterogeneous feature fusion [6,15].
+This issue becomes more evident when shallow high-resolution features are introduced.
+Although high-resolution features are beneficial for preserving small-object details, they
+may also increase computational cost and affect real-time detection efficiency [16]. More
+importantly, these features contain richer texture and localization information, but they
+also bring stronger noise responses and a larger semantic gap. Without balanced weight
+allocation and effective feature selection, shallow information may not be fully exploited
+and can introduce additional false positives and inference burden [8–10,17]. Meanwhile,
+recent methods have attempted to alleviate shallow noise, semantic mismatch, and unsta-
+ble cross-scale aggregation through clean feature extraction, stable fusion, context-gated
+fusion, or adaptive feature aggregation [18–20]. Nevertheless, detail preservation, smooth
+weight learning, and dynamic feature selection are still often treated as relatively separate
+designs, and a unified lightweight fusion mechanism for RT-DETR-based UAV small-object
+detection remains insufficiently explored.
+To address this issue, this paper focuses on the feature fusion mechanism itself rather
+than simply stacking additional modules or expanding the pyramid topology. We argue
+that effective UAV small-object detection requires a fusion design that can simultane-
+ously preserve high-resolution details, stabilize heterogeneous cross-scale aggregation,
+and selectively suppress unreliable shallow responses. Based on this motivation, we re-
+design the BiFPN-style neck in RT-DETR from three aspects: P2-aware detail preservation,
+Softplus-normalized stable fusion, and sample-adaptive gated path modulation.
+Accordingly, we construct a P2-aware Softplus-Gated BiFPN neck within the RT-DETR-
+ResNet18 framework. First, a P2 high-resolution detection path is introduced to alleviate
+the detail loss of UAV small objects during downsampling. Second, a Softplus-normalized
+BiFPN is proposed to replace hard-truncated or overly competitive fusion weights with
+smooth positive constraints. Third, a sample-adaptive path gate is designed to selectively
+https://doi.org/10.3390/rs18152609

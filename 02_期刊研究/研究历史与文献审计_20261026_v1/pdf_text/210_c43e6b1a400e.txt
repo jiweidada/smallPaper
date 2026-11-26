@@ -1,0 +1,186 @@
+Efficient and Distortion-Aware Fisheye Object Detection for Edge Devices
+Bao Tran Gia1,2, Tuong Bui Cong Khanh1,2, Tam Le Thi Thanh 1,2, Hien Ho Trong 1,2,
+Tien Do 1,2, Thanh Duc Ngo 1,2, Duy-Dinh Le 1,2, Shin’ichi Satoh3
+1 University of Information Technology, VNU-HCM, Vietnam
+2 Vietnam National University, Ho Chi Minh City, Vietnam
+3 National Institute of Informatics, Japan
+{22520121, 22521624, 23521386, 22520414 }@gm.uit.edu.vn
+{tiendv, thanhnd, duyld }@uit.edu.vn
+satoh@nii.ac.jp
+Abstract
+Fisheye cameras are increasingly employed in traffic
+surveillance systems due to their ultra-wide field of view,
+which allows for extensive scene coverage with a reduced
+number of devices. However, object detection in fisheye im-
+ages remains challenging for real-time applications. Many
+recent methods rely on multi-model ensembles to boost
+accuracy, but these approaches incur high computational
+costs and latency. Moreover, fisheye distortion causes pe-
+ripheral objects to appear small and warped, making them
+difficult to detect and leading to unstable model conver-
+gence. In this work, we present an efficient and scalable
+framework for fisheye object detection that addresses these
+challenges from both algorithmic and system perspectives.
+We propose a distortion-aware learning strategy that im-
+proves detection performance in highly distorted regions
+and a spatially guided augmentation method to enhance
+robustness. To support real-time deployment, we imple-
+ment a set of GPU-level runtime optimizations that signifi-
+cantly reduce memory usage and latency. Extensive experi-
+ments on benchmark datasets demonstrate that our method
+achieves competitive accuracy while maintaining high in-
+ference speed (FPS), making it well-suited for edge-device
+deployment in practical traffic surveillance systems.
+1. Introduction
+Object detection using fisheye cameras has gained increas-
+ing attention in intelligent transportation and surveillance
+systems due to the unique advantage of wide-angle cover-
+age. Unlike conventional pinhole cameras, fisheye lenses
+capture omnidirectional scenes with a single device, signif-
+icantly reducing infrastructure cost and blind spots in com-
+plex urban environments [3]. However, the extreme radial
+distortion inherent in fisheye imagery introduces substan-
+tial challenges for standard object detection models. Ob-
+jects near the image center often appear relatively undis-
+torted, while those at the periphery are compressed and
+warped, resulting in severe scale variation, shape deforma-
+tion, and inconsistent feature representation [9]. These fac-
+tors lead to degraded detection accuracy, poor model con-
+vergence during training, and substantial difficulty in de-
+ploying real-time detection systems in practice. Addressing
+these challenges requires detection frameworks that are not
+only distortion-aware but also computationally efficient for
+practical deployment in high-throughput scenarios such as
+traffic monitoring.
+Despite recent progress, existing solutions for fisheye
+object detection exhibit several limitations that restrict their
+practicality in real-world deployments. First, the heavy re-
+liance on ensemble-based pipelines – combining multiple
+large-scale models such as YOLOv9 [14], InternImage [15],
+and Co-DETR [18] – demonstrates diminishing returns
+when scaled for deployment on resource-constrained plat-
+forms. These methods typically involve not only multiple
+model forward passes but also post-processing techniques,
+such as weighted box fusion (WBF) [10], which collectively
+increase inference latency and memory usage [2, 9]. Conse-
+quently, while high accuracy is achieved in benchmark set-
+tings, these methods are fundamentally incompatible with
+real-time constraints typical of traffic surveillance systems.
+Second, most current approaches do not explicitly con-
+sider the spatial characteristics of fisheye distortion during
+either training or inference. In particular, objects at the im-
+age periphery – which are often smaller, warped, and ap-
+pear in higher density – are disproportionately harder to
+detect and contribute more heavily to performance degra-
+This ICCV Workshop paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+5469
+
+
+---PAGE---
+
+dation [7]. While some methods apply uniform data aug-
+mentation or rely on pseudo-labeling to enhance robustness,
+few exploit spatially adaptive mechanisms that focus com-
+putational effort on distortion-sensitive regions. As a result,
+models may overfit to relatively clean center-region objects
+while underperforming on the periphery, leading to poor
+generalization and inefficient resource usage.
+To bridge these gaps, we propose a unified framework
+that integrates three core innovations tailored to the unique
+challenges of fisheye object detection. First, we intro-
+duce the Adaptive Periphery-Aware Module (APAM) ,
+which injects spatial awareness into the training process
+by dynamically weighting the loss based on radial dis-
+tortion, enabling the model to prioritize learning from
+distortion-heavy peripheral regions. Second, we present
+Radial-Aware Data Augmentation (RADA), a geometry-
+sensitive augmentation strategy that selectively pastes ob-
+ject instances into highly distorted areas, thereby improving
+the robustness and generalization of the detector. Finally,
+to enable real-time deployment, we introduce GPU-Aware
+Optimization (GAO), a TensorRT-based runtime strategy
+that leverages pre-allocated GPU buffers, asynchronous ex-
+ecution. Combined with mixed-precision and kernel fu-
+sion, GAO significantly reduces latency and memory usage
+for efficient edge deployment. Together, these components
+deliver a distortion-aware, computationally efficient solu-
+tion that meets the stringent performance demands of high-
+throughput traffic monitoring applications.
+The effectiveness of the proposed framework was further
+demonstrated in the Fisheye Object Detection track of the
+2025 AI City Challenge [11], where it achieved a competi-
+tive F1-score of 0.6302. Importantly, this performance was
+attained while maintaining high inference speed on edge
+devices, underscoring the framework’s suitability for real-
+time deployment in practical traffic surveillance scenarios
+that demand both accuracy and computational efficiency.
+2. Related Work
+2.1. Fisheye Image Detection
+Fisheye image detection poses significant challenges due
+to the severe non-linear distortions inherent in ultra-wide-
+angle lens imagery. Early approaches typically involved
+geometric rectification, wherein fisheye images are re-
+projected into rectilinear or panoramic formats prior to de-
+tection. While this strategy enables the use of conventional
+object detectors, it introduces several drawbacks: the com-
+putational burden of re-projection, the risk of introducing
+artifacts, and the distortion or loss of peripheral informa-
+tion. These limitations make such methods less suitable
+for real-time applications or scenarios with dynamic view-
+points.
+In response, recent research has shifted toward direct
+detection on raw fisheye images by adapting the architec-
+ture of convolutional neural networks (CNNs) to account
+for spatial distortion. Notably, FisheyeDet [6] employs a
+distortion-adaptive module that modifies convolutional ker-
+nels based on each pixel’s distance from the image center,
+enabling the network to extract features in a spatially-aware
+manner. Similarly, FisheyeYOLO [4] explores alternative
+object representations such as oriented ellipses and curved
+bounding boxes to more accurately localize warped objects.
+These methods are designed to handle the scale and shape
+deformations prevalent in peripheral regions, where con-
+ventional bounding boxes often fail to capture object ge-
+ometry effectively.
+Despite architectural innovations, detection performance
+at the image periphery remains a persistent bottleneck. Ob-
+jects in these regions tend to appear smaller, more dis-
+torted, and more frequently occluded, resulting in higher
+miss rates. Studies such as [5] underscore the dispropor-
+tionate impact of peripheral detection quality on overall
+performance, motivating further exploration into region-
+aware feature extraction and learning strategies that prior-
+itize distortion-sensitive zones of the fisheye image.
+2.2. Real-time Efficient Detection
+The landscape of real-time object detection is fundamen-
+tally shaped by the dual demands of high-speed infer-
+ence and stringent computational efficiency, particularly for
+latency-sensitive applications such as autonomous naviga-
+tion, intelligent surveillance, and mobile robotics. In re-
+sponse to these constraints, the field has seen a prolifera-
+tion of lightweight, high-throughput detection architectures.
+Single-stage detectors, by virtue of their streamlined design,
+have become the predominant approach for real-time tasks.
+Within this paradigm, the You Only Look Once (YOLO)
+family of models has been particularly influential. Initially
+proposed by Redmon et al. [8], the YOLO framework rev-
+olutionized real-time object detection by unifying the tra-
+ditionally separate processes of region proposal and clas-
+sification into a single, end-to-end neural network. This
+foundational concept of treating object detection as a re-
+gression problem allows for a single forward pass to pre-
+dict both bounding boxes and class probabilities, thereby
+achieving significant gains in inference speed. Subsequent
+iterations, including the widely adopted YOLOv10 [13] and
+YOLOv12 [12], have progressively refined this architec-
+ture. These advancements have introduced more sophisti-
+cated backbone networks for enhanced feature extraction,
+anchor-free detection mechanisms to simplify the predic-
+tion process, and the development of task-aligned head
+modules, collectively contributing to substantial improve-
+ments in both detection accuracy and computational perfor-
+mance.
+Concurrently, a new architectural paradigm has emerged
+5470

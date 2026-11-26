@@ -1,0 +1,91 @@
+DQ-DETR: DETR with Dynamic Query for Tiny Object Detection 5
+1x1 conv
+dilated conv
+ReLU
+Avg Pooling
+FFN
+Classification 
+scores
+(a) Categorical Counting Module
+Density Extractor
+0.1
+0.6
+0.2
+0.1
+Density 
+Map
+Cls. Head
+#Queries
+K = 300
+K = 500
+K = 900
+K = 1500
+(b) Counting-Guided Feature Enhancement
+Spatial 
+Attention
+Channel 
+Attention 
+Spatial weight Channel Weight
+XX
+Enhanced 
+Feature Flatten
+...
+(c) Dynamic Query Selection
+Select 
+Top-K
+...
+FFNFFN
+Prediction Head
+Key & Value
+Backbone
+Deformable
+Encoder
+...
+...
+...
+...
+Positional 
+Embedding
+Flatten
+Unflatten
+Qcontent
+Qposition
+Deformable
+Decoder
+...
+...
+...
+...P1
+P2
+P3
+P4
+S1
+S2
+S3
+S4
+e. g., K=1500
+Fig.1: Overall architecture of our method. (a) Categorical Counting Module, which
+classifies the number of instances in images into 4 levels. (b) Counting-Guided Feature
+Enhancement, which refines the encoder’s visual feature with a density map. (c) Dy-
+namic Query Selection, which dynamically adjusts the number of queries and enhances
+the content and position of queries.
+location and size of tiny objects through dynamic query selection, as shown in
+Fig. 1(c). The following section will describe the proposed Categorical Counting
+Module, Counting-Guided Feature Enhancement, and Dynamic Query Selection.
+3.2 Unflattening of Encoder’s Feature Map
+Following DETR’s pipeline, we use multi-scale feature mapsPi ∈ {1, 2, . . . , l}
+extracted from different stages of the backbone as the input of the transformer
+encoder. To form the input sequence of the transformer encoder, we flatten
+each layer of multi-scale feature mapsPi from Rd×hi×wi to Rd×hiwi and then
+concatenate them together. The higher resolution feature contains more spatial
+details, which is beneficial to object counting and detecting tiny objects.
+In our proposed categorical counting module, we apply dilated convolution
+operations on the transformer encoder features. Hence, we unflatten the en-
+coder’s multi-scale visual features by reshaping its spatial dimension, resulting
+in 2-D feature maps Si ∈ Rd×hi×wi. We denote the reconstructed encoder’s
+multi-scale visual features as EMSV features for brevity.
+3.3 Categorical Counting Module
+The categorical counting module aims to estimate the number of objects in
+the images. It consists of a density extractor and a classification head.
+Density Extractor.We take the largest feature mapS1 of the EMSV features
+andgeneratethedensitymap Fc throughthedensityextractor.Theinputfeature

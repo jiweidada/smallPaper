@@ -1,0 +1,152 @@
+Making Convolutional Networks Shift-Invariant Again
+Richard Zhang 1
+Abstract
+Modern convolutional networks are not shift-
+invariant, as small input shifts or translations
+can cause drastic changes in the output. Com-
+monly used downsampling methods, such as
+max-pooling, strided-convolution, and average-
+pooling, ignore the sampling theorem. The well-
+known signal processing ﬁx is anti-aliasing by
+low-pass ﬁltering before downsampling. How-
+ever, simply inserting this module into deep net-
+works degrades performance; as a result, it is
+seldomly used today. We show that when inte-
+grated correctly, it is compatible with existing ar-
+chitectural components, such as max-pooling and
+strided-convolution. We observe increased ac-
+curacy in ImageNet classiﬁcation, across several
+commonly-used architectures, such as ResNet,
+DenseNet, and MobileNet, indicating effective
+regularization. Furthermore, we observe better
+generalization, in terms of stability and robust-
+ness to input corruptions. Our results demonstrate
+that this classical signal processing technique has
+been undeservingly overlooked in modern deep
+networks.
+1. Introduction
+When downsampling a signal, such an image, the textbook
+solution is to anti-alias by low-pass ﬁltering the signal (Op-
+penheim et al., 1999; Gonzalez & Woods, 1992). Without
+it, high-frequency components of the signal alias into lower-
+frequencies. This phenomenon is commonly illustrated in
+movies, where wheels appear to spin backwards, known as
+the Stroboscopic effect, due to the frame rate not meeting
+the classical sampling criterion (Nyquist, 1928). Interest-
+ingly, most modern convolutional networks do not worry
+about anti-aliasing.
+Early networks did employ a form of blurred-downsampling
+– average pooling (LeCun et al., 1990). However, ample em-
+1Adobe Research, San Francisco, CA. Correspondence to:
+Richard Zhang <rizhang@adobe.com>.
+Proceedings of the 36 th International Conference on Machine
+Learning, Long Beach, California, PMLR 97, 2019. Copyright
+2019 by the author(s).
+pirical evidence suggests max-pooling provides stronger
+task performance (Scherer et al., 2010), leading to its
+widespread adoption. Unfortunately, max-pooling does not
+provide the same anti-aliasing capability, and a curious, re-
+cently uncovered phenomenon emerges – small shifts in
+the input can drastically change the output (Engstrom et al.,
+2019; Azulay & Weiss, 2018). As seen in Figure 1, network
+outputs can oscillate depending on the input position.
+Blurred-downsampling and max-pooling are commonly
+viewed as competing downsampling strategies (Scherer
+et al., 2010). However, we show that they are compatible.
+Our simple observation is that max-pooling is inherently
+composed of two operations: (1) evaluating the max opera-
+tor densely and (2) naive subsampling. We propose to low-
+pass ﬁlter between them as a means of anti-aliasing. This
+viewpoint enables low-pass ﬁltering to augment, rather than
+replace max-pooling. As a result, shifts in the input leave
+the output relatively unaffected (shift-invariance) and more
+closely shift the internal feature maps (shift-equivariance).
+Furthermore, this enables proper placement of the low-pass
+ﬁlter, directly before subsampling. With this methodology,
+practical anti-aliasing can be achieved with any existing
+strided layer, such as strided-convolution, which is used in
+more modern networks such as ResNet (He et al., 2016) and
+MobileNet (Sandler et al., 2018).
+A potential concern is that overaggressive ﬁltering can result
+in heavy loss of information, degrading performance. How-
+ever, we actually observe increased accuracy in ImageNet
+classiﬁcation (Russakovsky et al., 2015) across architectures,
+as well as increased robustness and stability to corruptions
+and perturbations (Hendrycks et al., 2019). In summary:
+• We integrate classic anti-aliasing to improve shift-
+equivariance of deep networks. Critically, the method
+is compatible with existing downsampling strategies.
+• We validate on common downsampling strategies – max-
+pooling, average-pooling, strided-convolution – in differ-
+ent architectures. We test across multiple tasks – image
+classiﬁcation and image-to-image translation.
+• For ImageNet classiﬁcation, we ﬁnd, surprisingly, that
+accuracy increases, indicating effective regularization.
+• Furthermore, we observe better generalization. Perfor-
+mance is more robust and stable to corruptions such as
+rotation, scaling, blurring, and noise variants.
+
+---PAGE---
+
+Making Convolutional Networks Shift-Invariant Again
+AlexNet on ImageNet
+VGG on CIFAR
+Figure 1. Classiﬁcation stability for selected images. Predicted probability of the correct class changes when shifting the image. The
+baseline (black) exhibits chaotic behavior, which is stabilized by our method (blue). We ﬁnd this behavior across networks and datasets.
+Here, we show selected examples using AlexNet on ImageNet (top) and VGG on CIFAR10 (bottom). Code and anti-aliased versions of
+popular networks are available at https://richzhang.github.io/antialiased-cnns/.
+2. Related Work
+Local connectivity and weight sharing have been a cen-
+tral tenet of neural networks, including the Neocogni-
+tron (Fukushima & Miyake, 1982), LeNet (LeCun et al.,
+1998) and modern networks such as Alexnet (Krizhevsky
+et al., 2012), VGG (Simonyan & Zisserman, 2015),
+ResNet (He et al., 2016), and DenseNet (Huang et al., 2017).
+In biological systems, local connectivity was famously dis-
+covered in a cat’s visual system (Hubel & Wiesel, 1962).
+Recent work has strived to add additional invariances, such
+as rotation, reﬂection, and scaling (Sifre & Mallat, 2013;
+Bruna & Mallat, 2013; Kanazawa et al., 2014; Cohen &
+Welling, 2016; Worrall et al., 2017; Esteves et al., 2018). We
+focus on shift-invariance, which is often taken for granted.
+Though different properties have been engineered into net-
+works, what factors and invariances does an emergent rep-
+resentation actually learn? Qualitative analysis of deep
+networks have included showing patches which activate hid-
+den units (Girshick et al., 2014; Zhou et al., 2015), actively
+maximizing hidden units (Mordvintsev et al., 2015), and
+mapping features back into pixel space (Zeiler & Fergus,
+2014; H´enaff & Simoncelli, 2016; Mahendran & Vedaldi,
+2015; Dosovitskiy & Brox, 2016a;b; Nguyen et al., 2017).
+Our analysis is focused on a speciﬁc, low-level property and
+is complementary to these approaches.
+A more quantitative approach for analyzing networks is mea-
+suring representation or output changes (or robustness to
+changes) in response to manually generated perturbations to
+the input, such as image transformations (Goodfellow et al.,
+2009; Lenc & Vedaldi, 2015; Azulay & Weiss, 2018), geo-
+metric transforms (Fawzi & Frossard, 2015; Ruderman et al.,
+2018), and CG renderings with various shape, poses, and
+colors (Aubry & Russell, 2015). A related line of work is ad-
+versarial examples, where input perturbations are purposely
+directed to produce large changes in the output. These per-
+turbations can be on pixels (Goodfellow et al., 2014a;b),
+a single pixel (Su et al., 2019), small deformations (Xiao
+et al., 2018), or even afﬁne transformations (Engstrom et al.,
+2019). We aim to make the network robust to the simplest
+of these types of attacks and perturbations: shifts. In doing
+so, we also observe increased robustness across other types
+of corruptions and perturbations (Hendrycks et al., 2019).
+Classic hand-engineered computer vision and image pro-
+cessing representations, such as SIFT (Lowe, 1999),
+wavelets, and image pyramids (Adelson et al., 1984; Burt
+& Adelson, 1987) also extract features in a sliding win-
+dow manner, often with some subsampling factor. As dis-
+cussed in Simoncelli et al. (1992), literal shift-equivariance
+cannot hold when subsampling. Shift-equivariance can be
+recovered if features are extracted densely, for example tex-
+tons (Leung & Malik, 2001), the Stationary Wavelet Trans-
+form (Fowler, 2005), and DenseSIFT (Vedaldi & Fulkerson,
+2008). Deep networks can also be evaluated densely, by
+removing striding and making appropriate changes to sub-
+sequent layers by using ´a trous/dilated convolutions (Chen

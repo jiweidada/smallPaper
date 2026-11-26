@@ -1,0 +1,120 @@
+194｜原图重读与采样：原文边界、真正剩余变量和一次最低成本判别
+日期：2026-10-21。责任：native Astra A；只读审查，未运行模型、实验程序或训练，未改旧源/配置/证据。本次只新增本文件。
+
+一、直接判断与版本边界
+
+不把“二维密度warp＋源坐标框＋T处attention读取”直接作为新方法申请训练。FOVEA、SALISA覆盖前置非均匀采样；更直接的LZU已覆盖zoom后把特征unzoom、在原坐标完成检测，而且支持非可分二维变换。Rosenblatt不是新变换，源坐标监督也不是首次。
+但不能据此断言C与LZU离散实现全同：C可把非均匀特征格保留到decoder的实际采样点，省去LZU在均匀源格上的中间投影。以下把“在哪里恢复均匀格”作为唯一主要修订变量，明确它是候选机制而非已经成立的论文创新。A的观测约束校正作为有明确区别的另一备选记录，不同时主推两个大改动。
+
+本次亲读189_圆桌原始备份时，文件已经有第3轮：C已撤回中心热图驱动warp，改全图加四块中一块、预测追加分辨率的成对几何收益；A已改双头相减以保证同观测零校正。不能将已撤回的C2伪装为当前圆桌共识。这里保留C2核查是执行root指定任务；C3的直接先例另列第六节。
+
+二、亲读原文到底覆盖了什么
+
+1. FOVEA, ICCV 2021, §3.1–3.3，Eq.3–8。
+https://arxiv.org/html/2108.12102v1
+原文定义源→warp的T，以I_w(u)=I(T^{-1}(u))采图；Eq.4–5用saliency和距离核对源坐标加权平均形成逆映射。主设计改成两轴可分以保持矩形，反射padding避免裁边；预测框经T^{-1}返回原空间、原空间算损失。它已经讨论RPN的源空间delta与warp空间RoI读取不一致的问题。故“框在源空间、特征在另一空间”不是未被发现的问题；C可计算T并逐采点读取是一个具体接口差别。
+核查方式：arXiv原文HTML亲读；CVF PDF直接open为403，未冒称PDF成功。
+
+2. SALISA, ECCV 2022, §3.1–3.3，Eq.1–3。
+https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136700296.pdf
+https://arxiv.org/html/2204.02397
+16×16控制点的TPS网格：W=[[K,P],[P^T,0]]^{-1}V，G=L'W。以注意力采样器网格G'监督，Loss_grid=Σ M⊙||G−G'||_2。原文明说二维密度边际化会把两处对角目标的交叉空区也放大，并用选择性网格监督缓解。它的框仍在变形图预测，再插值位移回源空间；未采用C所写的源坐标DETR查询。故“发现交叉空区问题”和“用二维变换缓解”都已覆盖；不能把Rosenblatt满足面积式直接算方法增量。
+核查方式：官方PDF正文及arXiv HTML亲读。
+
+3. Learning to Zoom and Unzoom, CVPR 2023，§4.1–4.2、§5.1。
+https://arxiv.org/abs/2303.15390
+本地亲读：文献_相关原始论文_20261004\_text\230_Learning_to_Zoom_and_Unzoom_arXiv2303_15390v1_Claude新方案复核_20261006.txt。
+注意其T记号方向与C相反：LZU的T是输出→输入。Eq.5用分片双线性映射近似T，Eq.6对每个quadrilateral分片求逆。方法先zoom输入、运行空间网络、再unzoom特征；§5.1是在FPN各层之后unzoom。非可分warp的可逆实现已经给出；采用可分主实验的理由是非可分未带来更好表现且更慢，不是“不支持二维”。
+这比FOVEA/SALISA更接近C：源标签不变、不将非线性变形后的四角假装为精确矩形，已由特征unzoom实现。C的连续读取F_w(T(x))就是该特征拉回在x的按需求值。完整网络不必相同：C另外更改encoder位置编码及提案初始化，离散插值次序也不同。必须把差别限定在这些确切位置。
+另一个不能忽略的结果：原文Table 2显示只有低分辨率输入时非均匀放大也可改善；因此原图重读后收益不能自动解释为找回新像素，也可能只是尺度适配。
+
+4. ZoomDet, 2026，Adaptive Image Zoom-in with Bounding Box Transformation for UAV Object Detection。
+https://arxiv.org/abs/2602.07512
+本地亲读：_text\176_ZoomDet_arXiv2602.07512v2.txt。
+它预测稠密offset作输入zoom，用box面积放大目标训练，并以corner-aligned查表近似处理前后框变换。UAV/VisDrone、单画布非均匀zoom、用GT框约束magnification都不是本项目新背景；C源坐标读取确实免去该corner approximation，但LZU已经有更直接的特征级解法，不能只与ZoomDet的较弱接口相比。
+
+三、C2公式成立的范围：面积守恒不等于信息和形状守恒
+
+按189原式：H∈[0,1]，μ=1+3H，m(x)=∫μ(x,t)dt，Z=∫m(x)dx；
+u=T_x(x)=Z^{-1}∫_0^x m(s)ds，v=T_y(x,y)=m(x)^{-1}∫_0^y μ(x,t)dt。
+DT=[[m/Z,0],[∂_xT_y,μ/m]]，det(DT)=μ/Z>0。
+该式是三角Rosenblatt变换。可先反解x，再在对应x的条件CDF反解y。源空间区域R得到的连续画布面积为∫_R μ/Z；两轴边际的交叉空区问题没有被强制重现。
+
+三个实质限制：
+(a) 1≤μ≤4仅限制det，不限制剪切∂_xT_y或最小奇异值；面积增加可能是一轴扩、一轴压。局部像素坐标Jacobian须用A=diag(W_net,H_net)DT diag(1/W_src,1/H_src)，不能混用归一化单位。
+(b) 若H只在很窄的GT中心核为正，获得额外面积的是核附近，不等于整个目标尤其两条边都获足够采样。GT面积∫det与短边有效分辨率应分报。
+(c) 连续严格可逆不保证“粗网格算CDF、双线性上采样两个坐标场、再数值反查”仍是精确互逆。应由同一个分片条件CDF实现正反映射，验证T^{-1}(T(x))，不能分别拟合两个网格。
+
+对局部近似仿射框，宽方向法向分辨率可写w_src/||A^{-T}e_x||，高方向为h_src/||A^{-T}e_y||，不是sqrt(det A)乘短边。这只是几何诊断，不是新的优化方法；一般非线性框应检查边界采点，不能拿中心Jacobian当精确整框量。
+源图3px变成网络0.75px仍可能丢信息，不能用“原图不足4px”作为统一否决线。反过来，原图尺寸较大也不保证16²采样或CNN保住了对应信息。
+
+四、唯一主要修订：保留非均匀特征格，消除中间均匀化
+
+令F_l为warp图经过backbone/neck后的第l层离散特征，B为双线性读取，s_{qh lk}为源坐标的原生deformable sampling point，a为原注意力权重。
+
+直接稀疏读取：
+  o_direct(q)=Σ_{h,l,k} a_{qhlk} B[F_l](T(s_{qhlk}))。
+LZU接普通deformable head的最直接移植：
+  U_l(x_i)=B[F_l](T(x_i))，x_i为均匀源格点；
+  o_dense(q)=Σ_{h,l,k} a_{qhlk} B[U_l](s_{qhlk})。
+连续理想情形等价；离散情形中B[ B[F_l]∘T 在源格的样本 ]一般不等于B[F_l]∘T。direct省去的不是最后读点，而是先把已为小目标增加密度的特征投回均匀源格。
+
+可证伪问题：目标区域在warp特征格上获得的细节，是否在这一均匀化步骤被再次平滑，而直接读取能够保留？如果只是任何两次插值都有的微小数值差、没有与有效放大区域/真实采点关联，这条仍不足成为论文主线。一次采样合成是常见数值原则，不能凭公式不等就声称首次。
+这与原C2有一个重要修订：先固定同一T、同一采样密度、同一source坐标encoder/anchor设计，只比较“稠密unzoom后读取”与“直接复合读取”。不要把Rosenblatt、预览网络、位置编码、query初始化四处改动捆绑后，仍把收益都归给消除插值。
+
+真正代码点（均已静态阅读，不改源）：
+1) native\engine\deim\dfine_decoder.py:132–170。
+4D参考框当前先算s=c+offset*num_points_scale*(w,h)*offset_scale。应在完整s形成之后做T(s)，再进入default或fallback attention core；T(c)+原offset不正确，T(c)+DT(c)offset也只是局部近似。越界源点保持padding语义，不夹到边界。
+2) 同文件_generate_anchors，约775–800：目前中心是warp均匀grid，wh=.05*2^level。源坐标版本的center须为T^{-1}(grid)。首版wh明确保留原source归一化尺度，不能把非线性warp的四角包络误称精确source anchor。source anchor是回归先验，不保证与该特征的实际感受野相同。
+3) _get_decoder_input约814–832：encoder bbox head与topK anchor必须在同一source坐标系；eval缓存self.anchors/self.valid_mask不能跨不同逐图T复用。
+4) hybrid_encoder.py约491–560：sin/cos位置编码与eval缓存需按每图T^{-1}(grid)生成；为保持identity可复现，先还原到原实现的网格数值单位再编码。decoder query_pos_head、DN bbox、pre box、FDR四边积分/支持域、matcher和全部loss留在source坐标。
+5) 以上仍不是让卷积对任意warp等变。CNN/FPN邻接关系在warp空间，畸变影响继续存在；只是保证坐标和读取一致。
+
+最强简单控制：同T的dense-LZU，必须排第一。其次同样面积预算的可分LZU、相同画布的普通uniform、与总像素/实测成本匹配的uniform tiling。为辨别是否纯插值损失，dense-LZU增加源格采样密度或采用更合适插值也是强控制，额外内存/FLOPs如实算。只胜均匀输入，不能归因本修订。
+
+最低成本的一次无训练检查（这里未执行）：
+先选择已有预测与原图可对应的一小批自然图，固定列表和T构造；不用再次选择127四张mosaic作唯一证据。若有已存常规预测，可用同一份预测KDE构造固定T；没有则GT密度仅作为机制上界，必须明确oracle，不能评估控制器可部署性。只需一次冻结warp前向取得F_l和source采点/权重；复用这些张量离线算direct/dense，不优化参数、不训练preview。检查真实采点输出差、对坐标的梯度差、对象区域与背景分布，并用高密度dense-LZU分辨离散化贡献。identity T须复现native。
+若现有资产只允许原图/标注和零模型程序，就先做坐标与两种离散采样算子核对，结果只能决定实现是否值得采缓存，不能宣称真实特征证据。若真实读点两路相同，或差别完全由更便宜的dense插值控制复制且无成本优势，就停止这个精确增量。若差别确实触及被放大的目标，允许进入一次正式训练申请讨论，不要求它先证明AP；仍须把同T dense-LZU列为训练主对照。数值非零、局部梯度好、oracle面积正均不是自动GO。
+
+五、A的原图重读：已有覆盖、具体替代与数据链
+
+AutoFocus（ICCV2019）§4已用低分辨率小目标图产生原图FocusChips、再次检测及边界合并；CornerNet-Saccade §3.1–3.2已从低分辨率attention/粗框选择原生裁片以改善定位。两者均不是只裁已经降采样的图。
+https://arxiv.org/html/1812.01600
+https://arxiv.org/html/1904.08900
+故原图裁剪、围绕预测框局部再看、共享检测器/多尺度都不是A剩余贡献。
+
+A3的具体不同是限制校正函数：
+ H_q=C(I_src,A^{-1}W_q)，L_q=C(I_net,W_q)，W_q=2*sg(b_q)；
+ δ_q=h(q,φ(H_q),φ(L_q))−h(q,φ(L_q),φ(L_q))；
+ b'_q=Π_W(b_q⊕δ_q)。
+同观测必为零校正，query本身不能走一个自由偏置纠框。与简单原生单路头的区别是函数族约束，不是像素量本身。若作为C停止后的具体替代，可先用更便宜、可审计的实现δ=K(q,φ(L))·[φ(H)−φ(L)]，K输出4×d且不加输出bias；这等价于对新增观测残差做条件线性校正，避免两个任意h前向。它有明确实现和消融，但“残差＋条件线性”本身仍非新数学，不能据此宣布主线已成立。
+最强控制是相同原生像素预算的自由单路校正；另需L/L空观测、原生路由网络输入上采样替换，以及不带query条件的共享残差头。若单路更好，保留简单方案，不因有identity保证强留差分。
+
+实际数据链比公式多一个关键事实：
+common.yml先Mosaic(output_size=320)，随后photometric、zoom-out、IoU crop、flip、Resize640，再可能collate mixup。mosaic.py:load_samples_from_dataset在拼图前已经self.resize每张源图；只保存“最终Resize之前的mosaic”不等于保留相机原生像素。mixup也不是单一A^{-1}。
+如检查当前C0，H必须依据四个原图的采样来源及混合系数重放同一观测；不能把干净原图与带mixup/颜色变化的L作差，再称高频信息。第一次便宜检查可以使用自然图验证直接resize链；这不改变未来C0训练配方，但不能宣称增强接口已经验证。
+300×16×16=76,800个每路采样位置，两路153,600；按640²画布约37.5%位置量，尚未算φ、两头/条件矩阵与访存，不能用“小裁片”直接称成本近零。通常有多个q重读同区域，读数不是独立信息量。
+
+一次最低成本A检查无需训练：对已缓存ordinary自身匹配(q,g)固定W_q，求窗口内最高可能IoU及实际H/L样本差，报告原图→各降采样步骤尺寸链。若输出框必须完全落在矩形W内，则max_{b⊆W}IoU(b,g)=|W∩g|/|g|，由b=W∩g达到。用自身GT，不把任意q窗口覆盖的GT算作该监督可受益。H−L非零可能来自插值/光度误差，不自动是目标信息；须有同链低分辨率替代控制。窗口上界非零也不是创新。此检查足以决定信息前提是否值得训练验证，但不会提前决定学习收益。
+
+六、C3收益选块的直接先例，和一篇新增近邻
+
+Dynamic Zoom-in Network, CVPR2018，亲读本地_text\171_Dynamic_Zoom_In_CVPR2018.txt §3.1–3.2：
+R(s,a)=Σ_{k∈a} (|g_k−p_k^low|−|g_k−p_k^high|)−λ b/B；
+min_W (|g_k−p_k^low|−|g_k−p_k^high|−Φ(W,f_k^low))²。
+https://openaccess.thecvf.com/content_cvpr_2018/html/Gao_Dynamic_Zoom-In_Network_CVPR_2018_paper.html
+这已经是用粗细成对实际收益训练低分辨率选择器，再决定高分辨率区域。C3把score误差换成最大匹配IoU代理、动作缩为四选一，是具体差别，但目前没有足以立新的作用机制；不能把“不是预测数量而是收益”当新概念。
+AdaZoom亲读本地172 §3.2–3.3，Eq.3–5：位置/尺度/长宽比联合策略，按目标尺寸加权区域recall，之后以1−c_i更新难目标权重并协同训练。它并非Dynamic Zoom-in同一种成对收益，二者应准确区分。
+
+新增原始近邻：Khujamatov et al., Differentiable Resolution Allocation for Tiny Object Detection in UAV Imagery, Sensors 2026,26(19),6157，2026-09-28，doi:10.3390/s26196157。
+https://www.mdpi.com/1424-8220/26/19/6157
+本次搜索工具实际返回出版社正文部分§3：低分辨率density、Gumbel top-K可微原生裁剪、crop内wavelet恢复、density初始化sparse queries、全局合并。故“把可微裁剪、局部高频、密度query组合起来”已有很近先例。它不是已确认覆盖A3的同位置H/L反事实零校正；已返回部分没看到该公式，不能把没看到等同不存在。
+证据等级：亲读搜索工具返回的出版社正文及方法段；直接HTML/PDF/XML多次429或不可访问，Eq.2–12不全。未核到可复现代码，未审核其AP公平性，不引用其性能作为本项目证据。不能冒称全文完整亲读。
+另检索命中2026 SpiralFovea非均匀tokenization，但OpenReview为验证页；只有摘要线索，不能用于精确否决或支持C稀疏接口。留作后续文献缺口。
+
+七、资产能支持到哪一步
+
+189共同材料A1：C-Cmean三个seed APs +.836978/+.164133/+.163016pp；A3短边<4漏检中三观察阶段无几何覆盖4029/4147。前者支持细节路径值得研究，后者指向当前几何失败；均不证明Resize造成信息丢失，也不证明上述新接口会改善。
+本审查没有新增性能数字。C的唯一主要修订是“同一warp下保留非均匀特征格至稀疏读取”的离散信息路径，给出了代码、强控制和可失败检查；它目前仍较薄，不能把坐标自洽或插值差当论文贡献。若它只剩普通采样合成，具体替代是A3的新增观测约束校正，而不是继续换warp权重。原生裁片能否碰到自身监督失败、能否带来额外可用观测，要以真实采样链核对，不设原图4px等任意资格线，也不要求训练前先证明AP。
+
+本次结束的是指定原文边界审查，不是持续寻找主线的目标。GO缓存188由其他代理负责，本文件未重复核查或据其结果决定采样候选。

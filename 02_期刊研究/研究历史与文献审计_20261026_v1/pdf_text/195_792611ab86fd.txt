@@ -1,0 +1,189 @@
+Shift-Equivariant Complex-Valued Convolutional Neural Networks
+Quentin Gabot1,3, Teck-Yian Lim4, J´er´emy Fix2, Joana Frontera-Pons3,
+Chengfang Ren1 and Jean-Philippe Ovarlez1,3
+1 SONDRA, CentraleSup´elec, Universit´e Paris-Saclay, Gif-sur-Yvette, France
+2 LORIA, CNRS, CentraleSup´elec, Universit´e Paris-Saclay, France
+3 DEMR, ONERA, Universit´e Paris-Saclay, Palaiseau, France
+4 DSO National Laboratories, Singapore
+Abstract
+Convolutional neural networks have shown remarkable per-
+formance in recent years on various computer vision prob-
+lems. However, the traditional convolutional neural net-
+work architecture lacks a critical property: shift equivari-
+ance and invariance, broken by downsampling and upsam-
+pling operations. Although data augmentation techniques
+can help the model learn the latter property empirically, a
+consistent and systematic way to achieve this goal is by de-
+signing downsampling and upsampling layers that theoret-
+ically guarantee these properties by construction. Adaptive
+Polyphase Sampling (APS) introduced the cornerstone for
+shift invariance, later extended to shift equivariance with
+Learnable Polyphase up/downsampling (LPS) applied to
+real-valued neural networks. In this paper, we extend the
+work on LPS to complex-valued neural networks both from
+a theoretical perspective and with a novel building block
+of a projection layer from C to R before the Gumbel Soft-
+max. We finally evaluate this extension on several computer
+vision problems, specifically for either the invariance prop-
+erty in classification tasks or the equivariance property in
+both reconstruction and semantic segmentation problems,
+using polarimetric Synthetic Aperture Radar images.
+1. Introduction
+Since their introduction by LeCun et al. [30], Convolutional
+Neural Networks (CNNs) have remained the standard
+neural network architecture for dealing with spatially
+ordered data, such as images. Intuitively, many computer
+vision tasks rely on patterns that can appear anywhere in
+the image. Convolutional layers in CNNs introduce this
+specific bias into neural networks, as it is the ‘sliding’ of a
+kernel over the entire image. Convolutional layers are also
+a special case of dense linear layers, y = W x + b, whereby
+W is a Toeplitz matrix instead of any matrix.
+However, modern CNN architectures include downsam-
+pling and upsampling layers that break equivariance. It has
+been empirically shown that resultant networks are highly
+sensitive to translations in the input [55]. To maintain
+the desirable shift equivariant property, recent works have
+explored provably equivariant subsampling layers [9, 44].
+This search for invariance and equivariance to known
+symmetries in input data falls into a more general research
+topic: geometric deep learning [5]. This branch of deep
+learning explores methods for accounting for the fact that
+the use of geometric priors can influence the design of
+neural networks.
+While well-developed for real-valued data, this topic is far
+less studied in the field of complex-valued neural networks,
+where both the input data and the neural network parame-
+ters are composed of complex numbers. [23, 48]. Imaging
+modalities commonly encountered in remote sensing (e.g.,
+Synthetic Aperture Radar (SAR) [32]) and medical imag-
+ing (e.g., Magnetic Resonance Imaging (MRI) [13]) often
+consist of naturally complex-valued images. The typical
+approach in dealing with such data is often only utilizing
+the magnitude of the complex numbers, even though rich
+information can be embedded in the phase [4, 15, 17].
+Complex-valued deep learning is an active research topic,
+as it has the potential to discover and exploit patterns
+that are either overlooked or yet to be discovered. Several
+foundational works had already been published [18, 51, 53].
+The key contributions of this work are:
+• The extension of provable shift-equivariance to the com-
+plex domain,
+• A learnable complex-to-real projection,
+• The empirical results demonstrating the benefits of a fully
+complex neural network for naturally complex data on
+three computer vision tasks (classification, reconstruc-
+tion, segmentation).
+In Section 2, we present the existing works related to
+key concepts like shift-invariant/equivariant CNNs and
+This WACV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+2575
+
+
+---PAGE---
+
+CVNNs. In Section 3, we extend the theory of shift-
+invariant/equivariant convolutional neural networks to the
+complex domain by providing a theoretical explanation
+of their design. Section 4 describes an extensive set
+of experiments to demonstrate the impact of the shift-
+invariance/equivariance property on CVNNs. Finally,
+Section 5 discusses some perspectives in remote sensing
+[41], medical imaging [14], and earth monitoring [43].
+Notations: Italic type indicates a scalar quantity x,
+lower case boldface indicates a vector quantity v, and
+upper case boldface indicates a matrix or tensor A. ℜ(z)
+and ℑ(z) respectively denote the real and imaginary parts
+of complex number z ∈ C. ⌊x⌋ is the mathematical floor
+function. The modulo operation is defined as mod. For
+any vector v, vT denotes the transpose operator and v[.] is
+the indexing operator on v. ∥v∥2 stands for the Euclidean
+norm. The operator ⊙ is the Hadamard element-wise
+product between vectors. Finally, the composition operator
+◦ is defined by (f ◦ g)(x) = f (g(x)).
+2. Related work
+Shift-invariant/equivariant convolutional neural net-
+works. As discussed in Section 1, while convolution
+operations (using a stride of 1) are indeed shift-equivariant,
+modern CNNs are not. As explained by Azulay et al. [2],
+the traditional downsampling scheme, namely pooling
+layers, involving a stride strictly larger than 1, is responsi-
+ble for breaking this property. We present such a case in
+Appendix A.
+Some methods have tried to mitigate the negative effect
+of the subsampling scheme, for instance, by using anti-
+aliasing, like in the Low-Pass Filtering (LPF) method
+proposed by Zhang et al. [55, 56]. However, as demon-
+strated by Chaman et al. [9], LPF reduces the effect
+of downsampling layers but does not solve the shift-
+equivariance problem.
+The first consistent shift-equivariant method was intro-
+duced by Chaman et al. with the Adaptive Polyphase
+Sampling (APS) method [9]. APS relies on a shift-invariant
+sub-sampling scheme by selecting the highest ℓp-norm
+among the polyphase components, as formally defined in
+Section 3.2.
+Lastly, Lim et al. [44] further elaborate on this con-
+cept and propose a generalization of APS with the
+Learnable Polyphase Sampling (LPS) method. Indeed,
+while APS relies on the ℓp norm to select the polyphase
+components, LPS introduces a pair of trainable <shift-
+invariant/equivariant><down/up-sampling>layers. This
+property enables an elegant method for selecting a down-
+sampling scheme trained in conjunction with the rest of
+the network. Shift-invariance is desirable for classification
+problems, while shift-equivariance is necessary for tasks
+such as segmentation and reconstruction. In the latter, a
+translation of the input should result in the same output
+translation.
+Shift-invariant/equivariant methods have also been
+extended to vision transformers (ViT) [45]. Finally,
+shift-equivariance is one special case of a broader research
+topic, group-equivariance, discussed in [12, 50].
+Complex-valued neural networks. Complex-valued
+neural networks (CVNNs) are deep neural networks whose
+operations and inputs are defined in the complex domain
+[3, 23, 48]. Despite the novelty of complex-valued neural
+network theory, several critical questions regarding CVNNs
+are still open, one being their suitable representation.
+Based on the isomorphism between C and R2, CVNNs can
+be either represented as [31]:
+• A dual-RVNN is a neural network with representations in
+R, where real and imaginary parts are stacked at the input.
+Operations are then performed in R,
+• A split-CVNN processes representations in R2 with op-
+erations in R. Compared to a dual-RVNN, we keep the
+relationship between real and imaginary components, al-
+though the weights are also real-valued.
+• A full-CVNN contains both representations and opera-
+tions in C.
+However, these neural networks are not equivalent: dual-
+RVNNs lack any representation of the complex domain.
+Meanwhile, Hirose et al. [24] argue that fully-CVNNs are
+better representation choices for CVNNs. Finally, Wu et al.
+[52] recently proved that complex-valued neurons can learn
+more than real-valued neurons, reigniting discussions sur-
+rounding this question.
+The core components of neural networks have been largely
+extended to the complex domain. For instance, Li et al.
+[34] proposed using Wirtinger calculus to define complex-
+valued backpropagation properly, and more recently, Tra-
+belsi et al. [48] extended the batch normalization layer to
+the complex domain.
+In this paper, we extend the LPS approach to CVNNs,
+specifically fully-CVNNs, and compare it to RVNNs,
+namely dual-RVNNs.
+3. Complex-valued shift-invariant/equivariant
+layers
+As discussed in Section 2, shift-equivariance is a highly de-
+sired property for complex-valued neural networks. While
+shift-equivariant methods for neural networks have been
+proposed and tested for the real domain, an extension of
+these methods to the complex domain has yet to be realized.
+Among the various algorithms, such as APS [9] and LPS
+[44], LPS is the current state-of-the-art shift-equivariant
+method for RVNNs. As such, our contributions focus on its
+extension to the complex domain. We will also introduce
+2576

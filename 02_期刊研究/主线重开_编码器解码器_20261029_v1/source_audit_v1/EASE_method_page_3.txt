@@ -1,0 +1,62 @@
+performance. In this paper, we introduce a plugin solution         in the decoder’s self-attention and cross-attention modules.
+to ease the query competition in DETR-based detectors, of-         We start by computing scores and bounding boxes for each
+fering enhanced compatibility with various detector archi-         query in the decoder, using these scores for calculate rela-
+tectures.                                                          tive ranking relation Rrank and the bounding boxes to cal-
+                                                                   culate spatial relation Rspt . And the information is then
+2.2. Modulated Attention                                           encoded into the MSelf-Attention mechanism, adjusting at-
+The transformer [33] revolutionizes deep learning by us-           tention weights to emphasize the leading query. Concur-
+ing attention mechanisms to efficiently blend queries and          rently, in the MCross-Attention mechanism, we assess and
+keys. And DETR [3] uses transformer structure on object            scale the attention based on the Rrank and Rspt . These
+detection, results an end-to-end paradigm on object detec-         enhancements are parallelized and minimally increase the
+tion. Deformable DETR [42] mudulates traditional atten-            number of parameters, ensuring EASE-DETR’s compatibil-
+tion with deformable attention for sampling efficiency and         ity with mainstream DETR detectors and enhancing perfor-
+speed. Conditional DETR [26] uses object query condi-              mance without adding computational overhead.
+tioning to hasten convergence. SMCA [10] proposes Spa-             3.2. Preparation
+tially Modulated Co-Attention mechanism which modu-
+lates co-attention emphasizing relevant image regions for          In the DETR, each intermediate transformer decoder layer
+quick training. DAB-DETR [21] modulates the queries with           predicts scores and boxes for auxiliary supervision. These
+dynamic anchor boxes to improve the query-to-feature sim-          outputs are precisely the inputs required by our EASE
+ilarity and eliminate the slow training convergence issue in       model. We predict the score and bounding box from the pre-
+DETR. DDQ [40] utilizes NMS to select query for both               ceding layer, utilizing a category-independent score. These
+training and inference. Some works [8, 9, 11, 15, 31, 37]          scores are employed to establish a ’leading/trailing’ rela-
+modify attention mechanisms in other fields. The afore-            tionship among pairs of queries. The formula for the rela-
+mentioned research modifies the traditional DETR model             tive ranking Rrank is as follows, where Si , Sj represents the
+to cater to specific issues, achieving notable performance         prediction score of the i-th query from the previous layer:
+improvements. Our focus lies in the relationships between                                        (
+each query. We encode these relationships into the self-                                           +1 Si ≥ Sj
+                                                                                 Rrank (i, j) =                   .           (1)
+attention and cross-attention of the decoder to further boost                                      −1 Si < Sj
+performance.
+                                                                   Our objective with the relative ranking relationship Rrank
+2.3. Non-duplicate Detection                                       is to ease the competition among similar queries. To further
+                                                                   strengthen the aspect of locality in our methodology, we in-
+The traditional detectors [1, 4, 12, 17, 20, 23, 28, 29, 32,
+                                                                   troduce the spatial relation Rspt between queries into our
+36] employ Non-Maximum Suppression (NMS) [27] to
+                                                                   later computations. The formula is as follows:
+eliminate redundant detections, ensuring unique and pre-
+cise detection results. Alternatively, CenterNet [41] ap-                          Rspt (i, j) = IOU (Bi , Bj ).             (2)
+proaches duplicate results problem through NMS Pooling,
+which centralizes on the object’s central point rather than        The relative ranking relation, denoted as Rrank , and the
+bounding boxes, pooling nearby detection responses, and            spatial relation, denoted as Rspt , will be utilized to mod-
+effectively managing dense object scenarios. Moreover,             ulate the subsequent self-attention and cross-attention mod-
+DETR [3] and its variants employ self-attention layers for         ule.The bounding boxes Bi , Bj are produced from the pre-
+information propagation, combined with a one-to-one label          vious layer.In the first layer, we bypass the use of the EASE
+assignment strategy to address the issue of duplicate detec-       module and adopt the same box initialization as the base-
+tion results. This paper proposes a method to ease query           line.
+competition, a challenge intrinsic to these models, aiming
+to achieve superior non-duplicate detection results.               3.3. Encourage Leading Query in Self-attention
+                                                                   In our analysis of the DETR framework, we emphasize the
+3. Methodology                                                     critical role of self-attention in facilitating non-duplicated
+                                                                   detection. And the interaction of self-attention mechanism
+3.1. Overview
+                                                                   introduce competition among queries. These interactions
+In our EASE-DETR development, we introduced a novel                occur as each query is projected and subsequently under-
+approach to ease query competition by introducing a bias           goes matrix multiplication to calculate attention scores. At
+towards the leading query, thereby enhancing model conver-         this stage, the presence of competing queries with very sim-
+gence and accuracy. Our architecture, depicted in Figure 2         ilar initial prediction scores necessitates extensive learning
+(A), refines the traditional DETR framework, particularly          for effective optimization. To address this, our method
+
+
+
+                                                                17284

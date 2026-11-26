@@ -1,0 +1,112 @@
+Academic Editor: Omneya A. Attallah
+Received: 10 June 2026
+Revised: 19 July 2026
+Accepted: 21 July 2026
+Published: 27 July 2026
+Copyright: © 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+algorithms 
+Article
+Spectra-Net: Frequency-Aware Scale Adaptation for Small
+Object Detection
+Yang Xu 1, Kaiwang Wang 1, Donglin Yang 2, Guanqiu Qi 3,*
+ , Kunpeng Wang 4 and Shuang Li 2,*
+1 College of Automation, Chongqing University of Posts and Telecommunications, Chongqing 400065, China;
+xuyang@cqupt.edu.cn (Y.X.); s240331003@stu.cqupt.edu.cn (K.W.)
+2 School of Computer Science and Technology, Chongqing University of Posts and Telecommunications,
+Chongqing 400065, China; 2024212671@stu.cqupt.edu.cn
+3 Computer Information Systems Department, State University of New York at Buffalo State,
+Buffalo, NY 14222, USA
+4 School of Information and Control Engineering, Southwest University of Science and Technology,
+Mianyang 621010, China; kwang@swust.edu.cn
+* Correspondence: qig@buffalostate.edu (G.Q.); d230201016@stu.cqupt.edu.cn (S.L.)
+Abstract
+Small object detection in real-world scenarios remains challenging due to two coupled
+factors: severe scale imbalance and progressive degradation of fine-grained cues during
+backbone downsampling. Under drastic scale variations, conventional detectors still rely
+on static backbones whose fixed convolutional responses cannot consistently accommodate
+the divergent spectral characteristics of large and tiny objects, leading to scale-mismatched
+representations. Meanwhile, repeated strided operations reduce the sampling rate of
+feature maps and tend to introduce aliasing, eroding the high-frequency details that are
+critical for tiny objects. To address these issues, we propose Spectra-Net, a novel frequency-
+aware detection framework that redesigns backbone feature encoding with explicit spectral
+control. At its core, we introduce Dynamic Fourier Alignment (DFA), which performs
+content-adaptive yet frequency-controllable modulation to reshape convolutional responses
+in the spectral domain, aligning representations across scales and amplifying discriminative
+cues for small objects. In addition, we develop Wavelet-Guided Spectral Downsampling
+(WGSD), which conducts explicit sub-band decomposition via Haar wavelets to suppress
+aliasing while selectively preserving informative high-frequency components during res-
+olution reduction. Extensive experiments on VisDrone-2019 and TT100K, together with
+comprehensive ablations, demonstrate that Spectra-Net consistently improves small object
+detection performance under severe scale imbalance.
+Keywords: small object detection; scale adaptation; Fourier alignment
+1. Introduction
+Object detection has achieved remarkable progress and has become a cornerstone
+of modern computer vision, driven by classic frameworks such as Fast R-CNN [ 1] and
+YOLO [2], as well as comprehensive surveys of the field [3]. More broadly, dense visual
+perception tasks such as object detection and image segmentation have increasingly bene-
+fited from task-specific representation learning, including probability-map-guided feature
+modeling and physical-knowledge regularization for improving structural consistency
+and semantic discrimination [4,5]. However, small object detection remains substantially
+more challenging in real-world applications. In scenarios such as UAV-based aerial per-
+ception [6,7] and autonomous driving or road obstacle perception [ 8–10], targets often
+Algorithms 2026, 19, 628 https://doi.org/10.3390/a19080628
+
+---PAGE---
+
+Algorithms 2026, 19, 628 2 of 26
+occupy only a few pixels. These small objects provide limited discriminative cues, making
+them highly susceptible to background interference and localization uncertainty [11,12].
+Similar degradation is also observed in domain-specific small-target detection tasks, where
+weak local structures and insufficient detail preservation often require dedicated detec-
+tion heads or enhanced feature representations [13]. Contextual information and region
+proposal strategies have been widely explored to mitigate these issues [14,15], yet robust
+detection in complex environments remains an open problem. More importantly, practical
+scenarios often exhibit severe scale imbalance, where tiny distant targets coexist with large
+nearby structures. This imbalance amplifies the difficulty of learning consistent representa-
+tions across scales [16], necessitating more sophisticated optimization strategies for anchor
+design [17] and feature encoding.
+To tackle these challenges, most detectors enhance small-object representations
+via multi-scale aggregation, attention-based refinement, and cross-level feature fu-
+sion [9,10,18,19]. Approaches such as the Extended Feature Pyramid Network (EFPN) [20]
+and Cross-Layer Feature Pyramid Transformer [ 21] attempt to integrate multi-level se-
+mantics. Recent works like HS-FPN further emphasize the importance of high-frequency
+perception for tiny objects [22]. However, as illustrated in Figure 1, small objects are still
+frequently missed under severe scale imbalance, suggesting that scale-mismatched back-
+bone encoding remains a key bottleneck. These strategies are largely built upon a static
+backbone, where convolution kernels have fixed receptive fields and largely invariant
+effective frequency responses once training is completed. From a spectral perspective, large
+objects are dominated by low-frequency structures, whereas small objects rely more on
+weak and sparse high-frequency cues [23]. A fixed convolution operator therefore behaves
+like a stationary filter and cannot consistently accommodate such divergent spectral charac-
+teristics across scales. Consequently, deep features tend to favor low-frequency patterns of
+large structures while progressively weakening high-frequency evidence critical for small
+objects, leading to scale-mismatched representations.
+Intuitively, this problem can be understood through an analogy with audio equal-
+ization. In audio processing, an equalizer selectively amplifies or attenuates different
+frequency bands to achieve a balanced sound profile. Similarly, in visual feature extraction,
+large and small objects occupy different frequency bands of the feature spectrum: large
+objects correspond to low-frequency components that capture overall shape and context,
+while small objects correspond to high-frequency components that encode fine-grained
+details and boundaries. A static backbone acts like a fixed audio filter that cannot adapt its
+frequency response to the content—it uniformly amplifies certain frequencies regardless
+of whether the scene is dominated by large structures or tiny targets. Just as an adaptive
+equalizer dynamically adjusts frequency gains based on the audio content, a frequency-
+aware backbone should dynamically modulate its spectral response based on the visual
+content, amplifying high-frequency cues when small objects are present while preserv-
+ing low-frequency context for larger structures. This analogy motivates our approach of
+explicitly controlling the frequency response of convolutional kernels.
+This observation suggests that improving small-object detection requires not only
+multi-scale aggregation in the neck, but also an input-adaptive feature encoding mechanism
+that can dynamically modulate its spectral response. While dynamic convolution generates
+content-conditioned kernels to accommodate scale variations [24,25], directly predicting
+spatial-domain kernels offers limited explicit control over frequency preference. It is diffi-
+cult to regulate whether the adaptive kernel should emphasize low-frequency structures or
+preserve high-frequency details. Recent studies have begun to explore spectral enhance-
+ment for tiny object detection [26,27], indicating the potential of frequency-domain analysis.
+Motivated by the interpretability of Fourier parameterization, we seek a mechanism where
+https://doi.org/10.3390/a19080628

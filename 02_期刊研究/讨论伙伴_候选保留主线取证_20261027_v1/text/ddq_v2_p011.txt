@@ -1,0 +1,89 @@
+In the supplementary material, the analysis of dense
+distinct queries (DDQ) to Deformable DETR [38] is first
+sketched in Sec. A. The details about auxiliary loss are
+added in Sec. B. Sec. C gives more detailed ablation stud-
+ies and analysis of pyramid shuffle. Sec. F gives more de-
+tailed ablation studies about the number of queries and re-
+fining stages in DDQ R-CNN. Sec. D show the details about
+DDQ R-CNN with encoder. Sec. E elaborate and improved
+Deformable DETR and discuss the difference with DINO.
+Sec. G gives the latency benchmark. Sec. H reports the
+results of DDQ R-CNN with other ways to construct the
+query. Sec. I show the results of traditional detectors with
+different IOU thresholds on CrowdHuman. At last, Sec. J
+illustrates our social impact.
+A. Analysis of DDQ in Deformable DETR
+For fast verification of Distinct Queries Selection(DQS)
+in such a heavy model, we adopt the standard 1x setting on
+COCO and keep other hyperparameters (such as learning
+rate and weight decay) the same with that in Deformable
+DETR [38].
+Figure 5. The performance comparison of Deformable DETR with
+and without distinct queries selection
+As shown in Fig.5, when we increase the number of
+queries in Deformable DETR, there is a similar trend as it
+in Sparse R-CNN [26], as shown in the main manuscript.
+When the number of queries naively increases without dis-
+tinct queries selection, the performance increases at the
+beginning but decreases as the number of queries reaches
+∼ 5000. It is due to the more difficult training with more
+similar queries out of the dense queries. By imposing a
+distinct queries selection pre-processing to filter out similar
+queries and keeping only distinct queries before each stage
+of iterative refinement, the performance is improved with a
+clear margin, and the performance margin consistently in-
+creases along with more queries.
+Therefore, we believe Dense Distinct Queries (DDQ) is
+a principle of designing an object detector with a fast con-
+vergence based on recent end-to-end detectors.
+B. Auxiliary Loss for Dense Queries
+We follow the TOOD [8] to design our auxiliary loss.
+We select K samples with the smallest cost of each ground
+truth as positive samples. P means the index set of positive
+samples which correspond to the same ground truth. The
+classification score target of a sample i in this set is
+scorei ∗ IoU 6
+i
+M ax(scorej ∗ IoU 6
+j )j∈P
+∗ M ax(IoU j)j∈P (2)
+The GIoU loss of each sample is reweighted by the clas-
+sification target. The classification loss and regression loss
+weight keep consistent with the main loss weight (1 and 2
+respectively) for distinct queries. The performance is quite
+stable for DDQ FCN when K ranges between 5 and 16.
+We adopt 8 and 4 for DDQ FCN and DDQ DETR respec-
+tively in this study. The auxiliary loss also works for re-
+fining heads in DDQ RCNN. Due to time issues, we will
+supplement relevant results in the future version.
+C. More Analysis and Ablation for Pyramid
+Shuffle
+We provide an in-depth analysis of pyramid shuffle.
+Firstly, we compare it with 3D MAX Filter in DeFCN [28]
+in Table. 9. Then we visualize the change of score maps in
+different levels after adding pyramid shuffle operations in
+Fig. 6. At last, Table. 11 gives the results under different
+shuffle channels.
+Comparision with 3D MAX Filter Table. 9 shows the
+comparison between pyramid shuffle and 3D MAX Filter-
+ing in DeFCN. DeFCN believes there should be extra pa-
+rameters and max pooling operation to facilitate the opti-
+mization under the one-to-one assignment. However, we
+argue that only the interaction of cross-level queries mat-
+ters, and extra parameters or max operations are unneces-
+sary. Our pyramid shuffle is more lightweight and with bet-
+ter performance. When we add an extra convolution to re-
+gression branches to fair compare with the 3D MAX Filter,
+we can surpass it by 0.8 AP.
+Visualization of Adjacent Level Score Map Fig. 6 shows
+the scores map of adjacent levels. The left side of each sub-
+figure(with blue background) shows score maps with pyra-
+mid shuffles, and the corresponding right side (with yellow
+background) means without pyramid shuffles. The top-left
+corner marks the feature level. The red circle represents
+the duplication predictions in the adjacent level. We can
+find pyramid shuffle effectively reduces the cross-level high
+score false positives.
+Results under Different Shuffle Channels Table 11 gives
+the results under different shuffle channels; we can find that
+11

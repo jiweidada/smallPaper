@@ -1,0 +1,38 @@
+6 Y. Huang et al.
+3.3 Categorical Counting Module
+The categorical counting module aims to estimate the number of objects in
+the images. It consists of a density extractor and a classification head.
+Density Extractor.We take the largest feature mapS1 of the EMSV features
+and generate the density mapFc through the density extractor. High-resolution
+features are essential for detecting tiny objects, as they provide a clearer repre-
+sentation of such objects. The input feature mapS1 is sent into a series of dilated
+convolution layers to acquire a density mapFc, which contains counting-related
+information. Specifically, dilated convolution layers enlarge the receptive field
+and capture rich long-range dependency for tiny objects.
+Counting Number Classification. Lastly, we estimate the counting num-
+ber N, i.e., the number of instances per image, by a classification head and cat-
+egorize them into four levels, which areN ≤ 10, 10 < N ≤ 100, 100 < N ≤ 500,
+and N > 500. The classification head consists of two linear layers. Further, the
+numbers 10, 100, and 500 are selected based on the AI-TOD-V2 dataset’s charac-
+teristics, i.e., the mean and standard deviation of the number of instancesN per
+image. Notably, we do not use the regression head as in the traditional crowd-
+counting methods, which regresses the counting number to a specific number.
+We attribute the reason to the drastic difference in the number of instances in
+each image, whereN ranges from 1 to 2267 in different images of AI-TOD-V2.
+It is difficult to regress an accurate number, hurting the detection performance.
+3.4 Counting-Guided Feature Enhancement Module (CGFE)
+The EMSV feature is refined using the density map from the categorical
+counting module through the proposed Counting-Guided Feature Enhancement
+Module (CGFE) to improve the spatial information of tiny objects. The refined
+features are then used to enhance the position information of queries. This mod-
+ule comprises spatial cross-attention and channel attention operations [24].
+Spatial cross-attention map. To utilize the abundant spatial information
+in the density mapFc, a 2-D cross-spatial attention is calculated. We employ a
+1 × 1 convolution layers to down-sample the density mapFc, creating multi-scale
+counting feature mapsFc,i ∈ {1, 2, . . . , l} to in line with the shape of each layer
+of encoder’s multi-scale feature mapsSi ∈ { 1, 2, . . . , l}. Subsequently, we first
+apply average pooling (AvgP.) and max pooling (MaxP.) on each layer of multi-
+scale counting featuresFc,i ∈ Rb×256×h×w along the channel axis. Then, the two
+pooling features Rb×1×h×w are concatenated and sent into a 7x7 convolution
+layer followed by a sigmoid function to produce spatial attention mapWs ∈
+Rb×1×h×w. We formulate this process in Eq. 1.

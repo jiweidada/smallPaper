@@ -1,0 +1,30 @@
+A48：普通框像素加权对照M已完成，实例等量统计候选Q已启动。研究目标active，主线尚未确认。
+
+数据/宿主：VisDrone2019-DET train6471/val548，10类，ECDet-S。
+比较口径：固定第12轮EMA；COCO-style maxDets300、原图小目标面积、class0 union-IoA过滤；不是官方VisDrone分数。
+
+第12轮EMA（数值单位为百分比，差值为百分点）：
+组别	AP	APs	APs75
+B原版	24.09291962	14.29790896	11.51518160
+M普通框像素加权	24.03801336	14.23214627	11.65381759
+M-B	-0.05490626	-0.06576270	+0.13863599
+
+原始观察：M在固定12轮未提高AP或APs，APs75有很小的正差值。
+推断：本次普通框像素加权对照未显示小目标AP收益；不能据此替代Q的结果。单seed短程差值也不支持统计显著性或普遍无效结论。
+
+M已正常退出0；完整结果包字节数/SHA：312706243 / fcd215b7710b4c7a6208222d25c7149300ae41c66f5676c1a1ba5454c90595cf
+38个payload文件逐项SHA/字节数及CRC核验通过，包括第4/8/12轮权重、预测、GT、精度召回数组和日志；远端原件保留。
+CPU检查raw/EMA键、shape、dtype及非结构状态有限性通过；4个BN计数9708，482份AdamW参数状态step均9708。
+M前12轮与B的逐轮顺序、首8批实际输入、首8批前向前RNG、全部目标流SHA均一致。不声称全批输入张量或全批RNG均已逐项保存。
+以上核验不新增模型前向/优化，不是独立重跑AP。
+
+Q进程身份：{"pid": 2602, "expected_start_ticks": 19293976, "present": true, "state": "S", "same_start_ticks": true, "owned_command": true}
+Q最近快照：{"status": "TRAINING", "arm": "Q", "epoch": 1, "microbatch": 151, "microbatches_per_epoch": 809, "completed_epochs": 0, "optimizer_updates": 151, "full_model_forwards": 151, "loss": 44.742462158203125, "grad_norm": 38.549442291259766, "peak_allocated_bytes": 13784957952, "elapsed_seconds": 50.93748182000127, "mixture": 0.046353522867737945, "pid": 2602}
+Q初始化与B/M完全一致（公共初始化SHA、seed、9803112参数及所有初始tensor检查通过）。Q未完成轮次，没有精度结果，不做收益判断。
+Q检验的是每个GT实例以单位空间总质量参与训练BN统计，相对于普通像素统计是否改善小目标检测；泛化的加权BN和等组贡献原则已有文献先例，不主张新BN公式。
+
+预先固定门槛继续保持：Q-B APs>=+0.5pp，Q-M APs>=+0.3pp，Q-B AP>=-0.2pp，三项均须满足。只用于决定资源投入，不代表显著性/新颖性/因果机制成立。
+三个完成包均核验后才运行 judge_fixed_endpoint_A48.py。该脚本当前仅做语法解析，尚未进行三组终点裁决；不会选最佳轮次。
+如失败，停止本配方，不搜索lambda/位置/seed救援；寻找研究主线的总目标仍未完成。
+本次没有启动新GPU任务；Q由此前已授权的B/M/Q固定监督队列启动。
+最新状态入口CURRENT_A48.json为可变快照；下一步操作前须重新查询。

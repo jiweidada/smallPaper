@@ -1,0 +1,195 @@
+--- verified_Warm_collect.py
++++ user_collect.py
+@@ -1,6 +1,7 @@
+ """Collect already stopped exact12 primary artifacts; no training or evaluation."""
+ from pathlib import Path
+ import argparse,datetime,hashlib,json,sys,zipfile
++from guards import ARMS,identity_plan,positive_terminal
+ 
+ def sha(path):
+     h=hashlib.sha256()
+@@ -18,13 +19,13 @@
+ def collect(prefix,seed,arm):
+     assert seed in (1,2) and prefix=={1:'/25085400120',2:'/24085403014'}[seed]
+     base=Path(prefix)/'DEIM/experiments'
+-    assert arm=='warm_stem'
+-    rootname='warm_stem12_20261011_v1'
++    assert arm in ARMS
++    rootname='user_backbone12_20261011_v1'
+     collector_root=Path(__file__).resolve().parent
+     protocol=read(collector_root/'protocol.json')
+     assert sha(__file__)==protocol['collector_sha256']
+     code=base/rootname/'code'
+-    assert {p.name:sha(p) for p in code.iterdir() if p.is_file()}==protocol['warm_files_sha256']
++    assert {p.name:sha(p) for p in code.iterdir() if p.is_file()}==protocol['user_files_sha256']
+     sys.path.insert(0,str(code))
+     from runtime import verify_bundle
+     from stage_trace import verify_trace
+@@ -32,6 +33,7 @@
+     bundle=base/rootname/f'seed{seed}_{arm}/bundle'
+     receipt,plan,paths=verify_bundle(bundle)
+     assert plan['seed']==seed and plan['arm']==arm
++    identity_plan(receipt['identity'],plan,read(bundle/'cpu_initialization.json')['initialization'],arm,seed)
+     screen,run=paths['screen_root'],paths['output']
+     assert not live(read(screen/'controller_start.json'),'pid','start_ticks')
+     assert not live(read(screen/'candidate_start.json'),'child_pid','child_start_ticks')
+@@ -41,6 +43,7 @@
+     done=read(run/'training_completion.json');identity=receipt['identity']
+     assert done['status']=='NATIVE_FIT_FINISHED_EXACT12' and done['completed_epochs']==12
+     assert done['entered_epochs']==list(range(12)) and done['identity']==identity
++    positive_terminal(identity,done,read(screen/'controller_completion.json'),read(screen/'candidate_completion.json'))
+     assert sha(run/'last.pth')==done['last_checkpoint_sha256']
+     assert sha(run/'stages_epoch12/manifest.json')==done['stage_manifest_sha256']
+     assert sha(run/'endpoint_epoch12/manifest.json')==done['endpoint_manifest_sha256']
+@@ -50,7 +53,7 @@
+     rows=[json.loads(line) for line in (run/'log.txt').read_text().splitlines() if line]
+     assert [r['epoch'] for r in rows]==list(range(12))
+     assert rows[-1]['test_coco_eval_bbox']==endpoint['native_stats']
+-    output=base/'warm_stem_primary_collection12_20261011_v1'/f'seed{seed}_{arm}_v1'
++    output=base/'user_backbone_primary_collection12_20261011_v1'/f'seed{seed}_{arm}_v1'
+     output.mkdir(parents=True,exist_ok=False)
+     pairs={}
+     for folder,label in ((code,'code'),(bundle,'bundle'),(run,'run')):
+@@ -69,7 +72,7 @@
+     for label,p in pairs.items():
+         assert p.is_file() and p.resolve().is_relative_to((base/rootname).resolve()),label
+     files={name:dict(bytes=p.stat().st_size,sha256=sha(p)) for name,p in sorted(pairs.items())}
+-    manifest=dict(schema='exact12_warm_primary_artifact_collection_v1',identity=identity,files=files,
++    manifest=dict(schema='exact12_user_backbone_primary_artifact_collection_v1',identity=identity,files=files,
+         evaluated_weights='EMA',epoch_zero_based=11,completed_epochs=12,
+         source_training_completion_sha256=sha(run/'training_completion.json'),
+         last_checkpoint_sha256=done['last_checkpoint_sha256'],native_stats=endpoint['native_stats'],
+@@ -94,23 +97,23 @@
+     return metadata
+ if __name__=='__main__':
+     p=argparse.ArgumentParser();p.add_argument('--prefix',required=True);p.add_argument('--seed',type=int,required=True)
+-    p.add_argument('--arm',choices=('warm_stem',),required=True)
++    p.add_argument('--arm',choices=ARMS,required=True)
+     a=p.parse_args()
+     assert a.prefix=={1:'/25085400120',2:'/24085403014'}[a.seed]
+     collection_root=Path(__file__).resolve().parent.parent
+-    start=collection_root/f'seed{a.seed}_collect_start.json'
+-    done=collection_root/f'seed{a.seed}_collect_completion.json'
+-    failure=collection_root/f'seed{a.seed}_collect_failure.json'
++    start=collection_root/f'seed{a.seed}_{a.arm}_collect_start.json'
++    done=collection_root/f'seed{a.seed}_{a.arm}_collect_completion.json'
++    failure=collection_root/f'seed{a.seed}_{a.arm}_collect_failure.json'
+     assert not any(p.exists() for p in (start,done,failure)), 'Inspect existing attempt; no automatic retry'
+     import os,traceback
+     receipt=dict(pid=os.getpid(),start_ticks=Path('/proc/self/stat').read_text().split()[21],
+-        seed=a.seed,source_sha256=sha(__file__),protocol_sha256=sha(Path(__file__).parent/'protocol.json'),
++        seed=a.seed,arm=a.arm,source_sha256=sha(__file__),protocol_sha256=sha(Path(__file__).parent/'protocol.json'),
+         UTC=datetime.datetime.now(datetime.timezone.utc).isoformat(),automatic_retry=False,
+         new_model_forwards=0,new_evaluator_calls=0,new_training_epochs=0)
+     write(start,receipt)
+     try:
+         metadata=collect(a.prefix,a.seed,a.arm)
+-        result=dict(status='STOPPED_WARM_PRIMARY12_PACKAGE_COLLECTED',exit_code=0,receipt=receipt,metadata=metadata,
++        result=dict(status='STOPPED_USER_PRIMARY12_PACKAGE_COLLECTED',exit_code=0,receipt=receipt,metadata=metadata,
+                     automatic_retry=False,new_model_forwards=0,new_evaluator_calls=0,new_training_epochs=0)
+         write(done,result);print(json.dumps(result),flush=True)
+     except BaseException:
+--- verified_Warm_verify_primary_v2.py
++++ user_verify_primary.py
+@@ -1,6 +1,7 @@
+ """Verify actual component primary archives, explicitly without a saved-EMA replay claim."""
+ from pathlib import Path,PurePosixPath
+ import argparse,hashlib,importlib.util,json,stat,sys,zipfile
++from guards import ARMS,identity_plan,positive_terminal
+ ROOT=Path(__file__).resolve().parents[3]
+ read=lambda p:json.loads(Path(p).read_bytes())
+ def sha(p):
+@@ -14,24 +15,27 @@
+     s=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+ 
+ def verify(seed, arm):
+-    assert arm=='warm_stem'
+-    folder=ROOT/f'outputs/warm_stem_primary_collection12_20261011_v1/seed{seed}_{arm}_v1'
++    assert arm in ARMS
++    folder=ROOT/f'outputs/user_backbone_primary_collection12_20261011_v1/seed{seed}_{arm}_v1'
+     meta=read(folder/'remote_collection_metadata_v1.json')
+     executed=read(folder/'remote_collection_execution_v1.json');transport=read(folder/'remote_collection_transport_v1.json')
+     assert sha(folder/'remote_collection_execution_v1.json')==transport['sha256']
+     assert (folder/'remote_collection_execution_v1.json').stat().st_size==transport['bytes']
+     assert executed['exit_code']==0 and executed['metadata']==meta
+-    assert executed['status']=='STOPPED_WARM_PRIMARY12_PACKAGE_COLLECTED'
+-    assert executed['receipt']['seed']==seed and not executed['receipt']['automatic_retry']
++    assert executed['status']=='STOPPED_USER_PRIMARY12_PACKAGE_COLLECTED'
++    assert executed['receipt']['seed']==seed and executed['receipt']['arm']==arm and not executed['receipt']['automatic_retry']
+     assert executed['receipt']['source_sha256']==sha(Path(__file__).parent/'collect.py')
+     assert executed['receipt']['protocol_sha256']==sha(Path(__file__).parent/'protocol.json')
+-    collector=ROOT/'英文小论文/code/warm_stem_primary_collection12_20261011_v1'
++    collector=ROOT/'英文小论文/code/user_backbone_primary_collection12_20261011_v1'
++    protocol=read(collector/'protocol.json')
++    assert sha(__file__)==protocol['local_verifier_sha256']
++    assert sha(collector/'guards.py')==protocol['remote_sources']['guards.py']
+     assert meta['collector_sha256']==sha(collector/'collect.py') and meta['collector_protocol_sha256']==sha(collector/'protocol.json')
+     assert meta['seed']==seed and meta['arm']==arm and not meta['saved_EMA_independent_replay_included']
+     assert meta['new_model_forwards']==meta['new_evaluator_calls']==meta['new_training_epochs']==0
+     archive=folder/'primary_artifacts_v1.zip'
+     assert archive.stat().st_size==meta['bytes'] and sha(archive)==meta['sha256']
+-    expected=read(collector/'protocol.json')['warm_files_sha256']
++    expected=read(collector/'protocol.json')['user_files_sha256']
+     destination=folder/'extracted'
+     with zipfile.ZipFile(archive) as z:
+         names=z.namelist();assert len(names)==len(set(names))==len({n.casefold() for n in names})==meta['archive_entries']
+@@ -41,7 +45,7 @@
+             assert not p.is_absolute() and '..' not in p.parts and '\\' not in n and ':' not in n and p.as_posix()==n
+         raw=z.read('primary_manifest.json');assert hashlib.sha256(raw).hexdigest()==meta['manifest_sha256']
+         manifest=json.loads(raw);identity=manifest['identity']
+-        assert manifest['schema']=='exact12_warm_primary_artifact_collection_v1'
++        assert manifest['schema']=='exact12_user_backbone_primary_artifact_collection_v1'
+         assert set(names)==set(manifest['files'])|{'primary_manifest.json'}
+         assert identity['seed']==seed and identity['arm']==arm and identity['implementation']==expected
+         assert {n[5:]:v['sha256'] for n,v in manifest['files'].items() if n.startswith('code/')}==expected
+@@ -73,19 +77,31 @@
+     assert read(destination/'screen/controller_completion.json')['status']=='COMPLETE_FIXED12'
+     assert read(run/'first100_parity.json')['all100_rows_exact']
+     receipt=read(destination/'bundle/receipt.json');plan=read(destination/'bundle/plan.json')
+-    assert receipt['identity']==identity and plan['schema']=='warm_stem12_training_v1' and plan['arm']=='warm_stem' and plan['seed']==seed
++    assert receipt['identity']==identity and plan['schema']=='user_backbone12_training_v1' and plan['arm']==arm and plan['seed']==seed
+     assert identity['protocol_sha256']==sha(destination/'code/training_protocol.json')
+     assert identity['plan_sha256']==sha(destination/'bundle/plan.json') and receipt['resolved_sha256']==sha(destination/'bundle/resolved.yml')
+-    assert identity['native_parameter_count']==10231997 and identity['added_parameter_count']==11815
++    assert sha(destination/'bundle/cpu_initialization.json')==identity['cpu_initialization_sha256']
++    initialization=read(destination/'bundle/cpu_initialization.json')['initialization']
++    identity_plan(identity,plan,initialization,arm,seed)
++    positive_terminal(identity,done,read(destination/'screen/controller_completion.json'),read(destination/'screen/candidate_completion.json'))
+     assert identity['common_init_sha256']=='85497586487a507923404da886d52c1054999111ce6be1df92532b4998956f91'
+-    runtime=module('warm_primary_native_config',ROOT/'英文小论文/code/warm_stem12_20261011_v1/runtime.py')
++    runtime=module('warm_primary_native_config',ROOT/'英文小论文/code/user_backbone12_20261011_v1/runtime.py')
+     cfg=runtime.resolved_config(plan,{k:PurePosixPath(v) for k,v in receipt['paths'].items()})
+     assert read(destination/'bundle/resolved.yml')==cfg and read(run/'args.json')['yaml_cfg']==cfg
+     start=read(run/'runtime_start.json')
+     assert start['identity']==identity and start['optimizer_coverage']['all_parameters_exactly_once']
++    assert start['optimizer_coverage']['all_native_parameter_groups_unchanged']
++    assert start['optimizer_coverage']['added_parameters']==identity['added_parameter_count']
++    assert start['initialization']==initialization
++    assert start['native_augmentation_and_supervision_weights_unchanged']
++    assert start['evaluator_runtime']['binding']==identity['evaluator_binding']
+     full=read(destination/'screen/detector_preflight_v1/report.json')
+-    assert full['identity']==identity and full['status']=='PASS_CANDIDATE_FULL_DETECTOR_AMP_LOSS_BACKWARD_NO_UPDATES'
++    assert full['identity']==identity and full['status']=='PASS_USER_CONFIG_FULL_AMP_LOSS_BACKWARD_NO_UPDATES'
+     assert full['optimizer_updates']==full['training_epochs']==0 and full['candidate_detector_forwards']==2
++    assert full['initialization']==initialization and full['optimizer_coverage']['all_parameters_exactly_once']
++    assert [case['side'] for case in full['cases']]==[640,832]
++    assert all(case['finite_gradients'] for case in full['cases'])
++    if arm=='p2_skip':assert all(all(case['branch'][k] for k in ('zero_restore_maintained','restore_gradient_active','upstream_bridge_gradients_initially_zero')) for case in full['cases'])
+     for key in ('image_manifest','image_verification'):
+         assert sha(destination/('provenance/'+key+'.json'))==identity[key+'_sha256']
+     assert read(destination/'provenance/image_verification.json')['files_verified']==7019
+@@ -99,7 +115,7 @@
+     rows=[json.loads(x) for x in (run/'log.txt').read_text().splitlines() if x]
+     assert [r['epoch'] for r in rows]==list(range(12)) and rows[-1]['test_coco_eval_bbox']==summary['native_stats']
+     assert 'torch' not in sys.modules and not any(n.startswith('pycocoeval') for n in sys.modules)
+-    result=dict(status='PASS_WARM_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS',identity=identity,
++    result=dict(status='PASS_USER_PRIMARY_EXACT12_ALL_FILES_AND548_STAGE_ARRAYS',identity=identity,
+         downloaded_packet=str(destination),archive_sha256=meta['sha256'],primary_manifest_sha256=meta['manifest_sha256'],
+         last_checkpoint_sha256=meta['last_checkpoint_sha256'],native_stats=meta['native_stats'],files_verified=len(manifest['files']),
+         actual_stage_images=548,all_collected_files_verified=True,all_ZIP_entries_CRC_verified=True,
+@@ -109,4 +125,4 @@
+     print(json.dumps(dict(seed=seed,status=result['status'],files=result['files_verified'],AP=100*meta['native_stats'][0],APs=100*meta['native_stats'][3])))
+ 
+ if __name__=='__main__':
+-    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--arm',choices=('warm_stem',),required=True);a=p.parse_args();verify(a.seed,a.arm)
++    p=argparse.ArgumentParser();p.add_argument('--seed',type=int,choices=(1,2),required=True);p.add_argument('--arm',choices=ARMS,required=True);a=p.parse_args();verify(a.seed,a.arm)

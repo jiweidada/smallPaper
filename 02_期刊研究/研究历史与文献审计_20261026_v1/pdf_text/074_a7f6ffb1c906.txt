@@ -1,0 +1,73 @@
+Highlights
+Adaptive Image Zoom-in with Bounding Box Transformation for UA V Object Detection
+Tao Wang, Chenyu Lin, Chenwei Tang, Jizhe Zhou, Deng Xiong, Jianan Li, Jian Zhao, Jiancheng Lv
+•Adaptive spatial transformation on images can
+magnify the details of the object efficiently.
+•Box transformation enables detector training and
+inference with image transformation.
+•Experiments on various UA V image datasets shows
+effective gains with small cost.
+•Flexible modular design enables integration with
+other approaches and task scenarios.
+arXiv:2602.07512v2  [cs.CV]  12 Feb 2026
+
+---PAGE---
+
+Adaptive Image Zoom-in with Bounding Box Transformation for UA V Object
+Detection
+Tao Wanga,b, Chenyu Lina,b, Chenwei Tanga,b, Jizhe Zhoua,b, Deng Xiongc, Jianan Lid, Jian Zhaoe, Jiancheng Lva,b,∗
+aCollege of Computer Science, Sichuan University, Chengdu, 610065, PR China
+bEngineering Research Center of Machine Learning and Industry Intelligence, Ministry of Education, Chengdu, 610065, PR China
+cStevens Institute of Technology, Hoboken, NJ 07030, New Jersey, United States
+dBeijing Institute of Technology, Beijing, 100053, P . R. China
+eChina Telecom Institute of AI, Beijing, 100053, P . R. China
+Abstract
+Detecting objects from UA V-captured images is challenging due to the small object size. In this work, a simple
+and efficient adaptive zoom-in framework is explored for object detection on UA V images. The main motivation is
+that the foreground objects are generally smaller and sparser than those in common scene images, which hinders the
+optimization of effective object detectors. We thus aim to zoom in adaptively on the objects to better capture object
+features for the detection task. To achieve the goal, two core designs are required: i) How to conduct non-uniform
+zooming on each image efficiently? ii) How to enable object detection training and inference with the zoomed image
+space? Correspondingly, a lightweight offset prediction scheme coupled with a novel box-based zooming objective
+is introduced to learn non-uniform zooming on the input image. Based on the learned zooming transformation,
+a corner-aligned bounding box transformation method is proposed. The method warps the ground-truth bounding
+boxes to the zoomed space to learn object detection, and warps the predicted bounding boxes back to the original
+space during inference. We conduct extensive experiments on three representative UA V object detection datasets,
+including VisDrone, UA VDT, and SeaDronesSee. The proposed ZoomDet is architecture-independent and can be
+applied to an arbitrary object detection architecture. Remarkably, on the SeaDronesSee dataset, ZoomDet offers more
+than 8.4 absolute gain of mAP with a Faster R-CNN model, with only about 3 ms additional latency. The code is
+available athttps://github.com/twangnh/zoomdet_code.
+Keywords:Image Processing, Object Detection, UA V Object Detection, Optical Remote Sensing, Adaptive Image
+Transformation
+1. Introduction
+Object detection on UA V (Unmanned Aerial Vehicle)
+captured images [1, 2, 3] has been an active research
+topic due to its important role in many remote sens-
+ing applications, for example, UA V-aided environmen-
+tal monitoring and disaster response systems. Driven by
+the development of deep convolution neural networks
+(CNNs), UA V object detection has advanced signifi-
+∗corresponding author
+Email addresses:twangnh@gmail.com(Tao Wang),
+chenylin@scu.edu.cn(Chenyu Lin),
+tangchenwei@scu.edu.cn(Chenwei Tang),
+jzzhou@scu.edu.cn(Jizhe Zhou),dxiong@stevens.edu(Deng
+Xiong),lijianan@bit.edu.cn(Jianan Li),
+zhaoj90@chinatelecom.cn(Jian Zhao),
+lvjiancheng@scu.edu.cn(Jiancheng Lv)
+cantly [2, 4, 5, 6, 7, 8] in recent years. Since many ob-
+jects in UA V images are small in size, distributed non-
+uniformly and sparsely due to high viewing attitude and
+irregular viewing angle [2], one major research topic is
+studying how to detect these objects effectively. Current
+SOTA methods process images by uniformly cropping
+them into patches and applying detection independently
+to each patch [9, 10, 11, 12, 6, 2]. These patch-based
+methods offer stable and significant gains in detection
+accuracy. However, they only help address the cross-
+patch distribution variance, while small or sparse ob-
+jects may still exist within the image patch. Moreover,
+patch-based methods introduce significant extra compu-
+tation cost and latency due to their complicated proce-
+dure and multiple forward passes, which is expensive
+for edge computing devices such as those running on a

@@ -1,0 +1,531 @@
+Ultralytics YOLO26 (https://docs.ultralytics.com/models/yolo26/)
+ [wordlim: 200] Crawled: today; Content type: text/html; Source: open({"ref_id":"https://docs.ultralytics.com/models/yolo26/","lineno":null}); Redirected to URL: https://docs.ultralytics.com/models/yolo26; Total lines: 267
+L0: 【0†Ultralytics YOLO27: Join the waitlist.†www.ultralytics.com】
+L1: 
+L2:   * Search...
+L3: 
+L4:   * 【1†Home】
+L5:   * 【2†Quickstart】
+L6: 
+L7:   * Home
+L8:   * Modes
+L9:   * Tasks
+L10:   * Models
+L11:     * 【3†Overview】
+L12:     * 【4†YOLO27 (Coming Soon)】
+L13:     * 【5†YOLO26 🚀】
+L14:     * 【6†YOLO12】
+L15:     * 【7†YOLO11】
+L16:     * 【8†YOLOv10】
+L17:     * 【9†YOLOv9】
+L18:     * 【10†YOLOv8】
+L19:     * 【11†YOLOv7】
+L20:     * 【12†YOLOv6】
+L21:     * 【13†YOLOv5】
+L22:     * 【14†YOLOv4】
+L23:     * 【15†YOLOv3】
+L24:     * 【16†SAM 3 (Segment Anything Model 3)】
+L25:     * 【17†SAM 2 (Segment Anything Model 2)】
+L26:     * 【18†SAM (Segment Anything Model)】
+L27:     * 【19†MobileSAM (Mobile Segment Anything Model)】
+L28:     * 【20†FastSAM (Fast Segment Anything Model)】
+L29:     * 【21†YOLO-NAS (Neural Architecture Search)】
+L30:     * 【22†RT-DETR (Realtime Detection Transformer)】
+L31:     * 【23†YOLO-World】
+L32:     * 【24†YOLOE (Real-Time Seeing Anything)】
+L33:     * 【25†Ultralytics LLM Interface】
+L34:   * Compare
+L35:   * Datasets
+L36:   * Solutions
+L37:   * Guides
+L38:   * Integrations
+L39:   * Platform
+L40:   * 【26†Rust Inference】
+L41:   * Reference
+L42:   * Help
+L43: ### Get Started
+L44: 
+L45: Annotate, train and deploy YOLO models in one click.
+L46: 
+L47:   * Cloud training
+L48:   * Dataset annotation
+L49:   * One-click inference
+L50: 
+L51: 【27†$25 free creditswith work email†platform.ultralytics.com】
+L52: 
+L53: 【27†Get Started†platform.ultralytics.com】【28†Sign in】
+L54: 
+L55:   * Loading Please wait
+L56: 
+L57: Toggle Sidebar
+L58: 
+L59:   1. 【1†Docs】
+L60:   2.   3. 【3†Models】
+L61:   4.   5. YOLO26 🚀
+L62: 
+L63: 【29†Image†cdn.ul.run】Select language【27†Get Started†platform.ultralytics.com】
+L64: # Ultralytics YOLO26【30†#】
+L65: 
+L66: 【31†YOLO26 ultralytics public26 Newest SOTA Ultralytics models, released January 2026. Smaller, faster, and more accurate than previous versions with native end-to-end inference.7735 models1.5 GBAug 21, 2026 yolo26x-depthyolo26l-depthyolo26m-depth+32†platform.ultralytics.com】
+L67: ## Overview【32†#】
+L68: 
+L69: 【33†Ultralytics†www.ultralytics.com】 YOLO26 is a unified family of real-time vision models described in the 【34†Ultralytics YOLO26 paper†arxiv.org】. It introduces native end-to-end inference, a lighter detection head, an updated training recipe, and task-specific heads for detection, segmentation, pose estimation, classification, and oriented detection.
+L70: Across its five detection scales, YOLO26 reaches 40.9-57.5 mAP on COCO at 1.7-11.8 ms T4 TensorRT latency. The paper also reports up to 43% faster CPU ONNX inference for YOLO26n compared with YOLO11n on an Intel Xeon CPU @ 2.00 GHz.
+L71: 
+L72: See the 【4†unreleased YOLO27 preview】 for planned architecture, tasks, and preliminary benchmarks.
+L73: 
+L74: 【35†Image: Ultralytics YOLO26 Comparison Plots†cdn.ul.run】
+L75: 【36†Image†i.ytimg.com】
+L76: Watch: How to Train a YOLO26 model on Your Custom Dataset in 【37†Google Colab†colab.research.google.com】.
+L77: 
+L78: Quickstart
+L79: 
+L80: [Button: Python][Button: CLI]
+L81: 
+L82:     `from ultralytics import YOLO
+L83: 
+L84:     model = YOLO("yolo26n.pt")  # load a pretrained YOLO26n model
+L85:     results = model("path/to/bus.jpg")  # run inference`
+L86: 
+L87: Try on Ultralytics Platform
+L88: 
+L89: Explore and run YOLO26 models directly on 【38†Ultralytics Platform†platform.ultralytics.com】.
+L90: The YOLO26 model family is built around four design areas:
+L91:   * Native end-to-end inference: The optional one-to-one detection head produces predictions without non-maximum suppression (NMS), simplifying deployment and reducing post-processing.
+L92:   * Lighter box regression: YOLO26 removes Distribution Focal Loss (DFL), reducing detection-head complexity while preserving an unconstrained regression range.
+L93:   * Training recipe updates: The training pipeline combines MuSGD (a hybrid Muon + SGD optimizer), Progressive Loss, and STAL (Small-Target-Aware Label Assignment) to improve optimization, shift supervision toward the inference-time head, and maintain positive label coverage for small objects. The full hyperparameters behind the released checkpoints are documented in the 【39†YOLO26 Training Recipe guide】.
+L94:   * Task-specific heads and losses: YOLO26 adds targeted designs for instance segmentation, semantic segmentation variants, pose estimation, and oriented detection while keeping a single model pipeline across tasks.
+L95: Together, these updates improve the accuracy-latency tradeoff across model scales and deployment targets.
+L96: ## Key Features【40†#】
+L97: 
+L98:   * DFL-Free Regression YOLO26 removes Distribution Focal Loss (DFL), reducing detection-head complexity and simplifying export.
+L99: 
+L100:   * End-to-End NMS-Free Inference YOLO26 supports native end-to-end inference with `nms=False`, producing predictions without a separate NMS pass. The default one-to-many path uses NMS for accuracy.
+L101:   * Progressive Loss + STAL Progressive Loss shifts training emphasis toward the inference-time head, while STAL improves positive label coverage for small objects.
+L102: 
+L103:   * MuSGD Optimizer A hybrid optimizer that combines 【41†SGD†docs.pytorch.org】 with 【42†Muon†arxiv.org】, adapting optimization ideas from large language model training to computer vision.
+L104:   * Efficient Deployment The simplified head and optional NMS-free path reduce inference overhead across export targets and hardware profiles, including the paper's reported CPU ONNX speedup for YOLO26n versus YOLO11n.
+L105:   * Instance Segmentation Enhancements Introduces semantic segmentation loss to improve model convergence and an upgraded proto module that leverages multi-scale information for superior mask quality. The paper reports gains over YOLO11 of up to +2.5 box AP and +3.7 mask AP on COCO instance segmentation.
+L106:   * Precision Pose Estimation Integrates 【43†Residual Log-Likelihood Estimation†arxiv.org】 (RLE) for more accurate keypoint localization and optimizes the decoding process for increased inference speed. The paper reports up to +7.2 AP over YOLO11 on COCO pose estimation.
+L107:   * Refined OBB Decoding Introduces a specialized angle loss to improve detection accuracy for square-shaped objects and optimizes OBB decoding to resolve boundary discontinuity issues. The paper reports up to +3.4 mAP over YOLO11 on DOTA-v1.0 oriented detection.
+L108: 
+L109: 【44†Image: Ultralytics YOLO26 End-to-End Comparison Plots†cdn.ul.run】
+L110: ## Supported Tasks and Modes【45†#】
+L111: 
+L112: YOLO26 supports the standard Ultralytics task set across five model scales:
+L113: Model  | Filenames  | Task  | Training  | Validation  | Inference  | Export
+L114: --- | --- | --- | --- | --- | --- | ---
+L115: YOLO26  | `yolo26n.pt` `yolo26s.pt` `yolo26m.pt` `yolo26l.pt` `yolo26x.pt`  | 【46†Detection】  | ✅  | ✅  | ✅  | ✅
+L116: YOLO26-seg  | `yolo26n-seg.pt` `yolo26s-seg.pt` `yolo26m-seg.pt` `yolo26l-seg.pt` `yolo26x-seg.pt`  | 【47†Instance Segmentation】  | ✅  | ✅  | ✅  | ✅
+L117: YOLO26-sem  | `yolo26n-sem.pt` `yolo26s-sem.pt` `yolo26m-sem.pt` `yolo26l-sem.pt` `yolo26x-sem.pt`  | 【48†Semantic Segmentation】  | ✅  | ✅  | ✅  | ✅
+L118: YOLO26-depth  | `yolo26n-depth.pt` `yolo26s-depth.pt` `yolo26m-depth.pt` `yolo26l-depth.pt` `yolo26x-depth.pt`  | 【49†Depth Estimation】  | ✅  | ✅  | ✅  | ✅
+L119: YOLO26-cls  | `yolo26n-cls.pt` `yolo26s-cls.pt` `yolo26m-cls.pt` `yolo26l-cls.pt` `yolo26x-cls.pt`  | 【50†Classification】  | ✅  | ✅  | ✅  | ✅
+L120: YOLO26-pose  | `yolo26n-pose.pt` `yolo26s-pose.pt` `yolo26m-pose.pt` `yolo26l-pose.pt` `yolo26x-pose.pt`  | 【51†Pose/Keypoints】  | ✅  | ✅  | ✅  | ✅
+L121: YOLO26-obb  | `yolo26n-obb.pt` `yolo26s-obb.pt` `yolo26m-obb.pt` `yolo26l-obb.pt` `yolo26x-obb.pt`  | 【52†Oriented Detection】  | ✅  | ✅  | ✅  | ✅
+--------------------------------------------------------------------------------
+GitHub - ultralytics/ultralytics: Ultralytics YOLO27, YOLO26, YOLO11, YOLOv8 — object detection, instance segmentation, semantic segmentation, image classification, pose estimation, object tracking · GitHub (https://github.com/ultralytics/ultralytics)
+ [wordlim: 200] Crawled: today; Content type: text/html; Source: open({"ref_id":"https://github.com/ultralytics/ultralytics","lineno":null}); Total lines: 500
+L0: 【0†Skip to content】
+L1: ## Navigation Menu
+L2: 
+L3:   * Products
+L4: 
+L5:     *       * 【1†GitHubRepository hosting, code review, and collaboration】
+L6:       * 【2†CopilotAI coding agent for tasks, projects and automated work】
+L7: 
+L8:     * Build & Ship
+L9:       * 【3†ActionsCI/CD and automation】
+L10:       * 【4†Code QualityQuality analysis, fixes, and enforcement】
+L11:       * 【5†CodespacesCloud development environments】
+L12: 
+L13:     * Secure
+L14:       * 【6†Code SecurityVulnerability detection and remediation】
+L15:       * 【7†Secret ProtectionSecret scanning and leak prevention】
+L16: 【8†All Features】
+L17: 
+L18:   * Developers
+L19: 
+L20:     * Learn
+L21:       * 【9†Documentation†docs.github.com】
+L22:       * 【10†Training†learn.github.com】
+L23:       * 【11†Certifications†learn.github.com】
+L24: 
+L25:     * Build
+L26:       * 【12†Build with Copilot】
+L27:       * 【13†Customize Copilot†docs.github.com】
+L28:       * 【14†Integrations】
+L29: 
+L30:     * Explore
+L31:       * 【15†Trending repos】
+L32:       * 【16†GitHub Sponsors】
+L33:       * 【17†Events】
+L34:     *       * 【18†ChangelogYour source for the latest features, improvements, and fixes across GitHub products, all in one place.†github.blog】
+L35: 
+L36:   * Businesses
+L37: 
+L38:     * By Stage
+L39:       * 【19†Enterprises】
+L40:       * 【20†Team】
+L41:       * 【21†Startups】
+L42:       * 【22†Nonprofits】
+L43: 
+L44:     * By Industry
+L45:       * 【23†Healthcare】
+L46:       * 【24†Financial services】
+L47:       * 【25†Manufacturing】
+L48:       * 【26†Government】
+L49:       * 【27†See all industries】
+L50:     * Evaluate GitHub
+L51:       * 【28†Why GitHub】
+L52:       * 【29†Customer Stories】
+L53:       * 【30†Business insights】
+L54:       * 【31†Trust Center】
+L55: 
+L56:     * Add-ons
+L57:       * 【32†GitHub Advanced SecurityEnterprise-grade code security】
+L58:       * 【33†Copilot for businessEnterprise-grade AI features】
+L59:       * 【34†Premium SupportEnterprise-grade 24/7 support】
+L60: 
+L61:   * Resources
+L62:     * Learn & Connect
+L63:       * 【9†Documentation†docs.github.com】
+L64:       * 【35†Resource center】
+L65:       * 【36†Blog†github.blog】
+L66:       * 【17†Events & webinars】
+L67:       * 【37†Community Forum】
+L68:       * 【29†Customer Stories】
+L69:       * 【14†Integrations】
+L70: 
+L71:     * Support
+L72:       * 【38†Customer support†help.github.com】
+L73:       * 【10†Training†learn.github.com】
+L74:       * 【39†GitHub Status†www.githubstatus.com】
+L75: 
+L76:     * Company
+L77:       * 【40†About】
+L78:       * 【41†Partners】
+L79:       * 【18†Changelog†github.blog】
+L80:     *       * 【42†GitHub UniverseThe event for developers, by developers — talks, workshops, and what’s next for GitHub.†githubuniverse.com】
+L81: 
+L82:   * 【43†Pricing】
+L83: 
+L84: Search`/`
+L85: 
+L86: 【44†Sign in】
+L87: 
+L88: 【45†Sign up】
+L89: 
+L90: Appearance settings
+L91: 
+L92: You signed in with another tab or window. Reload to refresh your session. You signed out in another tab or window. Reload to refresh your session. You switched accounts on another tab or window. Reload to refresh your session. Dismiss alert
+L93: 
+L94:   1. 【46†ultralytics】
+L95:   2. 【47†ultralytics】
+L96: ## Repository navigation
+L97: 
+L98:   *   * 【47†Code】
+L99:   * 【48†Issues48 (48)】
+L100:   * 【49†Pull requests41 (41)】
+L101:   * 【50†Discussions】
+L102:   * 【51†Actions】
+L103:   * 【52†Projects】
+L104:   * 【53†Wiki】
+L105:   * 【54†Security and quality】
+L106:   * 【55†Insights】
+L107: 
+L108: More items
+L109: 
+L110: 【56†Image: ultralytics†avatars.githubusercontent.com】
+L111: 
+L112: 【47†ultralytics】
+L113: 
+L114: Public
+L115: 
+L116:   * Sponsor
+L117:   * 【57†Notifications】You must be signed in to change notification settings
+L118:   * 【57†Fork11.9k (11.9k)】
+L119:   * 【57†Star62.9k (62.9k)】You must be signed in to star a repository
+L120: ## About
+L121: 
+L122: Ultralytics YOLO27, YOLO26, YOLO11, YOLOv8 — object detection, instance segmentation, semantic segmentation, image classification, pose estimation, object tracking
+L123: 
+L124: 【58†platform.ultralytics.com†platform.ultralytics.com】
+L125: ### Topics
+L126: 
+L127: 【59†computer-vision】【60†deep-learning】【61†image-classification】【62†instance-segmentation】【63†machine-learning】【64†object-detection】【65†object-tracking】【66†pose-estimation】【67†python】【68†pytorch】【69†rotated-object-detection】【70†segment-anything】【71†semantic-segmentation】【72†tracking】【73†ultralytics】【74†yolo】【75†yolo11】【76†yolo26】【77†yolo27】【78†yolov8】
+L128: 
+L129: ### Resources
+L130: 
+L131: 【79†Readme】
+L132: 
+L133: 【80†AGPL-3.0 license】
+L134: 
+L135: ### Code of conduct
+L136: 
+L137: 【81†Code of conduct】
+L138: 
+L139: ### Contributing
+L140: 
+L141: 【82†Contributing】
+L142: ### Security policy
+L143: 
+L144: 【83†Security policy】
+L145: 
+L146: Cite this repository
+L147: 
+L148: 【84†Activity】
+L149: 
+L150: 【85†Custom properties】
+L151: 
+L152: ### Stars
+L153: 
+L154: 62.9k stars
+L155: 
+L156: ### Watchers
+L157: 
+L158: 265 watching
+L159: 
+L160: ### Forks
+L161: 
+L162: 【86†11.9k forks】
+L163: 
+L164: 【87†Report repository】
+L165: 
+L166: main
+L167: 
+L168: 【88†Branches】【89†Tags】
+L169: 
+L170: [Input: Go to file]
+L171: 
+L172: Go to file
+L173: 
+L174: Code
+L175: 
+L176: Open more actions menu
+L177: 
+L178: ## Latest commit
+L179: 
+L180: 
+L181: 
+L182: ## History
+L183: 
+L184: 5,600 Commits
+L185: ## Folders and files
+L186: Name  | Name  | Last commit message  | Last commit date
+L187: --- | --- | --- | ---
+L188: 【90†.github】  | 【90†.github】  |    |
+L189: 【91†docker】  | 【91†docker】  |    |
+L190: 【92†docs】  | 【92†docs】  |    |
+L191: 【93†examples】  | 【93†examples】  |    |
+L192: 【94†tests】  | 【94†tests】  |    |
+L193: 【95†ultralytics】  | 【95†ultralytics】  |    |
+L194: 【96†.dockerignore】  | 【96†.dockerignore】  |    |
+L195: 【97†.gitignore】  | 【97†.gitignore】  |    |
+L196: 【98†AGENTS.md】  | 【98†AGENTS.md】  |    |
+L197: 【99†CITATION.cff】  | 【99†CITATION.cff】  |    |
+L198: 【100†CLAUDE.md】  | 【100†CLAUDE.md】  |    |
+L199: 【101†CONTRIBUTING.md】  | 【101†CONTRIBUTING.md】  |    |
+L200: 【102†LICENSE】  | 【102†LICENSE】  |    |
+L201: 【103†MANIFEST.in】  | 【103†MANIFEST.in】  |    |
+L202: 【104†README.md】  | 【104†README.md】  |    |
+L203: 【105†README.zh-CN.md】  | 【105†README.zh-CN.md】  |    |
+L204: 【106†mkdocs.yml】  | 【106†mkdocs.yml】  |    |
+L205: 【107†pyproject.toml】  | 【107†pyproject.toml】  |    |
+L206: [Button: View all files]
+L207: ## Repository files navigation
+L208: 
+L209:   *   * 【108†README】
+L210:   * 【108†Code of conduct】
+L211:   * 【108†Contributing】
+L212:   * 【108†AGPL-3.0 license】
+L213:   * 【108†Security】
+L214: 
+L215: More items
+L216: 【109†中文†docs.ultralytics.com】 | 【110†한국어†docs.ultralytics.com】 | 【111†日本語†docs.ultralytics.com】 | 【112†Русский†docs.ultralytics.com】 | 【113†Deutsch†docs.ultralytics.com】 | 【114†Français†docs.ultralytics.com】 | 【115†Español†docs.ultralytics.com】 | 【116†Português†docs.ultralytics.com】 | 【117†Türkçe†docs.ultralytics.com】 | 【118†Tiếng Việt†docs.ultralytics.com】 | 【119†العربية†docs.ultralytics.com】
+L217: 【120†Ultralytics†www.ultralytics.com】 creates cutting-edge, state-of-the-art (SOTA) 【121†YOLO models†www.ultralytics.com】 built on years of foundational research in computer vision and AI. Constantly updated for performance and flexibility, our models are fast, accurate, and easy to use.
+L218: They excel at 【122†object detection†docs.ultralytics.com】, 【123†instance segmentation†docs.ultralytics.com】, 【124†semantic segmentation†docs.ultralytics.com】, 【125†depth estimation†docs.ultralytics.com】, 【126†image classification†docs.ultralytics.com】, 【127†pose estimation†docs.ultralytics.com】, and 【128†oriented object detection†docs.ultralytics.com】 tasks, and can 【129†track†docs.ultralytics.com】 detected objects across video frames.
+L219: Find detailed documentation in the 【130†Ultralytics Docs†docs.ultralytics.com】. Get support via 【131†GitHub Issues】. Join discussions on 【132†Discord†discord.com】, 【133†Reddit†www.reddit.com】, and the 【134†Ultralytics Community Forums†community.ultralytics.com】!
+L220: 
+L221: Request an Enterprise License for commercial use at 【135†Ultralytics Licensing†www.ultralytics.com】.
+L222: ## 📄 Documentation
+L223: 
+L224: See below for quickstart installation and usage examples. For comprehensive guidance on training, validation, prediction, and deployment, refer to our full 【130†Ultralytics Docs†docs.ultralytics.com】.
+L225: 
+L226: Install
+L227: 
+L228: Install the `ultralytics` package, including all 【107†requirements】, in a 【136†Python>=3.8†www.python.org】 environment with 【137†PyTorch>=1.8†pytorch.org】.
+L229: 
+L230:     pip install ultralytics
+--------------------------------------------------------------------------------
+[2606.03748] Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models (https://arxiv.org/abs/2606.03748)
+ [wordlim: 200] Crawled: today; Content type: text/html; Source: open({"ref_id":"https://arxiv.org/abs/2606.03748","lineno":null}); Total lines: 169
+L0: 【0†Search】 【1†Submit】 【2†Donate†info.arxiv.org】 【3†Log in】
+L1: 
+L2: Search arXiv [Input: Search papers by title, author, abstract, or ID...] [Input] [Input]
+L3: 
+L4: Press Enter to search · 【4†Advanced search】
+L5: 
+L6: # Computer Science > Computer Vision and Pattern Recognition
+L7: 
+L8: [Submitted on 2 Jun 2026]
+L9: # Title:Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models
+L10: 
+L11: Authors:【5†Glenn Jocher】, 【6†Jing Qiu】, 【7†Mengyu Liu】, 【8†Shuai Lyu】, 【9†Fatih Cagatay Akyon】, 【10†Muhammet Esat Kalfaoglu】
+L12: 
+L13: View a PDF of the paper titled Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models, by Glenn Jocher and 5 other authors
+L14: 
+L15: 【11†View PDF】 【12†HTML (experimental)】
+L16: > Abstract:Real-time vision demands models that are accurate, efficient, and simple to deploy across diverse hardware. The YOLO family has become widely deployed for this reason, yet most YOLO detectors still rely on non-maximum suppression at inference, carry heavy detection heads due to Distribution Focal Loss, require long training schedules, and can leave the smallest objects without positive label assignments.
+L17: We present Ultralytics YOLO26, a unified real-time vision model family that addresses these limitations through coordinated architecture and training advances. YOLO26 uses a dual-head design for native NMS-free end-to-end inference and removes DFL entirely, yielding a lighter head with unconstrained regression range.
+L18: Its training pipeline combines MuSGD, a hybrid Muon-SGD optimizer adapted from large language model training; Progressive Loss, which shifts supervision toward the inference-time head; and STAL, a label assignment strategy that guarantees positive coverage for small objects. Beyond detection, YOLO26 introduces task-specific head and loss designs for instance segmentation, pose estimation, and oriented detection, producing consistent gains across tasks and scales.
+L19: The family spans five scales (n/s/m/l/x) and supports detection, instance segmentation, pose estimation, classification, and oriented detection in a single pipeline, with an open-vocabulary extension, YOLOE-26, for text-, visual-, and prompt-free inference. Across all scales, YOLO26 achieves 40.9-57.5 mAP on COCO at 1.7-11.8 ms T4 TensorRT latency, advancing the accuracy-latency Pareto front over prior real-time detectors, while YOLOE-26x reaches 40.6 AP on LVIS minival under text prompting.
+L20: Code and models are available at 【13†this https URL†github.com】.
+L21: Comments:  | 31 pages, 8 figures
+L22: Subjects:  | Computer Vision and Pattern Recognition (cs.CV); Artificial Intelligence (cs.AI)
+L23: Cite as:  | 【14†arXiv:2606.03748】 [cs.CV]
+L24:    | (or 【15†arXiv:2606.03748v1】 [cs.CV] for this version)
+L25:    | 【16†https://doi.org/10.48550/arXiv.2606.03748†doi.org】 arXiv-issued DOI via DataCite
+L26: ## Submission history
+L27: 
+L28: From: Glenn Jocher [【17†view email】]
+L29: [v1] Tue, 2 Jun 2026 15:01:13 UTC (8,589 KB)
+L30: 
+L31: Full-text links:
+L32: 
+L33: ## Access Paper:
+L34: 
+L35: View a PDF of the paper titled Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models, by Glenn Jocher and 5 other authors
+L36: 
+L37:   * 【11†View PDF】
+L38:   * 【12†HTML (experimental)】
+L39:   * 【18†TeX Source】
+L40: 
+L41: 【19†view license†creativecommons.org】
+L42: 
+L43: ### Additional Features
+L44: 
+L45:   * 【20†Audio Summary】
+L46: ### Current browse context:
+L47: 
+L48: cs.CV
+L49: 
+L50: 【21†< prev】   |   【22†next >】
+L51: 
+L52: 【23†new】 | 【24†recent】 | 【25†2026-06】
+L53: 
+L54: Change to browse by:
+L55: 
+L56: 【26†cs】
+L57: 【27†cs.AI】
+L58: 
+L59: ### References & Citations
+L60: 
+L61:   * 【28†SciX†scixplorer.org】
+L62:   * 【29†Google Scholar†scholar.google.com】
+L63:   * 【30†Semantic Scholar†api.semanticscholar.org】
+L64: 
+L65: [Button: export BibTeX citation] Loading...
+L66: 
+L67: ## BibTeX formatted citation
+L68: 
+L69: [Button: ×]
+L70: 
+L71: loading...
+L72: 
+L73: Data provided by:
+L74: 
+L75: ### Bookmark
+L76: 
+L77: [Input] Bibliographic Tools
+L78: # Bibliographic and Citation Tools
+L79: 
+L80: [Input] Bibliographic Explorer Toggle
+L81: 
+L82: Bibliographic Explorer (【31†What is the Explorer?†info.arxiv.org】)
+L83: 
+L84: [Input] Connected Papers Toggle
+L85: 
+L86: Connected Papers (【32†What is Connected Papers?†www.connectedpapers.com】)
+L87: 
+L88: [Input] Litmaps Toggle
+L89: 
+L90: Litmaps (【33†What is Litmaps?†www.litmaps.co】)
+L91: 
+L92: [Input] scite.ai Toggle
+L93: 
+L94: scite Smart Citations (【34†What are Smart Citations?†www.scite.ai】)
+L95: 
+L96: [Input] Code, Data, Media
+L97: # Code, Data and Media Associated with this Article
+L98: 
+L99: [Input] alphaXiv Toggle
+L100: 
+L101: alphaXiv (【35†What is alphaXiv?†alphaxiv.org】)
+L102: 
+L103: [Input] Links to Code Toggle
+L104: 
+L105: CatalyzeX Code Finder for Papers (【36†What is CatalyzeX?†www.catalyzex.com】)
+L106: 
+L107: [Input] DagsHub Toggle
+L108: 
+L109: DagsHub (【37†What is DagsHub?†dagshub.com】)
+L110: 
+L111: [Input] GotitPub Toggle
+L112: 
+L113: Gotit.pub (【38†What is GotitPub?†gotit.pub】)
+L114: 
+L115: [Input] Huggingface Toggle
+L116: 
+L117: Hugging Face (【39†What is Huggingface?†huggingface.co】)
+L118: 
+L119: [Input] ScienceCast Toggle
+L120: ScienceCast (【40†What is ScienceCast?†sciencecast.org】)
+L121: 
+L122: [Input] Demos
+L123: # Demos
+L124: 
+L125: [Input] Replicate Toggle
+L126: 
+L127: Replicate (【41†What is Replicate?†replicate.com】)
+L128: 
+L129: [Input] Spaces Toggle
+L130: 
+L131: Hugging Face Spaces (【42†What is Spaces?†huggingface.co】)
+L132: 
+L133: [Input] Spaces Toggle
+L134: 
+L135: TXYZ.AI (【43†What is TXYZ.AI?†txyz.ai】)
+L136: 
+L137: [Input] Related Papers
+L138: # Recommenders and Search Tools
+L139: 
+L140: [Input] Link to Influence Flower
+L141: 
+L142: Influence Flower (【44†What are Influence Flowers?†influencemap.cmlab.dev】)
+L143: 
+L144: [Input] Core recommender toggle
+L145: 
+L146: CORE Recommender (【45†What is CORE?†core.ac.uk】)
+L147: 
+L148:   * Author
+L149:   * Venue
+L150:   * Institution
+L151:   * Topic
+L152: 
+L153: [Input] About arXivLabs
+L154: # arXivLabs: experimental projects with community collaborators
+L155: 
+L156: arXivLabs is a framework that allows collaborators to develop and share new arXiv features directly on our website.
+L157: 
+L158: Both individuals and organizations that work with arXivLabs have embraced and accepted our values of openness, community, excellence, and user data privacy. arXiv is committed to these values and only works with partners that adhere to them.
+L159: Have an idea for a project that will add value for arXiv's community? 【46†Learn more about arXivLabs†info.arxiv.org】.
+L160: 
+L161: 【47†Which authors of this paper are endorsers?】 | Disable MathJax (【48†What is MathJax?†info.arxiv.org】)
+L162: 
+L163: We gratefully acknowledge support from our major funders, 【49†member institutions†info.arxiv.org】, , and all contributors.
+L164: 【50†About†info.arxiv.org】 · 【51†Help†info.arxiv.org】 · 【52†Contact†info.arxiv.org】 · 【53†Subscribe†info.arxiv.org】 · 【54†Copyright†info.arxiv.org】 · 【55†Privacy†info.arxiv.org】 · 【56†Accessibility†info.arxiv.org】 · 【57†Operational Status (opens in new tab)†status.arxiv.org】
+L165: 
+L166: Major funding support from
+L167: 
+L168: 【58†(opens in new tab)†www.simonsfoundation.org】 【59†(opens in new tab)†www.sfi.org.bm】 【60†(opens in new tab)†www.schmidtsciences.org】
+

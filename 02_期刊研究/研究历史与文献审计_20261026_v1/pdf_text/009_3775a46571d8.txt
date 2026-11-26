@@ -1,0 +1,193 @@
+InterpIoU: Rethinking Bounding Box Regression with Interpolation-Based IoU
+Optimization
+Haoyuan Liu
+Waseda University
+liuhaoyuan@akane.waseda.jp
+Hiroshi Watanabe
+Waseda University
+hiroshi.watanabe@waseda.jp
+Abstract
+Bounding box regression (BBR) is fundamental to object
+detection, where the regression loss is crucial for accu-
+rate localization. Existing IoU-based losses often incor-
+porate handcrafted geometric penalties to address IoU’s
+non-differentiability in non-overlapping cases and enhance
+BBR performance. However, these penalties are sensitive
+to box shape, size, and distribution, often leading to sub-
+optimal optimization for small objects and undesired be-
+haviors such as bounding box enlargement due to misalign-
+ment with the IoU objective. To address these limitations,
+we propose InterpIoU, a novel loss function that replaces
+handcrafted geometric penalties with a term based on the
+IoU between interpolated boxes and the target. By using
+interpolated boxes to bridge the gap between predictions
+and ground truth, InterpIoU provides meaningful gradients
+in non-overlapping cases and inherently avoids the box en-
+largement issue caused by misaligned penalties. Simulation
+results further show that IoU itself serves as an ideal regres-
+sion target, while existing geometric penalties are both un-
+necessary and suboptimal. Building on InterpIoU, we intro-
+duce Dynamic InterpIoU, which dynamically adjusts inter-
+polation coefficients based on IoU values, enhancing adapt-
+ability to scenarios with diverse object distributions. Exper-
+iments on COCO, VisDrone, and PASCAL VOC show that
+our methods consistently outperform state-of-the-art IoU-
+based losses across various detection frameworks, with par-
+ticularly notable improvements in small object detection,
+confirming their effectiveness.
+1. Introduction
+Object detection is a fundamental task in computer vision
+and plays a vital role in various real-world applications
+such as intelligent surveillance [12, 28], industrial automa-
+tion [6, 8] and autonomous driving [2, 4, 5, 10]. It com-
+prises two primary sub-tasks: object classification and lo-
+calization. The spatial location of an object is typically rep-
+resented by a bounding box (Bbox), which encodes its po-
+sition and shape. The core of localization is Bounding Box
+Regression (BBR), a training process that aims to maximize
+the geometric overlap between the predicted Bbox and its
+ground-truth counterpart. This overlap is universally quan-
+tified by the Intersection over Union (IoU) metric. Conse-
+quently, the design of an effective localization loss should
+be fundamentally aligned with the objective of maximizing
+the IoU value, as this directly reflects localization quality.
+To facilitate effective BBR, modern object detec-
+tors—such as the RCNN family [15, 16, 25], SSD [22],
+RetinaNet, DINO [34], and the YOLO series [1, 13, 18,
+19, 23, 24, 30]—rely on carefully designed localization loss
+functions. In practice, most of these detectors adopt a com-
+bination of ℓn-norm losses and IoU-based losses. However,
+these formulations are not fully aligned with the IoU met-
+ric. To understand the origin of this misalignment and its
+impact, we briefly revisit the evolution of localization loss
+functions in object detection.
+Early object detectors such as Fast R-CNN [16] and
+YOLOv1 [24] employed ℓn-norm losses to regress Bbox
+coordinates. These losses treat the four coordinates inde-
+pendently and ignore the geometric structure of the Bbox.
+As a result, they are inherently misaligned with the BBR
+objective and are also sensitive to object scale. To bridge
+this gap, IoULoss [32] was introduced to directly optimize
+the IoU metric. However, it suffers fromgradient vanishing
+when the predicted and ground-truth boxes do not overlap,
+limiting its optimization effectiveness. To address this, a
+series of extended IoU-based losses—such as GIoU [26],
+DIoU [37], CIoU [38], SIoU [14], and PIoU [21]—propose
+augmenting IoU with additional geometric penalty terms
+(e.g., center distance, aspect ratio, or angle). Despite their
+empirical improvements, most of these geometric penal-
+ties are introduced either to alleviate gradient vanishing in
+non-overlapping cases or to improve convergence efficiency
+by providing auxiliary geometric guidance. However, as
+they are not explicitly designed to maximize IoU, these
+formulations may impose optimization objectives that di-
+verge from the fundamental goal of BBR. This misalign-
+1
+arXiv:2507.12420v2  [cs.CV]  29 Aug 2025
+
+---PAGE---
+
+ment can result in unintended behaviors, such as thebound-
+ing box enlargement problem [26], where predicted boxes
+are overly expanded to minimize the auxiliary penalties
+rather than to genuinely increase overlap with the ground
+truth. In addition, the effectiveness of these penalty terms
+often hinges on specific Bbox distributions. Simple geo-
+metric terms typically struggle to generalize across diverse
+object layouts, while more sophisticated ones introduce ex-
+tra complexity with limited gain. These issues are espe-
+cially problematic in scenarios involving small or crowded
+objects [7, 17, 27, 31, 33], where precise and stable gradient
+signals are essential for accurate localization.
+To address the limitations of prior IoU-based losses, we
+propose InterpIoU, a novel loss function that eliminates
+handcrafted geometric penalties in favor of a purely IoU-
+driven formulation. Specifically, it introduces a penalty
+term defined as the IoU between an interpolated Bbox and
+the ground truth. By choosing a suitable interpolation coef-
+ficient, the interpolated box is guaranteed to partially over-
+lap with the ground truth, thereby resolving the gradient
+vanishing problem that occurs when predicted and ground-
+truth boxes do not intersect. More importantly, since the
+entire loss is derived solely from IoU computations, Inter-
+pIoU preserves the desirable optimization properties of the
+original IoU loss and remains fully aligned with the funda-
+mental goal of BBR—maximizing IoU. This intrinsic align-
+ment also eliminates the risk of undesired optimization be-
+haviors, such as the bounding box enlargement problem in-
+troduced by auxiliary geometric penalties. Finally, by dis-
+carding all handcrafted geometric terms, InterpIoU yields
+stable and geometry-agnostic gradients, making it partic-
+ularly effective in challenging scenarios involving small or
+densely packed objects, where conventional losses often un-
+derperform due to unstable or ineffective gradients.
+To further enhance flexibility and generalization, we in-
+troduce Dynamic InterpIoU (D-InterpIoU), which adap-
+tively adjusts the interpolation coefficient based on the cur-
+rent IoU value between prediction and ground truth. This
+dynamic strategy creates a gradient boost zone in low-
+IoU regimes, where the optimization landscape is typi-
+cally flat. By strengthening the gradient signal in these
+regimes, D-InterpIoU enables more effective optimization
+for initially inaccurate predictions and leads to higher con-
+vergence accuracy. Moreover, the adaptive nature of the
+interpolation allows the loss function to automatically ad-
+just to objects of varying shapes, sizes, and spatial dis-
+tributions—enhancing robustness across diverse detection
+scenarios. Compared to static InterpIoU, the dynamic for-
+mulation provides greater generalization without introduc-
+ing complexity or handcrafted components, offering a more
+principled and effective optimization strategy for BBR.
+Extensive simulation experiments confirm that the IoU
+between interpolated boxes and ground truth alone serves
+as a strong and sufficient supervisory signal for BBR. This
+directly challenges the prevailing belief that auxiliary ge-
+ometric penalties are necessary for effective optimization.
+Our results indicate that handcrafted geometric penalties are
+not only redundant but can even hinder performance by in-
+troducing misaligned objectives. Furthermore, benchmark
+evaluations on COCO, VisDrone, and PASCAL VOC show
+that both InterpIoU and D-InterpIoU consistently outper-
+form previous IoU-based losses across multiple detection
+architectures, with particularly significant improvements in
+small object detection.
+The main contributions of this paper are summarized as
+follows:
+1. We propose InterpIoU, a novel IoU-based loss function
+that replaces handcrafted geometric penalties by com-
+puting IoU over interpolated boxes between the predic-
+tion and the ground truth. This design reduces the loss’s
+sensitivity to box size, aspect ratio, and spatial distri-
+bution, and effectively addresses the issue of bounding
+box enlargement by maintaining better alignment with
+the IoU objective.
+2. We further introduce Dynamic InterpIoU (D-InterpIoU),
+which adaptively adjusts interpolation coefficients based
+on the IoU value. This adaptive mechanism enhances
+robustness to varying object scales and spatial distribu-
+tions, yielding particularly significant improvements in
+small object detection.
+3. We further demonstrate the effectiveness of our method
+through simulation experiments, which highlight the un-
+necessary complexity of conventional geometric penal-
+ties. Additionally, our gradient analysis reveals how IoU
+loss design impacts the stability of BBR.
+4. We integrate InterpIoU and D-InterpIoU into represen-
+tative object detectors such as YOLOv8 and DINO, and
+validate their effectiveness on COCO, VOC07, and Vis-
+Drone benchmarks, achieving competitive detection per-
+formance among existing IoU-based losses.
+2. Related Works
+2.1. localization Loss
+Object localization is a critical sub-task of object detection.
+In 2-D object detection, the localization of a specific target
+is represented by the smallest enclosing rectangle around
+the target, commonly referred to as a Bbox. A Bbox en-
+codes the target’s positional information, typically in the
+form of its center coordinates (x, y) and its size (w, h).
+While Bboxes can be expressed in various formats, we rep-
+resent them here as B = [x, y, w, h].
+BBR aims to refine the predicted Bbox Bpred to closely
+match the ground-truth BboxBgt. This is typically achieved
+by minimizing a loss function that quantifies the discrep-
+2

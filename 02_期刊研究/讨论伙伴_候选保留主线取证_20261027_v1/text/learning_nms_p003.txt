@@ -1,0 +1,106 @@
+Object detection. The task of object detection is to map
+an image to a set of boxes: one box per object of interest
+in the image, each box tightly enclosing an object. This
+means detectors ought to return exactly one detection per
+object. Since uncertainty is an inherent part of the detection
+process, evaluations allow detections to be associated to a
+conﬁdence. Conﬁdent erroneous detections are penalized
+more than less conﬁdent ones. In particular mistakes that
+are less conﬁdent than the least conﬁdent correct detection
+are not penalized at all.
+Detectors do not output what we want. The detection
+problem can be interpreted as a classiﬁcation problem that
+estimates probabilities of object classes being present for
+every possible detection in an image. This viewpoint gives
+rise to “hypothesize and score” detectors that build a search
+space of detections (e.g. sliding window, proposals) and es-
+timate class probabilities independently for each detection.
+As a result, two strongly overlapping windows covering the
+same object will both result in high score since they look at
+almost identical image content. In general, instead of one
+detection per object, each object triggers several detections
+of varying conﬁdence, depending on how well the detection
+windows cover the object.
+GreedyNMS. Since the actual goal is to generate exactly
+one detection per object (or exactly one high conﬁdence
+detection), a common practice (since at least 1994 [
+3]) is
+to assume that highly overlapping detections belong to the
+same object and collapse them into one detection. The pre-
+dominant algorithm (GreedyNMS) accepts the highest scor-
+ing detection, then rejects all detections that overlap more
+than some threshold ϑ and repeats the procedure with the
+remaining detections, i.e. greedily accepting local maxima
+and discarding their neighbours, hence the name. This al-
+gorithm eventually also accepts wrong detections, which is
+no problem if their conﬁdence is lower than the conﬁdence
+of correct detections.
+GreedyNMS is not good enough. This algorithm works
+well if (1) the suppression is wide enough to always sup-
+press high scoring detections triggered by same object and
+(2) the suppression is narrow enough to never suppress high
+scoring detections of the next closest object. If objects are
+far apart condition (2) is easy to satisfy and a wide suppres-
+sion works well. In crowded scenes with high occlusion
+between objects there is a tension between wide and nar-
+row suppression. In other words with one object per image
+NMS is trivial, but highly occluded objects require a better
+NMS algorithm.
+3.1. A future without NMS
+Striving for true end-to-end systems without hand
+crafted algorithms we shall ask: Why do we need a hand
+crafted post processing step? Why does the detector not
+directly output one detection per object?
+Independent processing of image windows leads to over-
+lapping detection giving similar scores, this is a requirement
+of robust functions: similar inputs lead to similar outputs.
+A detector that outputs only one high scoring detection per
+object thus has to be also conditioned on other detections:
+multiple detections on the same object should be processed
+jointly, so the detector can tell there are repeated detections
+and only one of them should receive a high score.
+Typical inference of detectors consist of a classiﬁer that
+discriminates between image content that contains an ob-
+ject and image content that does not. The positive and neg-
+ative training examples for this detector are usually deﬁned
+by some measure of overlap between objects and bound-
+ing boxes. Since similar boxes will produce similar conﬁ-
+dences anyway, small perturbation of object locations can
+be considered positive examples, too. This technique aug-
+ments the training data and leads to more robust detectors.
+Using this type of classiﬁer training does not reward one
+high scoring detection per object, and instead deliberately
+encourages multiple high scoring detections per object.
+From this analysis we can see that two key ingredients
+are necessary in order for a detector to generate exactly one
+detection per object:
+1. A loss that penalises double detections to teach the de-
+tector we want precisely one detection per object.
+2. Joint processing of neighbouring detections so the de-
+tector has the necessary information to tell whether an
+object was detected multiple times.
+In this paper, we explore a network design that accommo-
+dates both ingredients. To validate the claim that these are
+key ingredients and our the proposed network is capable of
+performing NMS, we study our network in isolation with-
+out end-to-end learning with the detector. That means the
+network operates solely on scored detections without im-
+age features and as such can be considered a “pure NMS
+network”.
+4. Doing NMS with a convnet
+After establishing the two necessary requirements for a
+convnet (convolutional network) to perform NMS in sec-
+tion
+3, this section presents our network that addresses both
+(penalizing double detections in § 4.1, joint processing of
+detections in § 4.2).
+Our design avoids hard decisions and does not discard
+detections to produce a smaller set of detections. Instead,
+we reformulate NMS as a rescoring task that seeks to de-
+crease the score of detections that cover objects that al-
+ready have been detected, as in [
+13]. After rescoring, simple
+thresholding is sufﬁcient to reduce the set of detections. For
+evaluation we pass the full set of rescored detections to the
+evaluation script without any post processing.
+4509

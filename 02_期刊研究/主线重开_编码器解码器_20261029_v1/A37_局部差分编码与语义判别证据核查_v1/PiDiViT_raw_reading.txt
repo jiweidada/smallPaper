@@ -1,0 +1,1227 @@
+When Pixel Difference Patterns Meet ViT:
+PiDiViT for Few-Shot Object Detection
+Hongliang Zhou Yongxiang Liu∗ Canyu Mo Weijie Li∗ Bowen Peng Li Liu∗
+The College of Electronic Science and Technology, National University of Defense Technology, China
+hongliangz2022@163.com lyx bible@sina.com mocanyu@nudt.edu.cn
+liweijie@nudt.edu.cn pbow16@nudt.edu.cn liuli nudt@nudt.edu.cn
+Abstract
+Few-shot object detection aims to detect novel classes with
+limited samples. Recent methods have leveraged rich seman-
+tic representations of pretrained vision transformer (ViT) to
+overcome limitations of model fine-tuning, thereby improv-
+ing performance on novel classes. However, existing pre-
+trained ViT schemes only perform transformer encoding in
+feature dimension, ignoring exploration of pixel-wise differ-
+ences in low-level features and multiscale variations. The
+current challenges lie in: (i) extracted features suffer from
+blurred boundary features and smooth transition from cen-
+ter to boundary, leading to insufficient distinction between
+objects and backgrounds, and (ii) how to balance extraction
+of local details and global contour features under multi-
+scale scenarios. So Pixel Difference Vision Transformer
+(PiDiViT) is proposed. Innovations include: (i) difference
+convolution fusion module (DCFM), which enhances fea-
+ture differences from object centers to boundaries and ef-
+fectively preserves global information by fusing pixel-wise
+central difference features with original features through
+an attention mechanism, and (ii) multiscale feature fusion
+module (MFFM), which adaptively fuses features extracted
+by five different scale convolutional kernels using a scale
+attention mechanism to generate attention weights, achiev-
+ing an optimal balance between local detail and global se-
+mantic information extraction. PiDiViT achieves SOTA on
+the COCO benchmark: surpassing few-shot detection SOTA
+by 2.7 nAP50 (10-shot) and 4.0 nAP50 (30-shot) for novel
+classes, exceeding one-shot detection SOTA by 4.4 nAP50
+and open-vocabulary detection SOTA by 3.7 nAP50. The
+code is available at https://github.com/Seaz9/PiDiViT.
+1. Introduction
+Few-shot object detection aims to recognize novel classes
+with limited samples [1, 6]. Existing methods primarily fo-
+∗Li Liu, Yongxiang Liu and Weijie Li are corresponding authors.
+PiDiViT SOTA
+30shot
+nAP
+Split3
+nAP50
+50.3
+54.0
+35.3
+37.0
+35.9
+37.3
+30.4
+27.1
+10shot nAP
+nAP50
+Figure 1. Overall performance. Comparison between PiDiViT
+and SOTA on COCO benchmarks (few-shot, one-shot and open-
+vocabulary object detection) shown in the radar chart.
+cus on fine-tuning models with scarce data for novel class
+detection [50]. However, the limitation of fine-tuning lies
+in insufficient adaptation caused by data limitations, lead-
+ing to a significant performance gap between the novel and
+base classes [18]. Recent studies reveal that ViT [26, 33]
+can effectively overcome constraints of fine-tuning through
+their pretrained rich semantic representations. For exam-
+ple, DE-ViT [49] employs a projected feature subspace of
+ViT features to replace prototype classifier training, avoiding
+base class overfitting and model fine-tuning. In our explo-
+ration of ViT architectures, we made a significant discovery:
+existing pretrained ViT schemes perform transformer en-
+coding in feature dimension, ignoring exploration of pixel-
+wise differences in low-level features and multiscale varia-
+tions. Current challenges lie in: (i) extracted features suffer
+from blurred boundary features and smooth transitions from
+object centers to boundaries, leading to insufficient object-
+background distinction, and (ii) balancing extraction of local
+details and global contour features under multiscale scenar-
+This ICCV paper is the Open Access version, provided by the Computer Vision Foundation.
+Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+24309
+ios. Designing explicit prior modules to address challenges
+can further optimize ViT features and break through learning
+limitations under a few-shot conditions.
+To address issues, we propose Pixel Difference Vision
+Transformer (PiDiViT). PiDiViT consists of two core de-
+signs: (i) difference convolution fusion module (DCFM),
+which enhances feature differences from object centers
+to boundaries and preserves global information by fusing
+pixel-wise central difference features with original features
+through an attention mechanism, and (ii) multiscale feature
+fusion module (MFFM), which adaptively fuses features
+extracted by five scale convolutional kernels using a scale at-
+tention mechanism to generate attention weights, achieving
+an optimal balance between local detail and global semantic
+information extraction in various scenarios.
+We evaluate PiDiViT on COCO [22] for few-shot, one-
+shot, and open-vocabulary object detection tasks, achieving
+SOTA performance. Performance in three different task
+settings demonstrates the broad adaptability of PiDiViT in
+few-shot and open-vocabulary detection. For few-shot ob-
+ject detection, it improves [7] by 2.7 and 4.0 nAP50 (novel
+classes) for 10-shot and 30-shot settings, respectively. In
+one-shot object detection, it improves [49] by 4.4 nAP50 on
+average, and in open-vocabulary object detection, it outper-
+forms [2] by 3.7 nAP50. These results highlight PiDiViT as
+a precise and efficient paradigm for few-shot detection tasks.
+The contributions are summarized as follows:
+• We propose PiDiViT, which empowers pretrained ViT
+to excel in few-shot detection by designing explicit prior
+modules for pixel-wise differences and multiscale vari-
+ations in low-level features of pretrained ViT.
+• We design DCFM to enhance feature differences of
+smooth features from center to boundary and effectively
+preserve global information, and we develop MFFM to
+strengthen the balance between multiscale local and
+global features under the scheduling of scale attention
+mechanism, adapting to various scenarios.
+• PiDiViT achieves SOTA performance in COCO for
+few-shot, one-shot, and open-vocabulary object detec-
+tion, setting new benchmarks and offering a valuable
+reference for future detecting few-shot objects.
+2. Related Work
+Few-Shot Object Detection (FSOD) aims to detect novel
+classes with limited samples [18]. Existing methods
+can be categorized into two groups: fine-tuning methods
+[6, 9, 20, 39, 40, 43] and meta-learning methods [5, 15, 44].
+Fine-tuning methods adapt pretrained features to novel
+classes through model fine-tuning, but suffer from com-
+plex training processes and performance gaps between novel
+and base classes due to insufficient fine-tuning with limited
+novel data [50]. Subsequently, metalearning methods with
+online adaptation capabilities have gradually become main-
+stream, overcoming the complexity of model fine-tuning.
+These methods have evolved from early prototype-based fea-
+ture matching techniques [15, 44] to more advanced dense
+support-query feature interaction mechanisms [10–12]. Re-
+cently, DE-ViT [49] proposed a solution that replaces train-
+ing prototype classifiers with projection of ViT features into
+subspaces, effectively avoiding base class overfitting and
+model fine-tuning. However, current ViT-based methods
+struggle to address performance gaps caused by oversmooth
+features from center to boundary and multiscale size fea-
+ture discrepancies. Our PiDiViT effectively bridges these
+gaps through DCFM and MFFM modules, achieving differ-
+ential enhancement of smooth center-to-boundary features
+while preserving global features and adaptively capturing
+multiscale local details and global contours.
+One-shot object detection (OSOD) extends FSOD to
+the more challenging scenario of detecting novel categories
+with a single support sample, without requiring fine-tuning
+[45]. Early approaches focused on improving the interaction
+between support and target features [14, 21, 27], but were
+limited by the scarcity of support samples and the com-
+putational overhead associated with inference per category
+[4, 50]. Recent advances, such as DE-ViT [49], have im-
+proved efficiency by leveraging the characteristics of a dot
+product to match the features. For feature matching, the pro-
+posed PiDiViT employs cosine similarity instead of the dot
+product to project features into feature subspaces. The pro-
+posed DCFM module achieves differential enhancement of
+smooth center-to-boundary features while preserving global
+information, while the MFFM adaptively balances local and
+global features across multiple scales. This combination of
+explicit prior modules yields remarkable results even under
+the extreme constraints of OSOD tasks.
+Open-Vocabulary Object Detection (OVD) aims to de-
+tect objects of unknown categories using category names
+or textual descriptions [46, 48]. Recent advances in vi-
+sion language models, particularly CLIP [30], have signif-
+icantly propelled the field forward by enabling the train-
+ing of transferable visual models through text. Cooperative
+foundational models [2] have shown exceptional results by
+leveraging complementary strengths of CLIP and SAM to
+transform closed-set detectors into open-set detectors. Re-
+cently, pretrained ViT architectures have shown remarkable
+potential in open-vocabulary scenarios. For example, DE-
+ViT [49] achieved impressive performance in both FSOD
+and OVD tasks by replacing the prototype classifier training
+with the projection of ViT features into subspaces. Despite
+the advancements made by pretrained ViTs, current ViT-
+based approaches only perform transformations and encod-
+ing in the feature dimension, overlooking the exploration of
+pixel-level feature disparities and multiscale variability. The
+proposed PiDiViT addresses this limitation through explicit
+prior modules such as DCFM and MFFM, which specifi-
+24310
+Output
+Predicted box
+Input Proposal box
+Expanded Proposal
+Initial
+Region
+1×
+K×
+K T×
+K×
+K
+Input Prototypes
+(|C|+|B|)×
+D
+Input ViT Features
+D×
+H×
+W
+S×
+K×
+K
+Output
+Class score
+Output Differentially Fused Features
+S×
+1×
+1
+Conv3×
+3
+Linear
+Region-to-Box Sigmoid
+Output
+Features
+S×
+K×
+K
+1×
+K×
+K
+Multiscale Feature Fusion Module
+Differential Convolution Fusion Module
+Softmax
+Concat
+CPDC Block Standard Block
+Aply
+Input Fused Multiscale Features
+Input features
+S×
+K×
+K
+S×
+K×
+K
+S×
+K×
+K
+Output
+Region
+Attention Weights
+Softmax Weights
+Concatenated Conv Outputs
+Fusion
+Concatenated Multiscale Features
+Concat
+Apply
+Scale Attention Module
+Apply
+Weight-Weighted Multiscale Features
+Conv1×
+1 Fusion
+Output Fused Multiscale Features S×
+K×
+K
+Sigmoid
+(a) Proposed PiDiViT Overview (c) Multiscale Feature Fusion Module
+(b) Differential Convolution Fusion Module
+Concat
+Cosine Similarity Projection Subspace
+Scale Attention Weights
+Generate
+BatchNorm2d+ReLU
+ReLU
+Conv1×
+1
+Add
+ReLU
+Conv1×
+1
+Add
+Final
+Input
+Region
+Input
+Region
+3×
+3 Depth-Wise
+Ɵ *CPDC
+3×
+3 Depth-Wise
+Standard Conv
+Middle
+Output
+Region
+Three
+Difference
+Multiscale
+Fusion
+Layers
+Input Features
+Figure 2. Framework of PiDiViT. It contains the overall PiDiViT architecture (a), DCFM module (b), and MFFM module (c).
+cally enhance the differential features from the center to the
+boundary and capture multiscale feature variability.
+3. Method
+3.1. Method Overview
+Model Background. The proposed Pixel Difference Vision
+Transformer (PiDiViT) builds upon DE-ViT [49], which in-
+tegrates pretrained Dinov2 ViT [29] into the Meta RCNN
+[44] framework. DE-ViT [49] refines and propagates ini-
+tial proposal regions and input features through the Region
+Proposal Network (RPN) [32] to achieve object localization.
+Compared to DE-ViT [49], the innovation of our PiDiViT
+model lies in the DCFM and MFFM modules.
+As shown in Fig. 2 (a), PiDiViT (Fig. 2 (a)) follows a
+bottom-up processing pipeline: the model takes initial re-
+gion proposals, category prototypes and ViT features as in-
+puts. First, initial region proposals are generated by a class-
+agnostic Region Proposal Network (RPN) [32], and category
+prototypes and ViT features are projected into input features
+via a Cosine Similarity Projection Subspace (CSPS∗, brown
+cuboid in Fig. 2(a)). Second, the initial proposal regions are
+scaled into masked regions (yellow bounding box areas in
+Fig. 2 (a)), and then the masked regions and input features
+are processed by a three-layer difference multiscale fusion
+layer (dashed box in Fig. 2(a)). These layers include the
+proposed difference convolution fusion module (DCFM)
+(Fig. 2 (b), green) and the multiscale feature fusion module
+(MFFM) (Fig. 2 (c), blue). DCFM enhances smooth feature
+differences from center to boundary, while MFFM extracts
+global and local information at different scales. The input
+region and the middle output region are combined through
+concatenated residual summation across these layers to ob-
+tain the final input region, which is then fed into the last
+layer for processing to generate the final output region. The
+input features are progressively refined through three lay-
+ers to yield the output features. The final output includes
+∗CSPS Building upon DE-ViT [49], we replace the dot product of
+DE-ViT [49] with cosine similarity [51] to calculate projection between
+category prototypes and ViT features to obtain input features. It mitigates
+overfitting caused by sample imbalance between novel and base classes.
+24311
+Input feature map
+RPDC pattern probing strategy
+Conv
+APDC weights Output feature map of APDC
+CPDC process Output feature map of CPDC
+Output feature map of RPDC
+Conv
+Conv
+x1 x2 x3
+x4 x5 x6
+x7 x8 x9
+x1 x2 x3
+x4 x5 x6
+x7 x8 x9
+x1 x2 x3
+x4 x5 x6
+x7 x8 x9
+x1 x2 x3
+x4 x5 x6
+x7 x8 x9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+w1 w2 w3
+w4 w5 w6
+w7 w8 w9
+0
+0
+x1-
+x2
+x2-
+x3
+x3-
+x6
+x4-
+x1
+0
+x6-
+x9
+x7-
+x4
+x8-
+x7
+x9-
+x8
+x1-
+x2
+x2-
+x3
+x3-
+x6
+x4-
+x1
+0
+x6-
+x9
+x7-
+x4
+x8-
+x7
+x9-
+x8
+x1-
+x5
+x2-
+x5
+x3-
+x5
+x4-
+x5
+0
+x6-
+x5
+x7-
+x5
+x8-
+x5
+x9-
+x5
+x1-
+x5
+x2-
+x5
+x3-
+x5
+x4-
+x5
+0
+x6-
+x5
+x7-
+x5
+x8-
+x5
+x9-
+x5
+APDC pattern probing strategy
+CPDC pattern probing strategy
+x23-
+x18
+x25-
+x19
+x21-
+x17
+x11-
+x12
+x15-
+x14
+x1-
+x7
+x3-
+x8
+x5-
+x9
+x11 x13 x14 x15
+x16 x17 x18 x19 x20
+x21 x22 x23 x24 x25
+CPDC weights
+RPDC weights
+Apply
+Apply
+Apply
+APDC process
+RPDC process
+x12
+x6 x7 x8 x9 x10
+x1 x2 x3 x4 x5
+Figure 3. The process of three difference convolutions (CPDC, APDC, and RPDC) [35]. The figure elaborates on the convolution
+process and pixel pair selection process for each of these difference convolutions.
+predicted bounding boxes converted from regions by the
+region-to-box layer [49], output regions, class scores via spa-
+tial attention mapping using width-height average features
+and output features. The details of the innovative modules
+(DCFM, MFFM) are elaborated in Sec. 3.2-Sec. 3.3.
+3.2. Difference Convolution Fusion Module DCFM
+Existing few-shot object detection methods such as DE-ViT
+[49] adopt a pretrained ViT scheme that performs transfor-
+mational encoding only in the feature dimension, overlook-
+ing the exploration of low-level feature discrepancy. The
+features extracted by DE-ViT [49] exhibit conditions such
+as blurred boundary features and excessively smooth tran-
+sitions from the center to the boundary, resulting in a less
+effective discrimination between target and background fea-
+tures. In particular, feature discrepancy is a critical means to
+distinguish target features under the scarcity of labeled sam-
+ples in few-shot scenarios. It has recently been shown that
+pixel difference convolution (PDC) [35–37] can be highly
+discriminative while being extremely efficient to compute,
+yet flexibly integrated into convolutional neural networks.
+However, they have rarely been integrated with ViTs. Build-
+ing on these advances, we propose a novel difference con-
+volution fusion module (DCFM) designed to explicitly in-
+tegrate higher-order local differential features with standard
+convolutional features.
+As shown in Fig. 2 (b) (green), DCFM adaptively fuses
+Central PDC (CPDC) [35] and standard convolution via an
+attention mechanism: the CPDC enhances the smooth fea-
+ture discrepancy from the center to the edge by highlighting
+spatial positional value changes, sharpening target edges
+in features to better differentiate targets from backgrounds.
+This is then fused with the global information extracted by
+standard convolution, enabling the model to accurately rec-
+ognize boundary pixel difference variations while retaining
+ability to extract global object representation information.
+In [35, 36], the authors designed three types of PDC
+(Central PDC (CPDC), Angular PDC (APDC) and Radial
+PDC (RPDC)) for probing higher-order local differential
+features inspired by the famous Loal Binary Pattern meth-
+ods [23, 28, 34]: (i) CPDC follows CD-LBP to capture
+center-neighbor differences, (ii) APDC models circumfer-
+ential variations based on AD-LBP, and (iii) RPDC extracts
+radial gradient information inspired by RD-LBP. As shown
+in Fig. 3, these PDC variants [35] establish a multiperspec-
+tive structural representation through different sampling and
+differential computation strategies. The key difference be-
+tween PDC and standard convolution lies in that PDC incor-
+porates pixel differential calculations into the convolution
+operation. The computational processes of standard convo-
+lution and PDC are shown in Eq. (1) and Eq. (2).
+𝑦1 = 𝑓 (X, θ) =
+3×3
+∑︁
+𝑗=1
+𝑤 𝑗𝑥𝑗, (standard convolution) (1)
+𝑦2 = 𝑓 (ΔX, θ) =
+∑︁
+(𝑥𝑗 ,𝑥′
+𝑗 )∈P
+𝑤 𝑗 (𝑥𝑗 − 𝑥′
+𝑗), (PDC) (2)
+Here, 𝑤 𝑗 is the weight in the 3×3 convolution kernel, where
+𝑥𝑗 and 𝑥𝑗 − 𝑥′
+𝑗 denote the input pixel values for standard
+convolution and PDC [35]. (𝑥𝑗, 𝑥′
+𝑗) ∈ P is a set composed
+of difference pixel pairs with 𝑗 ≤ 3 × 3.
+Building on previous PDC work [35–37], we propose
+the difference convolution fusion module (DCFM) tailored
+for few-shot object detection. Through ablation studies
+(Sec. 4.5), we investigate the synergistic effects of com-
+bining three PDC variants [35] with standard convolution.
+Our results validate that the fusion of CPDC and standard
+convolution yields optimal performance gains for few-shot
+scenarios, APDC and RPDC are deemed unsuitable for this
+task due to their differential mechanisms. Based on these
+findings, we design DCFM as a complementary fusion of
+CPDC and standard convolutions. The CPDC branch mod-
+els local pixel differences to extract fine-grained structural
+features (boundary gradient information), while the stan-
+24312
+dard convolutional branch captures global high-level se-
+mantic features encompassing color, contour, and texture
+information. An attention mechanism dynamically weights
+these complementary features based on their discriminative
+power, enabling an adaptive balance between local structural
+and high-level semantic information.
+In the DCFM computation process, we concatenate a fea-
+ture map X and feature of the region (if available) along the
+channel dimension. The concatenated feature map is then
+processed by an initial convolution layer, batch normaliza-
+tion, and a ReLU activation function, as shown in Eq. (3).
+Xconv1 = ReLU
+
+BatchNorm Conv1(X)
+
+(3)
+Here, Conv1(X) is the convolution operation applied to input
+X, with a kernel size of 3, padding is 3/2, and a stride of 1.
+To capture global features and boundary pixel differential
+features, we use the standard convolution block (sc block)
+and the center difference convolution block (cd block) for
+processing. Each block independently processes the feature
+map Xconv1 , as shown in Eq. (4).
+dsc = Convsc(Xconv1 )
+dcd = PDCcd(Xconv1 )
+(4)
+Here, Convsc is the sc block and PDCcd is the cd block, each
+block operation aiming to capture global variations or local
+boundary pixel differential variations of different features,
+producing outputs dsc and dcd.
+After obtaining the outputs of two types of convolution
+blocks, we concatenate them along the channel dimension
+and compute the attention weights through 𝑓att. The weights
+are then normalized using Softmax, as shown in Eq. (5).
+dstack = Concat(dsc, dcd)
+𝑓att = Conv2 ReLU(BatchNorm(Conv1)
+
+[𝛼𝑖
+2
+𝑖=1] = Softmax 𝑓att(dstack)
+
+(5)
+Here, [𝛼𝑖
+2
+𝑖=1] are the attention weights generated for dsc and
+dcd, respectively, and 𝑓att is the attention layer that generates
+the weights. Softmax is applied along the channel dimension
+to normalize the attention weights of the outputs from each
+type of convolution block.
+Next, we apply the computed attention weights to the out-
+puts of the sc block and the cd block to obtain the weighted
+features. The weighted results are then summed to obtain
+the fused features, as shown in Eq. (6) and Eq. (7).
+d𝑤
+sc = dsc · 𝛼1
+d𝑤
+cd = dcd · 𝛼2
+(6)
+ffused = d𝑤
+sc + d𝑤
+cd (7)
+Here, dsc represents the output features of sc block, and dcd
+represents output features of the cd block; 𝛼1 and 𝛼2 are the
+attention weights for the sc block and cd block, respectively;
+d𝑤
+sc and d𝑤
+cd
+represent the weighted features of the sc block
+and cd block. Finally, ffused represents the fused features.
+3.3. Multiscale Feature Fusion Module MFFM
+Existing few-shot methods, such as DE-ViT [49] refine pro-
+posal regions by stacking single-scale propagation layers,
+achieving promising results in few-shot detection. However,
+their fixed single-scale structure lacks an adaptive mech-
+anism to balance and fuse local-global features extracted
+at different scales, limiting robustness in detecting objects
+of varying sizes and impairing performance balance and en-
+hancement between base and novel classes detection. To ad-
+dress this, we propose the multiscale feature fusion module
+(MFFM), as shown in Fig. 2 (c) (blue). This module fuses
+features extracted by five-scale convolutional kernels using
+a scale attention mechanism to generate attention weights
+for fusion. By selectively extracting and fusing features at
+targeted scales, it ensures adaptive capture of local details
+and global contours for objects in diverse scenarios.
+MFFM comprises two key components: multiscale fea-
+ture extraction and adaptive fusion. For extraction, it em-
+ploys a parallel multi-branch architecture with 1×1, 3×3,
+5×5, 7×7, and 3×3 dilated convolutions. Small-scale con-
+volutions (1×1, 3×3) capture fine local details, while larger-
+scale and dilated convolutions extract broader contextual
+information, enabling robust multiscale feature modeling
+even with limited data. For fusion, an attention-based mech-
+anism dynamically learns the importance weights for each
+branch of the scale. The attention module assesses the dis-
+criminability of the features and generates fusion weights,
+adaptively fusing features based on their relevance. This
+enhances scale-invariant detection and robustness in data-
+scarce or complex scenarios. In the following, we detail the
+implementation of MFFM in the model.
+We use multiscale convolutions for feature extraction.
+The input feature h ∈ R𝑆×𝐾×𝐾 is processed through
+branches with five different convolution kernel sizes to ex-
+tract multiscale features, as shown in Eq. (8).
+h1 = ReLU
+
+BN W1×1 ∗ h + b1×1
+
+h2 = ReLU
+
+BN W3×3 ∗ h + b3×3
+
+h3 = ReLU
+
+BN W5×5 ∗ h + b5×5
+
+h4 = ReLU
+
+BN W7×7 ∗ h + b7×7
+
+h5 = ReLU
+
+BN W𝑑
+3×3 ∗ h + b𝑑
+3×3
+
+(8)
+Here, ∗ denotes convolution operation, BN is batch nor-
+malization, and b denotes the bias term associated with
+the corresponding convolution kernel W. Through branch
+operations with different receptive fields, the model can si-
+multaneously capture local details and global contours.
+24313
+Table 1. Few-shot object detection benchmark results on COCO 2014. PiDiViT outperforms existing methods in new category detection
+tasks. Bold text represents SOTA result and gray text represents base class result. Backbone name is shown as abbreviation.
+Method Year Backbone Requires Finetune
+10-shot 30-shot
+bAP nAP nAP50 nAP75 bAP nAP nAP50 nAP75
+FSRW [15] 19 YOLO-ft-full ✗ - 5.6 12.3 4.6 - 9.1 19.0 7.6
+Meta R-CNN [44] 19 RN50 ✗ - 8.7 19.1 6.6 - 12.4 25.3 10.8
+TFA [40] 20 RN101 ✓ 33.9 10.0 19.2 9.2 35.1 13.4 24.7 13.2
+Multi-Relation Det [5] 20 RN50 ✗ - 16.6 31.3 16.1 - - - -
+FSCE [39] 21 RN101 ✓ - 11.9 - 10.5 - 16.4 - 16.2
+Retentive R-CNN [6] 21 RN101 ✓ 39.2 10.5 - - 39.3 13.8 - -
+HeteroGraph [10] 21 RN101 ✓ - 11.6 23.9 9.8 - 16.5 31.9 15.5
+FsDetView [43] 22 RN50 ✓ - 12.5 27.3 9.8 - 14.7 30.6 12.2
+Meta Faster R-CNN [11] 22 RN101 ✓ - 12.7 25.7 10.8 - 16.6 31.8 15.8
+LVC [16] 22 ViT-S/8 ✓ 28.7 19.0 34.1 19.0 34.8 26.8 45.8 27.5
+Cross-Transformer [12] 22 PVTv2-B2-Li ✓ - 17.1 30.2 17.0 - 21.4 35.5 22.1
+NIFF [9] 23 RN101 ✓ 39.0 18.8 - - 39.0 20.9 - -
+DiGeo [25] 23 RN101 ✓ 39.2 10.3 18.7 9.9 39.4 14.2 26.2 14.8
+DE-ViT [49] 23 ViT-L/14 ✗ 29.4 34.0 52.9 37.0 29.5 34.0 53.0 37.2
+CD-ViTO [7] 25 ViT-L/14 ✗ - 35.3 54.9 37.2 - 35.9 54.5 38.0
+PiDiViT (Ours) 25 ViT-L/14 ✗ 32.3 37.0 57.6 40.9 31.4 37.3 58.5 41.7
+We concatenate features of different scales to obtain mul-
+tiscale features F ∈ R𝐶×𝐾×𝐾 , and then generate the fusion
+weights [𝛼𝑖
+5
+𝑖=1] corresponding to the different scale convo-
+lutions using the scale attention mechanism, as shown in
+Eq. (9) and Eq. (10).
+F = Concat(h1, h2, h3, h4, h5) (9)
+[𝛼𝑖
+5
+𝑖=1] = 𝜎
+
+Conv2 ReLU(Conv1(AvgPool(F))
+
+(10)
+Here, AvgPool is the global average pooling operation,
+Conv1 and Conv2 are the convolution operations, 𝜎 is the
+activation function of the sigmoid, and [𝛼𝑖
+5
+𝑖=1] is the weight
+vector generated by the scale attention mechanism.
+Next, multiscale features are fused by weighted summa-
+tion, where features of different scales are weighted accord-
+ing to respective attention weights, as shown in Eq. (11).
+hfusion =
+5
+∑︁
+𝑖=1
+𝛼𝑖h𝑖 (11)
+Here, hfusion is the multiscale fused feature, 𝛼𝑖 is the fusion
+weight generated by the scale attention mechanism, and h𝑖
+is the scale feature under different convolution kernel.
+4. Experiment
+We extensively evaluate PiDiViT for FSOD, OSOD, and
+OVD tasks. Our evaluation includes comparisons with
+SOTA methods, analysis under different sample sizes, and
+qualitative comparisons with baseline models. Through ab-
+lation studies, we examine each module’s contribution. The
+results demonstrate that PiDiViT achieves a new SOTA per-
+formance on the COCO dataset for all tasks, including 10-
+shot/30-shot FSOD, OSOD, and OVD.
+Evaluation Setup. We evaluate on COCO dataset [22]
+following standard category splits [40, 45, 52]. The data set
+is divided into base classes for training and novel classes for
+testing. We measure novel class performance using nAP,
+nAP50, and nAP75, and base class performance using bAP
+and bAP50. For OSOD, following [27], we split 80 COCO
+categories into 4 parts (Split-1/2/3/4), using 3 parts as base
+classes and the remaining part as novel.
+Implementation Details. PiDiViT builds on a two-stage
+detection framework such as Mask R-CNN [13], using a pre-
+trained RPN from [52] for proposal generation. The RPN is
+trained only on base classes. We use frozen DINOv2 [29]
+ViT-L as the backbone. Following Meta R-CNN [44], we
+extract base class prototypes during training and add novel
+class prototypes afterward without changing other parame-
+ters. During the evaluation, we test base and novel classes,
+extracting background prototypes from COCO Stuff [3]. In
+inference, we select top-𝑇 categories (𝑇=10 for comparison
+experiments, 𝑇=1 for ablations) based on feature distances
+of prototype and proposal. Training losses include focal loss
+and regression loss for category scores 𝑐𝑡 and boxes 𝑏𝑡 , BCE
+loss, and Dice loss [38] for regions 𝑟𝑡 . For network stacking,
+we stack three difference multiscale fusion layers.
+4.1. Comparisons with SOTA FSOD Methods
+As shown in Tab. 1, PiDiViT outperforms existing methods
+in COCO few-shot detection, achieving gains of +2.7 / +4.0
+nAP50 (novel class) over the SOTA method CD-ViTO [7]
+and +4.7 / +5.5 over baseline DE-ViT [49] in 10/30-shot
+settings. Compared with CD-ViTO and DE-ViT based on
+pretrained ViT, we design prior modules for pixel-level fea-
+ture disparities and multiscale variability of pretrained ViT’s
+underlying features. DCFM achieves differential enhance-
+ment of smooth center-to-boundary features while preserv-
+24314
+ing global information, and MFFM enables capture of local
+details and global contours on multiple scales.
+4.2. Comparisons with SOTA OSOD Methods
+As shown in Tab. 2, PiDiViT achieves an average improve-
+ment of +4.4 in nAP50 over the SOTA method DE-ViT [49]
+in the four splits of the COCO one-shot object detection
+task. In the extreme one-shot scenario, compared to DE-
+ViT, we design explicit prior modules (DCFM and MFFM)
+tailored to the pixel-level feature disparities and multiscale
+variability of pretrained ViT’s underlying features. This en-
+ables our model to achieve significant performance gains for
+novel classes even under extreme one-shot constraints.
+Table 2. One-shot object detection benchmark results on
+COCO 2017. PiDiViT outperforms existing methods. Bold text
+is SOTA result. Backbone name is shown as abbreviation.
+Method Year Backbone
+nAP50
+Split-1 Split-2 Split-3 Split-4 Avg
+SiamMask [27] 18 RN50 15.3 17.6 17.4 17.0 16.8
+CoAE [14] 19 RN50 23.4 23.6 20.5 20.4 22.0
+AIT [4] 21 RN50 26.0 26.4 22.3 22.6 24.3
+SaFT [50] 22 RN101 27.8 27.6 21.0 23.0 24.9
+BHRL [45] 22 RN50 26.1 29.0 22.7 24.5 25.6
+DE-ViT [49] 23 ViT-L/14 27.4 33.2 27.1 26.1 28.4
+PiDiViT (Ours) 25 ViT-L/14 32.0 38.6 30.4 30.2 32.8
+4.3. Comparisons with SOTA OVD Methods
+As shown in Tab. 3, PiDiViT significantly enhances the per-
+formance of COCO OVD, achieving improvements of +3.7
+nAP50 over the SOTA coop-foundation-models by Bharad-
+waj et al. [2] and +4.0 over baseline DE-ViT [49]. Compared
+with the complementary fusion design of CLIP and SAM in
+coop-foundation-models [2], our explicitly designed prior
+modules tailored to the pixel-level feature disparities and
+multiscale variability of pre-trained ViT’s underlying fea-
+tures achieve superior performance.
+4.4. Visualization Qualitative Comparison
+As shown in Fig. 4, we present visual comparisons be-
+tween PiDiViT and DE-ViT [49] on COCO FSOD, OVD
+and OSOD tasks. PiDiViT demonstrates superior perfor-
+mance in three dimensions: First, it effectively alleviates
+duplicate detections observed in DE-ViT, such as cats and
+elephants in FSOD, sofas and vases in OVD, and potted
+plants in OSOD. Second, it improves classification accuracy,
+as exemplified by the correct identification of puppies in the
+OSOD task. Third, it enhances detection completeness by
+identifying objects missed by DE-ViT, including people in
+photo frames in OVD and furniture items in OSOD. Qual-
+itative comparisons validate that the designed explicit prior
+modules (DCFM and MFFM) for pixel-level feature dispari-
+ties and multiscale variability in pretrained ViT’s underlying
+features achieve significant performance gains.
+Table 3. Open-vocabulary object detection benchmark results
+on COCO 2017. Bold text is SOTA result, gray text is all class
+and base class result. Backbone name is shown as abbreviation.
+Method Year Backbone Extra Train nAP50 bAP50 AP50
+OVR-CNN [48] 21 RN50 ✓ 22.8 46.0 39.9
+ViLD [8] 21 EffNet-B7 ✗ 27.6 59.5 51.3
+RegionCLIP [52] 22 RN50x4 ✓ 39.3 61.6 55.7
+OV-DETR [47] 22 ViT-B/32 ✗ 29.4 61.0 52.7
+BARON [41] 23 RN50 ✗ 34.0 60.4 53.5
+Detic [53] 22 RN50 ✓ 27.8 47.1 45.0
+Rasheed et al. [31] 22 RN50 ✓ 36.6 54.0 49.4
+Ro-ViT [17] 23 ViT-L/14 ✗ 33.0 - 47.7
+CoDet [24] 24 Swin-B ✓ 30.6 52.3 46.6
+F-VLM [19] 22 RN50x64 ✗ 28.0 - 39.6
+CORA [42] 23 RN50x4 ✗ 41.7 44.5 43.8
+BARON [41] 23 RN50 ✓ 42.7 54.9 51.7
+CORA+ [42] 23 RN50x4 ✓ 43.1 60.9 56.2
+DE-ViT [49] 23 ViT-L/14 ✗ 50.0 54.0 52.9
+Bharadwaj et al. [2] 23 RN101+SwinT ✗ 50.3 49.8 49.9
+PiDiViT (Ours) 25 ViT-L/14 ✗ 54.0 57.4 56.5
+OVD Task
+PiDiViT
+DE-ViT
+FSOD Task
+OSOD Task
+PiDiViT
+DE-ViT
+PiDiViT
+DE-ViT
+Missed detection
+Error detection
+Missed detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Missed detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Repeat detection
+Figure 4. Visual performance comparison. Comparison of PiDi-
+ViT and baseline method DE-ViT [49] on COCO benchmarks for
+few-shot, open-vocabulary, and one-shot object detection tasks.
+Red dashed boxes indicate three cases of poor detection.
+4.5. Ablation Studies
+We perform ablation studies on COCO few-shot detection
+to validate core modules (DCFM, MFFM, and CSPS). As
+shown in Tab. 4, PiDiViT achieves an improvement of +4.7
+nAP50 over DE-ViT [49] in a few-shot object detection set-
+ting (T=1). Progressive module integration experiments
+show that each module contributes to performance gains,
+with their combination yielding optimal results, validating
+both individual module design and synergistic effects.
+We evaluate three variants of DCFM (versions with
+attention-based fusion of APDC, RPDC, and CPDC [35]
+24315
+Table 4. Ablation study of all modules. Ablation results of inno-
+vative modules on COCO few-shot object detection benchmark.
+Method MFFM DCFM CSPS bAP nAP nAP50 nAP75
+DE-ViT [49] ✗ ✗ ✗ 28.6 31.1 49.4 34.8
+Ours ✓ ✗ ✗ 30.2 32.7 51.6 36.2
+Ours ✗ ✓ ✗ 30.1 32.4 51.4 35.5
+Ours ✗ ✗ ✓ 29.6 31.6 50.1 34.6
+Ours ✓ ✓ ✓ 31.2 34.8 54.1 38.3
+with standard convolution) in ablation studies, as shown in
+Tab. 5. The CPDC fused with standard convolution via at-
+tention effectively captures pixel-level boundary differential
+information and global context, thereby enhancing few-shot
+object feature representation and achieving optimal perfor-
+mance. In contrast, APDC (extracting angular differences)
+and RPDC (extracting radial differences) exhibit limited per-
+formance when fused with standard convolution, indicating
+their weaker adaptability to few-shot learning tasks. There-
+fore, in PiDiViT, we adopt the DCFM version combining
+CPDC with standard convolution.
+Table 5. Ablation study of DCFM. Ablation results of three
+difference layer combinations on COCO few-shot detection set.
+Method Strategies bAP nAP nAP50 nAP75
+DE-ViT [49] ✗ 28.6 31.1 49.4 34.8
+Ours +APDC 28.8 30.9 49.0 34.3
+Ours +RPDC 28.9 31.0 49.4 34.3
+Ours +CPDC 29.6 32.4 51.4 35.8
+We investigate the impact of the strength of the CPDC
+block in the fusion of CPDC [35] and standard convolution
+in DCFM. As shown in Fig. 5, we evaluate seven strength
+gradients, where 0 reduces to the standard convolution and 1
+applies the full CPDC. The results show that as the strength
+increases, the performance initially improves and then de-
+clines, with the optimal performance achieved at a strength
+of 0.875, which represents the best balance between differen-
+tial boundary information and the global context. This opti-
+mal strength value is maintained across all subsequent PiDi-
+ViT experiments to ensure consistent performance gains.
+We ablate MFFM’s convolution kernel combinations and
+fusion methods, as shown in Tab. 6. Beginning with a static
+weighted fusion of 1×1, 3×3, and 5×5 kernels, we enhance
+design by adding 7×7 kernels and 3×3 dilated convolutions
+(d2, d4). The results indicate that conv1,3,5,7,3d2 config-
+uration achieves optimal performance by best balancing the
+extraction of multiscale features encompassing both global
+contours and local details. Additionally, attention-based fu-
+sion surpasses static fusion by dynamically weighting scale
+contributions. Thus, we adopt conv1,3,5,7,3d2 with atten-
+tion fusion as MFFM’s final configuration in PiDiViT.
+                                           
+ & 3 ' &  6 W U H Q J W K
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+ 6 F R U H V
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+ E $ 3
+ Q $ 3
+ Q $ 3  
+ Q $ 3  
+Figure 5. Ablation study of CPDC strength under CPDC [35]
+and standard convolution fusion. The ablation curve illustrates
+impact of CPDC strength settings in DCFM on the performance of
+COCO few-shot detection tasks. Best CPDC strength is 0.875.
+Table 6. Ablation study of MFFM. Ablation results of different
+multiscale combination schemes on COCO few-shot benchmark.
+Method Kernel Comb. Fusion bAP nAP nAP50 nAP75
+DE-ViT [49] conv3 ✗ 28.6 31.1 49.4 34.8
+Ours conv1,3,5 Static 29.3 32.3 50.7 35.6
+Ours conv1,3,5,7,3d2 Attention 30.2 32.7 51.6 36.2
+Ours conv1,3,5,7,3d4 Attention 29.5 32.6 51.2 36.6
+5. Conclusion
+We propose PiDiViT, a novel ViT architecture specifically
+designed for few-shot object detection. In PiDiViT, we de-
+sign explicit prior modules (DCFM and MFFM) for pixel-
+level feature disparities and multiscale variability of pre-
+trained ViT’s underlying features. DCFM achieves differ-
+ential enhancement of smooth center-to-boundary features
+while preserving global information, and MFFM enables
+the capture of local details and global contours across multi-
+ple scales. Experiments demonstrate that PiDiViT achieves
+SOTA results on COCO FSOD, OSOD, and OVD tasks.
+Despite these advancements, PiDiViT still has some lim-
+itations. The inherent bias in the pretrained ViT may in-
+fluence the projections of class-specific feature, particularly
+when the class distribution is imbalanced. To address the
+issue of ViT bias, we plan to design a fairness-constrained
+algorithm for different classes in the future. This algorithm
+will dynamically adjust the class weights during training to
+mitigate the impact of pretrained ViT bias and further opti-
+mize the performance balance between the novel and base
+classes in scenarios with imbalanced class distributions.
+6. Acknowledgement
+This work was supported by the National Natural Science
+Foundation of China under Grant 62376283.
+24316
+References
+[1] Simone Antonelli, Danilo Avola, Luigi Cinque, Donato
+Crisostomi, Gian Luca Foresti, Fabio Galasso, Marco Raoul
+Marini, Alessio Mecca, and Daniele Pannone. Few-shot ob-
+ject detection: A survey. CSUR, 54(11s):1–37, 2022. 1
+[2] Rohit Bharadwaj, Muzammal Naseer, Salman Khan, and
+Fahad Shahbaz Khan. Enhancing novel object detec-
+tion via cooperative foundational models. arXiv preprint
+arXiv:2311.12068, 2023. 2, 7
+[3] Holger Caesar, Jasper Uijlings, and Vittorio Ferrari. Coco-
+stuff: Thing and stuff classes in context. In CVPR, pages
+1209–1218, 2018. 6
+[4] Ding-Jie Chen, He-Yen Hsieh, and Tyng-Luh Liu. Adaptive
+image transformer for one-shot object detection. In CVPR,
+pages 12247–12256, 2021. 2, 7
+[5] Qi Fan, Wei Zhuo, Chi-Keung Tang, and Yu-Wing Tai. Few-
+shot object detection with attention-rpn and multi-relation
+detector. In CVPR, pages 4013–4022, 2020. 2, 6
+[6] Zhibo Fan, Yuchen Ma, Zeming Li, and Jian Sun. Generalized
+few-shot object detection without forgetting. In CVPR, pages
+4527–4536, 2021. 1, 2, 6
+[7] Yuqian Fu, Yu Wang, Yixuan Pan, Lian Huai, Xingyu Qiu,
+Zeyu Shangguan, Tong Liu, Yanwei Fu, Luc Van Gool, and
+Xingqun Jiang. Cross-domain few-shot object detection via
+enhanced open-set object detector. In ECCV, pages 247–264,
+2025. 2, 6
+[8] Xiuye Gu, Tsung-Yi Lin, Weicheng Kuo, and Yin Cui. Open-
+vocabulary object detection via vision and language knowl-
+edge distillation. arXiv preprint arXiv:2104.13921, 2021.
+7
+[9] Karim Guirguis, Johannes Meier, George Eskandar, Matthias
+Kayser, Bin Yang, and Jürgen Beyerer. Niff: Alleviating
+forgetting in generalized few-shot object detection via neural
+instance feature forging. In CVPR, pages 24193–24202, 2023.
+2, 6
+[10] Guangxing Han, Yicheng He, Shiyuan Huang, Jiawei Ma,
+and Shih-Fu Chang. Query adaptive few-shot object detection
+with heterogeneous graph convolutional networks. In ICCV,
+pages 3263–3272, 2021. 2, 6
+[11] Guangxing Han, Shiyuan Huang, Jiawei Ma, Yicheng He,
+and Shih-Fu Chang. Meta faster r-cnn: Towards accurate
+few-shot object detection with attentive feature alignment. In
+AAAI, pages 780–789, 2022. 6
+[12] Guangxing Han, Jiawei Ma, Shiyuan Huang, Long Chen,
+and Shih-Fu Chang. Few-shot object detection with fully
+cross-transformer. In CVPR, pages 5321–5330, 2022. 2, 6
+[13] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Gir-
+shick. Mask r-cnn. In ICCV, pages 2961–2969, 2017. 6
+[14] Ting-I Hsieh, Yi-Chen Lo, Hwann-Tzong Chen, and Tyng-
+Luh Liu. One-shot object detection with co-attention and
+co-excitation. In NeurIPS, 2019. 2, 7
+[15] Bingyi Kang, Zhuang Liu, Xin Wang, Fisher Yu, Jiashi Feng,
+and Trevor Darrell. Few-shot object detection via feature
+reweighting. In ICCV, pages 8420–8429, 2019. 2, 6
+[16] Prannay Kaul, Weidi Xie, and Andrew Zisserman. Label,
+verify, correct: A simple few shot object detection method.
+In CVPR, pages 14237–14247, 2022. 6
+[17] Dahun Kim, Anelia Angelova, and Weicheng Kuo. Region-
+aware pretraining for open-vocabulary object detection with
+vision transformers. In CVPR, pages 11144–11154, 2023. 7
+[18] Mona Köhler, Markus Eisenbach, and Horst-Michael Gross.
+Few-shot object detection: A comprehensive survey. IEEE
+TNNLS, 2023. 1, 2
+[19] Weicheng Kuo, Yin Cui, Xiuye Gu, AJ Piergiovanni, and
+Anelia Angelova. Open-vocabulary object detection upon
+frozen vision and language models. In ICLR, 2023. 7
+[20] Weijie Li, Wei Yang, Yuenan Hou, Li Liu, Yongxiang Liu,
+and Xiang Li. Saratr-x: Towards building a foundation model
+for sar target recognition. IEEE TIP, 2025. 2
+[21] Xiang Li, Lin Zhang, Yau Pun Chen, Yu-Wing Tai, and Chi-
+Keung Tang. One-shot object detection without fine-tuning.
+arXiv preprint arXiv:2005.03819, 2020. 2
+[22] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence
+Zitnick. Microsoft coco: Common objects in context. In
+ECCV, pages 740–755, 2014. 2, 6
+[23] Li Liu, Lingjun Zhao, Yunli Long, Gangyao Kuang, and Paul
+Fieguth. Extended local binary patterns for texture classifi-
+cation. IMAVIS, 30(2):86–99, 2012. 4
+[24] Chuofan Ma, Yi Jiang, Xin Wen, Zehuan Yuan, and Xiaojuan
+Qi. Codet: Co-occurrence guided region-word alignment for
+open-vocabulary object detection. In NeurIPS, 2024. 7
+[25] Jiawei Ma, Yulei Niu, Jincheng Xu, Shiyuan Huang, Guangx-
+ing Han, and Shih-Fu Chang. Digeo: Discriminative
+geometry-aware learning for generalized few-shot object de-
+tection. In CVPR, pages 3208–3218, 2023. 6
+[26] Luke Melas-Kyriazi, Christian Rupprecht, Iro Laina, and An-
+drea Vedaldi. Deep spectral methods: A surprisingly strong
+baseline for unsupervised semantic segmentation and local-
+ization. In CVPR, pages 8364–8375, 2022. 1
+[27] Claudio Michaelis, Ivan Ustyuzhaninov, Matthias Bethge,
+and Alexander S Ecker. One-shot instance segmentation.
+arXiv preprint arXiv:1811.11507, 2018. 2, 6, 7
+[28] Timo Ojala, Matti Pietikainen, and Topi Maenpaa. Multireso-
+lution gray-scale and rotation invariant texture classification
+with local binary patterns. IEEE TPAMI, 24(7):971–987,
+2002. 4
+[29] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy
+Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez,
+Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al.
+Dinov2: Learning robust visual features without supervision.
+arXiv preprint arXiv:2304.07193, 2023. 3, 6
+[30] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya
+Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,
+Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning
+transferable visual models from natural language supervision.
+In ICML, pages 8748–8763, 2021. 2
+[31] Hanoona Rasheed, Muhammad Maaz, Muhammad Uzair
+Khattak, Salman Khan, and Fahad Shahbaz Khan. Bridg-
+ing the gap between object and image-level representations
+for open-vocabulary detection. In NeurIPS, pages 33781–
+33794, 2022. 7
+[32] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun.
+Faster r-cnn: Towards real-time object detection with region
+24317
+proposal networks. Advances in neural information process-
+ing systems, 28, 2015. 3
+[33] Oriane Siméoni, Chloé Sekkat, Gilles Puy, Antonı́n Vobeckỳ,
+Éloi Zablocki, and Patrick Pérez. Unsupervised object local-
+ization: Observing the background to discover objects. In
+CVPR, pages 3176–3186, 2023. 1
+[34] Zhuo Su, Matti Pietikäinen, and Li Liu. Bird: Learning
+binary and illumination robust descriptor for face recognition.
+In BMVC, 2019. 4
+[35] Zhuo Su, Wenzhe Liu, Zitong Yu, Dewen Hu, Qing Liao, Qi
+Tian, Matti Pietikäinen, and Li Liu. Pixel difference networks
+for efficient edge detection. In ICCV, pages 5117–5127, 2021.
+4, 7, 8
+[36] Zhuo Su, Jiehua Zhang, Longguang Wang, Hua Zhang, Zhen
+Liu, Matti Pietikäinen, and Li Liu. Lightweight pixel dif-
+ference networks for efficient visual representation learning.
+IEEE TPAMI, 2023. 4
+[37] Zhuo Su, Li Liu, Matthias Müller, Jiehua Zhang, Diana Wofk,
+Ming-Ming Cheng, and Matti Pietikäinen. Rapid salient ob-
+ject detection with difference convolutional neural networks.
+IEEE TPAMI, pages 1–16, 2025. 4
+[38] Carole H Sudre, Wenqi Li, Tom Vercauteren, Sebastien
+Ourselin, and M Jorge Cardoso. Generalised dice overlap
+as a deep learning loss function for highly unbalanced seg-
+mentations. In DLMIA, pages 240–248, 2017. 6
+[39] Bo Sun, Banghuai Li, Shengcai Cai, Ye Yuan, and Chi Zhang.
+Fsce: Few-shot object detection via contrastive proposal en-
+coding. In CVPR, pages 7352–7362, 2021. 2, 6
+[40] Xin Wang, Thomas E. Huang, Trevor Darrell, Joseph E. Gon-
+zalez, and Fisher Yu. Frustratingly simple few-shot object
+detection. In ICML, pages 9919–9928, 2020. 2, 6
+[41] Size Wu, Wenwei Zhang, Sheng Jin, Wentao Liu, and
+Chen Change Loy. Aligning bag of regions for open-
+vocabulary object detection. In CVPR, pages 15254–15264,
+2023. 7
+[42] Xiaoshi Wu, Feng Zhu, Rui Zhao, and Hongsheng Li. Cora:
+Adapting clip for open-vocabulary detection with region
+prompting and anchor pre-matching. In CVPR, pages 7031–
+7040, 2023. 7
+[43] Yang Xiao, Vincent Lepetit, and Renaud Marlet. Few-shot
+object detection and viewpoint estimation for objects in the
+wild. IEEE TPAMI, 45(3):3090–3106, 2022. 2, 6
+[44] Xiaopeng Yan, Ziliang Chen, Anni Xu, Xiaoxi Wang, Xi-
+aodan Liang, and Liang Lin. Meta r-cnn: Towards general
+solver for instance-level low-shot learning. In ICCV, pages
+9577–9586, 2019. 2, 3, 6
+[45] Hanqing Yang, Sijia Cai, Hualian Sheng, Bing Deng, Jian-
+qiang Huang, Xian-Sheng Hua, Yong Tang, and Yu Zhang.
+Balanced and hierarchical relation learning for one-shot ob-
+ject detection. In CVPR, pages 7591–7600, 2022. 2, 6, 7
+[46] Qihang Yu, Ju He, Xueqing Deng, Xiaohui Shen, and Liang-
+Chieh Chen. Convolutions die hard: Open-vocabulary seg-
+mentation with single frozen convolutional clip. In NeurIPS,
+pages 32215–32234, 2023. 2
+[47] Yuhang Zang, Wei Li, Kaiyang Zhou, Chen Huang, and
+Chen Change Loy. Open-vocabulary detr with conditional
+matching. In ECCV, pages 106–122, 2022. 7
+[48] Alireza Zareian, Kevin Dela Rosa, Derek Hao Hu, and Shih-
+Fu Chang. Open-vocabulary object detection using captions.
+In CVPR, pages 14393–14402, 2021. 2, 7
+[49] Xinyu Zhang, Yuting Wang, and Abdeslam Boularias.
+Detect every thing with few examples. arXiv preprint
+arXiv:2309.12969, 2023. 1, 2, 3, 4, 5, 6, 7, 8
+[50] Yizhou Zhao, Xun Guo, and Yan Lu. Semantic-aligned fusion
+transformer for one-shot object detection. In CVPR, pages
+7601–7611, 2022. 1, 2, 7
+[51] Yan Zhao, Lingjun Zhao, Ding Ding, Dewen Hu, Gangyao
+Kuang, and Li Liu. Few-shot class-incremental sar target
+recognition via cosine prototype learning. IEEE TGRS, 61:
+1–18, 2023. 3
+[52] Yiwu Zhong, Jianwei Yang, Pengchuan Zhang, Chunyuan Li,
+Noel Codella, Liunian Harold Li, Luowei Zhou, Xiyang Dai,
+Lu Yuan, Yin Li, et al. Regionclip: Region-based language-
+image pretraining. In CVPR, pages 16793–16803, 2022. 6,
+7
+[53] Xingyi Zhou, Rohit Girdhar, Armand Joulin, Philipp
+Krähenbühl, and Ishan Misra. Detecting twenty-thousand
+classes using image-level supervision. In ECCV, pages 350–
+368, 2022. 7
+24318
+

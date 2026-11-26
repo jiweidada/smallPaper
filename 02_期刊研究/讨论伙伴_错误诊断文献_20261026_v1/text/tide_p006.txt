@@ -1,0 +1,43 @@
+6 D. Bolya et al.
+manual annotations that not all datasets have and analysis of the distinction can be done
+separately. Then, both classiﬁcation errors in [14] are deﬁned for all detections with
+IoUmax≥tb, even ifIoUmax <t f . This confounds localization and classiﬁcation errors,
+since using that deﬁnition, detections that are both mislocalized and misclassiﬁed are
+considered class errors. Thus, we separate these detections into their own category.
+Weighting the Errors Just counting the number of errors in each bin is not enough to
+be able to make direct comparisons between error types, since a false positive with a
+lower score has less effect on overall performance than one with a higher score. Hoiem
+et al. [14] attempt to address this by considering the topN highest scoring errors, but in
+practiceN needed to be swept over to get the full picture, creating 2d plots that are hard
+to interpret (see the analysis in [11,21]).
+Ideally, we’d like one comprehensive number that represents how each error type
+affects overall performance of the model. In other words, for each error type we’d like to
+ask the question, how much is this category of errors holding back the performance of
+my model? In order to answer that question, we can consider what performance of the
+model would be if it didn’t make that error and use how that changedmAP .
+To do this, for each error we need to deﬁne a corresponding “oracle” that ﬁxes that
+error. For instance, if an oracleo∈O described how to change some false positives into
+true positives, we could call theAP computed after applying the oracle asAPo and then
+compare that to the vanillaAP to obtain that oracle’s (and corresponding error’s) effect
+on performance:
+∆APo =APo−AP (2)
+We know that we’ve covered all errors in the model if applying all the oracles together
+results in 100mAP . In other words, given oraclesO ={o1,...,o n}:
+APo1,...,on = 100 AP +∆APo1,...,on = 100 (3)
+Referring back to the deﬁnition of AP in Sec. 2.1, to satisfy Eq. 3 the oracles used
+together must ﬁx all false positives and false negatives.
+Considering this, we deﬁne the following oracles for each of the main error types
+described above:
+1. Classiﬁcation Oracle: Correct the class of the detection (thereby making it a true
+positive). If a duplicate detection would be made this way, suppress the lower scoring
+detection.
+2. Localization Oracle: Set the localization of the detection to the GT’s localization
+(thereby making it a true positive). Again, if a duplicated detection would be made
+this way, suppress the lower scoring detection.
+3. Both Cls and Loc Oracle: Since we cannot be sure of which GT the detector was
+attempting to match to, just suppress the false positive detection.
+4. Duplicate Detection Oracle: Suppress the duplicate detection.
+5. Background Oracle: Suppress the hallucinated background detection.
+6. Missed GT Oracle: Reduce the number of GT (NGT ) in themAP calculation by
+the number of missed ground truth. This has the effect of stretching the precision-
+recall curve over a higher recall, essentially acting as if the detector was equally as

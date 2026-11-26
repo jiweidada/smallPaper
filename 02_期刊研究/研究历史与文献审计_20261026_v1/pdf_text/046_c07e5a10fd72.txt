@@ -1,0 +1,190 @@
+PDE-Net: Learning PDEs from Data
+Zichao Long∗ 1 Yiping Lu∗ 1 Xianzhong Ma∗ 1 2 Bin Dong 3 4 5
+Abstract
+Partial differential equations (PDEs) play a promi-
+nent role in many disciplines of science and en-
+gineering. PDEs are commonly derived based
+on empirical observations. However, with the
+rapid development of sensors, computational pow-
+er, and data storage in the past decade, huge quan-
+tities of data can be easily collected and efﬁciently
+stored. Such vast quantity of data offers new op-
+portunities for data-driven discovery of physical
+laws. Inspired by the latest development of neu-
+ral network designs in deep learning, we propose
+a new feed-forward deep network, called PDE-
+Net, to fulﬁll two objectives at the same time:
+to accurately predict dynamics of complex sys-
+tems and to uncover the underlying hidden PDE
+models. Comparing with existing approaches, our
+approach has the most ﬂexibility by learning both
+differential operators and the nonlinear response
+function of the underlying PDE model. A special
+feature of the proposed PDE-Net is that all ﬁlters
+are properly constrained, which enables us to eas-
+ily identify the governing PDE models while still
+maintaining the expressive and predictive power
+of the network. These constrains are carefully de-
+signed by fully exploiting the relation between the
+orders of differential operators and the orders of
+sum rules of ﬁlters (an important concept originat-
+ed from wavelet theory). Numerical experiments
+show that the PDE-Net has the potential to un-
+cover the hidden PDE of the observed dynamics,
+and predict the dynamical behavior for a relatively
+long time, even in a noisy environment.
+*Equal contribution 1School of Mathematical Sciences, Peking
+University, Beijing, China 2Beijing Computational Science Re-
+search Center, Beijing, China 3Beijing International Center for
+Mathematical Research, Peking University, Beijing, China 4Center
+for Data Science, Peking University 5Laboratory for Biomedical
+Image Analysis, Beijing Institute of Big Data Research. Corre-
+spondence to: Bin Dong<dongbin@math.pku.edu.cn>.
+Proceedings of the 35th International Conference on Machine
+Learning, Stockholm, Sweden, PMLR 80, 2018. Copyright 2018
+by the author(s).
+1. Introduction
+Differential equations, especially partial differential equa-
+tions(PDEs), play a prominent role in many disciplines to
+describe the governing physical laws underlying a given
+system of interest. Traditionally, PDEs are derived based on
+simple physical principles such as conservation laws, mini-
+mum energy principles, or based on empirical observations.
+Important examples include the Navier-Stokes equations in
+ﬂuid dynamics, the Maxwell’s equations for electromagnet-
+ic propagation, and the Schr¨odinger’s equations in quantum
+mechanics. However, many complex systems in modern
+applications (such as many problems in climate science,
+neuroscience, ﬁnance, etc.) still have eluded mechanism-
+s, and the governing equations of these systems are only
+partially known. With the rapid development of sensors,
+computational power, and data storage in the last decade,
+huge quantities of data can be easily collected and efﬁciently
+stored . Such vast quantity of data offers new opportunities
+for data-driven discovery of potentially new physical laws.
+Then, one may ask the following interesting and intriguing
+question: can we learn a PDE model (if there exists one)
+from a given data set and perform accurate and efﬁcient
+predictions using the learned model?
+1.1. Related Work
+Earlier attempts on data-driven discovery of hidden physical
+laws include (Bongard & Lipson, 2007; Schmidt & Lipson,
+2009). Their main idea is to compare numerical differen-
+tiations of the experimental data with analytic derivatives
+of candidate functions, and apply the symbolic regression
+and the evolutionary algorithm to determining the nonlinear
+dynamical system. Recently, (Brunton et al., 2016), (Scha-
+effer, 2017), (Rudy et al., 2017) and (Wu & Zhang, 2017)
+proposed an alternative approach using sparse regression.
+They constructed a dictionary of simple functions and par-
+tial derivatives that were likely to appear in the unknown
+governing equations. Then, they took advantage of sparsity
+promoting techniques to select candidates that most accu-
+rately represent the data. When the form of the nonlinear
+response of a PDE is known, except for some scalar parame-
+ters, (Raissi & Karniadakis, 2017) presented a framework to
+learn these unknown parameters by introducing regularity
+between two consecutive time step using Gaussian process.
+(de Bezenac et al., 2017) studied the problem of sea surface
+
+---PAGE---
+
+PDE-Net: Learning PDEs from Data
+temperature prediction (SSTP). They assumed that the un-
+derlying physical model is an advection-diffusion equation.
+They designed a special neural network according to the gen-
+eral solution of advection-diffusion equations. Comparing
+with traditional numerical methods, their approach showed
+improvements in accuracy and decrease in computational
+time.
+These recent work greatly advanced the progress of the
+problem. However, symbolic regression is computationally
+expensive and does not scale very well to large systems. The
+sparse regression method requires to ﬁx certain numerical
+approximations of the spatial differentiations in the dictio-
+nary beforehand, which limits the expressive and predictive
+power of the dictionary. Although the framework present-
+ed by Raissi & Karniadakis (2017); Raissi et al. (2017)
+is able to learn hidden physical laws using less data than
+the approach of sparse regression, the explicit form of the
+PDEs is assumed to be known except for a few scalar learn-
+able parameters. The approach of de Bezenac et al. (2017)
+is speciﬁcally designed for advection-diffusion equations,
+and cannot be readily extended to other types of equations.
+Therefore, extracting governing equations from data in a
+less restrictive setting remains a great challenge.
+The main objective of this paper is to accurately predict
+the dynamics of complex systems and to uncover the under-
+lying hidden PDE models (should they exist) at the same
+time, with minimal prior knowledge on the systems. Our
+inspiration comes from the latest development of deep learn-
+ing techniques in computer vision. An interesting fact is
+that some popular networks in computer vision, such as
+ResNet(He et al., 2016a;b), have close relationship with
+PDEs (Chen et al., 2015; E, 2017; Haber & Ruthotto, 2017;
+Sonoda & Murata, 2017; Lu et al., 2018; Chang et al., 2018).
+However, existing deep networks designed in deep learning
+mostly emphasis on expressive power and prediction accu-
+racy. These networks are not transparent enough to be able
+to reveal the underlying PDE models, although they may
+perfectly ﬁt the observed data and perform accurate predic-
+tions. Therefore, we need to carefully design the network
+by combining knowledge from deep learning and applied
+mathematics so that we can learn the governing PDEs of the
+dynamics and make accurate predictions at the same time.
+1.2. Our Approach
+In this paper, we design a deep feed-forward network,
+named PDE-Net, based on the following generic nonlin-
+ear evolution PDE
+ut =F (x,u,∇u,∇2u,... ), x ∈ Ω⊂ R2, t ∈ [0,T ].
+The objective of the PDE-Net is to learn the form of the non-
+linear responseF and to perform accurate predictions. Un-
+like the existing work, the proposed network only requires
+minor knowledge on the form of the nonlinear response
+functionF , and requires no knowledge on the involved d-
+ifferential operators (except for their maximum possible
+order) and their associated discrete approximations. The
+nonlinear response functionF can be learned using neural
+networks or other machine learning methods, while discrete
+approximations of the differential operators are learned us-
+ing convolution kernels (i.e. ﬁlters) jointly with the learning
+of the response functionF . If we have a prior knowledge on
+the form of the response functionF , we can easily adjust the
+network architecture by taking advantage of the additional
+information. This may simplify the training and improve
+the results.
+A particular novelty of our approach is that we impose ap-
+propriate constraints on the learnable ﬁlters in order to easily
+identify the governing PDE models while still maintaining
+the expressive and predictive power of the network. This
+makes our approach different from existing deep convolu-
+tional networks which mostly emphasis on the prediction
+accuracy of the networks, as well as all the existing ap-
+proaches of learning PDEs from data which assume either
+the form of the response function is known or have ﬁxed
+approximations of the differential operators. In other words,
+our proposed approach not only has vast ﬂexibility in ﬁtting
+observed dynamics and is able to accurately predict its fu-
+ture behavior, but is also able to reveal the hidden equations
+driving the observed dynamics.
+2. PDE-Net: A Flexible Deep Archtecture to
+Learn PDEs from Data
+Given a series of measurements of some physical quantities
+{u(t,·) : t = t0,t 1,···} on the spatial domain Ω⊂ R2,
+withu(t,·) : Ω ↦→ R, we want to discover the governing
+PDEs of the data. We assume that the observed data are
+associated with a PDE that takes the following general form:
+ut(t,x,y ) =F (x,y,u,u x,u y,u xx,u xy,u yy,... ), (1)
+where (x,y )∈ Ω⊂ R2,t ∈ [0,T ]. Our objective is to
+design a feed-forward network, named the PDE-Net, that
+approximates the PDE (1) in the way that: 1) we can predict
+the dynamical behavior of the equation for as long time as
+possible; 2) we are able to reveal the form of the response
+functionF and the differential operators involved. There
+are two main components of the PDE-Net that are combined
+together in the same network: one is automatic determina-
+tion on the differential operators involved in the PDE and
+their discrete approximations; the other is to approximate
+the nonlinear response functionF . In this section, we start
+with discussions on the relation between convolutions and
+differentiations in discrete setting.

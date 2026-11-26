@@ -1,0 +1,61 @@
+301：300联合残余代理独立复核（2026-10-21）
+
+结论先行
+数值修复成功，300结果有效。J相对I_cap确有超出共同缩放的残余重分配；在双方可判定样本内tiny Geo0的normalized投影均值为正，但covered tiny也为正，全部Geo0按图效应A正/B负。只支持“此oracle几何代理存在分布差异”，不支持稳定、专门优待遗漏实例的主张，更不是AP/新候选生成或训练证据。是否值得保留joint是单独的模块决策；本代理不改变一阶段候选生成/真实裁片信息试验的结论。无事前效果gate，不补设事后门槛；仅凭本结果不建议为joint单独申请训练，也不将它作为整个候选的阴性。
+
+1. 来源与计算完整性
+只读300/00、01、02及16个逐batch JSON，重算已有文件SHA；未载NPZ内容、PT、模型或新数据，未重新求解。复核程序只用PowerShell JSON/哈希、BelowNormal、affinity[13,15]。
+155个source SHA全部一致；01的32个JSON/NPZ artifact全部一致；02索引包含00/01在内的34个文件全部一致。source_unchanged全部true。
+state=complete，8.031秒，16批、64曝光、128原窗。242个非空凸求解、1038个解析空/无条件子问题，合计1280份certificate均passed。153次Newton收尾，单问题最多1步，坐标后备0轮；原L-BFGS success与polish convergence均true。最大row excess/projected gradient均3.70759e−13；最大feasible gap8.52651e−14。原点上r_J≤r_Icap合同的最大数值超量9.40636e−14，低于原容差。
+所有PT/model/CP/forward/backward/autograd/optimizer/heldout计数0。
+
+科学参数未改变：16²网格，epsilon1/kappa0，原m/C、GT/P/窗、ABS2e−8、ACTIVE1e−9、主r与normalized误差界读法均沿292。298只在相同dual上收尾，原certify不变；没有activeface强置零、改cost、改阈值或换队列。294仍为工程精度故障，不作方法阴性；293→299也不是方法效果对照。
+
+2. 同可判定GT上的J−I_cap
+下表每行的raw与normalized都仅用双方normalized非NA的同一GT集合。raw是固定GT双线性B_g在真类质量平面上的投影，normalized是该投影除全窗总残余后的值，均非TP/AP。n/total为可判定GT/该完整可见cohort。GT邻域可重叠，投影和不能叫对象数。
+
+seed/窗     cohort                 n/total   Δraw均值       Δnormalized均值
+A/density   Geo0                   289/297   −0.01745129    +0.001272246
+            covered                154/188   −0.01135673    −0.000691183
+            tiny Geo0              164/166   −0.00901391    +0.001562925
+            tiny covered            14/14    −0.00057054    +0.000985985
+            secondary D0_P         305/314   −0.01692259    +0.001225149
+A/residual  Geo0                   247/255   −0.01988865    +0.001375209
+            covered                151/189   −0.01089074    −0.000519847
+            tiny Geo0              143/145   −0.01012369    +0.001716743
+            tiny covered            15/15    −0.00053542    +0.001547431
+            secondary D0_P         262/271   −0.01914032    +0.001388463
+B/density   Geo0                   516/517   −0.00671659    +0.000050571
+            covered                116/141   −0.01019198    +0.000252621
+            tiny Geo0              318/318   −0.00296812    +0.000365184
+            tiny covered            11/11    −0.00090925    +0.000109526
+            secondary D0_P         531/532   −0.00653837    +0.000277978
+B/residual  Geo0                   353/354   −0.00868022    +0.000440766
+            covered                113/132   −0.01316235    −0.000645082
+            tiny Geo0              213/213   −0.00276395    +0.000802410
+            tiny covered             7/7     −0.00000920    +0.002910256
+            secondary D0_P         368/369   −0.00832645    +0.000542837
+
+这些raw均为负与点上合同一致；不能把下降本身叫错误，也不能因normalized变正就说新实例更可生成。窗口总残余I_cap→J为A density200.9550→193.4055、A residual177.1619→169.8951、B density383.9971→378.6332、B residual264.7004→259.2450；null总量同幅减少。I与I_cap的可用残余理论等同，实测总量相同，修成可行本身没有新增attention收益。
+
+按图先聚合才看到的限定
+只用每图两窗中双方均可判定的paired差，先图内平均再跨图：
+  全Geo0 A +0.000633449（23图），B −0.000756929（25图）；
+  tiny Geo0 A +0.002591436（17图），B +0.001291063（22图）；
+  covered A −0.000119886（22图），B +0.000599075（24图）；
+  tiny covered A +0.002064470（11图），B +0.002255783（9图）。
+因此“pooled Geo0均正”不能替代“每图效应一致”。tiny上的正变化也不专属于Geo0。不同单臂有效窗集合可能不同，不能减单臂均值代替这里的paired差。
+
+3. NA与非共同缩放
+每项32窗，按I_cap/J有效窗数分别为A density24/23、A residual24/23、B density25/24、B residual24/24（有效包含无条件但m非空的解析窗）。
+I_cap共31个NA：10空质量、4精确零、17数值不可辨；J共34个NA：10空质量、0浮点精确零、24数值不可辨。主表没有把这些NA当0或负效应；也不将微小primal噪声强制归一化。J的94个可判定窗normalized L1差均值0.05216155、最大0.68338991；共同缩放残差L1最大2.54570738。因此确非处处只有整体缩小，但上述数值不是“提高了多少召回”。
+
+4. 对研究取舍的精确含义
+获得：原强控制I_cap确实与independent+clip同残余；联合解在同m/C/null下有额外空间重排，已排除“永远只是共同缩放”的代数等价解释。
+未获得：m是完整GT oracle；cost只有几何、kappa固定0，尚无可学m/null/视觉关联质量证据；已有框全P低阈值供应也未与高置信/score加权条件比较；没有追加候选、分类校准或AP。全部Geo0按图方向混合，covered tiny同样受益，不能据tiny归一化投影正值主张遗漏特异性。现在最多保留这个模块的可检验差别，不宣称joint必要。
+
+关键文件SHA256
+300/01_results.json：3578581c438d5ee0fe39d6008e2fbab45709b27284489c5e80ede7f4931915d3
+300/00_sources_and_synthetic.json：5d13f97c269436ba30530dd907e41592d7264b66e6d58d0b7b2eb0854c496022
+300/02_output_sha256.json：089733fb15fba0a15654f0f8d146e8013ec2405fe48cab4815bb34b3ce0daa7c
+299脚本：c3ba865bd804e7257b6f379bc237035d56e1c5e4d65fcd97d7fb1e2a163b6526

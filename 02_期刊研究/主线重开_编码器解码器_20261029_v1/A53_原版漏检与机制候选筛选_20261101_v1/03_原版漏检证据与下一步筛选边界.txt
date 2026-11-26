@@ -1,0 +1,51 @@
+A53原版漏检证据与下一步筛选边界。总目标active；尚无新候选或已确认主线。
+Material Passport: academic-research-suite，定向前期调研与缓存分析；所有本轮文献阅读为助手阅读。未声明用户已读。
+
+1. 当前研究问题与检索记录
+A52固定12三门槛未全部通过，当前完整离散边际关系配方已淘汰。A53先问：原版固定12最终输出对小目标还有哪些几何、类别和覆盖缺口？此为描述性问题，不提前指定网络层根因。
+两次检索共8条查询，原始返回见01/02；范围为DETR小目标定位、粗细中心/尺度回归、连续表示、相位下采样及航拍定位。部分返回与任务无关，未作为证据。不是系统综述，也不以无命中作为新颖性证明。
+
+2. 数据与原始评价口径
+VisDrone val548；沿用A49核验的ECDet-S原版B第12轮EMA，38602个被计分GT、153796个已过滤预测。GT/预测已按原class0 union IoA口径处理；maxDets300，small为原图裁剪后GT面积≤1024，不是输入画布面积。非官方挑战分数。
+本地从precision/recall数组重算8项AP/AR指标，最大绝对差7.11e-15pp。原版AP24.178231038，APs14.161091764。没有重新运行模型。
+下列召回是IoU0.50或0.75下的类别感知、一对一匹配数量/GT数量；不等同于跨IoU平均的ARs，也不是AP。使用全部已保留预测，无新增置信度截断。
+
+3. 已证实的缓存事实与数据计算
+小目标26444个；IoU0.50匹配16476，召回62.305%；IoU0.75匹配7011，召回26.513%。
+IoU0.50未匹配的小目标9968个，按预先固定规则分为：
+最终输出的最大任意类别IoU在[0.1,0.5)：5826，占未匹配小目标58.447%。
+没有任意类别IoU≥0.1的最终输出：3067，占未匹配小目标30.768%。
+存在IoU≥0.5的其他类别框，但没有合格同类框：968，占未匹配小目标9.711%。
+存在IoU≥0.5的同类框，但未获COCO一对一匹配：107，占未匹配小目标1.073%。
+这些分类描述最终输出形态。第一项不排除同时错类；不能直接写成“58%的漏检由回归头造成”。最后一项也不等于全部query交互影响，仅描述已保留合格框的匹配竞争。
+按原图640stretch后的短边像素分组，仍只统计原图面积≤1024的小目标：
+<2像素：GT536，IoU0.50召回2.052%，IoU0.75召回0.000%。
+2–4像素：GT4357，IoU0.50召回27.657%，IoU0.75召回4.039%。
+4–8像素：GT10200，IoU0.50召回61.725%，IoU0.75召回20.539%。
+≥8像素：GT11351，IoU0.50召回78.971%，IoU0.75召回41.758%。
+分组是描述性关联，类别、图像、遮挡等构成不同，不能把尺寸差异单独解释为下采样因果效应。
+
+4. 初筛核心文献与阅读范围
+SD-DETR，ICCV2023：当前只读CVF原文摘要。任务感知query生成、分类/定位空间解耦已有，不能把“定位专用分支”作为新的宽泛创新。https://openaccess.thecvf.com/content/ICCV2023/html/Zhang_Decoupled_DETR_Spatially_Disentangling_Localization_and_Classification_for_Improved_End-to-End_ICCV_2023_paper.html
+CFINet，ICCV2023：本轮仅检索页摘要片段/标题，未读方法全文。粗到细proposal与imitation已有，具体算子差异待原文核查。https://openaccess.thecvf.com/content/ICCV2023/html/Yuan_Small_Object_Detection_via_Coarse-to-fine_Proposal_Generation_and_Imitation_Learning_ICCV_2023_paper.html
+Feature Information Driven Position Gaussian Distribution Estimation for Tiny Object Detection，CVPR2025：当前原文摘要。信息图、位置高斯分布图监督和弱激活区域增强已有；不能把GT高斯辅助定位图当作新概念。https://openaccess.thecvf.com/content/CVPR2025/html/Bian_Feature_Information_Driven_Position_Gaussian_Distribution_Estimation_for_Tiny_Object_CVPR_2025_paper.html
+InvDet，CVPR2026：当前原文摘要。目标感知可逆编码和重建约束已有，但任务为红外小目标；没有由此证明RGB航拍收益。https://openaccess.thecvf.com/content/CVPR2026/html/Yan_Target-Aware_Invertible_Encoder_with_Reconstruction_Guidance_for_Infrared_Small_Target_CVPR_2026_paper.html
+HEDS-DETR，arXiv2507.00825：当前原文摘要。高频语义、小目标金字塔及几何位置编码组合已有；未读其完整算子或复现结果。https://arxiv.org/abs/2507.00825
+本次初筛尚不能提供相对最近方法的逐式完整比较；不得将摘要级查重包装为已确认研究空白。
+
+5. 历史排重与候选边界
+D007细尺度残差桥和D048目标感知Mosaic有旧阳性，保留；不当作被淘汰方向，也不重新包装成新模块。D011裁块有作用但约6.18视图，非等预算新算法。
+D024与A42已涉及几何/语义分离和定位专用读出；D025及撤回的A44涉及尺度归一化/读取分配；D069有网格相对中心与二分量几何备选。不能因本次看到定位缺口便把这些旧方案重新命名推荐。
+D061重复分数分摊不获旧缓存支持；D067特定两对错类解释范围有限；D071类别限额预检未过；D072标准NMS+重选有旧AP阳性但非创新、tiny TP不稳定。本轮未重跑这些方法。
+A52裁决只约束其精确关系配方；A53没有把它扩展为所有关系/分布表示均无效。
+
+6. 我们的推断、未证实部分与下一步
+[推断] 目前更有依据优先调查几何精度和最终输出覆盖缺口，而不是再凭信息接口空缺选择新的关系偏置。输入4–8像素组有明确的严格定位差距，值得作为机制设计的观察对象。
+[尚未证实] 最终覆盖不足发生在输入、encoder、proposal筛选、decoder、监督还是输出排序。现有缓存缺少query编号、全池、各层特征和FDR bins。当前只有有数据支持的问题，没有已成立的文献空白或新算法。
+[下一步] 从少数机制中给出具体操作，并完成旧编号/裁决、本次实质差异、新依据及强简单对照的对照；最近方法查重允许淘汰候选。合格后再冻结最小验证，单卡24GB、每组≤12轮；本轮未新分配GPU或训练。
+不要求先证明所有旧方法无效或完成全部因果链；当前诊断也不自动构成方法有效性或主线成立。
+
+7. 工程与计数的真实范围
+CPU COCO评价共2次：v1指标提取保护失败，v4完成。v1源码/协议/输出保留。v2准备脚本错误地替换了归档目录后缀，未执行；v3因嵌套输入路径错误在评价前退出。v4从原v1重建，仅替换输出名和原生precision/recall提取方式；数据、阈值、组别和1e−8容差未变。
+本阶段新增模型前向0、更新0、正式轮0。累计仍为185612整模型前向、155854正式更新、49容量更新、含容量155903更新、192正式轮；没有新训练队列。
+原始完整统计见error_audit_result_v4.json；逐GT描述见GT_error_rows_v4.csv；冻结协议及失败/修订记录均保留。

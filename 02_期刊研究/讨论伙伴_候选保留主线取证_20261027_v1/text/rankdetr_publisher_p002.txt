@@ -1,0 +1,56 @@
+This study’s primary focus revolves around constructing a high-quality object detector using DETR
+that exhibits strong performance at relatively high IoU thresholds. We acknowledge the criticality of
+establishing an accurate ranking order for bounding box predictions in constructing these detectors.
+To achieve this, we introduce two rank-oriented designs that effectively leverage the benefits of
+precise ranking information. First, we propose a rank-adaptive classification head and a query rank
+layer after each Transformer decoder layer. Rank-adaptive classification head adjusts the classification
+scores using rank-aware learnable logit bias vectors, while the query rank layer fuses additional
+ranking embeddings into the object queries. Second, we propose two rank-oriented optimization
+techniques: a loss function modification and a matching cost design. These functions facilitate the
+ranking procedure of the model and prioritize more accurate bounding box predictions with higher
+IoU scores when compared to the ground truth. In summary, our rank-oriented designs consistently
+enhance object detection performance, particularly the AP scores under high IoU thresholds.
+To validate the efficacy of our approach, we conducted comprehensive experiments, showcasing
+consistent performance improvements across recent strong DETR-based methods such as H-DETR
+and DINO-DETR. For example, based on H-DETR, our method demonstrates a notable increase
+in AP75 of +2.1% (52.9% vs. 55.0%) and +2.7% (55.1% vs. 57.8%) when utilizing ResNet-50 and
+Swin-T backbones, respectively. It is worth highlighting that our approach achieves competitive
+performance, reaching an 50.2% AP in the 1× training schedule on the COCO val dataset. These
+results serve as compelling evidence for the effectiveness and reliability of our proposed methodology.
+2 Related Work
+DETR for Object Detection. Since the groundbreaking introduction of transformers in 2D object
+detection by the pioneering work DETR [3], numerous subsequent studies[48, 11, 7, 63, 46] have
+developed diverse and advanced extensions based on DETR. This is primarily due to DETR’s
+ability to eliminate the need for hand-designed components such as non-maximum suppression
+(NMS). One of the first foundational developments, Deformable-DETR [78], introduced a multi-scale
+deformable self/cross-attention scheme, which selectively attends to a small set of key sampling
+points in a reference bounding box. This approach yielded improved performance compared to DETR,
+particularly for small objects. Furthermore, DAB-DETR [44] and DN-DETR [34] demonstrated that
+a novel query formulation could also enhance performance. The subsequent work, DINO-DETR [75],
+achieved state-of-the-art results in object detection tasks, showcasing the advantages of DETR design
+by addressing the inefficiency caused by the one-to-one matching scheme. In contrast to these works,
+our focus lies in the design of the rank-oriented mechanism for DETR. We propose rank-oriented
+architecture designs and rank-oriented matching cost and loss function designs to construct a highly
+performant DETR-based object detector with competitive AP75 results.
+Ranking for Object Detection. There exists a lot of effort to study how to improve the ranking
+for object detection tasks. For example, IoU-Net [31] constructed an additional IoU predictor and
+an IoU-guided NMS scheme that considers both classification scores and localization scores during
+inference. Generalized focal loss [37] proposed a quality focal loss to act as a joint representation of
+the IoU score and classification score. VarifocalNet [76] introduced an IoU-aware classification score
+to achieve a more accurate ranking of candidate detection results. TOOD [10] defined a high-order
+combination of the classification score and the IoU score as the anchor alignment metric to encourage
+the object detector to focus on high-quality anchors dynamically. In addition, ranking-based loss
+functions [53, 4, 49, 50, 32] are designed to encourage the detector to rank the predicted bounding
+boxes according to their quality and penalizes incorrect rankings. The very recent con-current work
+Stable-DINO [45] and Align-DETR [1] also applied the idea of IoU-aware classification score to
+improve the loss and matching design for DINO-DETR [ 75]. In contrast to the aforementioned
+endeavors, we further introduce a query rank scheme aimed to reduce false positive rates.
+Dynamic Neural Networks. In contrast to static models, which have fixed computational graphs
+and parameters at the inference stage, dynamic neural networks [ 15, 65] can adapt their struc-
+tures or parameters to different inputs, leading to notable advantages in terms of performance,
+adaptiveness [68, 13], computational efficiency [72, 73, 67, 60], and representational power [ 52].
+Dynamic networks are typically categorized into three types: sample-wise [ 27, 66, 18, 14, 51],
+spatial-wise [62, 28, 19, 17, 16], and temporal-wise [ 20, 64]. In this work, we introduce a novel
+query-wise dynamic approach, which dynamically integrates ranking information into the object
+queries based on their box quality ranking, endowing object queries with better representation ability.
+2

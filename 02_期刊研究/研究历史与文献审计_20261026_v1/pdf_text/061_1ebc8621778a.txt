@@ -1,0 +1,113 @@
+Academic Editors: Dongyu Li, Rui Li,
+Yinxia Cao and Haoyang Yang
+Received: 28 July 2026
+Revised: 26 August 2026
+Accepted: 26 August 2026
+Published: 7 September 2026
+Copyright:© 2026 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license.
+Article
+CPD-FCOS: A Scale-Isolated P2 Pathway for UA V
+Small-Object Detection
+Chaowen Xie 1, Cheng Zhang 1, Fei Meng 1, Shunbing Zhao 2, Wei Zhao 2
+ , Sijun Dong 2,* and Hanfa Xing 2
+1 Zhongshan Power Supply Bureau of Guangdong Power Grid Co., Ltd., China Southern Power Grid,
+Zhongshan 528400, China; scn2657@163.com (C.X.); 314355@163.com (C.Z.); blackstar_002@sina.cn (F.M.)
+2 Beidou Research Institute, School of Geography, South China Normal University, Foshan 528225, China;
+upbin@m.scnu.edu.cn (S.Z.); zhaowei1024@m.scnu.edu.cn (W.Z.); xinghanfa@sdnu.edu.cn (H.X.)
+*Correspondence: dongsijun@m.scnu.edu.cn
+Highlights
+What are the main findings?
+• A real stride-4 detection level supplies most of the accuracy gain in dense, multi-class
+VisDrone scenes, and also all of the added computation: +2.98 mAP for 2.05 × the
+end-to-end latency.
+• High-resolution capacity and constrained supervision are measurably complementary:
+added capacity alone buys recall without precision, and only constrained positive
+selection converts it into average precision.
+What are the implications of the main findings?
+• Fine-scale detection gains should be reported by object size: the advantage here grows
+as objects shrink and disappears on large objects.
+• A stride-4 path retains single-forward inference, but its cost falls on the detection head
+rather than on post-processing, which is where efficiency work should be directed.
+Abstract
+Small objects in UAV imagery fail for two coupled reasons. Repeated downsampling
+destroys their evidence—60.5% of VisDrone instances are COCO-small and the median
+object spans 26 pixels, so a typical target covers fewer than four cells at stride 8—and the
+in-box assignment rule then places most of their positive locations on object borders, where
+supervision is unreliable. The two reinforce each other: a finer level creates more candidate
+locations, but they help only if the assignment rule can select the reliable ones. We there-
+fore design representation and supervision together in CPD-FCOS (Center-constrainedP2
+Detail-enhanced FCOS): a real stride-4P2 level in a bidirectional pyramid, localized residual
+refinement at that level, and center-constrained, scale-bounded positive selection. Con-
+trolled experiments separate the two. On VisDrone, the stride-4 level supplies +2.98 mAP
+at 2.05× the end-to-end latency, while the refinement branch adds +0.55 mAP for 2.8%
+more parameters. Resolved by object size, the branch alone raises small-object recall but
+leaves AP unchanged; only constrained assignment converts that capacity into precision.
+The advantage is scale-specific, growing as objects shrink and reversing on the largest
+ones, and it is strongest in dense multi-class scenes—on vehicle-only and medium-object
+benchmarks, the pathway shifts the operating point rather than dominating. The result
+is a single-forward, reproducible reference design with an explicitly measured accuracy–
+efficiency trade-off.
+Remote Sens.2026,18, 3049 https://doi.org/10.3390/rs18173049
+
+---PAGE---
+
+Remote Sens.2026,18, 3049 2 of 28
+Keywords:UAV imagery; small-object detection; anchor-free detection; scale-isolated
+pathway; high-resolution feature pyramid
+1. Introduction
+Unmanned aerial vehicles (UAVs) offer strong maneuverability, wide observation
+coverage, and low deployment cost, and have become important sensing platforms for
+traffic monitoring, disaster search and rescue, power-line inspection, precision agriculture,
+and environmental monitoring. Object detection provides the basis for downstream multi-
+object tracking, counting, behavior analysis, and autonomous decision-making, and its
+reliability directly affects the practical usability of UAV vision systems. Compared with
+ground-view natural images, aerial images exhibit pronounced imbalance at the scale,
+spatial, and semantic levels [1]: flight altitude and the top-down viewpoint cause a large
+fraction of objects to occupy only a few to a few dozen pixels; instances such as vehicles and
+pedestrians often cluster non-uniformly and are accompanied by occlusion; and similar
+ground textures, motion blur, and a wide scale range further reduce the signal-to-noise ratio
+of features. These difficulties are especially prominent in benchmarks such as VisDrone [2]
+and UAVDT [3], causing generic detectors to suffer from missed detections, class confusion,
+and unstable boundary regression in UAV scenarios. Figure 1 makes the two coupled
+failure modes concrete on real data.
+0 20 40 60 80 100 120
+object size a√ rea  (px)
+0
+5000
+10,000
+15,000
+20,000
+number of objects
+    2  ellsc  wide  no  P3
+2 cells wide on P4
+(a) VisDrone train: 60.5% of objects are COCO-small
+median 26 px
+(b) P2, stride 4: 56×56 cells
+      (c)  P4,  stride  16:  14×14  cells
+(d) positives, in-box only: 531
+ (e) positives, + CGA: 303
+ground truth
+YOLOv11s
+(f) YOLOv11s: 6 det. / 43 GT  (g) CPD-FCOS: 8 det. / 43 GT
+ground truth
+CPD-FCOS
+Figure 1.Why fine-scale representation and positive-sample quality have to be designed together.
+(a) Object-size distribution of the VisDrone training set. In total, 60.5% of instances fall below the
+COCO small-object threshold, and the median object is 26 pixels across, so a typical target spans fewer
+than four cells at stride 8. (b,c) Responses of the trained pyramid on one 224 × 224 crop. Individual
+pedestrians remain separable on the stride-4 P2 level (56 × 56 cells) but merge into a few blobs on
+the stride-16 P4 level (14 × 14 cells). (d,e) Positive locations selected for the same crop. The in-box
+rule yields 531 candidates, many of them on object borders, whereas center-constrained assignment
+keeps 303. (f,g) Detection outputs of YOLOv11s and CPD-FCOS at a common score threshold of
+0.3. The crop was selected automatically as the densest tiny-object window in the validation image
+containing the largest number of tiny instances; it was not selected manually. All panels are generated
+from real data and trained model weights.
+In recent years, the two-stage Faster R-CNN [4], the one-stage RetinaNet [5], and the
+anchor-free FCOS [6] have advanced generic object detection, yet directly applying these
+paradigms to UAV imagery still faces two tightly coupled difficulties. First, successive
+https://doi.org/10.3390/rs18173049

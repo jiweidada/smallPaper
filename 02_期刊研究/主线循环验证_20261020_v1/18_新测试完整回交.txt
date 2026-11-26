@@ -1,0 +1,106 @@
+
+
+第三场新增实算，不是专家猜测：
+Q1: 后处理N/D/R探针原生重放门槛未通过，D/R没有被评估，不是阴性AP。seed1仅APm差1.1705e-8，旧门槛1e-8保留。seed2精度张量两个单元不同。当前和旧结果召回张量均完全一样，CPU分数重算存在最多5.96e-8差异；不能已确定归因为sigmoid或放宽门槛。详见 postprocessing_probe/failure.json、native_replay_audit/seed1.json和seed2.json。[{"seed":1,"precision_changes":[{"index":[7,6,0,2,2],"old":0.08771929824561403,"current":0.0876010781671159}],"recall_max_abs_difference":0,"score_difference":5.960464477539063e-8},{"seed":2,"precision_changes":[{"index":[0,24,3,2,1],"old":0.9090909090909091,"current":0.9086084905660378},{"index":[3,27,3,2,2],"old":0.8996865203761756,"current":0.8993218570683359}],"recall_max_abs_difference":0,"score_difference":5.960464477539063e-8}]
+Q2: 相对几何分布离散度U的同次前向缓存筛查已完成。全部16预测文件SHA与原始analysis绑定相等，不拼接新旧indices；BASE24 online、development00-07、32增强图、每seed9600ordinaryqueries。U为实际非均匀offset方差乘ref尺寸平方，除最终宽高平方与reg_scale平方，四边之和。绝对尺度代数抵消，所以不能称像素空间绝对不确定性新原理。原生LQE只输入四边top4概率及其均值，没有直接输入bin坐标，但classifier特征可能间接包含。
+目标是同图同预测类GT的maxIoU（不是一对一TP/AP）。不训练评分头。partial-rank为样本内线性投影：控制生产maxlogit、最终宽高、四边entropy、LQE20输入、同样定义的等索引坐标U、ref/final宽高比例、类别onehot。它仅排除线性秩关联的一部分，不能称排除全部LQE容量/非线性和类别密度混淆。没有p值、独立泛化或检测收益主张。
+[
+  {
+    "seed": 1,
+    "groups": {
+      "all": {
+        "n": 9600,
+        "raw_spearman_U_vs_IoU": -0.5687948448974423,
+        "partial_rank_U_vs_IoU": -0.08977431168712025,
+        "nuisance_columns": 40,
+        "residual_U_std": 384.142401405392,
+        "residual_IoU_std": 1810.3360306802635
+      },
+      "score_ge_.1": {
+        "n": 6188,
+        "raw_spearman_U_vs_IoU": -0.5282413526104901,
+        "partial_rank_U_vs_IoU": -0.086964454282673,
+        "nuisance_columns": 40,
+        "residual_U_std": 258.01754442063196,
+        "residual_IoU_std": 1325.722794324675
+      },
+      "score_ge_.3": {
+        "n": 1848,
+        "raw_spearman_U_vs_IoU": -0.49157530647978226,
+        "partial_rank_U_vs_IoU": -0.027560597077664353,
+        "nuisance_columns": 40,
+        "residual_U_std": 71.65598042740595,
+        "residual_IoU_std": 434.4589829351372
+      },
+      "score_ge_.1_size_lt32": {
+        "n": 5909,
+        "raw_spearman_U_vs_IoU": -0.5150498160448216,
+        "partial_rank_U_vs_IoU": -0.09258756746415232,
+        "nuisance_columns": 40,
+        "residual_U_std": 247.763957795405,
+        "residual_IoU_std": 1276.8820275612081
+      }
+    },
+    "batch_allquery_partial_correlations": [
+      -0.01786860426470956,
+      -0.09742482200044336,
+      -0.004802917311538751,
+      -0.10618852770659726,
+      -0.1619482368625665,
+      -0.062156282732737406,
+      -0.07510637186441069,
+      -0.140134519461405
+    ],
+    "box_reconstruction_error": 6.401095942187851e-8
+  },
+  {
+    "seed": 2,
+    "groups": {
+      "all": {
+        "n": 9600,
+        "raw_spearman_U_vs_IoU": -0.5800609934757591,
+        "partial_rank_U_vs_IoU": -0.11457339912378117,
+        "nuisance_columns": 40,
+        "residual_U_std": 459.43976413409956,
+        "residual_IoU_std": 1801.7886933401178
+      },
+      "score_ge_.1": {
+        "n": 5811,
+        "raw_spearman_U_vs_IoU": -0.5510557156771938,
+        "partial_rank_U_vs_IoU": -0.08624547447291987,
+        "nuisance_columns": 40,
+        "residual_U_std": 247.09934035713334,
+        "residual_IoU_std": 1255.654111985393
+      },
+      "score_ge_.3": {
+        "n": 1820,
+        "raw_spearman_U_vs_IoU": -0.5237668673744601,
+        "partial_rank_U_vs_IoU": -0.06917154123273524,
+        "nuisance_columns": 40,
+        "residual_U_std": 65.49429028851823,
+        "residual_IoU_std": 423.3321842895326
+      },
+      "score_ge_.1_size_lt32": {
+        "n": 5473,
+        "raw_spearman_U_vs_IoU": -0.5363346747531323,
+        "partial_rank_U_vs_IoU": -0.07777848658360192,
+        "nuisance_columns": 40,
+        "residual_U_std": 233.04629604236717,
+        "residual_IoU_std": 1192.8172297606336
+      }
+    },
+    "batch_allquery_partial_correlations": [
+      -0.11765705072079005,
+      -0.12507861854686553,
+      -0.03989106655244301,
+      -0.06501225055382671,
+      -0.2022373458666581,
+      -0.11026986775688462,
+      -0.11785585976685947,
+      -0.12410429866954857
+    ],
+    "box_reconstruction_error": 8.570194948154253e-8
+  }
+]
+完整证据和预先口径：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/主线循环验证_20261020_v1/quality_dispersion_probe_v2/01_protocol.json 和02_results.json，代码quality_dispersion_probe.py。首版OpenMP冲突已保留，去SciPy并改顺序MKL后完成，绝未启用KMP_DUPLICATE_LIB_OK。
+Q3 近邻新增原文：GaussianYOLOv3 arxiv1904.04620v2 HTML §3.3 Eq10已实际读到，把分类×objectness×(1-average localization uncertainty)评分。所以简单U惩罚分数早已有先例。https://arxiv.org/html/1904.04620v2 。GFLv2原文已读§3.2，分布统计LQE已知；D-FINE现有LQE采用相同topk范式。不能因换非均匀方差或多一个输入就轻率称实质创新。Shadow-DETR只读出版社摘要、原文不可得，严格标范围。

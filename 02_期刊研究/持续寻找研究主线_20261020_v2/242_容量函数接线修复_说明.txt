@@ -1,0 +1,24 @@
+242：230 容量函数接线修复说明（执行前冻结）
+
+一、故障与范围
+根代理执行 230 的 synthetic-only 已通过；完整运行于首个 A_development_batch00 调用 P.B.matching_count 时抛出 AttributeError。231/FAILED.json 记录 1 次预测缓存读取、1 次 native matcher 调用，尚无完成的 batch 结果；所有模型/CP/forward/backward/VJP/autograd/update/heldout 计数为 0。这是接口接线错误，不是方法阴性，也不为改变方法提供结果依据。
+
+二、唯一业务修复
+新 243 从冻结 230 复制。237.P 是 223，223 的 P.A 经 209→192→183 指向 159；P.B 指向 183，且 P.B.A 与 P.A 为同一个模块。matching_count 定义于 159，183 并未导出该函数。因此将容量统计中的 P.B.matching_count(edge) 改为 P.A.matching_count(edge)。159 原函数仍使用稀疏二分图最大匹配，空图返回 0；不改其算法、图、阈值或查询容量。
+
+三、执行前补充合成检查
+在读取真实预测缓存之前断言 P.A is P.B.A，并直接调用修复后的 P.A.matching_count：0×0、0×3、3×0、2×3 全零图均返回 0；图 [[1,1,0],[1,0,0],[0,0,1]] 返回 3；图 [[1,0],[1,0],[0,1]] 返回 2。结果写入原 synthetic 输出。保留 230 的全部几何、编码、native parity 和 saved-GO portability 合成检查。由根代理审查后运行，C 不执行脚本或模型。
+
+四、冻结口径与新输出
+229 继续是唯一方法事前协议。N/F4/E4/C4/F8/E8/C8/T2、k=4 主检/k=8 描述、固定 saved GO/own、同支持 E 对照、native FP32 与共同 FP64 编码分存、原 gate、容差、真实输入尺度、16 个 development 缓存、资源限制及零模型/梯度预算全部不变。不扩统计，不使用未完成数据选择方法或尺度。
+243 默认输出新目录 244_BASE24_cached_displacement_floor_probe_fixed，禁止覆盖已有目录。保留 229/230/231 全部文件不变；新增的 242、旧 230 和 231 FAILED 作为 source provenance，执行前和结束后检查哈希。修复不表示已完成完整诊断。
+
+五、历史文件冻结身份
+229_绝对位移标度_缓存诊断事前协议.txt
+SHA256 a1ce08c7ca815c93ceec1c877530b959e9cb6ccd1659847cb8c941b89799166a
+230_BASE24_cached_displacement_floor_probe.py
+SHA256 21905053354bfe2fef4189a454914e258c92e5cf341ff48142653fd87ed55c51
+231_BASE24_cached_displacement_floor_probe/FAILED.json
+SHA256 094ce4611ea2efcb15d88aae29b48783f456c41b4cd38cdd5eeea28b1546e1b1
+
+新 242 的冻结 SHA256 写入 243；243 自身由根代理执行前校验并进入新运行 source manifest。除上述接口、合成覆盖、来源锁定和输出身份修正之外，不修改冻结 230 的方法实现。

@@ -1,0 +1,201 @@
+A maximum-mean-discrepancy goodness-of-ﬁt test for censored data
+Tamara Fern´ andez
+Gatsby Computational Neuroscience Unit
+University College London
+t.a.fernandez@ucl.ac.uk
+Arthur Gretton
+Gatsby Computational Neuroscience Unit
+University College London
+gretton@gatsby.ucl.ac.uk
+UCL UCL
+Abstract
+We introduce a kernel-based goodness-of-ﬁt
+test for censored data, where observations
+may be missing in random time intervals:
+a common occurrence in clinical trials and
+industrial life-testing. The test statistic is
+straightforward to compute, as is the test
+threshold, and we establish consistency un-
+der the null. Unlike earlier approaches such
+as the Log-rank test, we make no assump-
+tions as to how the data distribution might
+diﬀer from the null, and our test has power
+against a very rich class of alternatives. In
+experiments, our test outperforms competing
+approaches for periodic and Weibull hazard
+functions (where risks are time dependent),
+and does not show the failure modes of tests
+that rely on user-deﬁned features. Moreover,
+in cases where classical tests are provably
+most powerful, our test performs almost as
+well, while being more general.
+1 Introduction
+Survival analysis is a branch of statistics focused on
+the study of time-to-event data, usually called survival
+times. This type of data usually appears in applica-
+tions such as industrial life-testing, death times of pa-
+tients in clinical trials or duration of unemployment
+in a population. An important characteristic of this
+type of data is that survival times may be censored,
+meaning that we do not observe the actual value of
+a survival time but a bound for it. For instance, it is
+not uncommon that in a clinical trial, the actual death
+Proceedings of the 22 nd International Conference on Ar-
+tiﬁcial Intelligence and Statistics (AISTATS) 2019, Naha,
+Okinawa, Japan. PMLR: Volume 89. Copyright 2019 by
+the author(s).
+time of a patient is only known to be within an interval
+of time.
+Arguably, the most common type of censoring is in-
+dependent right-censoring which occurs when, instead
+of observing the actual survival time, say X, we ob-
+serve a lower bound T for it, i.e., we observe T and
+we know that X > T. Other less common types of
+censoring mechanisms are independent left and inter-
+val censoring. Respectively, left and interval censoring
+arise when we observe either an upper boundT instead
+of the failure time X or an interval (Tl,Tu)⊆ R+ in
+which the failure time X falls. A reasonable assump-
+tion we make is that the censoring mechanisms are
+non-informative about the distribution of the survival
+timesX. We will provide a more extensive description
+of our setting and terminology in Section 2.
+While in most statistical/machine-learning applica-
+tions the cornerstone for analysing data is the distri-
+bution function, in survival analysis the main objects
+of study are the hazard function and the survival func-
+tion. For a survival time X with density f and distri-
+bution F , its survival function S is deﬁned by 1−F ,
+and its hazard function λ byf/S . While the survival
+S(t) function gives us the probability a patient sur-
+vives up to time t, the hazard λ(t) function is the in-
+stant risk of death given that she has survived until
+time t. Additionally, we deﬁne the cumulative hazard
+function by Λ(t) =
+∫t
+0λ(x)dx. It can be checked that
+S(t) =e−Λ(t) and thusS andλ are in a 1-1 correspon-
+dence.
+The hazard function is extremely important in ap-
+plications, and diﬀerent families of hazard functions
+give rise to diﬀerent problems in the area. Exam-
+ples of important families are proportional hazards,
+which in a clinical trial may represent treatments with
+constant beneﬁt/dis-beneﬁt over time (when compared
+with the baseline), and crossing hazards, representing
+treatments that may have a negative impact at the
+beginning but long-term beneﬁts, e.g. chemotherapy,
+among other behaviours. Distinguishing between dif-
+
+---PAGE---
+
+A maximum-mean-discrepancy goodness-of-ﬁt test for censored data
+ferent hazard functions is a fundamental problem in
+survival analysis.
+In this paper, we study goodness of ﬁt, i.e. the problem
+of testing the null hypothesis H0 :λ =λ0, or alterna-
+tively, H0 : S = S0, where λ0 and S0 denote some
+speciﬁed hazard and survival functions in the setting
+of independent right censoring.
+A few methodologies have been proposed to attack
+this problem. The Log-rank test is the most pop-
+ular among practitioners. This test is based on the
+simple idea of comparing the cumulative hazard func-
+tion under the null against the empirical cumulative
+hazard function. Among the good properties of this
+test, we have that the Log-rank test is the most pow-
+erful test for proportional hazard alternatives. Unfor-
+tunately, when the true relationship of the hazards is
+time-dependent it may lead to wrong decisions, i.e. low
+power [1]. An option to increase the power of Log-rank
+tests against time-dependent alternatives is to consider
+weighted Log-rank tests. These tests have been exten-
+sively studied [9, 18, 16]; see [1, 22] for details. By
+choosing an appropriate weight function, the weighted
+Log-rank test can be tailored to be optimal under spe-
+ciﬁc alternatives, at the expense of reduced perfor-
+mance against other alternatives. Modern approaches
+attempt to increase overall test power by consider-
+ing the combination of several weighted Log-rank tests
+into a single test-statistic, e.g. [6, 8, 12]. Nonetheless,
+weight-based approaches require us to hand-design the
+weight functions in advance, in anticipation of a par-
+ticular set of alternatives. Moreover, the amount of
+data required by the test grows with the number of
+weights chosen.
+As an alternative to log-rank tests, there exist a num-
+ber of Chi-squared tests under censoring [25], [2] and
+[17], where the space is ﬁrst partitioned, and the em-
+pirical probability of uncensored events is then com-
+pared in chi squared distance with its expectation (the
+latter requiring an estimate of the censoring distribu-
+tion). See [1] and [13] for more detail.
+Yet another approach, described in [3] is based on
+deﬁning a kernel density estimate for the survival func-
+tion, i.e. for S = 1−F (obtained using a slightly mod-
+iﬁed Kaplan Meier procedure), with the test statistic
+then deﬁned as the squared diﬀerence between this
+density estimate and the model density. Since this pro-
+cedure relies on density estimation as an intermediate
+step, it has been found to be relatively data-ineﬃcient,
+compared with more direct tests (see e.g. the recent
+discussion in [12]). We have independently conﬁrmed
+this issue in our own experiments.
+In the present work, we propose a new goodness of
+ﬁt test for censored data, based on distances between
+probability distribution embeddings in a reproducing
+kernel Hilbert space (RKHS) [7, Chapter 4], [29]. A
+particular challenge arises due to the unknown cen-
+soring distribution: correcting for this directly using
+e.g. a Kaplan-Meier estimate of the survival time [21]
+leads to a more complex estimator when compared to
+the uncensored case, making standard tasks as boot-
+strapping or computing limiting distributions very dif-
+ﬁcult. Indeed, in this setting, naively applying the
+Kaplan-Meier estimator together with standard ker-
+nel test [5, 32] would lead to a potential incorrectly
+calibrated test.
+Instead, we construct a sample mapping that requires
+no such correction, which we describe in Section 3. We
+emphasise that our approach does not require evalua-
+tion nor integration of the hazard function under the
+null, which can be challenging. In Section 4 we de-
+ﬁne a test statistic for these transformed data based
+on the maximum mean discrepancy [14], which is the
+RKHS distance between two distribution embeddings.
+The resulting test statistic is a simple V-statistic, and
+hence the test threshold can readily be obtained using
+a wild bootstrap procedure.
+In Section 6, we illustrate the performance of our
+model for a number of use-cases, both for proportional
+hazards (where the classical Log-rank test is provably
+most powerful) and for time-varying hazards, includ-
+ing periodic and Weibull hazard functions. In the case
+of proportional hazards, we perform almost as well as
+the most powerful model, despite our test being more
+general; in the case of periodic hazards, we greatly
+outperform alternative approaches and in the case of
+Weibull hazards we also outperform alternative ap-
+proaches.
+2 Problem setting
+We brieﬂy explain the setting of censored data, and
+associated challenges. Let X1,...,X n be a ran-
+dom sample from a continuous distribution of inter-
+est F on R+ and, independent from this sample,
+consider C1,...,C n
+i.i.d.
+∼ G from a nuisance distri-
+bution G. The data we observe correspond to the
+pairs (T1, ∆1),... (Tn, ∆n), whereT = min{X,C} and
+∆ = 1{T =X}. This data-framework corresponds to
+independent right censoring.
+Given this data, the task of estimating the cumula-
+tive distribution function F = 1 − S of the failure
+times can not be solved by using the empirical dis-
+tribution. Indeed, the empirical estimator given by
+Hn(x) = ∑
+Ti≤x
+1
+n approximates the distribution of
+the minimum ofX andC, i.e.,H = 1−(1−F )(1−G).
+Alternatively, if we drop all the observations that we

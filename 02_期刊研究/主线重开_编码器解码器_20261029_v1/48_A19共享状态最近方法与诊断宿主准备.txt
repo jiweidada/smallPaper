@@ -1,0 +1,64 @@
+当前判断：尚未找到可以定稿的算法主线。共享状态中的实例干扰仍是待检验问题；通用状态重加权、输出门控、HSM-SSD移植或HSM-SSD+CGLU均已有近邻。本轮将后续诊断宿主落实为VSSD-Tiny正式版本，完成权重本地核验、上传和CPU数据读取，未执行新模型前向或训练。宿主准备不能替代创新性和失败机制证据。
+
+1. 检索策略与记录
+定向非系统检索围绕共享状态、KV/输出秩、直接小目标应用及公开实现。7次web请求、20条检索式和原始返回见source_audit_v1/A19_web_evidence_records.json。会议官方PDF用于方法核对，作者固定提交用于算子核对；应用论文与仅摘要线索保留阅读范围。岭回归/Delta、同名无线天线及建筑变化分割检索结果未作为无人机小目标框检测的方法证据。没有把检索未命中当作无人做过。
+方法页已渲染核对：EfficientViM、RALA的PDF第3-5页，PFE-Det第12-15页。EVMDet出版页可读摘要，但所谓PDF下载返回HTML，已按HTML保存，不冒充取得全文。
+
+2. 核心文献矩阵与阅读范围
+EfficientViM（CVPR2025）：完整3.1-3.3、算法1/命题1陈述和部分4.2/消融表，作者检测骨干与工具代码已读；未读完补充证明或执行模型。它将主要通道投影和门控放入压缩状态，使用逐状态写入权重；整个block仍有局部卷积、FFN及旁路。
+RALA / Breaking the Low-Rank Dilemma of Linear Attention（CVPR2025）：完整3.1-3.3及选定检测源码已读，未读完全部附录/实验。全局query条件化的KV写入权重、逐token输出调制均已存在。作者观测到的秩提升不能直接当作我们数据上的实例可分性保证。
+EVMDet（PRCV2025会议，出版方First Online为2026-02-07；DOI10.1007/978-981-95-5758-5_30）：目前仅出版方摘要/元数据和参考文献列表。摘要已明确在VisDrone2019与SODA-D验证EfficientViM小目标检测，并提出训练期HADF与SAFE；完整算子和代码未取得，不能宣称已逐公式排清。
+PFE-Det（Sensors2026，DOI10.3390/s26155003）：摘要、部分框架/引言、完整3.4及其3个子节、图4-5与数据可用性段落已读，未完整审阅其他模块/训练/作者代码。它在DEIM的P3/P4融合分支加入HSM-SSD和CGLU，P5保留Transformer。因此“SSM交互加局部门控做航拍小目标”已有直接先例。
+矩阵由72条增为76条。作者AP/FPS均不作为我们的复现结果；本报告不做跨论文指标排名。
+
+3. 算子对照与排除的通用增量
+VSSD：全局非因果状态交互后，保留逐token门控、局部CPE、归一化及旁路；已有2D位置编码和P2。
+EfficientViM：把部分逐token通道计算移至状态域，以计算代价换取表示方式的变化。这是作者明确的近似设计；其等价命题有N=L等特殊条件，不能扩大到任意压缩状态。公开检测骨干的stem连续4次stride2，输出名义步长16/32/64，而非P2/P3/P4/P5。
+RALA：源码实际还包含RoPE、5×5 LePE、归一化和输入条件输出门控。不能只按论文的简化乘积式比较，也不能把再加这些组件当新贡献。
+PFE-Det：直接覆盖HSM-SSD与空间门控在航拍检测中的结合。EVMDet摘要足以排除“首次把EfficientViM用于VisDrone”的说法，但不足以排除所有更细的算法差异。
+这组对照使VSSD更适合作为当前机制诊断宿主：它原生保留步长4及位置/局部通路，可避免将分辨率差异误算成共享状态优劣。此选择是诊断设计，不是已选定论文最终算法或发现新缺陷。
+三个固定树中本轮下载的7个文件已绑定Git blob，具体范围见A19_共享状态近邻与诊断宿主准备_v1/source_operator_audit.json。未执行作者源码，不宣称旧MMDetection环境已复现。DeepSeek架构继续作为已核验机制参照，名称、语言缓存复用或OCR语义顺序不能直接充当检测贡献。
+
+4. 研究空白、推断和待验证假设
+原文事实：状态域通道混合、上下文重加权、token输出调制及直接小目标应用已经存在。
+源码事实：HSM的B/C为一般特征，不能默认AB是非负且归一的实例概率分配；完整编码块也不只有一个低秩全局分支。
+推断：不能用“状态少于目标数”推导最多可检测多少目标，也不能由单分支低秩断定整个编码器已丢掉实例信息。现阶段没有建立“共享状态导致VisDrone相邻目标漏检”的因果证据。
+待验证假设：在保留P2、位置编码与局部旁路后，某个原生状态写入/读取通路是否仍对邻近微小实例产生有害交互，且简单已有重加权/门控控制不能解释它。
+本轮尚未确认可发表的文献空白。只有上述机制证据与独立方法差异同时保留，才把问题升级为算法主线。
+
+5. 候选增量与主要风险
+目前没有获准进入训练的新模块。只保留“固定状态/计算预算下的空间归属写入或读取”作为条件性设计空间；不能用一句空间归属包装已有位置编码、局部卷积、RALA式门控或动态Top-K。
+主要风险：EVMDet与PIDE-Net完整方法仍缺；原生全局上下文可能有益；HSM/NC-SSD差异不一定影响小目标；新宿主训练不足也可能制造假性瓶颈。必须区分数学性质、作者实验、我们的资源测量和最终任务改进。
+单卡约24GB/数天的资源约束保留。当前没有真实前反向显存、稳定吞吐或训练总时长结论。不会因为骨干有28M参数或权重能读取，就宣称整套训练可行。
+
+6. 已完成的宿主准备及最小验证路线
+作者VSSD仓库固定c10de2f8b717a04459b09cbd651de2e768f302c8；ICCV权重库固定09d3849997190d2e590f0709e89fb5735ffecdb7。vssd_tiny_mesa.pth共453140982字节，SHA256为853f5719558dffcf8a629f4eb07b18914e397dc33f122525b1e2933d138cd545，与HF LFS元数据一致。
+按照本地下载、校验、再上传执行，远端独立目录中的文件也已校验。CPU读出model和model_ema各347个张量键，head为1000类，表明这是分类预训练数据；28384367个张量元素包含缓冲区，不冒充实测参数量。尚未实例化作者模型，也未严格装载其state_dict。
+首次weights_only读取因附带CfgNode配置元数据失败。随后仅将该未用于模型构造的元数据映射为无自定义行为的dict子类，仍用weights_only=True完成张量数据读取；原始文件未改，两次回执和脚本均保留。这不是模型数值兼容性检查。
+远端只读快照：RTX3090、24576MiB总显存、24252MiB空闲；Python3.9.7、Torch2.6.0+cu124。新宿主所需timm/einops/fvcore未安装，未来预检前需使用隔离依赖，不改既有Torch/NumPy/torchvision或旧实验环境。该快照不保证以后始终空闲。
+
+下一阶段草案见next_capacity_protocol_DRAFT.json，尚未冻结或执行：
+a. 先补齐依赖、严格装载分类EMA，明确移除分类头/增加检测输出归一化的映射，并固定宿主适配代码与输入hash。
+b. 宿主采用VSSD-Tiny加现有Dome-S颈部/解码器接口，四路输入通道96/192/384/768、步长4/8/16/32、800方形输入、原生250-500 query预算。颈部/解码器从共同随机初始化开始，不把旧VisDrone整模权重嫁接后当独立泛化证据。这不是新算法。
+c. 输入仅选VisDrone训练图，按有效GT数量选定两张高负载图并冻结原图/标注和变换；不使用test。
+d. 拟议上限为3次完整宿主调用：eval FP32 batch1、train AMP batch1、train AMP batch2；后两次各一次临时AdamW更新，以包含真实优化器状态显存。临时权重丢弃，更新单列，不用来报告精度。任何形状/权重错误、非有限梯度或OOM均保留并停止；不自动换分辨率或版本挽救结果。
+e. 预检只回答指定宿主能否运行；新状态干预、训练后瓶颈分析和正式训练须另冻结其科学问题、控制与结局。A18的Dome独立样本限制保持，不放宽5前缀的规则。新宿主的预测独立性与训练暴露单独定义。
+这不是新增用户许可环节，现有授权持续有效；未完成的是代码/数据/协议准备。没有自动接续160轮或旧DEIM/压缩/恢复队列。
+
+本轮0次新完整前向、0次后缀、0拟合/优化器更新；CPU只读预训练张量数据。架构分支仍累计252次完整前向，历史72次后缀单列。主目标保持ACTIVE，没有把宿主准备当成已找到主线。
+
+7. 可核验参考
+EfficientViM: Efficient Vision Mamba with Hidden State Mixer based State Space Duality. Lee, Choi, Kim. CVPR2025.
+https://openaccess.thecvf.com/content/CVPR2025/papers/Lee_EfficientViM_Efficient_Vision_Mamba_with_Hidden_State_Mixer_based_State_CVPR_2025_paper.pdf
+https://github.com/mlvlab/EfficientViM/tree/304340cb9c339b61669250d058525c9cdadd5e93
+Breaking the Low-Rank Dilemma of Linear Attention. Fan, Huang, He. CVPR2025.
+https://openaccess.thecvf.com/content/CVPR2025/papers/Fan_Breaking_the_Low-Rank_Dilemma_of_Linear_Attention_CVPR_2025_paper.pdf
+https://github.com/qhfan/RALA/tree/a86314f62103c21a1c7e6d826fe4cb0f5586e7b0
+EVMDet: EfficientViM for Small Object Detection. Zhang et al. PRCV2025, first online2026.
+https://doi.org/10.1007/978-981-95-5758-5_30
+PFE-Det: Progressive Feature Evolution for Small Object Detection in UAV Aerial Images. Fang et al. Sensors2026.
+https://doi.org/10.3390/s26155003
+VSSD正式预训练资产：
+https://huggingface.co/YuhengSSS/VSSD_ICCV_weights/tree/09d3849997190d2e590f0709e89fb5735ffecdb7
+本文为单助手辅助定向调研与资产准备，不是系统综述、作者模型复现、成功训练或创新性通过声明。
+

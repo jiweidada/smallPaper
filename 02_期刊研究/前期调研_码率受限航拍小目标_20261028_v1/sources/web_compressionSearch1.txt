@@ -1,0 +1,317 @@
+YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG (https://www.mdpi.com/2079-3197/14/9/206)
+ [wordlim: 200] Published: last month; Crawled: last week; 
+
+7 September 2026
+
+23 Pages
+
+# YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG
+
+Rostyslav Tsekhmystro^{ 1,2,*},
+
+Vladimir Lukin^{ 1} and
+
+Dmytro Krytskyi^{ 2}
+
+^{1}
+
+Department of Information-Communication Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{2}
+
+Department of Design Information Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+Computation2026, 14(9), 206;https://doi.org/10.3390/computation14090206
+
+This article belongs to the Special Issue Integrated Computer Technologies in Mechanical Engineering—Synergetic Engineering V
+
+Version Notes
+
+Order Reprints
+
+## Abstract
+
+Methods for object localization and classification in images acquired from unmanned aerial vehicles (UAVs) quickly develop and find new applications. Pre-trained convolutional neural networks (CNNs) play the key role in solving these tasks. However, there are many factors that degrade the quality of acquired images and make the performance of methods intended for object detection and classification worse. One such factor is lossy compression of acquired images or video data widely used to pass them from on-board sensors and devices of preliminary data processing to on-land centers that perform further data processing for retrieval of valuable information. Both CNNs applied for localization and classification, and lossy compression techniques used to reduce the transferred data size have an impact on final results. To study this impact, we analyze the performance of several modifications of YOLO (You Only Look Once) CNNs applied to color images compressed by JPEG, which continues to be one of the basic compression tools. The quality factor is varied within wide limits to detect the situation when distortions due to lossy compression start to become too large and have a considerable negative effect on the localization and classification of objects of different types and sizes. Analysis is carried out using several traditional criteria, including Intersection over Union, F1, and mAP metrics, as well as some others. Dependence of localization and classification characteristics on the object size is performed. The datasets VisDrone and TAI are employed in training and verification.
+
+## 1. Introduction
+
+Unmanned aerial vehicles (UAVs) have found numerous civil and military applications nowadays [1,2]. It is possible to mention urban planning and development of smart cities [3,4], detection and identification of explosive ordnance [5], precision agriculture [6], battlefield control [7], and so on. These applications have appeared and developed, in particular, due to the fact that UAVs and drones have on board one or several types of sensors that are capable of acquiring one or several images or videos of an object or territory of interest [8]. Although infrared, radar, and hyperspectral sensors are gaining popularity in drone applications [9,10,11], optical sensors operating in visible range and offering conventional color images remain the most popular due to several reasons [12]. For example, they are able to provide high-resolution imaging and ensure low-power acquisition of high-accuracy data (compared to active types of sensors).
+
+Meanwhile, lossy compression usually has a specific and mainly negative impact on different classification tasks. The impact of lossy compression on terrain classification has been studied in remote sensing applications for several decades (see [33,34,35] for more detail). The general tendency is that a larger compression ratio (CR) associated with more distortions introduced (and worse quality according to most metrics) leads to worse classification, where classification accuracy remains practically the same for distortions that are invisible (just above the noticeable difference (JND) point #1 [36] where distortion becomes visible for the first time). If CR becomes larger, i.e., distortions become visible, classification accuracy characterized by probabilities of correct classification for all or particular classes starts to reduce, and the speed of this reduction increases. It is important that such tendencies take place for different types of lossy compression techniques (based on wavelets or discrete cosine transform (DCT)).
+
+Note also that, under certain conditions, lossy compression might even improve the classification accuracy [37,38], but this usually happens if original images contain quite intensive noise.
+
+Several papers deal with the impact of lossy compression on object localization and classification [29,30,31,39,40,41]. The paper [41] is one of the first to address object detection in JPEG-compressed images. It shows that full decompression might not be needed, and an object can be detected using DCT coefficients’ processing by the pre-trained SSD network. The authors of the paper [29] state that there are many datasets in which the images contained in these datasets are already lossy compressed, and this can result in certain problems in CNN training. They also state that considerable reduction in performance can be observed for large CR. The MobileNetV2, VGG16, VGG19, ResNet50, NASNetMobile and NASNetLarge classifiers are studied in [39], and it is demonstrated that lossy compression using atomic wavelets has practically no negative impact on classification for visually lossless image compression. The authors of [30] apply CNN to the most important DCT coefficients and show that the designed network classifier is quite resilient to JPEG quality, but its performance depends on spatial resolution. The authors of [40] consider five types of distortions, namely blur, noise, contrast, JPEG, and JPEG2000 compression, and show that modern networks are sensitive to these distortion types, particularly to blur and noise. Note that distortions due to lossy compression are, in some sense, similar to noise and blur [42], although statistical and spatial spectral characteristics of distortions due to lossy compression considerably depend on the coder used, CR, and image properties.
+
+### 2.2. Considered YOLO Versions
+
+YOLO neural networks are arguably among the most widely used convolutional neural networks for object detection and classification, given the number of modifications and studies. Such neural networks are quite accurate [51,52] in localization and classification and efficient [53] in terms of speed, and they also offer an optimal balance between performance and accuracy. It is common to compare different versions of YOLO with one another, as well as their modifications [51,52,53].
+
+Based on an analysis of our previous research and that of other authors, as well as information from the Ultralytics repository, it was determined that the “nano” variant of the neural network delivers the best performance. Additionally, the “medium” version offers the best accuracy-to-execution-time ratio, which in turn represents a reasonable compromise for most systems. Taking these factors into account, the “nano” (n) and “medium” (m) variants were used in this work for three generations of YOLO neural networks, namely YOLOv5, YOLOv8, and YOLOv11. Thus, the list of models used is as follows: YOLOv5n, YOLOv5m, YOLOv8n, YOLOv8m, YOLOv11n, and YOLOv11m.
+
+### 2.3. Criteria of Accuracy for Object Localization and Classification
+
+Commonly used metrics were employed as criteria for evaluating the accuracy of neural networks. One of the main metrics for determining localization quality is the Intersection over Union (IoU) [43] metric, which reflects the overlap ratio of the predicted and annotated bounding boxes relative to their union and is measured on a scale from [0;1]. Mathematically, it can be represented as follows (1):
+
+$$IoU\text{ }=\text{ }{\displaystyle \frac{Area\text{ }of\text{ }Overlap}{Area\text{ }of\text{ }Union}}\text{ }=\text{ }{\displaystyle \frac{\left|{B}_{p}\bigcap {B}_{gt}\right|}{\left|{B}_{p}\bigcup {B}_{gt}\right|}},$$
+
+(1)
+
+where B_{p} is the predicted box, B_{gt} is the ground truth (annotated) box.
+
+The F1 (micro-weighted) score [44] is used to measure the quality of classification in this work. In essence, it represents the harmonic mean of Precision and Recall, as expressed in Equations (2) and (3).
+
+$$Precision={\displaystyle \frac{TP}{TP+FP}},$$
+
+(2)
+
+where TP is the number of correctly detected objects, FP is the number of falsely detected objects.
+
+$$Recall={\displaystyle \frac{TP}{TP+FN}},$$
+
+(3)
+
+where FN is the number of missed objects/false negative detections.
+
+In turn, the F1 metric combines these two metrics into one and expresses their ratio on a scale from 0 to 1, which can be mathematically represented as follows (4):
+
+$$F1\text{ }=\text{ }2·{\displaystyle \frac{Precision\text{ }·Recall}{Precision\text{ }+\text{ }Recall}}\text{ }=\text{ }{\displaystyle \frac{2·\mathrm{T}\mathrm{P}}{2·\mathrm{T}\mathrm{P}+\mathrm{F}\mathrm{P}+\mathrm{F}\mathrm{N}}},$$
+
+(4)
+
+The mAP metric [45] was also selected to reflect the overall accuracy of the neural network. It comprehensively reflects the accuracy of the neural network, taking into account the quality of both localization and classification. It uses IoU to determine threshold values and Precision and Recall to calculate accuracy metrics. Thus, this metric is comprehensive and reflects the overall accuracy of the model. Mathematically, it can be represented as follows (5):
+
+$$mAP\text{ }=\text{ }{\displaystyle \frac{1}{N}}{\displaystyle {\sum }_{i\text{ }=\text{ }1}^{N}}{AP}_{i},$$
+
+(5)
+
+where N is the number of classes, AP is the Average Precision for the i-th class, which is calculated as the integral (or area under the curve) of the Precision/Recall ratio. Mathematically, AP is represented as the average of interpolated Precision values across 101 Recall values {0, 0.01, 0.02, …, 0.99, 1.0}, as shown in Equation (6):
+
+$$AP\text{ }=\text{ }{\displaystyle \frac{1}{101}}{\sum }_{r\in \{\mathrm{0,0.01,0.02},\dots ,\mathrm{0.99,1.0}\}}{Precision}_{interp}\left(Recall\right),$$
+
+(6)
+
+The metrics listed above cover the full range of necessary model accuracy indicators, taking into account localization and classification accuracy separately as well as their combined evaluation, and are widely used. Thus, the values obtained in this work can be used to compare the neural networks presented, as well as other (third-party) modifications, taking into account the metrics presented in this work.
+
+For all experiments, we set the same IoU and confidence thresholds for evaluating the metrics. Specifically, the IoU threshold was set to 0.1 to prevent the loss of matches for imprecisely localized regions. In experiments conducted to assess the impact of compression, the confidence level threshold was set at 0.1 to reduce the number of false positives in the resulting predictions, as well as to bring the conditions closer to more real ones.
+
+In our research on the impact of compression on the performance of neural networks, we used the mAP_{0.5:0.95} metric, which reflects the average AP value for IoU thresholds in the range [0.5, 0.95]. This approach is consistent with the standard COCO mAP evaluation metric.
+
+## 3. Experiment Description
+
+### 3.1. Used Datasets
+
+To achieve good performance for a neural network used for object localization and classification, one of the most important factors is the correct selection of the dataset. It must correspond to the required final characteristics of the neural network, namely the ability to localize and classify a specific class structure of objects, specific features, camera-relative projections, and other factors affecting object discrimination. Therefore, during the design and training stages of the neural network, it is necessary to select a suitable dataset.
+
+In our work, we used the VisDrone dataset [54] to train the neural network, as it fully meets the required final characteristics of the network. It contains a fairly large number of images and therefore allows for the training of deeper neural networks. Also, the specific nature of the data is important for the task at hand; namely, the images must be captured using a UAV, with object projections characteristic of this method, and the data in the dataset meets these criteria. Another factor contributing to the dataset’s quality is the accuracy of its annotation, specifically the absence of large internal gaps, which allows for more precise object localization. The dataset consists of 10 classes: “pedestrian”, “person”, “bicycle”, “car”, “van”, “truck”, “tricycle”, “awning-tricycle”, “bus”, “motorcycle”; the total size of each class, as well as the percentage of the entire sample, is shown in Table 1.
+
+Image
+
+Table 1. The number of regions for each class in the training and test sets of VisDrone dataset.
+
+Table 1 also presents the parameters for the validation portion of the VisDrone dataset. An analysis of the statistics reveals a large number of annotated regions for vehicles, specifically “truck,” “car,” and “van,” as well as many regions containing people (“person,” “pedestrian”).
+
+Given the specific nature of the training dataset and the research focus, it is important to select a test dataset to evaluate the accuracy of localization and classification by trained neural networks when images are compressed in JPEG format. The need to select a different dataset for verification stems from several reasons: first, a separate dataset can ensure realistic statistics that do not depend on the neural network’s memorization level but are solely based on its predictions. Additionally, the dataset must contain a large number of images and annotated regions; however, the VisDrone dataset has a rather limited amount of data in its validation set, as shown in Table 1. Taking these factors into account, the Traffic Aerial Images (TAI) dataset [55] has been selected for testing, as it contains a large number of images and is effectively divided into parts. Also, it has a region labeling scheme similar to that of the VisDrone dataset. Specifically, each of the subsets has distinct characteristics focused on the localization and classification of vehicles. Additionally, each of the subsets has distinct characteristics regarding imaging and projections. Therefore, we selected a subset that matches the imaging characteristics of the VisDrone dataset and contains only the “vehicle” class, comprising 24,820 regions of various sizes across 2332 images. In the selected subset, only the passenger car was labeled; therefore, we used direct mapping of the “car” class in the trained neural network to the “vehicle” class. Other classes were not ignored, but the representations were as negatively classified.
+
+### 3.2. Neural Networks’ Training
+
+The neural networks presented in Section 2.2 were trained on the Ultralytics platform using the VisDrone dataset. Data augmentation techniques were also employed to improve the performance of the neural networks and enhance final accuracy across different datasets. These included Mosaic (p = 1.0, close_mosaic = 10), RandomPerspective (degrees = 0.0, translate = 0.1, scale = 0.5, shear = 0.0, perspective = 0.0), MixUp (p = 0.0), CutMix (p = 0.0), Albumentations (p = 1.0, Blur (p = 0.1), MedianBlur (p = 0.1), ToGray (p = 0.1), CLAHE (p = 0.1), RandomBrightnessContrast (p = 0.1), RandomGamm (p = 0.1)), RandomHSV (hgain = 0.015, sgain = 0.7, vgain = 0.4), RandomFlip (direction = ’vertical’, p = 0.0) and RandomFlip (direction = ’horizontal’, p = 0.5). The infrastructure parameters, optimizer settings, and hyperparameters used during the training process are presented in Table 2. The final number of epochs was set to 300 for each neural network, but EarlyStopping was also used with patience = 50 (corresponding to 16% of the total number of epochs), and for all neural network modifications, the training was stopped within the range of 170–240 epochs. It is worth noting that the neural networks of the “nano” version converged 60–70 epochs later than the models of the “medium” version. The batch size was set to 16 for the ‘nano’ versions and to 8 for the ‘medium’ versions due to hardware limits imposed by GPU memory (VRAM). However, given the use of the Gradient Accumulation algorithm with a Nominal Batch Size (NBS) of 64, the effective batch size for optimizer updates remains strictly identical (Effective Batch Size (EBS) = 64), ensuring no bias in gradient calculations during training. The training was performed using an NVIDIA RTX 4060 Ti graphics card. The results obtained for the mAP metric during validation for the best neural network versions are shown in Figure 2. In the case of metric calculation in the Ultralytics training infrastructure, a confidence threshold of 0.001 was set to prevent the exclusion of regions with low accuracy. This is slightly different from calculating the metric for the experimental part, where the threshold was set at 0.1. Establishing an underestimated threshold (0.001) during the learning process ensures high sensitivity of the model to relevant patterns and prevents premature cutting off of boundary examples.
+
+According to the data obtained, the medium variant of the neural networks performs better than the nano variant. It is also worth noting that newer-generation neural networks (YOLOv11) achieve higher mAP scores with the medium variant. The YOLOv5 neural network has the lowest accuracy.
+
+### 3.3. Statistics of Compressed Images in the Verification Set
+
+JPEG compression was applied using the standard implementation available in the library, with default chroma subsampling (4:2:0). The quality factor (QF) parameter was varied to control the compression level, while all other encoding parameters were held fixed.
+
+This approach ensures that the observed effects are directly related to QF changes and are independent of additional encoder-specific optimizations. The chosen implementation corresponds to widely used practical scenarios where standard JPEG encoding is used for real-time image transmission in UAV systems.
+
+JPEG compression has been applied to images in the dataset TAI (we used the version of JPEG available at https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving accessed on 21 April 2026). Taking into account the data in Figure 1a and the results of their analysis, we have studied seven values of QF, namely, 15, 20, 30, 40, 60, 80 and 90. For each compressed image, we have calculated PSNR and PSNR-HVS-M. Mean, minimal, and maximal values of these metrics have been determined. The obtained results for the metric PSNR are presented in Figure 3a,b. We also calculated the score of bits per pixel (BPP) and the compression ratio (CR) for images as a function of the quality factor (QF). The resulting values are presented as graphs in Figure 3c,d.
+
+### 4.2. Analysis for Objects of Any Size on TAI
+
+The CNNs trained for the VisDrone dataset have been applied to the TAI dataset for verification and studying the influence of compression on localization and classification results. In line with the previous experiment, confidence intervals were also calculated for all levels using the same parameters (95%, 2000 simulations). Figure 8 shows the results obtained for the IoU metric. As can be seen, when the QF value changes, the positioning accuracy of the correctly predicted regions according to the IoU metric remains virtually unchanged. Confidence intervals largely overlap for all QF levels (both adjacent and extreme), indicating that fluctuations in metric values are statistically insignificant. The medium versions of YOLO yield higher IoU values. Metric results for nano versions are slightly higher in newer versions (YOLOv8n, YOLOv11n) compared to YOLOv5n.
+
+Image
+
+Figure 8. IoU values (given over bars) for images in the TAI dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval) for all regions.
+
+Consider now the F1 metric. The obtained data are given in Figure 9. Analysis shows the following. First, there is no clear pattern indicating which version of YOLO is more accurate. The results for the YOLOv5m version are worse than for YOLOv5n. This may be due to the smaller number of regions detected by the YOLOv5n neural network, which in turn reduces the number of misclassified regions. For the YOLOv8n and YOLOv8m versions, the F1 score is practically the same. For YOLOv11m, the accuracy is slightly higher than for YOLOv11n. For YOLOv5n, YOLOv5m and YOLOv8m, a slight decrease in the F1 score (p to 0.01) is observed when QF is changed, and there is also a partial overlap of the confidence intervals across the entire QF range, indicating that these changes in the metric are statistically insignificant. Specifically, for YOLOv8n, YOLOv11n, and YOLOv11m, we observe a more significant decrease in the F1 score when changing QF (0.02–0.03 between the extreme values, or 0.01 for YOLOv11n), as well as non-overlapping confidence intervals for the QF boundary values, indicating a drop in the metric for these neural networks when images are compressed.
+
+Image
+
+Figure 9. F1 values (given over bars) for images in the TAI dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval) for all regions.
+
+Finally, Figure 10 shows the results for the mAP_{0.5:0.95} metric. From a statistical standpoint, these results are quite similar to those obtained for the VisDrone dataset. As image quality (QF) drops, the metric value also decreases for most neural networks (except for YOLOv8m, where an anomaly is observed with an increase in the metric for QF values < 30, rising to nearly uncompressed levels). In this case, the confidence intervals do not overlap between the QF thresholds (original/QF = 15), confirming that the decrease in accuracy under strong compression is statistically significant. It is also noticeable that the results for the mAP_{0.5:0.95} metric are quite similar for most versions of the neural networks (with the exception of YOLOv11n).
+
+Image
+
+Figure 10. mAP_{0.5:0.95} values (given over bars) for images in the TAI dataset without compression (original, the leftmost bar in a group) and with compression using QF equal to 90, 80, 60, 40, 30, 20 and 15 (hatched region: 95% bootstrap confidence interval) for all regions.
+
+Summarizing the results, we can conclude that lossy compression using JPEG begins to affect the localization and classification of objects only when QF ≤ 40 (which is primarily reflected in the mAP_{0.5:0.95} metric). In general, the “nano” versions show worse results predominantly in terms of the mAP_{0.5:0.95} metric. However, we will draw final conclusions after analyzing the task of localizing and classifying small objects.
+
+
+## 6. Conclusions
+
+In this paper, we have considered the task of object localization and classification in JPEG lossy compressed color images acquired from UAVs. It is shown that introduced distortions might have a negative impact on such performance characteristics as F1 and, especially, mAP_{0.5:0.95}. Among detections that remain successfully matched, bounding-box overlap changes relatively little under JPEG compression for objects of all sizes, whereas overall detection performance decreases, as reflected mainly by the mAP_{0.5:0.95} metric. For small objects, a more pronounced degradation is also observed in IoU. This is mainly observed if images are compressed with rather small QF, namely for QF ≤ 40, which corresponds to a PSNR of about 33 dB and smaller. Note that the use of QF ≥ 20 usually provides rather large compression ratios.
+
+It is also demonstrated that the negative impact of lossy compression is considerably larger for small-sized objects (containing less than 200 pixels) for which F1, IoU and, especially, mAP metrics’ values significantly differ from the corresponding average values estimated for all size objects present in images. This means that the task of reliable detection, localization, and classification of small-sized objects remains actual.
+
+Our analysis has been carried out for six versions of YOLO CNNs (YOLOv5, YOLOv8, and YOLOv11, nano and medium versions). According to some metrics (e.g., mAP_{0.5:0.95}), medium versions have advantages, especially for small-sized objects (in this case, medium versions are also preferable according to IoU). Meanwhile, according to IoU for all objects, the difference is not large across the entire QF range (especially on the VisDrone dataset). At the same time, for small objects, there is a decrease in the IoU metric (compared to stable values for objects of all sizes), which is caused by the specific characteristics of small objects, namely the size of the bounding boxes. For small objects, a difference in a few pixels is much more noticeable than for all objects.
+
+The obtained results quantitatively demonstrate that the degradation of detection performance due to JPEG compression follows a nonlinear trend, with a relatively stable region at moderate compression levels and a rapid decline at low QF values. Furthermore, the analysis shows that small-object detection is more sensitive to compression artifacts than detection evaluated over objects of all sizes.
+
+Furthermore, it was shown that small object detection is significantly more sensitive to compression artifacts compared to larger object detection. This supports the hypothesis that preserving fine spatial detail is crucial for reliable detection in UAV imagery.
+
+A comparison of different YOLO architectures shows that medium-sized models provide more stable performance under compression, especially in challenging scenarios involving small objects. This makes them preferable for practical applications where reliability is more important than minimal computational cost.
+
+In the future, in our opinion, it is worth studying other datasets as well as other techniques of lossy compression tending to replace JPEG nowadays, e.g., better portable graphics (BPG) [62] or a versatile video coding (VVC), version for intra-frames [63].
+
+## Author Contributions
+
+Conceptualization, D.K. and V.L.; methodology, V.L.; software, R.T.; validation, V.L. and R.T.; formal analysis, R.T. and D.K.; investigation, R.T., V.L. and D.K.; resources, R.T. and V.L.; data curation, V.L.; writing—original draft preparation, R.T.; writing—review and editing, V.L. and D.K.; visualization, R.T.; supervision, V.L.; project administration, D.K.; funding acquisition, D.K. All authors have read and agreed to the published version of the manuscript.
+
+## Funding
+
+The research has been funded by the National Research Foundation of Ukraine (https://nrfu.org.ua/en/, accessed on 24 June 2025) within Project No. 2025.06/0037 “A system for detecting and recognizing camouflaged and small objects based on the use of modern computer vision technologies” (2025–2026).
+
+## Data Availability Statement
+
+The VisDrone dataset used for training is available at https://github.com/VisDrone/VisDrone-Dataset (accessed 30 October 2025). The TAI dataset is available at https://www.kaggle.com/datasets/javiersanchezsoriano/traffic-images-captured-from-uavs (accessed 30 October 2025).
+
+## Conflicts of Interest
+
+The authors declare no conflicts of interest.
+--------------------------------------------------------------------------------
+Lost in Compression: The Impact of Lossy Image Compression on Variable Size Object Detection Within Infrared Imagery (https://openaccess.thecvf.com/content/CVPR2022W/PBVS/papers/Bhowmik_Lost_in_Compression_The_Impact_of_Lossy_Image_Compression_on_CVPRW_2022_paper.pdf)
+ [wordlim: 200] Crawled: 10 months ago; 
+Lost in Compression: the Impact of Lossy Image Compression on Variable Size Object Detection within Infrared Imagery
+
+Neelanjan Bhowmik¹, Jack W. Barker¹, Yona Falinie A. Gaus¹, Toby P. Breckon¹,²  
+Department of {Computer Science¹, Engineering²}, Durham University, Durham, UK
+
+**Abstract**
+
+Lossy image compression strategies allow for more efficient storage and transmission of data by encoding data to a reduced form. This is essential enable training with larger datasets on less storage-equipped environments. However, such compression can cause severe decline in performance of deep Convolution Neural Network (CNN) architectures even when mild compression is applied and the resulting compressed imagery is visually identical. In this work, we apply the lossy JPEG compression method with six discrete levels of increasing compression {95, 75, 50, 15, 10, 5} to infrared band (thermal) imagery. Our study quantitatively evaluates the affect that increasing levels of lossy compression has upon the performance of three diverse object detection architectures (Cascade-RCNN, FSAF and Deformable DETR) with respect to varying sizes of objects present in the dataset. When training and evaluating on uncompressed data as a baseline, we achieve maximal mean Average Precision (mAP) of 0.823 with Cascade R-CNN across the FLIR dataset, outperforming prior work. The impact of the lossy compression is more extreme at higher compression levels (15, 10, 5) across all three CNN architectures. However, re-training models on lossy compressed imagery notably ameliorated performances for all three CNN models with an average increment of ~76% (at higher compression level 5). Additionally, we demonstrate the relative sensitivity of differing object areas {tiny, small, medium, large} with respect to the compression level. We show that tiny and small objects are more sensitive to compression than medium and large objects. Overall, Cascade R-CNN attains the maximal mAP across most of the object area categories.
+
+**1. Introduction**
+
+The use of infrared-band (thermal) camera imagery (Figure 1) within the task of visual surveillance is well established with applications within target detection, visual tracking, behaviour analytics, home monitoring, and automotive environment perception [3, 24–26, 29, 44, 46]. --------------------------------------------------------------------------------
+Lost in Compression: the Impact of Lossy Image Compression on Variable Size Object Detection within Infrared Imagery (https://arxiv.org/abs/2205.08002)
+ [wordlim: 200] Published: 4.5 years ago; Title: Lost in Compression: the Impact of Lossy Image Compression on Variable Size Object Detection within Infrared Imagery ... In this work, we apply the lossy JPEG compression method with six discrete levels of increasing compression {95, 75, 50, 15, 10, 5} to infrared band (thermal) imagery. ... However, re-training models on lossy compressed imagery notably ameliorated performances for all three CNN models with an average increment of ~76% (at higher compression level 5).
+--------------------------------------------------------------------------------
+Learning to Compress Unmanned Aerial (https://sigport.org/sites/all/modules/pubdlcnt/pubdlcnt.php?fid=8725)
+ [wordlim: 200] Published: 7 months ago; 
+Learning to Compress Unmanned Aerial 
+Vehicle (UAV) Captured Video: 
+Benchmark and Analysis
+Chuanmin Jia1, Feng Ye1, Huifang Sun2, Siwei Ma1,2, Wen Gao1,2
+1Peking University, Beijing, China
+2Peng Cheng Laboratory, Shenzhen, China--------------------------------------------------------------------------------
+Learning to Compress Unmanned Aerial Vehicle (UAV) Captured Video: Benchmark and Analysis (https://arxiv.org/abs/2301.06115)
+ [wordlim: 200] Published: 3.8 years ago; Title: Learning to Compress Unmanned Aerial Vehicle (UAV) Captured Video: Benchmark and Analysis ... During the past decade, the Unmanned-Aerial-Vehicles (UAVs) have attracted increasing attention due to their flexible, extensive, and dynamic space-sensing capabilities. ... Then we propose to establish a novel task for learned UAV video coding and construct a comprehensive and systematic benchmark for such a task, present a thorough review of high quality UAV video datasets and benchmarks, and contribute extensive rate-distortion efficiency comparison of learned and conventional codecs after.
+--------------------------------------------------------------------------------
+dblp: Learning to Compress Unmanned Aerial Vehicle (UAV) Captured Video: Benchmark and Analysis. (https://dblp.org/rec/journals/corr/abs-2301-06115.html)
+ [wordlim: 200] Crawled: 4 months ago; 
+
+# "Learning to Compress Unmanned Aerial Vehicle (UAV) Captured Video: ..."
+
+  * help us
+
+    * How can I correct errors in dblp?
+    * contact dblp
+
+Chuanmin Jia et al. (2023)
+
+  *   * Image: use mirror server
+
+Dagstuhl
+
+  * Trier
+
+  * > Home
+
+## Details and statistics
+
+  * show external API response
+
+    * JSON @ openalex.org
+
+see also:
+
+    * API doc @ openalex.org
+
+DOI: 10.48550/ARXIV.2301.06115
+
+access: openImage
+
+type: Informal or Other Publication
+
+metadata version: 2025-10-28
+
+  * Image: Informal and Other Publications
+
+    * view
+
+      * electronic edition via DOI (open access)
+
+
+dblp key:
+
+      * journals/corr/abs-2301-06115
+
+    * ask others
+
+      * Google
+      * Google Scholar
+      * Semantic Scholar
+      * Internet Archive Scholar
+      * CiteSeerX
+      * PubPeer
+
+    * share record
+
+      * Bluesky
+      * Reddit
+      * BibSonomy
+      * LinkedIn
+
+persistent URL:
+
+      * https://dblp.org/rec/journals/corr/abs-2301-06115
+
+Chuanmin Jia, Feng Ye, Huifang Sun, Siwei Ma, Wen Gao:
+Learning to Compress Unmanned Aerial Vehicle (UAV) Captured Video: Benchmark and Analysis. CoRR abs/2301.06115 (2023)
+
+Image--------------------------------------------------------------------------------
+Lost in Compression: the Impact of Lossy Image Compression... (https://arxivlens.com/paperview/details/lost-in-compression-the-impact-of-lossy-image-compression-on-variable-size-object-detection-within-infrared-imagery-3074-1705505)
+ [wordlim: 200] Published: 4.5 years ago; Crawled: last week; 
+
+Back ArXiv cs.CV Lost in Compression: the Impact of Lossy Image Compression on Variable Size Object Detection within Infrared Imagery
+
+ArXiv cs.CV cs.AI
+
+# Lost in Compression: the Impact of Lossy Image Compression on Variable Size Object Detection within Infrared Imagery
+
+Jack W. Barker, Neelanjan Bhowmik, Toby P. Breckon, Yona Falinie A. Gaus
+
+2205.08002 Published May 18, 2022
+
+Chat with paper Cite 中文 View PDF Share
+
+### Publication
+
+Published: May 18, 2022
+
+Categories: cs.CV, cs.AI
+
+### Metrics
+
+Source: ArXiv
+
+### AI Quick Summary
+
+This research investigates the impact of lossy JPEG compression on the performance of various object detection architectures in infrared imagery. The study finds that higher compression levels significantly degrade detection performance, but re-training models on compressed data can improve results by approximately 76%. Tiny and small objects are more sensitive to compression compared to medium and large objects. 

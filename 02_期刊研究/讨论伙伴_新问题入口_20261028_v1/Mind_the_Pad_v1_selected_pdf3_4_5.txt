@@ -1,0 +1,130 @@
+=== PDF page 3 ===
+Under review as a conference paper at ICLR 2021
+It is evident that the 1-pixel border variations in the second map are caused by the padding mecha-
+nism in use. This mechanism pads the output of the previous layer with a 1-pixel 0-valued border in
+order to maintain the size of the feature map after applying a 3x3 convolutional kernel. The maps in
+the ﬁrst layer are not impacted because the input we feed is zero valued. Subsequent layers, however,
+are increasingly impacted by the padding, as preceding bias terms do not warrant 0-valued input.
+It is noticeable in Figure 2 that the artifacts caused by the padding differ across the four borders. To
+investigate this asymmetry, we analyze the convolutional kernels (often called ﬁlters) that produce
+the feature maps. Figure 3 depicts a per-layer average of these 3x3 kernels. These average kernels
+exhibit different degrees of asymmetry in the spatial distribution of their weights. For example, the
+kernels in L1 assign (on average) a negative weight at the left border, and a positive weight at the
+bottom. This directly impacts the padding-induced variation at each border. Such asymmetries are
+related to uneven application of padding as we explain in Section 5.
+Figure 3: Average kernel per convolutional layer. All kernels are 3× 3, the titles show their counts.
+3 I MPLICATIONS OF SPATIAL BIAS
+We demonstrate how feature-map artifacts can cause blind spots for the SSD model. Similar issues
+arise in several small-object detectors, e.g., for faces and masks, as well as in pixel-oriented tasks
+such as semantic segmentation and image inpainting (see supplemental for examples).
+Figure 4 illustrates how the SSD predicts small objects based on the feature maps of the 11-th
+convolutional layer. The SSD uses the pixel positions in these maps as anchors of object proposals.
+Each proposal is scored by the SSD to represent a target category, with ”background“ being an
+implicit category that is crucial to exclude irrelevant parts of the input. In addition to these scores,
+the SSD computes a bounding box to localize the predicted object at each anchor. We examine
+Figure 4: The formation of blind spots in SSD, illustrated via its box predictor internals with a
+zero-valued input. The predictor uses spatial anchors to detect and localize the target object at
+45× 80 possible locations based on 512 feature maps. Certain anchors are predisposed to predict
+background due to feature-map artifacts, as evident in the logit maps. Trafﬁc lights at the corre-
+sponding location cannot be detected as demonstrated with a real scene (middle one in the bottom).
+3
+=== PDF page 4 ===
+Under review as a conference paper at ICLR 2021
+Figure 5: (a) A map showing via color the detection score the SSD computes for a trafﬁc light when
+present at various locations. The detection is muted when the stimulus lies in the area impacted by
+the artifacts. (b) The same map after changing the padding method to SYMMETRIC. The detection
+scores are rather constant except for periodic variations due to the SSD’s reliance on anchors.
+object proposals computed at 1:2 aspect ratio, as they resemble the shape of most trafﬁc lights in the
+dataset. We visualize the resulting score maps both for the background category and for trafﬁc lights,
+when feeding a 0-valued input to the SSD. We also visualize the bounding boxes of these proposals
+in the image space. The SSD predicts the image content to be of background category at all anchor
+locations, as evident from the value range in both score maps. Such predictions are expected with
+an input that contains no trafﬁc lights. However, the line artifacts in the feature maps have a strong
+impact on the score maps. These artifacts elevate the likelihood of anchors closer to the top to be
+classiﬁed as background (see the yellow band in the background score map). Conversely, these
+anchors have signiﬁcantly lower scores for the trafﬁc light category, compared with other anchors in
+the feature map. Such difference in the impact on the target categories is due to the different weights
+the SSD assigns to the feature maps for each target. As a result, the artifacts lead to potential blind
+spots in which the scores for certain categories are artiﬁcially muted.
+To validate whether or not the blind spots hinder object detection, we examine road scenes that
+contain highly-visible trafﬁc light instances in the impacted area. Figure 4-bottom shows an example
+of such a scene. The SSD computes a low detection score of 7% when the trafﬁc light lies in the
+blind spot (see middle image), far below the detection false-positive cutoff. Shifting the scene image
+upwards or downwards makes the instance detectable with a high score as long as it lies outside the
+blind spot. This explains the failure cases mentioned in Section 1. To further validate this effect, we
+run the SSD on baseline images that each contains one trafﬁc light instance at a speciﬁc location in
+the input. We store the detection score for each instance. Figure 5a depicts the computed scores in a
+2D map. It is evident that the model fails to detect the trafﬁc light instance exactly when it is located
+within the “blind spot” band. The artifacts further disrupt the localization of the objects as evident
+in the top-right plot in Figure 4 which shows per-anchor object proposals computed for a 0 input.
+4 R EMINDER : W HY IS PADDING NEEDED IN CNN S?
+Padding is applied at most convolutional layers in CNNs to serves two fundamental purposes:
+Maintaining feature map size A padding that satisﬁes this property is often described asSAME or
+HALF padding. FULL padding expands the maps by kernel size - 1 along each dimension.
+VALID padding performs no padding, eroding the maps by the same amount. SAME padding is
+important to (1) design deep networks that can handle arbitrary input size (a challenge in the presence
+of gradual erosion), (2) maintain the aspect ratio of non-square input, and (3) concatenate feature
+maps from different layers as in Inception [35] and ResNet [11].
+Reducing information bias against the boundary Consider a 3×3 kernel applied to a 2D input.
+An input location at least 2 pixels away from the boundary contributes to nine local convolution
+operations when computing the feature map. On the other hand, the corner is involved only one time
+under VALID padding, four times under a 1-pixel SAME 0-padding, and nine times under a 2-pixel
+FULL 0-padding. With SAME 0-padding, the cumulative contribution differences among the input
+pixels grow exponentially over the CNN layers. We refer to such uneven treatment of input pixels
+as the foveation behavior of the padding mechanism and elaborate on this in Section 6.
+We next explore solutions to the issues that cause padding to induce spatial bias.
+4
+=== PDF page 5 ===
+Under review as a conference paper at ICLR 2021
+Figure 6: (a) Illustrating the problem of uneven padding when down-sampling at a stride of 2. The
+padding along x-axis is consumed only at the left side. (b) Mean3×3 ﬁlters in three ResNet models,
+trained on ImageNet with two input sizes. Color encodes average weight (green is positive). A size
+that induces uneven padding (top row) can lead to asymmetries, esp. around down-sampling layers.
+These asymmetries are mitigated when the input size induces no uneven padding (bottom row).
+5 E LIMINATING UNEVEN APPLICATION OF PADDING
+While useful to reduce bias against the boundary, applying padding at down-sampling layers can
+lead to asymmetry in CNN internals, as we illustrate in Figure 6a: At one side of the feature map,
+the padding is consumed by the kernel while at the other side it is not. To ensure even application of
+padding throughout the CNN, the following must hold at alld down-sampling layers, where (hi, wi)
+is the output shape at the i-th layer with kh
+i× kw
+i as kernel size, (sh
+i , sw
+i ) as strides, and = (ph
+i , pw
+i )
+as padding amount (refer to appendix A for a proof):
+∀i∈{ 1, . . , d} : hi−1 = sh
+i· (hi− 1) + kh
+i− 2· ph
+i ∧ wi−1 = sw
+i · (wi− 1) + kw
+i − 2· pw
+i (1)
+The values h0 and w0 represent the CNN input dimensions. The above constraints are not always
+satisﬁed during training or inference with arbitrary input dimensions. For example, ImageNet clas-
+siﬁers based on ResNet [11] and MobileNet [12] contain ﬁve down-sampling layers ( d = 5) that
+apply 1-pixel 0-padding before performing 2-strided convolution. To avoid uneven application of
+padding, the input to these CNNs must satisfy the following, as explained in appendix A:
+h0 = a1×2d +1 = 32· a1 +1 and w0 = a2×2d +1 = 32· a2 +1 where a1, a2∈ N+ (2)
+The traditional 1 and prevalent input size for training ImageNet models is 224× 224. This size
+violates Eq. 2, leading to uneven padding at every down-sampling layer in RseNet and MobileNet
+models where 0-padding is effectively applied only at the left and top sides of layer input. This
+over-represents zeros at the top and left sides of 3× 3 feature-map patches the ﬁlters are convolved
+with during training. The top row of Figure 6b shows per-layer mean ﬁlters in three ResNet models
+in PyTorch [29], pre-trained on ImageNet with 224× 224 images. In all of these models, a few of
+the mean ﬁlters, adjacent to down-sampling layers, exhibit stark asymmetry about their centers.
+We increase the image size to 225× 225 without introducing additional image information 2. This
+size satisﬁes Eq. 2, warranting even application of padding at every downsampling layer in the
+above models. Retraining the models with this size strongly reduces this asymmetry as evident in
+the bottom row of Figure 3b. This, in turn, visibly boosts the accuracy in all models we experimented
+with as we report in Table 1.
+Replacing 0-padding with a padding method that reuses feature map values can alleviate the asym-
+metry in the learned ﬁlters in the presence of unevenly applied padding (see appendix C). Another
+possibility is to avoid padding during down-sampling. Several architectures such as VGGNet [33]
+use a 2× 2 max-pooling kernel without padding. Appendix C demonstrates how the symmetry of
+the mean ﬁlters in these architectures, and accuracy in turn, is not impacted by input size.
+1 This size has been used to facilitate model comparison on ImageNet, since the inception of AlexNet.
+2 This is done via constant padding. The side to pad with one pixel is chosen at random to balance out the
+application of padding at both sides over the training set. No additional padding is applied at further layers .
+5

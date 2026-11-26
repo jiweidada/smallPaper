@@ -1,0 +1,209 @@
+Robust Tiny Object Detection in Aerial Images amidst Label Noise
+Haoran Zhua,∗, Chang Xua,∗, Wen Yanga,∗∗, Ruixiang Zhanga, Yan Zhanga and Gui-Song Xiab
+aSchool of Electronic Information, Wuhan University, Wuhan 430072, China
+bSchool of Computer Science and the State Key Lab. LIESMARS, Wuhan University, Wuhan, 430072, China
+ARTICLE INFO
+Keywords:
+Aerial images
+Tiny object detection
+Label noise
+ABSTRACT
+Precise detection of tiny objects in remote sensing imagery remains a significant challenge due to their
+limitedvisualinformationandfrequentoccurrencewithinscenes.Thischallengeisfurtherexacerbated
+bythepractical burdenand inherenterrors associatedwith manualannotation—annotating tinyobjects
+is laborious and prone to errors (i.e., label noise). Training detectors for such objects using noisy labels
+often leads to suboptimal performance, with networks tending to overfit on noisy labels. In this study,
+we address the intricate issue of tiny object detection under noisy label supervision. We systematically
+investigatetheimpactofvarioustypesofnoiseonnetworktraining,revealingthevulnerabilityofobject
+detectors to class shifts and inaccurate bounding boxes for tiny objects. To mitigate these challenges,
+we propose a DeNoising Tiny Object Detector (DN-TOD), which incorporates a Class-aware Label
+Correction (CLC) scheme to address class shifts and a Trend-guided Learning Strategy (TLS) to
+handle bounding box noise. CLC mitigates inaccurate class supervision by identifying and filtering out
+class-shifted positive samples, while TLS reduces noisy box-induced erroneous supervision through
+sample reweighting and bounding box regeneration. Additionally, Our method can be seamlessly
+integrated into both one-stage and two-stage object detection pipelines. Comprehensive experiments
+conducted on synthetic (i.e., noisy AI-TOD-v2.0 and DOTA-v2.0) and real-world (i.e., AI-TOD) noisy
+datasets demonstrate the robustness of DN-TOD under various types of label noise. Notably, when
+applied to the strong baseline RFLA, DN-TOD exhibits a noteworthy performance improvement of 4.9
+points under 40% mixed noise. Datasets, codes, and models will be made publicly available.
+1. Introduction
+Tiny objects, characterized by their extremely limited
+appearance information (less than 16×16 pixels), are scat-
+teredacrossaerialimagescapturedfromdifferentheightsand
+locations. The accurate detection of tiny objects is always
+one of the primary challenges on the way towards automatic
+interpretation of aerial images, drawing increasing attention
+inbothcomputervisionandremotesensingcommunities(Xu
+et al., 2022b,a; Ding et al., 2022; Cheng et al., 2023; Xu et
+al., 2023; Yu et al., 2020; Pang et al., 2019).
+In response, much effort has been devoted to the es-
+tablishment of Tiny Object Detection (TOD) datasets (Yu
+et al., 2020; Wang et al., 2021; Xu et al., 2022a; Ding et
+al., 2022; Cheng et al., 2023; Akshatha et al., 2023) and
+customized object detectors (Xu et al., 2022b,a; Yang et al.,
+2022). In the data-driven deep learning era, TOD presents
+unique difficulties not only for existing detectors but also for
+the construction of datasets. Tiny objects’ lack of appearance
+makes the labeling process quite laborious and easy to
+introduce label noise. While prior research, exemplified by
+AI-TOD-v2.0 (Xu et al., 2022a), has shed light on challenges
+such as missing labels, it has not directly addressed these
+issues. In this work, we delve deeper into label noise in tiny
+object detection and take a step forward to handle this issue
+by first analyzing the impact of various kinds of label noise
+∗Equal contributions
+∗ ∗Corresponding author
+zhuhaoran@whu.edu.cn (H. Zhu);xuchangeis@whu.edu.cn (C. Xu);
+yangwen@whu.edu.cn (W. Yang);zhangruixiang@whu.edu.cn (R. Zhang);
+zhangyan@whu.edu.cn (Y. Zhang);guisong.xia@whu.edu.cn (G. Xia)
+ORCID(s): 0000-0002-3078-0496(C. Xu);0000-0002-3263-8768(W.
+Yang); 0000-0003-0704-2484(R. Zhang);0000-0003-4794-6082 (Y. Zhang);
+0000-0001-7660-6090 (G. Xia)
+Class Shifts Inaccurate Bounding Box
+Ship
+Ship Plane
+Vehicle
+DCM
+Backbone
+Class-aware Label Correction
+RegCls
+Ship
+ or
+Ship
+or
+𝑝1 𝑝2 𝑝𝐶…
+Noisy Samples:
+𝑝𝑖 > 𝑝𝑦
+𝑝𝑖 > DCM𝑦𝑖
+𝑝𝑖 > DCM𝑖𝑖
+for i in range(C):
+Trend-guided Learning
+Backbone
+RegCls
+Noisy Samples Filtering Trend-guided Reweighting Recurrent Box Regeneration
+Figure 1: An overview of our method. Observing that the
+model is quite sensitive toclass shifts and inaccurate bounding
+box noises when training tiny object detectors, we propose to
+tackle them by Class-aware Label Correction and Trend-guided
+Learning, respectively. Orange points denote positive samples.
+and then proposing a robust detector capable of mitigating
+the impact of label noise.
+Compared to image classification, label noise types in
+object detection are more diverse and complex. They can
+be classified into four types, namely missing labels, extra
+labels, class shifts, and inaccurate bounding boxes. Some
+previous studies (Bernhard and Schubert, 2021; Chadwick
+andNewman,2019;Lietal.,2020a;Xuetal.,2021b)assume
+all types of noise occur and try to tackle all types of noise
+simultaneously, while others (Zhang et al., 2019b; Liu et
+al., 2022; Wu et al., 2023) focus on handling a specific
+type of noise (e.g. inaccurate bounding box) (Liu et al.,
+2022; Wu et al., 2023). Considering that tiny objects exhibit
+unique characteristics different from generic objects (Wang
+et al., 2021), we focus on addressing label noise in tiny
+H. Zhu, et al.:Preprint submitted to Elsevier Page 1 of 13
+arXiv:2401.08056v1  [cs.CV]  16 Jan 2024
+
+---PAGE---
+
+ISPRS Journal of Photogrammetry and Remote Sensing
+object detection. First of all, we systemically investigate the
+detector’s performance under different kinds of label noises
+(i.e., missing labels, extra labels, class shifts, inaccurate
+bounding boxes). Then, we find out that two types of noises
+will significantly reduce the detection performance, namely
+the class shifts and inaccurate bounding boxes.
+To mitigate the impact of these two types of noises,
+we propose a DeNoising Tiny Object Detector (DN-TOD).
+However, distinct challenges are raised when tackling class
+shifts and inaccurate bounding boxes. The class imbalance
+issue in tiny object detection datasets can make frequent
+classesyieldsignificantlyhigherconfidencethanrareclasses.
+Consequently,class-agnosticmethods(Chenetal.,2021;Han
+etal.,2018)performpoorlyinaddressingmislabeledsamples
+of the rare classes.
+Besides, inaccurate bounding boxes can affect both the
+classification and regression. Similar to previous studies on
+the label noise of generic object detection (Liu et al., 2022),
+wealsoobservethattinyobjectregressionisquitevulnerable
+to bounding box offsets. Tiny objects extend challenges to
+the classification branch, bounding box offsets from objects’
+main body will deteriorate tiny objects’ lack of high-quality
+positive samples (Xu et al., 2022b), simultaneously reducing
+classification accuracy.
+DN-TODaddressestheclassshiftsandinaccuratebound-
+ing boxes with the Class-aware Label Correction (CLC)
+scheme and the Trend-guided Learning Strategy (TLS),
+respectively. An overview of our approach is depicted in
+Fig. 1. Specifically, the CLC module can be separated into
+the class confusion state updating and noisy sample filtering
+process. In the updating stage, we design a class-aware
+Dynamic Confidence Matrix (DCM). The DCM is updated
+by network prediction of different classes over a period. This
+matrix dynamically encodes the transfer probability between
+different classes, providing class discrimination criteria for
+the filtering stage under class imbalance conditions. In the
+filtering stage, we traverse positive sample’s each class
+prediction and identify noisy samples through three heuristic
+rules built upon the DCM and predicted confidence. We
+discard the learning of identified noisy samples to filter out
+inaccurate supervision information.
+On the other hand, in light of the dual effects brought
+by inaccurate bounding boxes, we propose to bolster the
+detector’s robustness of classification and regression simul-
+taneously. Our design is based on a key observation of the
+learning trend difference between clean and noisy samples.
+As shown in Fig. 2(b), we count the mean confidence score
+of clean and noisy samples in the synthesized noisy dataset
+andfindoutthatcleansamplesexhibitagraduallyincreasing
+trend, while the confidence of noisy samples will fluctuate
+within a low score range during training.
+Thus,thelearningtrendservesasaconvincingelementto
+evaluatethenoisyconditionofsamplesinthedataset.Instead
+of setting a hard threshold and separating samples from non-
+noisy or clean, we use the trend as soft labels to refactor the
+supervisiontargetwhentraining.Forclassification,wedesign
+a Trend-guided Reweighting Loss, which enhances clean
+Figure 2: (a) illustrates the noisy box labels vs. predicted
+boxes. The orange box represents inaccurate bounding box
+annotations. The blue box represents the prediction boxes of
+the regression branch. The network can still provide relatively
+accurate regression predictions even under noisy box supervision.
+(b) stands for the confidence changing trend at different epochs.
+Clean samples exhibit an upward learning trend, while noisy
+samples show a downward and constant trend during training.
+positive samples while reducing the gradient contribution
+of noisy samples. For regression, we rectify the regression
+target via a Recurrent Box Regeneration strategy. Indeed, the
+deep neural network has a certain robustness to label noise,
+asshowninFig.2(a),thenetworkcanmakepredictionsmore
+accurate than the noisy ground truth (gt) during training. To
+avoid the network’s overfit to noisy boxes, we rectify the box
+label via selectively ensemble predictions of clean samples
+and the originalgt.
+The contributions of this paper are three-fold:
+• We investigate the impact of different types of label
+noise in tiny object detection, and highlight two types
+ofnoisethatseverelyimpairthedetectionperformance:
+class shifts and inaccurate bounding boxes.
+• We propose a DeNoising Tiny Object Detector (DN-
+TOD) that performs robust object detection under
+label noise. DN-TOD is composed of a Class-aware
+Label Correction (CLC) module for mitigating class
+shifts and a Trend-guided Learning Strategy (TLS) for
+rectifying box noise.
+• Experiments on synthesized label noise aerial object
+detection datasets (i.e., AI-TOD-v2.0 and DOTA-v2.0)
+and real-world label noise (i.e., AI-TOD) demonstrate
+ourDN-TODoutperformspreviousmethods,achieving
+state-of-the-art (SOTA) results.
+Therestofthispaperisorganizedasfollows.InSection2,
+we make a brief survey of related works. In Section 3, we
+introduce the definition and influence of label noise on tiny
+object detection and the construction method of the synthetic
+noisy dataset. Section 4 shows details of DN-TOD. Then,
+we validate the effectiveness of the proposed method under
+different types of noises in Section 5 and provide a detailed
+discussion in Section 6. Finally, we conclude this paper in
+Section 7.
+H. Zhu, et al.:Preprint submitted to Elsevier Page 2 of 13

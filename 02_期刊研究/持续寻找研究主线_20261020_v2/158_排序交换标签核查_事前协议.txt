@@ -1,0 +1,50 @@
+158 C0固定边界交换：标签前提核查事前协议
+状态：先登记与写159，交root/C静态审查；本代理不执行。147条件展开及150配对FGL的停止结论不变。本次不读新交换效果后改队列、动作或门槛。
+
+一、唯一面板与读入范围
+127_C0_attention_template_registration/01_cache.pt，SHA256=f2fb2120ccd670f846a0a70651a3fabbf9bcfb636c94d43d33f8dc34eceac79c。单C0 online checkpoint=9d6c0dd7a9cd6cb56465c4eab9416c0e89547c7e45df936e559fa12b921f275e；四图902GT、original_sub4=453、每图300query×10class。不同增强event不是两个模型seed；不是BASE24、验证集或正式AP结果。
+只使用原final pred_logits/pred_boxes及当前target boxes/labels/original_sub4。不需head hidden，不载模型/优化器，不用114 train union冒充eval own。完整final输出已经存在；本次标签核查不检验真实共享分类头可学习性。
+
+二、实际配置和原生函数
+104记录、113/126实际build使用的英文小论文/相位机制论文_20261018/data/source_snapshot/common.yml，SHA25c158ef1cae63595512e2a57f5a60507cc06978b68724edb705923d44ea3157。
+num_classes10/use_focal_loss=true；PostProcessor.num_top_queries300、score_threshold0、无类别remap；evaluator max_dets100、using_tiny/vtiny_metrice=false。
+HungarianMatcher：class/bbox/giou成本2/5/2，focal alpha=.25、gamma=2；change_matcher默认false，无mask成本。用缓存四图FP32原框/分数和原target重新调用已hash的native HungarianMatcher.forward，得到每图ordinary末层own配对。不回填union，不因候选交换重新匹配own目标。
+DEIMCriterion：gamma=1.5、alpha=.75；mal_alpha未配置，构造默认None。注意matcher的gamma2不是MAL指数。原MAL正目标为own匹配IoU^1.5，未匹配/其他类别目标0；正槽权重1，负槽权重stopgrad(sigmoid(z)^1.5)。alpha=.75在这条MAL分支不代替mal_alpha。no_weight_vfl_epoch默认-1，即权重完全启用。loss_mal权重1，分母为四图原GT数902，不用union数。
+159从原生源码AST仅载入未改写的HungarianMatcher类及MAL所需原方法；装饰注册为隔离的identity，mask/可视化路径禁止，运算成本/匹配方法不改。独立解析MAL导数并核对实际native方法的loss值；不调用模型forward或反传。
+
+三、固定1024对与确定动作
+原FP32 logits先sigmoid，再按native torch.topk跨query×class取300，保存原顺序和flatten槽ID(q*10+c)。每图inside取原top300的1-based ranks285–300；outside在原S补集中按同FP32概率取最高16，记ranks301–316。每图16×16=256对，总1024。
+重算的native top300必须与127缓存natural_top300_flat_indices逐项、按原顺序完全相等，否则failclosed；不能只比较集合。
+动作是复制原300×10 logits，仅实际互换z_i和z_j，再重新sigmoid/top300。框、其他logit、query数、GT均不变。同query多类槽独立保留，不做argmax/硬去重。不使用selected_indices认GT。
+若FP32概率并列使实际top300集合不等于S−j+i，完整保存该行及实际集合变化，将realizes_named_exchange=false；该行不进入正交换选对规则。报告全部并列/未实现数，不改排序打破native tie。选择规则内部同gap时以(j_flat,i_flat)升序破并列。没有可选positive记NA；不是零向量、负结果或替代样本。
+
+四、两个H以及强简单标签
+阈值T={.50,.55,...,.95}，采用np.linspace的原评估十阈值。H为每阈值最大匹配数的平均，均只真类边、每GT容量1：
+Hq：同query在跨类别槽上合并其允许GT边，query总容量1。
+Hi：每个(q,c)候选实例独立容量1；不同类别候选即使共享query也可分别匹配各自GT。
+二者都在同一个top300集合上计算，不提前混入每类maxDets100；它们只隔离容量定义。Hi是候选实例最大匹配，不等同COCO按分数greedy。全图GT的H是主标签；另报baseline/选对后的original_sub4独立最大匹配，精确命名sub4_capacity_diagnostic，不称APs。
+对命名动作的精确反事实d_q=Hq(S−j+i)−Hq(S)、d_i=Hi(S−j+i)−Hi(S)，保存各阈值向量与均值。实际未实现的行还单列实际top300的H，不能混作指定交换。
+固定own-Hungarian质量u_(q,c)=1[c=class(own(q))]·mean_T 1[IoU(box_q,own(q))>=T]，未匹配u=0；d_fix=u_i−u_j。不用任意maxIoU替代own目标。
+分别增删：a_i=H(S+i)−H(S)，r_j=H(S)−H(S−j)，d_sep=a_i−r_j；Hq/Hi各自计算。S+i/ S−j在此分别为301/299个槽的集合诊断，不再top300截断。完整交换与分别增删的不同不直接命名为bug或宣称子模/非子模创新。
+native MAL导数：g_v=w_v(sigmoid(z_v)−y_v)/902，保存g_i−g_j（沿+i,−j的loss方向导数）及其相反数descent。额外记录任意同类GT maxIoU质量描述对照：q_v=max_{GT同类}IoU，正槽指q_v>0，目标q_v^1.5，权重正1/负p^1.5，分母902。这个dense质量控制不是native MAL。
+
+五、部署greedy与面板PR效用
+按项目源码的FP32 cxcywh→xyxy、640尺寸缩放、xyxy→xywh顺序转换预测框。GT从当前增强后normalized boxes按同640坐标重算；不使用可能未同步的target.area。无resize_pad、无额外clip。
+基于上述实际像素xywh以FP64计算IoU，同时用于两种H和COCO greedy以免把几何精度差当容量差。native matcher/MAL仍使用其真实normalized FP32几何。记录这两类几何的差与阈值近边，但不调阈值。
+使用本地项目存档pycocoeval.cocoeval.py（SHA288eab6c1a82fe9c94f1eede61559aadb48dfe77940b0aee2ea587e355097948）的evaluateImg和accumulate原Python方法。按类、按图分数稳定排序、每类maxDets=[1,10,100]、十IoU阈值、101个recall点、area=all。每GT正常非crowd且不忽略；缓存若显式有非零iscrowd/ignore则failclosed。原训练增强缓存没有完整验证集ignore regions元数据，不能从本面板外推官方AP。
+read_scope：实际读取C0配置、native matcher/criterion/postprocessor、历史项目CocoEvaluator wrapper和上述存档Python evaluator。只复用Python greedy/accumulate语义，未声称重放历史编译C++ evaluate_所有实现差异；不执行mask模块、旧二进制、模型或远程。每图全256对均算受影响类别的实际greedy TP/FP十阈值变化、每类cap截断数。通常只涉及交换的1–2类，但若native topk同分使其他类别槽顺序变化，也重算该类；只有候选槽顺序和FP32概率完全相等的类别才沿用baseline。
+合并四图的PR效用只对下述预定选对计算：每条规则在该图所有positive且动作实现的候选中选最小原logit gap=z_j−z_i，同gap按(j_flat,i_flat)。7条规则为d_q、d_i、d_fix、d_sep_q、d_sep_i、nativeMAL_descent、maxIoU_quality_descent。每个被选交换单独替换该图，另计算同规则四图同时交换场景；各图NA保持identity，但明确无方向，整条规则全NA则效用条目标注NA。保存实际选对、TP/FP、完整每类/每阈值PR摘要与压缩precision数组。不在看PR后从256对另挑最佳对。
+
+六、事前最小前提门槛
+执行前静态精度勘误：所有标签的positive/negative/zero分别严格按>0、<0、==0判定，greedy匹配计数变化也按严格符号统计，不设置跨标签共用的绝对地板。H/dfix来自整数匹配计数均值；MAL/质量方向按原FP32导数（含902分母）计算后取其真实符号。原脚本把1e-12同时用于标签和PR效用会不公平地吞掉小尺度控制信号，现更正为仅PR_TOL=1e-12用于下述联合PR增益。这是未执行、未读缓存效果前对原positive口径的实现修复，非新门槛。
+主候选按部署实例Hi判断；Hq仅原提案对照，Hq通过不能代替Hi/实际greedy支持。
+1）正标签额外内容：在全部命名动作实现的固定1024对上，Hi positive集合必须分别与d_fix positive集合、d_sep_i positive集合不完全相同；保存两者全部差集，不能只报有利差异。
+2）实际选对额外内容：至少一图Hi的预定最小gap正交换，不属于该图d_fix、d_sep_i、nativeMAL、maxIoU质量四控制的已选交换并集（NA不算一个交换）。
+3）Hi规则在四图联合执行其已选交换后的mean面板PR效用必须比identity严格增加，数值比较容差1e-12；若全NA该条件为NA，不能假充0或负方向。
+以上三项同时满足才记label_premise_gate=true；否则不进入共享头。与四控制的mean面板PR及.75差完整报告，不临时增加/删减效果门槛。即使通过也只支持另行登记真实共享分类头LOO核查，不证明可学、训练收益、AP或创新，不自动执行新forward/训练。
+原文边界：按真实评估变化构造训练信号并非广义首次；已由root核Henderson/Ferrari2016 §4.3–4.4等。此处只检验具体top300交换标签是否相对固定匹配、分别增删和native MAL留下额外内容。
+
+七、自检、资源、产物
+读127内容之前：native matcher合成已知匹配；MAL原式loss核对及固定权重FP64有限差分导数；两种容量不同的同query跨类反例；最大匹配与greedy不同的反例；分别增删与完整交换不同的反例；原生logit互换确实实现指定集合；COCO maxDets100、忽略/面积合同、precision插值的合成检查；最小gap和NA规则。
+资源：CPU2/interop1、affinity[13,15]、BelowNormal、可用RAM>8GiB；MKL_THREADING_LAYER=SEQUENTIAL。无模型/optimizer/反传/训练/远程；matcher计算及标量损失函数求值不称模型forward。固定块逐图/逐pair处理，精确最大匹配用SciPy稀疏二分匹配，合成与部分真实图的独立Kuhn核对。语义/配置/哈希/自检不符failclosed，不默默替换依赖。
+只新增159_C0_exchange_label_audit.py；输入路径锁定本目录下原127缓存，输出限本协议目录直属、尚不存在的160_*新目录，默认160_C0_exchange_label_audit，不覆盖。输出00_results.json、01_all_1024_pairs.json、02_selected_panels.json、03_selected_precision.npz。源代码/协议/配置/依赖及缓存前后SHA一致。先root/C审查，再由root决定执行。未实测预计数十秒至数分钟；不以估时为停止条件。

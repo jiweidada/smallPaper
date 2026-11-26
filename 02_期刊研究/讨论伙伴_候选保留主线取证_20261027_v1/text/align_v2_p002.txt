@@ -1,0 +1,62 @@
+2 Z. CAI ET AL.: ALIGN-DETR: ENHANCING DETR WITH ALIGNED LOSS
+0
+0.1
+0.2
+0.3
+0.4
+0 0.2 0.4 0.6 0.8
+Frequency
+IoU with ground-truth box
+BR sample
+HC sample
+15
+20
+25
+30
+35
+40
+45
+50
+5k 25k 45k 65k 85k 105k 125k 145k 165k
+mAP
+Iter
+Align-DETR (1x)
+Align-DETR (2x)
+DINO (1x)
+DINO (2x)
+Figure 1: Left: Intersection over Union (IoU) distribution of two types of samples. There
+is a notable gap between best regressed samples (oracle) and the high confident samples,
+indicating a discrepancy between these two tasks. Right: The convergence curve of Align-
+DETR and DINO where Align-DETR converges faster significantly.
+1 Introduction
+Recently, transformer-based methods have garnered significant attention in the object de-
+tection community, largely due to the introduction of the DETR paradigm by [1]. Unlike
+previous CNN-based detectors [24, 33, 48, 53], DETR approaches object detection as a
+set prediction problem, utilizing learnable queries to represent each object in one-to-one
+correspondence. Such unique correspondence derives from bipartite graph matching by
+means of label assignment during training. It bypasses hand-crafted components such as
+non-maximum suppression (NMS) and anchor generation. With this simple and extensible
+pipeline, DETR shows great potential in a wide variety of areas, including 2D segmenta-
+tion [3, 4, 19], 3D detection [27, 30, 41], in addition to 2D detection [8, 13, 26, 37, 45, 54].
+During the past few years, the successors have advanced DETR in many ways. For
+instance, some methods attempt to incorporate local operators, such as ROI pooling [37] or
+deformable attention [8, 54], to increase the convergence speed and reduce the computational
+cost; some methods indicate that those learnable queries can be improved through extra
+physical embeddings [25, 29, 40]; and some methods [2, 14, 17, 45] notice the defect of
+one-to-one matching and introduce more positive samples by adding training-only queries.
+Box refinement [37, 45, 54] is another helpful technique, which explicitly takes previous
+predictions as priors at the next stages.
+Despite the recent progress in DETR-based detectors [1, 8, 13, 22, 25, 45, 54], the mis-
+alignment problem of DETR has received insufficient attention. There are two key aspects
+to this misalignment issue in recent DETR-like methods. Firstly, there exists a misalign-
+ment between classification confidence and localization precision, stemming from incon-
+sistent loss design. This discrepancy is highlighted through an analysis conducted on the
+output of a prominent end-to-end detector, DINO [45], revealing a significant dissonance
+between high-confidence samples (HC samples) and best-regressed samples (BR samples),
+as depicted in Fig. 1 (Left). Such a discrepancy significantly impacts model performance,
+particularly in ranking-based metrics such as mean average precision (mAP). Secondly, there
+is a misalignment in training targets across layers. This arises from the dynamic matching
+design of DETR [17, 26, 45], wherein samples are assigned different targets in different lay-
+ers, leading to confusion within the optimizer, as highlighted by Stable-DINO [26]. These
+misalignment issues impede the convergence of DETR and hinder it from realizing its full
+potential as shown in Fig. 1 (Right).

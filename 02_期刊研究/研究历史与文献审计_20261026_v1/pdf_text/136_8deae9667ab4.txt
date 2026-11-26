@@ -1,0 +1,129 @@
+Citation: Hurtik, P .; Vajgl, M.; Hynar,
+D. BBReﬁnement: A Universal
+Scheme to Improve the Precision of
+Box Object Detectors. Appl. Sci. 2022,
+12, 3402. https://doi.org/10.3390/
+app12073402
+Academic Editors: Antonio
+Fernández-Caballero, Byung-Gyu
+Kim and Hugo Pedro Proença
+Received: 23 February 2022
+Accepted: 25 March 2022
+Published: 27 March 2022
+Publisher’s Note: MDPI stays neutral
+with regard to jurisdictional claims in
+published maps and institutional afﬁl-
+iations.
+Copyright: © 2022 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+applied  
+sciences 
+Article
+BBReﬁnement: A Universal Scheme to Improve the Precision of
+Box Object Detectors
+Petr Hurtik 1,*
+ , Marek Vajgl 1
+ and David Hynar 2
+1 Centre of Excellence IT4Innovations, Institute for Research and Applications of Fuzzy Modeling,
+30. Dubna 22, University of Ostrava, 702 00 Ostrava, Czech Republic; marek.vajgl@osu.cz
+2 Varroc Lighting Systems, Suvorovova 195, 742 42 Šenov u Nového Jiˇ cína, Czech Republic;
+dhynar@varroclighting.com
+* Correspondence: petr.hurtik@osu.cz; Tel.: +420-553-46-1414
+Abstract: We present a conceptually simple yet powerful and general scheme for reﬁning the pre-
+dictions of bounding boxes produced by an arbitrary object detector. Our approach was trained
+separately on single objects extracted from ground truth labels. For inference, it can be coupled
+with an arbitrary object detector to improve its precision. The method, called BBReﬁnement, uses a
+mixture of data consisting of the image crop of an object and the object’s class and center. Because
+BBReﬁnement works in a restricted domain, it does not have to be concerned with multiscale detec-
+tion, recognition of the object’s class, computing conﬁdence, or multiple detections. Thus, the training
+is much more effective. It results in the ability to improve the performance of SOTA architectures
+by up to two mAP points on the COCO dataset in the benchmark. The reﬁnement process is fast; it
+adds 50–80 ms overhead to a standard detector using RTX2080; therefore, it can run in real time on
+standard hardware. Finally, we show that BBReﬁnement can also be applied to COCO’s ground truth
+labels to create new, more precise labels. The link to the source code is provided in the contribution.
+Keywords: object detection; bounding box reﬁnement; data curation
+1. Introduction
+1.1. Problem Statement
+Object detection plays an essential role in computer vision, which has attracted a
+strong emphasis among researchers, resulting in the continuous development of new and
+more accurate object detectors. A typical object detector takes an image and produces a
+set of rectangles, so-called bounding boxes (BB), which deﬁne the borders of objects in
+the input image. The detector quality is measured as an overlap between the detected
+boxes and ground truth (GT) boxes using intersect over union (IoU). The more descriptive
+statistic, mean average precision (mAP), uses a set of IoUs with various thresholds, where
+a threshold distinguishes between the acceptance/rejection of detected boxes. Existing
+solutions for object detection yield accuracies around 30–55 mAP on the COCO dataset [1].
+Such a score allows usage in many real applications, but, on the other hand, there is space
+for improvement. A combination of the following may achieve such growth: more precise
+classiﬁcation, an increase in the rate of true-positive detection, a decrease in false-positive
+detection, or an improvement in the IoU. There are four reasons why object detection may
+be difﬁcult. A neural network has to ﬁnd all objects in an image; the number of objects may
+vary from zero to hundreds. A neural network has to be sensitive to all possible sizes of an
+object; the same object class may be tiny or occupy the whole image. A network usually has
+no a priori information, which should make the detection easier, such as the context of the
+scene or the number of objects. There is a lack of satisfactory large datasets; therefore, the
+data distribution is sampled roughly. In this study, we propose BBReﬁnement, a specialized,
+one-purpose object detector. It is trained on objects that are cropped from the input images
+together with augmented information about the object’s class and the dimensions of the
+Appl. Sci. 2022, 12, 3402. https://doi.org/10.3390/app12073402 https://www.mdpi.com/journal/applsci
+
+---PAGE---
+
+Appl. Sci. 2022, 12, 3402 2 of 12
+bounding box. The purpose is to reﬁne an imprecise bounding box dimension into a
+precise form. During the training stage, it is trained fully standalone. During the inference
+stage, it is coupled with an arbitrary object detector and its prediction is reﬁned. The
+proposed scheme is able to suppress the effect of all four mentioned difﬁculties, resulting
+in a higher mAP .
+Our contributions to the problem are as follows:
+• We propose BBRefinement, a specialized, one-purpose object detector that processes
+mixture data and can work as an extension to any object detector to improveits accuracy.
+• We designed a specialized augmentation technique that combines the augmentation
+of information about the object’s class and bounding box dimensions.
+• We deﬁne two losses, the ﬁrst aiming at metrics that involve a single IoU threshold,
+and the second minimizing metrics that involve multiple IoU thresholds.
+The advantages of our proposed method are the following:
+• BBReﬁnement is universal. It can be trained only once and then coupled with an
+arbitrary object detector that produces the same object classes.
+• The proposed scheme is capable of suppressing known difﬁculties in the object detec-
+tion area, thus resulting in a higher mAP , mainly for large andmedium-sized objects.
+• It is fast, and adds only 50 ms overhead per predicted image.
+• It can be used to improve the quality of imprecise labels.
+1.2. Related Work
+The scheme of reﬁnement can be tracked to the origin of two-stage detectors, where
+R-CNN [2] uses a region proposal algorithm that generates a ﬁxed number of regions.
+The regions are classiﬁed and they are reﬁned by bounding box regressor head. Faster R-
+CNN [3] replaces the region proposal algorithm with a region proposal network. The same
+bounding box regressor head can be used iteratively to obtain a more precise detection [4,5].
+The effect of iterative reﬁnement may be increased by involving the LSTM module [6]. The
+aim of reﬁnement can also be anchors; ReﬁneDet [7,8] reﬁnes them to obtain customized
+anchors for each cell. Currently, the top reﬁnement scheme, Cascade R-CNN [ 9] uses a
+sequence of bounding box regressor heads to create an n-staged object detector. In Cascade
+R-CNN, head h0 takes proposals from the region proposal network and feeds the regressed
+bounding boxes to network head h1 and so on. All heads work on the same features
+extracted from a backbone network. The cascade scheme shows that h1 depends on the
+quality of the predictions produced by the h0 head. If h0 includes some bias, h1 balances
+it. Therefore, all heads have to be trained together (part by part), and if h0 is retrained, h1
+should be retrained as well.
+The difference between BBReﬁnement and the existing reﬁnement schemes is that
+BBReﬁnement is trained on the original data standalone, so that it is not integrated into any
+existing architecture during the training stage; it is independent. That makes BBReﬁnement
+universal and able to be applied to various existing image detectors without retraining a
+detector or BBReﬁnement. A two-stage object detector like Faster R-CNN reﬁnes areas from
+the ﬁrst stage using the features extracted from the backbone that are shared across the two
+stages. Thus, the two stages are directly connected and trained together. The second stage
+of a particular model cannot be applied to the ﬁrst stage of a different model. By contrast,
+BBReﬁnement is trained standalone, and the input is not the extracted features but the
+images themselves. This makes it universal and capable of being linked to an arbitrary
+object detector (even a two-stage detector) to improve its ability (Figure 1).
+The novelty lies in such standalone training with the usage of mixture data and the
+combination with existing models during inference. To our knowledge, it is original and
+has not been described in the literature so far. According to the results presented later,
+BBReﬁnement leads to universal usage and a nice boost of mAP without signiﬁcantly
+decreasing the processing speed.

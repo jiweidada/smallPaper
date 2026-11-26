@@ -1,0 +1,46 @@
+2026-10-21 America/Los_Angeles。新增实测，不是AP/预计结果。主线目标尚未完成。
+
+新增代码/结果：72事前协议；73_layout_counterexamples.py→74_layout_counterexamples（零前向）；75补充执行、76_all_count_frozen.py→77_all_count_frozen。旧50/53/54及原65结果未改，复杂instance_objective仍按原判据停止。
+
+一、数量加权强简单反例
+同一131个真实Mosaic、同GT/source occurrence/27候选/scale>=.8和原>=4不逆跨：只将risk的n_sub4替换为n_all。两个增强流69/62事件里，布局不同10/12；原sub4跨4px数量all_count708/706，risk717/706。原16图中布局不同3/8+2/8，跨4为all_count201/156，risk201/157。
+渲染仍61同一恢复及RGBA路径，原SHA精确；5个布局差异事件中只有2张输入SHA没有64预测，其他直接复用；两个原BASE24在线模型各仅1次新CPU batch2前向，共2次，约4秒。权重/缓冲及checkpoint SHA未变。没有backward/optimizer/训练/heldout/远端/监测，未写checkpoint。
+
+同16图、2878GT、原sub4固定1503，计数不是AP：
+                              model1              model2
+sub4真类.5 risk/all_count       147 / 143           166 / 164
+sub4真类.75 risk/all_count       22 / 22             39 / 39
+sub4几何.5 risk/all_count        177 / 177           191 / 193
+sub4几何.75 risk/all_count        29 / 29             41 / 43
+全GT几何.5 risk/all_count        1027 / 1041         1056 / 1071
+全GT几何.75 risk/all_count       482 / 486           532 / 535
+全GT真类.5新增 risk/all_count     193 / 189           207 / 204
+全GT真类.5丢失 risk/all_count     80 / 65             69 / 57
+
+72事前要求risk两模型主指标均严格>all_count：确实通过(+4/+2)。这是预先定义的非零资源筛查，不能当显著性、较大效应或独立创新成立；没有临时加差值门槛。相对原样的大部分改善可由一般GT数量布局复制，而且后者全图几何更好。不能把risk相对原样的+75/+85全算成sub4专属设计的收益。
+两者共享可行域本来含尺寸保护，因此all_count不是完全不使用尺寸信息；它只替换效用权重，不证明整个方案无需尺寸。
+
+二、严格教师接纳版本停止
+按72第5条，每模型独立检查16图：risk必须保留所有原样真类.5存在性GT、全GT几何.5不降且有sub4新增。两模型均0/16可接纳、增益0；按原筛查停止此精确版本。不松条件，不把逐GT推理丢失冒充训练遗忘或不可退化保证。
+
+三、Claude“可学习带”触发未出现
+原sub4在risk变换后的最大短边7.9533577px，1503次曝光中1145仍<4，358在4–8；没有任何>=8，当前不存在被放大到10–16px的面板事实。
+按逐GT真类.5存在性计算（区别于最大一对一覆盖）：
+model1：<4新增/丢失28/4；4–8新增/丢失58/6。
+model2：<4新增/丢失27/7；4–8新增/丢失75/6。
+因此不据此另造[4,8]目标；无覆盖也不能推出Hungarian边很远或回归梯度是噪声。当前数据可反驳具体担忧，不能推断训练最优尺度。
+
+四、neutral.75优势不是主要来自risk缩小源
+neutral可行11图、其余原样5图（67明确事后控制）。按risk源scale分解全GT几何.75存在性：
+model1 risk grow源 neutral-only62/risk-only47；shrink1/1；identity0/0。
+model2 grow66/54；shrink4/1；identity0/0。
+所以把差异归因于非tiny源压缩暂无根据；此表只是描述，位置/邻接/插值仍共同改变，不能声称放大导致代价。存在性净数也不等于最大一对一数。
+
+五、原文进展
+71已独立核到鸟文式7–9/算法1和RA-MOSAIC完整式2（出版社索引正文，非完整PDF）。RA确实按w=1-平均conf及面积预算分配分辨率；其标准化项按所写式求和为0，sigma>0时目标化成alpha*sum w_i^2/area_i。不能替作者改公式，也不能把训练/推理差别说成新原理。风险计数并非同式，但当前独立方法增量仍薄。
+Stitcher最新arXiv2004.12432v2名为Dynamic Scale Training，主助手已读§3.2：按小目标loss比例阈值决定下一迭代普通/缩小拼图，另有batch维拼图。不能将训练反馈选Mosaic作为未有先例；当前并未实测其方法。
+
+六、下一具体候选（未验证，非创新结论）
+原生Astra C建议以all_count为强基线，固定RGB/GT/query/loss，改decoder deformable attention的取值：每层以query当前reference中心确定真实source-occurrence，排除落到另一供体的sampling点，按head重归一化；中心在背景/无保留点退回原权重。单图source恒1则推理退化原算子。其触发是当前布局同时有真实新增与丢失、改变供体邻接；尚未证明跨供体上下文有害。
+最低成本应比较原算子、真实供体限制、每query/head等删除点数的固定随机限制，记录被删权重质量和全部得失；不能把等点数当等质量。encoder RF和双线性取值仍可混合来源，不能宣称彻底隔离。
+最近先例必须核NaViT/Patch n’ Pack（已显式按图像身份mask packed self-attention）、Cascade-DETR（按前层预测框约束），以及检测的image packing。不能仅换成deformable落点就称首创，也不能只因都是mask就关键词否决。专家需比较实际query/source身份、取值算子和训练作用变量，提出实质修订或真正不同设计。当前不新增训练。

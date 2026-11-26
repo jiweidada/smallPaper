@@ -1,0 +1,30 @@
+完整读出与实际命中来源：结果后的审阅追加
+2026-10-27。追加在05审阅之后；不重写04/05冻结协议、旧尝试或05审阅历史。
+
+新增读取范围
+读05追加协议和check_frequency_readout.py全文，核对frequency_readout_attempt02的5个输出文件SHA均与清单一致。只引用已保存汇总及05a口径更正中的标量，不重新统计预测或GT。
+两seed各164400条实际导出记录通过query身份对应的框精确比对与sigmoid分数检查；原04和原生表示的几何门跨阈值差为0。该协议trigger中的“全部由其他query命中”简写已由05a更正，不回写冻结文件。
+
+固定低频1828GT的完整分解
+.50，seed1：实际TP1154、无几何353、覆盖真类pair未入flatTop300为318、原生匹配竞争3；class cap100为0。
+.50，seed2：实际TP1150、无几何336、未入flatTop300为341、匹配竞争1；class cap100为0。
+.75，seed1：实际TP742、无几何939、未入flatTop300为147。
+.75，seed2：实际TP767、无几何921、未入flatTop300为140。
+每行均以同一1828GT为母体，是顺序互斥接口状态，不是独立病因份额或任何改动的保证收益。
+.50全部覆盖query的argmax均错且实际漏的低频GT为293/319；private覆盖参照下为285/316。后者只在存在private覆盖的GT中统计，不能换作1828GT的完整分类归因。
+这些结果排除了“低频问题全部由单owner选择制造”的强反解释，不能再用旧owner代理局限一笔抹去观察。但argmax仍不同于flatten真类分数/保留，private是诊断归属，不是训练匹配。
+
+实际TP来源纠错的最终语义
+05a证实低频组.50的owner错而实际已命中412/416，可分为同owner非argmax真类TP260/273、不同query TP152/143。
+全10类相应4554/4378可分为同owner2194/2153、不同query2360/2225。
+因此“owner错而实际已命中”和“其他query命中”不能互换。此结论是对真实来源的核验，不是增加新假说或重定分组。
+
+保留与不推断
+保留成熟132末层低频组的条件性困难与实际漏检关联，仍将其定位为旧分类问题内部的待解释细分。
+flatTop300、cap和匹配位置已有历史，不能因这次给出类别条件就自动改成新机制，也不撤销既有规则的阴性结果。频次、语义外观和实际训练信号的来源尚未区分。
+07的BASE24字段核验回答的是另一检查点、训练态输入上局部信号是否可解析；不能和这里132EMA的全GT计数拼接为历史因果链。
+
+BASE24精确定位补充
+prediction['outputs']['pred_logits'/'pred_boxes']；prediction['targets'][bi]['boxes'/'labels']；analysis['branch_matches'][bi]['final']为两个整数列表[q_indices,GT_indices]。
+独立末层原生标量路径为analysis['batch_losses']['native_union']['losses']['loss_mal']，不是辅助/DN项总和。
+matcher接收epoch=24，生产者未调用set_epoch，criterion.self.epoch保持源码构造值0；默认no_weight_vfl_epoch=-1使权重函数直接返回1，不依赖epoch/step。这里是已绑定配置与生产者源码的有效状态，不是猜测缺失训练历史。

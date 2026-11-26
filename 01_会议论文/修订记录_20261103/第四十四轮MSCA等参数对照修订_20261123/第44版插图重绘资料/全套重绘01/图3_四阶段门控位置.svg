@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="167.64mm" height="38.55720mm" viewBox="0 0 960 220.8" version="1.1" role="img" aria-labelledby="fig-title fig-desc">
+  <title id="fig-title">Stage-specific gating in HGNetv2-B0</title>
+  <desc id="fig-desc">Stages 1–4 contain one, one, two and one HG blocks. Their gates are ESE, SimAM, MSCA-Lite twice and MSCA-Dilated. In the second Stage 3 block, its own input is added after the gate. Each HG block concatenates its input and intermediate layer outputs, projects to full stage width, then applies its gate.</desc>
+  <metadata>Revision 44, Figure 3. Scientific sources: HG_Block and HG_Stage in hgnetv2_MSCA_EnhancedStem.py, FULL_FRESH.yml and revision 44 section 3.3. Layout references: MambaVision (CVPR 2025), Figs. 2 and 3 for stage alignment and local residual routing; the approved Figure 1 artwork. Native SVG shapes, text and connectors.</metadata>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#223D4B"/>
+    </marker>
+    <marker id="weight-arrow" viewBox="0 0 9.5 8" refX="9.2" refY="4" markerWidth="9.5" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M0.4 0.5 L9.2 4 L0.4 7.5 L1.8 4 Z" fill="#265F64"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="220.8" fill="#FFFFFF"/>
+  <g id="connections" inkscape:label="Data flow">
+    <path d="M160 78.5 H192" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="stage1-stage2" data-from="stage1-block1" data-to="stage2-block1" marker-end="url(#flow-arrow)"/>
+    <path d="M335 78.5 H375" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="stage2-stage3" data-from="stage2-block1" data-to="stage3-block1" marker-end="url(#flow-arrow)"/>
+    <path d="M495 78.5 H538" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="two-lite-blocks" data-from="stage3-block1" data-to="stage3-block2" marker-end="url(#flow-arrow)"/>
+    <path d="M658 78.5 H694" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="second-gate-sum" data-from="stage3-block2" data-to="add" marker-end="url(#flow-arrow)"/>
+    <path d="M514 78.5 V124 H705 V89.5" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="second-block-skip" data-from="stage3-block1" data-to="add" marker-end="url(#flow-arrow)"/>
+    <circle cx="514" cy="78.5" r="3.05" fill="#223D4B"/>
+    <path d="M716 78.5 H768" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="stage3-stage4" data-from="add" data-to="stage4-block1" marker-end="url(#flow-arrow)"/>
+    <path d="M399 182 H441" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="concat-projection" data-from="hg-concat" data-to="hg-projection" marker-end="url(#flow-arrow)"/>
+    <path d="M680 182 H726" stroke="#223D4B" fill="none" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" id="projection-gate" data-from="hg-projection" data-to="hg-gate" marker-end="url(#flow-arrow)"/>
+  </g>
+  <text x="89" y="24" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">Stage 1</text>
+  <text x="89" y="45" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">64 channels · stride 4</text>
+  <text x="263" y="24" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">Stage 2</text>
+  <text x="263" y="45" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">256 channels · stride 8</text>
+  <text x="546" y="24" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">Stage 3</text>
+  <text x="546" y="45" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">512 channels · stride 16</text>
+  <text x="856" y="24" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">Stage 4</text>
+  <text x="856" y="45" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">1024 channels · stride 32</text>
+  <path d="M375 24 V17 H497 M595 17 H716 V24" stroke="#9CAFB4" fill="none" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+  <g id="stage1-block1" inkscape:label="ESE in an HG block">
+    <rect x="18" y="59" width="142" height="39" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="89.0" y="85" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.6" text-anchor="middle" font-weight="bold">ESE</text>
+  </g>
+  <g id="stage2-block1" inkscape:label="SimAM in an HG block">
+    <rect x="192" y="59" width="143" height="39" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="263.5" y="85" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.6" text-anchor="middle" font-weight="bold">SimAM</text>
+  </g>
+  <g id="stage3-block1" inkscape:label="MSCA-Lite in an HG block">
+    <rect x="375" y="59" width="120" height="39" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="435.0" y="85" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.6" text-anchor="middle" font-weight="bold">MSCA-Lite</text>
+  </g>
+  <g id="stage3-block2" inkscape:label="MSCA-Lite in an HG block">
+    <rect x="538" y="59" width="120" height="39" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="598.0" y="85" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.6" text-anchor="middle" font-weight="bold">MSCA-Lite</text>
+  </g>
+  <g id="stage4-block1" inkscape:label="MSCA-Dilated in an HG block">
+    <rect x="768" y="59" width="176" height="39" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="856.0" y="85" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.6" text-anchor="middle" font-weight="bold">MSCA-Dilated</text>
+  </g>
+  <g id="add" inkscape:label="Residual addition">
+    <circle cx="705" cy="78.5" r="11" fill="#FFFFFF" stroke="#223D4B" stroke-width="1.6"/>
+    <path d="M700.5 78.5 h9 M705 74.0 v9" stroke="#223D4B" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="610" y="117" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.4" text-anchor="middle" font-weight="normal">block 2 residual</text>
+  <path d="M17 141 H943" stroke="#ADBEC4" fill="none" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="18" y="174" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.8" text-anchor="start" font-weight="bold">Inside each</text>
+  <text x="18" y="197" fill="#223D4B" font-family="Arial, Helvetica, sans-serif" font-size="17.8" text-anchor="start" font-weight="bold">HG block</text>
+  <g id="hg-concat" inkscape:label="hg-concat">
+    <rect x="146" y="155" width="253" height="54" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="272.5" y="177" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="18.3" text-anchor="middle" font-weight="bold">Concatenate</text>
+    <text x="272.5" y="199" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">block input and layer outputs</text>
+  </g>
+  <g id="hg-projection" inkscape:label="hg-projection">
+    <rect x="441" y="155" width="239" height="54" fill="#E9EEF4" stroke="#75899B" stroke-width="1.45" rx="3"/>
+    <text x="560.5" y="177" fill="#172E3A" font-family="Arial, Helvetica, sans-serif" font-size="18.3" text-anchor="middle" font-weight="bold">1 × 1 ConvBNAct</text>
+    <text x="560.5" y="199" fill="#405968" font-family="Arial, Helvetica, sans-serif" font-size="15.8" text-anchor="middle" font-weight="normal">full stage width</text>
+  </g>
+  <g id="hg-gate" inkscape:label="hg-gate">
+    <rect x="726" y="155" width="218" height="54" fill="#E8F2EF" stroke="#5C827D" stroke-width="1.45" rx="3"/>
+    <text x="835.0" y="188" fill="#265F64" font-family="Arial, Helvetica, sans-serif" font-size="18.3" text-anchor="middle" font-weight="bold">Stage-specific gate</text>
+  </g>
+</svg>

@@ -1,0 +1,53 @@
+当前结论：尚未确认可立项的新算法主线。新编码器的位置保留方向已完成一轮原始方法与算子核查；“保存相位索引传给decoder”“把高分辨率特征重新打包”“只在query位置上采样”均不能单独作为新的定位机制。本轮没有检测器前向或训练。
+
+1. 检索策略和记录
+沿用定向非系统前期调研，围绕polyphase/space-to-depth/shift equivariance、query-dependent feature reassembly、coordinate-based feature upsampling展开；随后查image-feature spatial Jacobian、feature-metric alignment与decoder refinement。精确查询、原始返回和访问范围保存在source_audit_v1/A14_*.json，未将第三方AI摘要当方法证据，也不把检索未返回结果当作无人研究的证明。
+CVF部分PDF/HTML返回403，MDPI AeroPinWorld全文请求返回429；保留失败响应，转读公开作者arXiv和源码。公开GitHub元数据的TLS失败有记录；重新访问后取得固定提交和目录，未关闭TLS。没有自动审批拒绝，也没有等待用户批准的步骤。
+
+2. 核心文献与阅读范围
+SPD-Conv（Sunkara、Luo，ECML PKDD2022）：完整3.1、3.2和4.1已读。空间交错切片后拼接通道，再用非步长卷积是明确先例。已取作者提交c09f7928b8d2c33034fc3e9889a866f8bf37b44d的4个文件；没有执行作者模型。
+LPS（Rojas-Gomez等，NeurIPS2022）：完整4.1—4.3已读。学习全局相位选择，并将概率/索引传入反采样。已取ef28ff29aa058c5f3fdf05b9a096f196ee1d0f30的6个文件；未整篇附录核证或运行作者模型。
+Making Vision Transformers Truly Shift-Equivariant（CVPR2024）：读arXiv v2完整第4节及A2.2示例，未完成终稿逐项对照。窗口偏移及patch合并索引向解码头传递，已有明确实现示例。
+SAPA（NeurIPS2022）及On Point Affiliation in Feature Upsampling（2023扩展）：会议版完整第3节、4.1和4.2，扩展版III-B/III-C片段及动态算子已读。两者属于同一方法家族，不作两项独立创新证据。已取当前作者tiny-smart/sapa提交a5acd520895c69886ce7175010d50a71d50b5a0e的4个接口文件；未构建CUDA核。
+LoftUp（Huang等，ICCV2025）：完整第3节、4.1及第4节开头已读，4.2/附录未通读。用RGB和坐标Fourier特征作query，以低分辨率特征作key/value，已有坐标驱动特征恢复。已取0751a9b3cf7d5d4d1be181abc6f44fe3f43c77d8的4个文件；未下载权重或训练。
+AeroPinWorld（Electronics2026）：仅出版商检索返回的摘要/3.3方法片段，全篇访问429，不能称全文已排重；其UAV相位感知stride-2设计是直接相关线索。
+PixLoc（CVPR2021）：所读arXiv的3.1特征对齐主体、3.2、部分3.3和5.4；依赖已知参考图像/3D点描述子的特征度量LM定位是先例，不能把通用空间梯度加阻尼当创新。未执行作者实现。
+DEQDet（ICCV2023）：完整3.2和3.3及补充B/C索引片段已读，非全篇。共享隐式decoder、细化感知梯度RAG及扰动RAP已有先例；源码仅README/检索片段范围，未下载固定版本或执行。
+
+3. 逐项算子比较
+LPS和shift-equivariant ViT已经传递下采样/窗口索引。差别若只在“把索引交给检测query”，仍需解释新增计算和作用，不能靠换任务证明新颖性。
+SAPA-D以高分辨率点生成query、低分辨率特征生成key和偏移，按相似性重组低分辨率value。LoftUp则把RGB/坐标query经残差直接带入输出。故“细节只用于选权重”和“细节直接形成value/残差”是两类已有设计，不能只与双线性插值相比。
+LoftUp的CATransformer中没有query间注意力，在相同预计算query、固定key/value及确定性计算下，可逐行独立求值。把它改为只计算检测采样点，至少在这个注意力栈范围属于已有算子的子集求值；可以节省实际计算，但不能自动称为新的特征保留机制。其RGB卷积、跨空间MinMax统计及训练BN仍须单独处理，本轮未证明整个LoftUp可等价稀疏执行或更快。
+SPD作者代码的small YAML有多处“stride1 Conv→space_to_depth→C3”，首层Focus才是“交错打包→Conv”。没有把论文块示意强行当作全部代码链。后述线性等价只对应指定pack→conv，不声称整套作者网络等价于单层卷积。
+
+4. A14代数核查：能排除什么，不能排除什么
+纯NumPy、固定3个随机seed、float64，不导入或执行作者Torch代码。已核对4份固定版本回执、18个Git blob及SHA256。
+18个案例核对交错相位打包后k=1/3的线性卷积，与重排权重后的stride2、2k卷积逐项一致。它说明指定线性算子的重参数化关系，不证明原生复杂网络没有性能差别。
+3个案例核对按相位重编号feature/key/value/坐标时，全量注意力读出不变；故单纯打包并未提供额外位置信息。故意只重排key而不重排value的负对照不等，说明一致重排这个条件是必要的。
+3个案例核对“固定key/value、无query间耦合”的注意力加逐点FFN栈，与query子集求值相等；这是行独立性质的代数控制，不是作者完整MHA/GELU模型复现。
+3个零空间案例证明打包后再作降维线性投影并不保证可逆；不能把SPD这一步的可逆性扩展成整个降采样块无损。
+共27个控制通过，最大等价算子数值差5.33e-15。它们没有使用真实图像，也不证明本机模型存在相位混叠、特征丢失或可训练改进。基础代数性质不宣称新定理。
+
+5. 当前有依据的空白与候选判断
+能确认的研究问题仍是A13所观察到的微小框高精度定位残差；原有坐标范围在自由logit构造下足以表达多数合格框。尚不能确定是编码、读取、回归学习或监督导致，不能据此直接设计“细节保留”模块。
+本轮淘汰的是通用相位索引传递/打包/子集求值作为独有新机制的说法，没有否定所有新的编码器，也未证明相关任务适配或工程优化一概没有价值。
+下一候选问题暂记为：同一query的局部特征随位置变化方向，能否提供比原生回归更准确的微小框位置更新。其与A0的插值系数秩、A5的标量中心场Taylor控制及DEQDet的latent-state Jacobian必须严格区分。PixLoc/TAPTRv2/DEQDet已覆盖一般原理，当前没有确立独特算法增量。
+潜在的query兼容特征度量与小型2D位置求解仅为待定义假设，未实现、未选定为论文主线。推理时如何在没有GT或参考模板的情况下得到可信目标描述子，是首先要解决的条件；若只能依赖oracle模板，应直接淘汰。不能把GT用于训练监督与GT泄漏进推理混为一谈。
+
+6. 最小验证路线与风险
+相位通用候选已在文献/算子层面失去独有机制依据，当前不安排其模块训练或AP搜索。27个代数控制仅完成这一阶段的验证。
+新空间更新假设需要先给出可执行算子、图像坐标单位及合法query目标定义，再固定原生方法、TAPTR类已知位置更新、相同容量MLP、空间导数置换等必要对照。原生query和memory必须来自预测，不能用GT中心充当输入。新数据选择、预算、主指标和停止条件须在新一轮模型执行前冻结；本轮没有将草案视为可执行协议。
+主要风险包括重复已有特征对齐/梯度框细化、query与value不在同一语义空间、局部梯度指向背景纹理、病态2D求解，以及增加容量或oracle输入造成假提升。现有缓存未含完整原生query与空间梯度，不能靠修改缓存分析口径给出因果结论。
+单卡约24GB能够承担当前冻结推理，不代表新的端到端训练资源已核实。LoftUp等论文的分类/分割训练配方不直接转用为800输入的检测配方。架构分支累计213次完整前向、主检测器更新0、既有64个诊断拟合/96个标量响应头；本轮新增均为0。有界前向阶段保持结束，旧DEIM和压缩/恢复任务未重启。目标继续ACTIVE。
+
+7. 可核验参考链接
+SPD-Conv：https://arxiv.org/html/2208.03641
+LPS：https://arxiv.org/html/2210.08001
+Shift-equivariant ViT：https://arxiv.org/html/2305.16316
+SAPA会议版：https://arxiv.org/html/2209.12866
+SAPA扩展：https://arxiv.org/html/2307.08198
+LoftUp：https://arxiv.org/html/2504.14032
+AeroPinWorld出版商线索（全文未取得）：https://www.mdpi.com/2079-9292/15/7/1364
+PixLoc：https://arxiv.org/html/2103.09213
+DEQDet：https://arxiv.org/html/2308.09564
+作者代码固定版本及逐文件SHA：A14_新编码器位置保留近邻审计_v1/source_operator_comparison.json。

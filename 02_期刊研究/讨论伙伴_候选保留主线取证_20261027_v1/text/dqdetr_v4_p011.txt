@@ -1,0 +1,36 @@
+DQ-DETR: DETR with Dynamic Query for Tiny Object Detection 11
+10 categories, and the image resolution is 2000× 1500 pixels. Also, the images
+are diverse in a wide range of aspects, including objects (pedestrians, vehicles, bi-
+cycles, etc.) and density (sparse and crowded scenes), where the average number
+of objects per image is 40.7 with a standard deviation of 46.41.
+Table 3 shows our results on the VisDroneval split. We compare the perfor-
+mancesofourDQ-DETRwithothermethods.OurproposedDQ-DETRachieves
+the best result37.0 AP compared with other state-of-the-art methods, includ-
+ing CNN-based and DETR-like methods. Also, DQ-DETR surpasses the baseline
+DINO-DETR by 1.2, 2.6, and 1.1 in terms of AP, AP50, AP75.
+4.5 Results on COCO
+We compare our method, DQ-DETR, with the previous state-of-the-art on
+the COCO dataset. DQ-DETR yielded slightly lower performance, with an AP
+of 50.2 compared to 51.3. We believe several factors contributed to these results.
+Firstly, our experiments were constrained by limited GPU resources, which may
+have impacted our ability to optimize the training process. Secondly, our method
+is specifically designed for tiny object detection in scenarios where the number of
+objects varies significantly across images. This specialized focus may not be fully
+leveraged in the COCO dataset, which is a general object detection task with
+a nearly balanced number of objects per image. Therefore, while our method
+shows potential, it may not perform as expected on general datasets like COCO
+due to various factors.
+Table 4: Experiments on COCO.All models are trained on thetrain split and
+evaluated on theval split.
+Method Epochs AP AP 50 AP75 APS APM APL
+Faster R-CNN [16] 109 42.0 62.1 45.5 26.6 45.5 53.4
+DETR [2] 500 43.3 63.1 45.9 22.5 47.3 61.1
+Deformable DETR [30] 50 46.2 65.2 50.0 28.8 49.2 61.7
+DN-DETR [7] 50 46.3 66.4 49.7 26.7 50.0 64.4
+DINO-DETR [27] 24 51.3 69.1 56.0 34.5 54.2 65.8
+DQ-DETR 24 50.2 67.1 55.0 31.9 53.2 64.7
+4.6 Ablation Study
+Categorical counting module, counting-guided feature enhancement, and dy-
+namic query selection are the newly proposed contributions. We conduct a series
+of ablation studies to verify the effectiveness of each component proposed in this
+paper. DINO-DETR is chosen as the comparing DETR-like baseline.

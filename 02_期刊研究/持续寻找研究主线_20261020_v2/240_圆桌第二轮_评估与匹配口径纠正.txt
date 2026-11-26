@@ -1,0 +1,25 @@
+240｜对219/220圆桌第二轮的已核口径纠正（只读代码；无新增训练）
+2026-10-21。用于下一次完整结果回交，不作为候选通过记录。
+
+一、不能把COCO maxDets=100说成全图全类别只评前100个query
+项目recipe 相位机制论文_20261018/data/source_snapshot/common.yml 第8行 evaluator.max_dets=100，第233行 num_top_queries=300。
+实际native engine/deim/postprocessor.py 的use_focal_loss分支（约99–106行）先sigmoid，再scores.flatten(1)跨300query×10class选top300。相同query可以有多个类别候选；不是先每query取argmax再排序300个query。
+本地原作者pycocotools实现 code/query_context_gap_20261004_v1/local_deps/pycocotools/cocoeval.py：useCats默认1（511行）；evaluate按catId逐类调用evaluateImg（142–155行）；evaluateImg按_gts[imgId,catId]、_dts[imgId,catId]取数据（241–243行），再dtind[0:maxDet]截断（约260行）。所以这里的100是每图、每类的截断，不能用全类别query第100名作为“之后都不影响AP”的判断。
+该源码只证明对应项目COCO协议。官方VisDrone、UAVDT有各自规则；不能把A8 UAVDT cap30移植到本次development几何缓存。BASE24 development缓存本轮并未执行正式AP。
+要查删除R的部署影响，必须保存真实flatten候选(q,c)、全局top300入选、之后每类rank/cap，不能只用max-class query rank。对argmax query排序可以另列，但不得伪装原后处理。
+
+二、“组间匹配交互只等于四候选组内去重”并非已证
+完整匹配代价/最大匹配还可能通过未替换的外部query产生交互。简单图例：固定query x可连g1或g2；候选a仅连g1，b仅连g2。相对只含x的图，单加a、单加b各增加1，合加却只增加1。a与b的GT邻域不相交，交互通过x发生，不能据此假定a/b之间的NMS必复制完整集合效用。
+组内NMS仍是值得设置的强简单控制；上例不是为新联合选择器背书，更不证明实际预测里有足够此类结构。若要做新核查，必须在真实候选图里查实际非加性及部署greedy，不由理论例子立项。
+
+三、旧160阴性保留，不能扩大也不能遗忘
+158/159/160已经检验过C0四图、top300边界1024个score交换：实例Hi标签与分别增删d_sep的十阈值向量完全相同，预定非复制门槛失败；不进入共享头。这个精确动作不能换名重做。
+当前UI C的“改变四个实际框、枚举16种保留/替换”的动作与旧score互换不同，因此不能仅凭关键词判同一个失败候选。但也不能说它已获得非加性证据。需要先写清真实候选来源、固定集合/score、16动作、最强独立选择及NMS控制、实际协议与事前规则，再决定是否值得做最低成本检查。
+
+四、本地缓存前置失败的事实
+223按原222协议在A batch00的saved native union reproduction检查fail closed，未产生任何候选结果；224保留失败现场，源SHA全部不变。
+235只读16个development analysis JSON、0预测张量/模型，核native _get_go_indices在当前Windows torch2.5.1+cpu重建：与原保存GO有566个query不同，影响50/64模型输入曝光（A261/27图，B305/23图）；每一个差异的旧GT和新GT都同为该query最高票并列。层顺序与映射方向没有差异。没有证据把它称为方法阴性或数据损坏。
+新236/237兼容修订在看任何repair候选结果之前编写：始终保留原saved G0及其q/GT/class预算，不用当前平台重建值替换；完整记录已证并列差，并继续原成本、own、分母、预算和证书核验。所有候选、强控制、screen和输入不变。尚不能称238已执行或成功。
+
+五、floor强简单控制已经补齐
+226已给出按真实输入4px主、8px敏感性的FDR残差单位floor；每query/轴只扩两端点的E_k与全节点floor F_k物理支持完全相同。因此支持新增绝不能作为F_k优于E_k的证据。旧global endpoint2保留+.213/−.374 mixed、内部31点未变；普通/DN目标与实际decode改变后IoU权重也可能改变。229/230在准备缓存诊断，尚无结果，不借预期值宣布主线。

@@ -1,0 +1,199 @@
+An Analysis of Scale Invariance in Object Detection – SNIP
+Bharat Singh Larry S. Davis
+University of Maryland, College Park
+{bharat,lsd}@cs.umd.edu
+Abstract
+An analysis of different techniques for recognizing and
+detecting objects under extreme scale variation is pre-
+sented. Scale speciﬁc and scale invariant design of de-
+tectors are compared by training them with different con-
+ﬁgurations of input data. By evaluating the performance
+of different network architectures for classifying small ob-
+jects on ImageNet, we show that CNNs are not robust to
+changes in scale. Based on this analysis, we propose to
+train and test detectors on the same scales of an image-
+pyramid. Since small and large objects are difﬁcult to rec-
+ognize at smaller and larger scales respectively, we present
+a novel training scheme called Scale Normalization for Im-
+age Pyramids (SNIP) which selectively back-propagates the
+gradients of object instances of different sizes as a function
+of the image scale. On the COCO dataset, our single model
+performance is 45.7% and an ensemble of 3 networks ob-
+tains an mAP of 48.3%. We use off-the-shelf ImageNet-1000
+pre-trained models and only train with bounding box su-
+pervision. Our submission won the Best Student Entry in
+the COCO 2017 challenge. Code will be made available at
+http://bit.ly/2yXVg4c.
+1. Introduction
+Deep learning has fundamentally changed how comput-
+ers perform image classiﬁcation and object detection. In
+less than ﬁve years, since AlexNet [
+20] was proposed, the
+top-5 error on ImageNet classiﬁcation [ 9] has dropped from
+15% to 2% [16]. This is super-human level performance for
+image classiﬁcation with 1000 classes. On the other hand,
+the mAP of the best performing detector [
+18] (which is only
+trained to detect 80 classes) on COCO [ 25] is only 62%
+– even at 50% overlap. Why is object detection so much
+harder than image classiﬁcation?
+Large scale variation across object instances, and espe-
+cially, the challenge of detecting very small objects stands
+out as one of the factors behind the difference in perfor-
+mance. Interestingly, the median scale of object instances
+relative to the image in ImageNet (classiﬁcation) vs COCO
+Figure 1. Fraction of RoIs in the dataset vs scale of RoIs relative
+to the image.
+(detection) are 0.554 and 0.106 respectively. Therefore,
+most object instances in COCO are smaller than 1% of im-
+age area! To make matters worse, the scale of the small-
+est and largest 10% of object instances in COCO is 0.024
+and 0.472 respectively (resulting in scale variations of al-
+most 20 times!); see Fig.
+1. This variation in scale which
+a detector needs to handle is enormous and presents an ex-
+treme challenge to the scale invariance properties of con-
+volutional neural networks. Moreover, differences in the
+scale of object instances between classiﬁcation and detec-
+tion datasets also results in a large domain-shift while ﬁne-
+tuning from a pre-trained classiﬁcation network. In this pa-
+per, we ﬁrst provide evidence of these problems and then
+propose a training scheme called Scale Normalization for
+Image Pyramids which leads to a state-of-the-art object de-
+tector on COCO.
+To alleviate the problems arising from scale variation
+and small object instances, multiple solutions have been
+proposed. For example, features from the layers near
+to the input, referred to as shallow(er) layers, are com-
+bined with deeper layers for detecting small object in-
+stances [
+23, 34, 1, 13, 27], dilated/deformable convolution
+is used to increase receptive ﬁelds for detecting large objects
+[
+32, 7, 37, 8], independent predictions at layers of different
+resolutions are used to capture object instances of different
+scales [
+36, 3, 22], context is employed for disambiguation
+[38, 39, 10], training is performed over a range of scales
+[7, 8, 15] or, inference is performed on multiple scales of
+1
+3578
+
+
+---PAGE---
+
+an image pyramid and predictions are combined using non-
+maximum suppression [
+7, 8, 2, 33].
+While these architectural innovations have signiﬁcantly
+helped to improve object detection, many important issues
+related to training remain unaddressed:
+• Is it critical to upsample images for obtaining good
+performance for object detection? Even though the
+typical size of images in detection datasets is 480x640,
+why is it a common practice to up-sample them to
+800x1200? Can we pre-train CNNs with smaller
+strides on low resolution images from ImageNet and
+then ﬁne-tune them on detection datasets for detecting
+small object instances?
+• When ﬁne-tuning an object detector from a pre-trained
+image classiﬁcation model, should the resolution of the
+training object instances be restricted to a tight range
+(from 64x64 to 256x256) after appropriately re-scaling
+the input images, or should all object resolutions (from
+16x16 to 800x1000, in the case of COCO) participate
+in training after up-sampling input images?
+We design controlled experiments on ImageNet and
+COCO to seek answers to these questions. In Section
+3,
+we study the effect of scale variation by examining the per-
+formance of existing networks for ImageNet classiﬁcation
+when images of different scales are provided as input. We
+also make minor modiﬁcations to the CNN architecture for
+classifying images of different scales. These experiments
+reveal the importance of up-sampling for small object de-
+tection. To analyze the effect of scale variation on object
+detection, we train and compare the performance of scale-
+speciﬁc and scale invariant detector designs in Section
+5.
+For scale-speciﬁc detectors, variation in scale is handled by
+training separate detectors - one for each scale range. More-
+over, training the detector on similar scale object instances
+as the pre-trained classiﬁcation networks helps to reduce
+the domain shift for the pre-trained classiﬁcation network.
+But, scale-speciﬁc designs also reduce the number of train-
+ing samples per scale, which degrades performance. On the
+other hand, training a single object detector with all train-
+ing samples makes the learning task signiﬁcantly harder be-
+cause the network needs to learn ﬁlters for detecting object
+instances over a wide range of scales.
+Based on these observations, in Section
+6 we present a
+novel training paradigm, which we refer to as Scale Nor-
+malization for Image Pyramids (SNIP), that beneﬁts from
+reducing scale-variation during training but without paying
+the penalty of reduced training samples. Scale-invariance
+is achieved using an image-pyramid (instead of a scale-
+invariant detector), which contains normalized input rep-
+resentations of object instances in one of the scales in the
+image-pyramid. To minimize the domain shift for the clas-
+siﬁcation network during training, we only back-propagate
+gradients for RoIs/anchors that have a resolution close to
+that of the pre-trained CNN. Since we train on each scale
+in the pyramid with the above constraint, SNIP effectively
+utilizes all the object instances available during training.
+The proposed approach is generic and can be plugged into
+the training pipeline of different problems like instance-
+segmentation, pose-estimation, spatio-temporal action de-
+tection - wherever the “objects” of interest manifest large
+scale variations.
+Contrary to the popular belief that deep neural networks
+can learn to cope with large variations in scale given enough
+training data, we show that SNIP offers signiﬁcant im-
+provements (3.5%) over traditional object detection training
+paradigms. Our ensemble with a Deformable-RFCN back-
+bone obtains an mAP of 69.7% at 50% overlap, which is an
+improvement of 7.4% over the state-of-the-art on the COCO
+dataset.
+2. Related Work
+Scale space theory [
+35, 26] advocates learning represen-
+tations that are invariant to scale and the theory has been
+applied to many problems in the history of computer vision
+[
+4, 30, 28, 21, 14, 5, 23]. For problems like object detection,
+pose-estimation, instance segmentation etc., learning scale
+invariant representations is critical for recognizing and lo-
+calizing objects. To detect objects at multiple scales, many
+solutions have been proposed.
+The deeper layers of modern CNNs have large strides
+(32 pixels) that lead to a very coarse representation of the
+input image, which makes small object detection very chal-
+lenging. To address this problem, modern object detectors
+[
+32, 7, 5] employ dilated/atrous convolutions to increase the
+resolution of the feature map. Dilated/deformable convolu-
+tions also preserve the weights and receptive ﬁelds of the
+pre-trained network and do not suffer from degraded per-
+formance on large objects. Up-sampling the image by a
+factor of 1.5 to 2 times during training and up to 4 times
+during inference is also a common practice to increase the
+ﬁnal feature map resolution [
+8, 7, 15]. Since feature maps of
+layers closer to the input are of higher resolution and often
+contain complementary information (wrt. conv5), these fea-
+tures are either combined with shallower layers (like conv4,
+conv3) [
+23, 31, 1, 31] or independent predictions are made
+at layers of different resolutions [ 36, 27, 3]. Methods like
+SDP [36], SSH [29] or MS-CNN [ 3], which make indepen-
+dent predictions at different layers, also ensure that smaller
+objects are trained on higher resolution layers (like conv3)
+while larger objects are trained on lower resolution layers
+(like conv5). This approach offers better resolution at the
+cost of high-level semantic features which can hurt perfor-
+mance.
+Methods like FPN, Mask-RCNN, RetinaNet [
+23, 13, 24],
+which use a pyramidal representation and combine features
+3579

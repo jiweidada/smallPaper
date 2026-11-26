@@ -1,0 +1,333 @@
+FSIC: Frequency-separated image compression for small object detection - ScienceDirect (https://www.sciencedirect.com/science/article/pii/S1051200424004470)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 months ago; 
+
+# FSIC: Frequency-separated image compression for small object detection
+
+https://doi.org/10.1016/j.dsp.2024.104822Get rights and content
+
+## Abstract
+
+The existing image compression methods are designed for the human visual system. They can achieve good compression quality for low-frequency components of the image that are important to human vision. However, for object detection models, both high and low-frequency components are essential. As a result, the detection metrics on the compressed images obtained by current methods will decline. Particularly for small object detection, the lack of high-frequency signals makes it difficult to distinguish the targets from the background. In this paper, we propose a frequency-separated image compression model, named FSIC. During the training process, the compression of low-frequency components only employs MSE loss, while the compression of high-frequency components additionally incorporates a detection loss. We validate FSIC's image compression capability for the small object detection task on the VisDrone dataset and Dota dataset. Results show that under extremely high compression rates, FSIC demonstrates a better performance compared with current compression methods. Furthermore, FSIC has the fastest encoding speed among current learning-based compression models.
+
+## Introduction
+
+Vision-based object detection is an important requirement for many cyber-physical systems like UAVs and AGVs. However, it remains challenging due to the limited computing capabilities of the edge devices. An effective way to address the issue is to transmit the image to the cloud with more powerful computing resources for object detection. Unfortunately, in normal cases, the link bandwidth for such a transmission is limited. A promising approach is to compress the image in situ and then transmit it. Standard image codecs [1], [2], [3] achieve data compression by reducing the redundancy between pixels and removing some information that is not sensitive to human eyes [4]; thus, they are not suitable for object detection, as some high-frequency signals are lost.
+
+The learning-based compression models with autoregressive context [5], [6] have surpassed the leading standard image codec—BPG (Better Portable Graphics). These methods are based on transform coding and utilize convolutional neural networks (CNNs) to learn nonlinear functions that can map images into more compressible latent representations. The whole coding framework resembles an autoencoder, consisting of an encoder that reduces the dimensionality of the images and a decoder that acts as an approximate inverse function to map the latent representations back to images. Besides the encoder and the decoder, there is an entropy model that estimates the probability distribution of latent representations. With the probability, entropy coding can be used to further compress the latents. However, while the autoregressive entropy model makes the estimated probabilities more aligned with reality, it significantly slows down the speed of encoding and decoding. Parallelizable entropy models [7], [8] have been proposed to address this issue, enhancing operational speed while ensuring compression quality. Recently, the attention mechanism [9] has also been used to enhance the effectiveness of compression models.
+
+The aforementioned standard image codecs and learning-based compression methods are designed for human vision. At a high compression ratio, a large amount of high-frequency information that is not sensitive to human eyes might be discarded. However, the CNNs in the object detection model will use the high-frequency components (HFC) in images [10]. The loss of HFC will lead to a decline in performance for object detection tasks. Especially for small targets, when HFC is lost, they become difficult to distinguish from the background.
+
+To solve the above problem, compression methods need to be improved to meet the needs of object detection tasks. Compared with traditional image codecs, learning-based compression methods are easier to optimize for specific tasks. The most intuitive approach is to jointly train the compression network with the corresponding task network [11]. Given the significance of HFC in small object detection, we try to improve the compression process of HFC. Fritsche et al. [12] proposed to separate the low-frequency components (LFC) and high-frequency components (HFC) of the input image when performing image super-resolution reconstruction with neural networks and train them in different ways. In this work, we first investigate the compression performance of existing compression networks on LFC and HFC using object detection task results as the evaluation metric. Then we propose the frequency-separated image compression model (FSIC) which extends the joint training framework by incorporating a frequency separation learning strategy to train the compression network.
+
+We conduct frequency separation on the VisDrone dataset [13] and utilize the existing learning-based compression method [6] to compress the original image, LFC, and HFC respectively. Then we use YOLOv5 [14] to perform detection on them and get the following findings:
+
+  * •
+
+Both the LFC and HFC of an image are utilized by the object detection model.
+
+  * •
+
+Existing learning-based compression methods using MSE as the loss function demonstrate favorable compression performances on LFC, but their compression performances on HFC are not satisfactory.
+
+Based on the above findings, we propose FSIC. Specifically, we employ a linear filter to separate the LFC and HFC of the input image in the training process. Then, the MSE loss is used to guide the compression of both LFC and HFC. The compression of HFC is further optimized through joint training with a detection model. FSIC exhibits excellent compression performance for object detection tasks on the small object dataset. For extremely high compression ratios, our model has advantages compared with existing compression methods. Moreover, the encoding speed of FSIC is faster than that of the compared learning-based compression models.
+
+## Explore the effect of LFC and HFC on object detection
+
+The relationship between the frequency information of images and the generalization behavior of CNN has been investigated in [10]. For image classification tasks, HFC have been proven to be helpful for CNN's generalization ability. Although HFC is hard to observe by the human eye, neural networks can capture and use it. In this section, we further explore the impact of LFC and HFC on the object detection task. Besides, we evaluate the performance of an existing learning-based compression model
+
+## Basic framework of learning-based image compression
+
+Lossy compression methods have a general process. First, transform the image x into another space to get the latent representation y, and quantize the latent to get a discrete-valued vector \stackrel{ˆ}{y}. Subsequently, the discrete-valued vector \stackrel{ˆ}{y} undergoes lossless compression using entropy coding methods. Following the above process, Learning-based methods consist of three components: encoder, decoder and entropy model. Encoders and decoders respectively complete the transformation of images to latent
+
+## Datasets
+
+In object detection, objects smaller than 32×32 pixels are considered small objects. To verify the compression performance of FSIC for small object detection tasks, we compare it with other image compression methods on two classic small object detection datasets, VisDrone [13] and DOTA [37]. The images in the dataset are scaled to 640×640 to avoid the impact of image resizing in the detection model.
+
+VisDrone. VisDrone dataset is a large-scale benchmark captured by drone-mounted cameras with
+
+## Ablation study
+
+
+## Conclusion & future work
+
+We find that under the existing framework of learning-based image compression models, the MSE loss is insufficient in guiding the compression of HFC. So the compression performance on small object detection tasks is poor. Therefore, we propose a compression model (FSIC) that incorporates frequency separation. It innovatively applies detection loss on the HFC of the image during the training process. This approach offers a novel solution for achieving effective compression while preserving--------------------------------------------------------------------------------
+Knowledge Distillation for Oriented Object Detection on Aerial Images (https://arxiv.org/abs/2206.09796)
+ [wordlim: 200] Published: 4.4 years ago; In order to address this issue, we present a model compression method for rotated object detection on aerial images by knowledge distillation, namely KD-RNet.
+--------------------------------------------------------------------------------
+MANTIS Neural Compression — Jared Macshane (https://jaredmacshane.com/project/mantis/)
+ [wordlim: 200] Crawled: last month; 
+
+MANTIS Neural Compression · Task-informed neural compression
+
+# MANTIS
+
+Task-informed neural compression for UAV split inference, in which estimated task relevance conditions the encoder before the wireless bottleneck.
+
+2025
+
+Keep the useful signal Enlarge ↗
+
+Fig. 01
+
+Runtime data path of MANTIS. On the client, the shared stem extracts early features from the input frame; the task detector estimates task relevance, P(task), from those features, and the modulator conditions the encoder through ten cGDN sites. The entropy-coded latent ẑ is transmitted over the uplink and routed at the edge to the corresponding task decoder and head. In the example shown, the frame contains a new smoke plume and is routed to smoke detection. Schematic: task probabilities, latent values, and outputs are illustrative.
+
+Related publications
+
+MANTIS: Modulated Adaptive Neural Compression for Task-Informed Split Computing
+
+SEC (forthcoming)
+
+Mobile sensing platforms such as UAVs increasingly rely on edge servers to run perception models that exceed onboard compute and energy budgets. --------------------------------------------------------------------------------
+Decoupled Topology Distance Distillation for Lightweight Smoke Detection in Aerial Remote Sensing Images (https://www.mdpi.com/2571-6255/9/8/340)
+ [wordlim: 200] Published: 2 months ago; Crawled: 2 months ago; 
+
+### 2.3. Lightweight Models for Edge Deployment
+
+Beyond distillation, complementary compression techniques include structured and unstructured pruning [7], post-training and quantization-aware training [8], and lightweight architecture design [9]. MobileNetV2 [48] and MobileViT [49] exemplify architecture-level efficiency through depth-wise separable convolutions and hybrid transformer-convolution blocks, respectively, achieving competitive accuracy at a fraction of the parameter count of standard ResNets [50]. Knowledge distillation is particularly attractive in conjunction with lightweight architectures because it can recover accuracy lost during architectural simplification without modifying the inference graph. Several recent works demonstrate that distilled lightweight detectors can achieve real-time performance on Jetson-class embedded processors and FPGA platforms while meeting the mAP requirements of practical wildfire monitoring systems [51,52]. The present study targets the Faster R-CNN [6] family with a ResNet-18 [50] student backbone, balancing detection accuracy with deployment feasibility on edge hardware.
+
+In summary, three observations motivate the present work. First, although deep detectors have decisively outperformed handcrafted-feature pipelines for fire and smoke recognition [24,25], their parameter and FLOP budgets remain incompatible with real-time inference on UAV edge hardware [51,52]. Second, knowledge distillation is an attractive route to compression because it leaves the student’s inference graph unchanged [10,11], yet the prevailing detection-distillation methods—including the most recent remote-sensing frameworks ARSD [45], AFD [46], Two-Way [47], and DPGD [20]—apply their supervision over dense feature maps and were not designed for the specific statistics of aerial smoke. Third, aerial smoke simultaneously exhibits extreme foreground sparsity, diffuse low-contrast boundaries, and strong appearance similarity to non-fire backgrounds, a combination that exposes three weaknesses of uniform feature regression: imbalance-dominated gradients, boundary-noise over-penalization, and sensitivity to teacher–student feature-magnitude divergence. The research gap addressed here is therefore the absence of a distillation framework that (i) explicitly separates foreground and background supervision to neutralize the imbalance, and (ii) transfers a magnitude-invariant, relational representation rather than absolute feature values. DeTD is designed to fill precisely this gap.
+
+--------------------------------------------------------------------------------
+FireSight – Wildfire Detection through UAV Aerial Image Classification (https://cs231n.stanford.edu/reports/2022/pdfs/132p.pdf)
+ [wordlim: 200] Published: last year; 
+Impact and Application
+•
+Binary Linear Classifier trained on output features
+Vision Transformer
+•
+Pretrained on ImageNet, fine-tuned on FLAME data
+Data Augmentation:
+•
+Tracking wildfire perimeters, targeted UAV deployment to 
+verify potential fires (e.g. those spotted by ALERTWildfire)
+Limitations and Future Work
+•
+Horizontal Flip, Rotation by ≤15°, Color jitter, Grayscale
+Ensemble Strategies:
+•
+Further model compression through knowledge distillation
+•
+Augment training data to include more head-on angles and 
+occluded fires (failure cases shown below)
+•
+Voting: Majority vote across model predictions
+•
+Confidence: Model output with highest softmax probability 
+associated with predicted class is chosen 
+•
+Feature Concatenation: Linear classifiers are removed, output 
+feature maps are concatenated and passed through a FC layer
+Model Compression
+•
+Linear classifier is trained over different ViT layer representations
+•
+Later layers of ViT are removed to examine tradeoff between 
+model performance and model size (in MB)
+Our CNN models and ViT focus on different, but complementary areas in images - ViT
+concentrates on areas of fire presence, while ResNet looks at larger regions and smoke--------------------------------------------------------------------------------
+SEB-YOLO: An Improved YOLOv5 Model for Remote Sensing Small Target Detection (https://pmc.ncbi.nlm.nih.gov/articles/PMC11014141/)
+ [wordlim: 200] Published: 2.6 years ago; Crawled: last week; 
+
+### 3.1. Space to Depth and Non-Strided Convolution
+
+In the original network of YOLOv5, there is a large number of strided convolutions, which is a common but flawed design that may lead to the loss of critical fine-grained information in remote sensing images and the reduction in the efficiency of feature representation learning. In an effort to address these limitations and enhance small object detection in remote sensing images, the SPD-Conv [[ref-type: bibr] 48] is introduced as a substitute for the sstrided convolution. Comprising a space-to-depth conversion layer and a non-strided convolution layer, the SPD-Conv module compresses image pixels, transforming two-dimensional spatial data into a more concise one-dimensional representation. This innovative approach is designed to overcome the limitations of traditional strided convolutions. It aims to enhance the model’s ability to capture intricate details, especially when dealing with small objects in remote sensing images.
+
+The SPD-Conv operation consists of two steps. --------------------------------------------------------------------------------
+Lost in Compression: The Impact of Lossy Image Compression on Variable Size Object Detection Within Infrared Imagery (https://openaccess.thecvf.com/content/CVPR2022W/PBVS/papers/Bhowmik_Lost_in_Compression_The_Impact_of_Lossy_Image_Compression_on_CVPRW_2022_paper.pdf)
+ [wordlim: 200] Crawled: 10 months ago; 
+
+of varying degrees of compression applied to the input data. Multi-stage Cascade R-CNN performs slightly better than single-stage and transformer-based architectures. However, single-stage FSAF, which has the smallest number of parameters, achieves the fastest inference time. Within this study, we report that significant compression between 75 and 50 will negligibly affect performance, but will reduce the storage capacity of the data by over 50%. We show that inferring models trained on uncompressed imagery will fail to detect objects across compressed images, but re-training the same models across compressed images will allow them to detect objects with high accuracy. We also quantitatively report on how objects of differing size are affected by compression by assigning each object to a discrete class according to the bounding box area. We hope that the results presented in this work will help future real-world applications of object detection models applied to thermal imagery to reduce storage and transmission overhead while obtaining minimal performance impact.
+
+376--------------------------------------------------------------------------------
+2025 16th IFIP Wireless and Mobile Networking Conference (WMNC) (https://opendl.ifip-tc6.org/db/conf/wmnc/wmnc2025/1571185296.pdf)
+ [wordlim: 200] Published: 9 months ago; 
+2025 16th IFIP Wireless and Mobile Networking Conference (WMNC)
+TABLE II
+COMPARISON OF MATCHING PERFORMANCE AND COMPRESSION RATE ACROSS DIFFERENT APPROACHES
+Compression Approach
+Compression Ratio
+F1 Score
+Recall
+Precision
+Downsampling (factor 4)
+4.0
+0.76
+0.78
+0.74
+Resolution Reduction (8 bits)
+2.0
+0.71
+0.66
+0.76
+Embedding 4, quant. 6 bits
+325.3
+0.75
+0.87
+0.66
+Embedding 8, quant. 6 bits
+162.7
+0.77
+0.87
+0.69
+Embedding 14, quant. 7 bits
+75.1
+0.77
+0.86
+0.71
+investigated task-specific learned compression, where the com-
+pressed representation is optimized for downstream tasks such
+as classification or detection [15]. This paradigm shift towards
+task-aware compression, potentially enabling reduced com-
+munication overhead and improved efficiency in distributed
+systems, motivates our investigation into learning compressed
+embeddings specifically designed for efficient signal matching
+in a collaborative localization scenario.
+REFERENCES
+ployed in new environments with different signal types or
+propagation conditions. --------------------------------------------------------------------------------
+YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG (https://www.mdpi.com/2079-3197/14/9/206)
+ [wordlim: 200] Published: last month; Crawled: last week; 
+
+7 September 2026
+
+23 Pages
+
+# YOLO-Based Object Localization and Classification in UAV Images Compressed by JPEG
+
+Rostyslav Tsekhmystro^{ 1,2,*},
+
+Vladimir Lukin^{ 1} and
+
+Dmytro Krytskyi^{ 2}
+
+^{1}
+
+Department of Information-Communication Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{2}
+
+Department of Design Information Technologies, National Aerospace University “KhAI”, 61070 Kharkiv, Ukraine
+
+^{*}
+
+Author to whom correspondence should be addressed.
+
+Computation2026, 14(9), 206;https://doi.org/10.3390/computation14090206
+
+This article belongs to the Special Issue Integrated Computer Technologies in Mechanical Engineering—Synergetic Engineering V
+
+Version Notes
+
+Order Reprints
+
+## Abstract
+
+Methods for object localization and classification in images acquired from unmanned aerial vehicles (UAVs) quickly develop and find new applications. Pre-trained convolutional neural networks (CNNs) play the key role in solving these tasks. 
+Note also that, under certain conditions, lossy compression might even improve the classification accuracy [37,38], but this usually happens if original images contain quite intensive noise.
+
+Several papers deal with the impact of lossy compression on object localization and classification [29,30,31,39,40,41]. The paper [41] is one of the first to address object detection in JPEG-compressed images. It shows that full decompression might not be needed, and an object can be detected using DCT coefficients’ processing by the pre-trained SSD network. The authors of the paper [29] state that there are many datasets in which the images contained in these datasets are already lossy compressed, and this can result in certain problems in CNN training. They also state that considerable reduction in performance can be observed for large CR. The MobileNetV2, VGG16, VGG19, ResNet50, NASNetMobile and NASNetLarge classifiers are studied in [39], and it is demonstrated that lossy compression using atomic wavelets has practically no negative impact on classification for visually lossless image compression. The authors of [30] apply CNN to the most important DCT coefficients and show that the designed network classifier is quite resilient to JPEG quality, but its performance depends on spatial resolution. The authors of [40] consider five types of distortions, namely blur, noise, contrast, JPEG, and JPEG2000 compression, and show that modern networks are sensitive to these distortion types, particularly to blur and noise. Note that distortions due to lossy compression are, in some sense, similar to noise and blur [42], although statistical and spatial spectral characteristics of distortions due to lossy compression considerably depend on the coder used, CR, and image properties.
+
+--------------------------------------------------------------------------------
+Hybrid CSI‑Driven Semantic Data Compression for UAV Swarm Edge Networks — FREEDERIA (https://freederia.com/hybrid-csi-driven-semantic-data-compression-for-uav-swarm-edge-networks/)
+ [wordlim: 200] Crawled: 3 weeks ago; 
+
+Legacy public archiveThis is a public legacy or synthetic research record presented through FREEDERIA. It is not a validated RCRI research object, governed structured package, or paid data product.
+
+# Hybrid CSI‑Driven Semantic Data Compression for UAV Swarm Edge Networks
+
+Use boundary: This page is a migrated Freederia public technical record. The machine-readable paid API record remains available at `https://api.freederia.com/v1/posts/589669`. Records are synthetic, simulated, projected, or exploratory unless independently verified.
+
+Record ID: wp-589669 · Legacy WordPress ID: 589669 · Type: wordpress_migrated_post · Category: 759251291
+
+## Abstract
+
+Unmanned aerial vehicle (UAV) swarms operating in envisioned 6G edge environments must convey massive multimodal sensor streams under strict power and latency constraints. Conventional bit‑level compression often discards information that is semantically critical for downstream inference (e.g., object detection, terrain classification). This exploratory work proposes a **Hybrid CSI‑Driven Semantic Compression (HC‑SC)** framework that (i) exploits instantaneous channel state information (CSI) to adapt quantization depth, (ii) embeds a Bayesian uncertainty module that self‑validates compression fidelity, and (iii) closes the loop by feeding uncertainty feedback to the compression controller. --------------------------------------------------------------------------------
+Research on tuna purse seine fishing target detection and recognition method for Unmanned Aerial Vehicle aerial images based on knowledge distillation | ICES Journal of Marine Science | Oxford Academic (https://academic.oup.com/icesjms/article/82/12/fsaf215/8407155)
+ [wordlim: 200] Published: 10 months ago; Crawled: 4 weeks ago; 
+### Offshore object detection performance
+
+The field evaluation results of the detection model demonstrate three distinct performance categories (Fig. 3). First, successful detections show accurate identification and precise bounding box localization of artificial FADs, achieving 128 correct detections (94.81% accuracy). Second, localization errors reveal correct classification but inaccurate position marking, occurring in seven instances. Third, the model exhibits exceptional performance under defocused conditions, maintaining perfect detection and localization accuracy across all 19 severely blurred test cases. These results collectively validate the model’s robustness against challenging imaging conditions, particularly in handling camera defocus and image quality degradation.
+
+#### 
+
+Image: Experimental results on the detection of FAD from offshore UAV testing.
+
+Figure 3.
+
+Experimental results on the detection of FAD from offshore UAV testing.
+
+Open in new tabDownload slide
+
+--------------------------------------------------------------------------------
+(PDF) Semantic-Preserving Image Compression and Restoration Pipeline for Bandwidth-Constrained UAV Applications: A Task-Aware Evaluation Framework (https://www.researchgate.net/publication/410110220_Semantic-Preserving_Image_Compression_and_Restoration_Pipeline_for_Bandwidth-Constrained_UAV_Applications_A_Task-Aware_Evaluation_Framework)
+ [wordlim: 200] Published: 4 months ago; Crawled: 3 months ago; 
+ArticialIntelligenceandApplications Vol.00Iss.002026 imagesservingasthereferencebaseline,(2)JPEG-compressed imageswithqualityfactor Q=10achievingsimilarfilesizereduc-tiontoourquantizedimages,and(3)restoredimagesobtained afterourquantization-restorationpipeline.Thisthree-waycom-parisonprovidesthedirectassessmentofwhetherrestoration outperformsconventionalcompressionforperformanceon downstreamtasks.State-of-the-artobjectdetectionalgorithmYOLOv8is adoptedintheevaluationtomakeinferenceonallthreesetsof images,anddetectionresultsareevaluatedagainstthoseobtained byusingmAP(shortformeanAveragePrecision)andretention ratesofdetections.Thismethodologyoffersquantitativeproof fortheutilityofthepipelinewithapplicabilityinreal-worldsit-uationssuchassearchandrescueoperations,surveillance,and environmentalstudy.3.2.2.Objectdetectionmodel Asdetector,weusetheYOLOv8n,where n isthenano variantfromYOLOarchitecture[1]duetoitstrade-offbetween accuracyandcomputationalcostwhichfitsinUAVcontext.The state-of-the-artYOLOv8isthelatestinaseriesofYouOnly LookOnce(YOLO)architecturesthatprocessesimagesthrougha single-passwideConvolutionalNeuralNetworkandisextremely efficientforreal-timeapplications.YOLOv8adoptsaCSPDark-net[42]basedbackboneforfeatureextraction,aswellasthePAN(PathAggregationNetwork)neckunitformulti-scalefeature fusionanddetectionheadtopredictboundingboxes,objectness scores,andclassprobabilities.Thenanoversionisdesignedfor deploymentonedgedevicesandisthereforeespeciallywell-suited tobeingdeployedaboardUAVswithlimitedcomputationalcapa-bilities.TheYOLOv8configurationparametersaresummarized inTable 5.Table5 YOLOv8configurationparameters ParameterValue ModelvariantYOLOv8n(nano)InputresolutionVariable Confidencethreshold0.25 IoUthreshold(NMS)0.45 Pre-trainedDatasetCOCO ArchitectureCSPDarknet+PAN DetectionheadYes Outputformat(x,y,w,h,confidence,class)Fine-tuningOptional 3.2.3.Evaluationprocedure Theevaluationprocessisbasedonasystematicsix-steppro-tocolforreproducibilityandreliability.First,foreachimageinthe testset,weuseoriginalimageprocessing,i.e.,YOLOv8inference onoriginaluncompressedimagesasthereferencedetectionresults tobereachedwithoutanycompressionartifact.Second,wealso takeJPEGcompressionasacomparisonfororiginalimagesusing theJPEG(Q=10)tomakesimilarsizereductionbyquantization andevaluatetheirdetectionperformancedegradationfromcom-moncompression.Third,weadoptpipelineprocessingandfeed ourquantization-restorationpipelinewithoriginalimagesand producedetectionsonrestoredoutputs,toassesshowtherestora-tionrecoverstheabilityofdetection.Fourth,wecompoundall detectionsofthethreeimagessetsalongwiththeirassociatedcon-fidencescoresandregionproposalstoperformextensiveanalysis.Fifth,weevaluatetheperformanceofourmodelbycomparing differentevaluationmetrics,suchasmAPat0.5,per-categoryAP,detectionretentionrate,andfalse-negativestatisticsconsidering eachimagesetduringtesting.ThecompletetestisconductedontheSemanticRiverscapes dataset,whichcontains400imageswithatotalof1105manually labeledobjectsacrosssixcategories.Itcreatesarichtestsetthatis characteristicofactualUAVimages,whichcoversnaturalscenes,waterbodies,andartificialstructures.Performancemeasurementsoveralltestimagesareaggre-gatedtoestablishglobalperformancemetrics,butindividual imageanalysisallowsidentifyingfailurecasesandedgescenarios thatmightbetreatedinaspecialmanner.Theobjectdetection evaluationpipelineisillustratedinFigure 2.Figure2 Flowchartoftheobjectdetectionevaluationframework 3.3.Cross-datasetevaluationframework Toevaluatethegeneralizationofourpipelineindifferent datadistributionsandapplicationscenarios,weconstructeda cross-datasetevaluationframeworkwhichevaluatesthezero-shot performanceonnoveldatasetwithout-of-trainingretraining.3.3.1.Zero-shotevaluationprotocol Zero-shottestingisthemostchallengingtestofmodelgen-eralization,whichexpectsthepipelinetoworkwellondatasets thataredifferent(withrespecttoscenetypes,imageresolutions,orobjectdistributions)fromthoseseenattrainingtimewithout requiringanyfine-tuningordomainadaptation.Ourzero-shotsettingstrictlyemploysthetrain-on-one test-on-anotherprotocol:wedesignarestorationmodelCCD-NetwhichistrainedonlywithSemanticRiverscapes(natural andriverscapescenes)withoutanytuningofmodel,e.g.,fine-tuningorretraining,andevaluatedonVisDrone(urban andruralscenes).Thistestservestovalidateifthelearned Pdf_Folio:7 07
+
+--------------------------------------------------------------------------------
+Aero-YOLO26: A Lightweight Detector for Small-Object Detection in UAV-Acquired Images with Collaborative Feature Optimization (https://pmc.ncbi.nlm.nih.gov/articles/PMC13667553/)
+ [wordlim: 200] Published: 3 weeks ago; Crawled: today; 
+The mainstream YOLO26 model lacks targeted lightweight and small-target optimization for aerial photography scenarios, and it is challenging to reconcile model volume and detection accuracy. To address these issues, this study puts forward an Aero-YOLO26 lightweight aerial small-target detection algorithm and completes the full-link optimization based on the YOLO26 architecture. By designing the C2f_GhostECA lightweight feature extraction module, it integrates GhostConv and EECA attention to reduce parameters and improve efficiency.
+
+On the VisDrone2019 dataset, the proposed Aero-YOLO26 series consists of two compact variants. The nano variant Aero-YOLO26n requires only 1.99 M parameters, making it the smallest model among all evaluated detectors, and achieves a precision of 50.0%, a recall of 39.5%, and an mAP@50 of 38.2%, comprehensively outperforming every other nano-scale detector as well as dedicated aerial detection methods such as BAF-Net. The small variant Aero-YOLO26s, with 9.16 M parameters, attains a precision of 55.1%, a recall of 42.7%, and an mAP@50 of 44.1%, ranking first across all five primary metrics among small-scale models. --------------------------------------------------------------------------------
+MSCD 5
+
+<visual_element id="e1">
+Figure 2 contains (https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06619.pdf)
+ [wordlim: 200] Published: 2.3 years ago; 
+(2) Using train-welled high-resolution teacher detectors as guidance to improve the low-resolution student. (3) Our method adopts a multi-branch architecture to enable information interaction across different scales during training while only requiring single-scale inference. The whole training process shares the weight of different branches and uses our adaptive cross-scale knowledge distillation (ACSKD) to integrate information across different scales.
+
+As for angular boundary discontinuity, which will cause a sudden increase in regression loss when the angle approaches its boundary, current methods can be divided into three types: modulated loss [48,49], angle coder [63,64,70], and Gaussian distribution based methods [65–67]. However, existing works rarely concern the scale variation typically encountered in aerial images. Nowadays, the most common method to address scale variation in aerial images is an off-line multi-scale data augmentation scheme. It first resizes the original images to three scales, i.e. {0.5, 1.0, 1.5}, and then cropped them to patches of 1,024 × 1,024 for training or inference, as shown in Fig. 2a. Though achieving noticeable improvements, it is computationally unfriendly and lacks information interaction among different scales. Compared with this scheme, our proposed MSCD can achieve comparable or superior accuracy and maintain single-scale inference time.
+
+## 2.2 Knowledge Distillation for Object Detection
+
+Knowledge distillation (KD), initially proposed by Hinton et al. [25] for model compression, aims to take a high-performance teacher model as guidance to train a lightweight student model and improve the performance of the latter. Since then, numerous KD methods have been proposed, that perform distillation over various aspects, such as soft targets [25], features [23], mutual information [1], attention mechanisms [26], relationship [46,78], and self-knowledge distillation [60]. With its tremendous success in classification, a line of works uses KD for ob---------------------------------------------------------------------------------
+Image Super resolution: Enhanced UAV Images (https://www.icmlc.com/technicalProgram/2025/FP/1101.pdf)
+ [wordlim: 200] Published: last year; 
+quality to simulate compression artifacts.
+• Motion Blur: A 7×7 directional blur kernel is applied to
+simulate UAV motion.
+This results in paired samples of the form (ILR, IHR), used
+for training the network.
+Enhancing aerial images with deep learning is still a bit
+of a tough nut to crack. Challenges like noise, compression
+artifacts, and tricky terrains can really throw a wrench in the
+performance of super-resolution (SR) models. Plus, when it
+comes to using these deep SR models on drones in real-time,
+the onboard computing power can be a real bottleneck. To
+tackle these hurdles, researchers are looking into model opti-
+mization techniques like pruning, quantization, and knowledge
+distillation.
+C. Real-ESRGAN Architecture
+III. METHODOLOGY
+The core model used is Real-ESRGAN, designed to handle
+complex and unknown degradation patterns in real-world
+imagery.
+This section presents the technical framework adopted
+for enhancing vertically captured UAV images using Real-
+ESRGAN. The complete methodology is structured into multi-
+--------------------------------------------------------------------------------
+An Efficient Compressive Convolutional Network for Unified Object Detection and Image Compression (https://eurekamag.com/research/081/646/081646788.php)
+ [wordlim: 200] Crawled: 4 months ago; 
+
+# An Efficient Compressive Convolutional Network for Unified Object Detection and Image Compression
+
+##### Zhou, X.; Xu, L.; Liu, S.; Lin, Y.; Zhang, L.; Zhuo, C.
+
+* * *
+
+#### Proceedings of the AAAI Conference on Artificial Intelligence 33: 5949-5956
+
+#### 2019
+
+* * *
+
+ISSN/ISBN: 2159-5399
+
+Accession: 081646788
+
+##### Full-Text Article emailed within 1 workday
+
+
+##### Summary
+
+This paper addresses the challenge of designing efficient framework for real-time object detection and image compression. The proposed Compressive Convolutional Network (CCN) is basically a compressive-sensing-enabled convolutional neural network. Instead of designing different components for compressive sensing and object detection, the CCN optimizes and reuses the convolution operation for recoverable data embedding and image compression. Technically, the incoherence condition, which is the sufficient condition for recoverable data embedding, is incorporated in the first convolutional layer of the CCN model as regularization; Therefore, the CCN convolution kernels learned by training over the VOC and COCO image set can be used for data embedding and image compression. 

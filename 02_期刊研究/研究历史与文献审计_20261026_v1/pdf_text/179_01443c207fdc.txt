@@ -1,0 +1,194 @@
+266 IEEE TRANSACTIONS ON IMAGE PROCESSING, VOL. 10, NO. 2, FEBRUARY 2001
+Active Contours Without Edges
+Tony F. Chan, Member, IEEE, and Luminita A. Vese
+Abstract—In this paper, we propose a new model for active con-
+tours to detect objects in a given image, based on techniques of
+curve evolution, Mumford–Shah functional for segmentation and
+level sets. Our model can detect objects whose boundaries are not
+necessarily defined by gradient. We minimize an energy which can
+be seen as a particular case of the minimal partition problem. In
+the level set formulation, the problem becomes a “mean-curvature
+flow”-like evolving the active contour, which will stop on the de-
+sired boundary. However, the stopping term does not depend on
+the gradient of the image, as in the classical active contour models,
+but is instead related to a particular segmentation of the image. We
+will give a numerical algorithm using finite differences. Finally, we
+will present various experimental results and in particular some
+examples for which the classical snakes methods based on the gra-
+dient are not applicable. Also, the initial curve can be anywhere in
+the image, and interior contours are automatically detected.
+Index Terms—Active contours, curvature, energy minimization,
+finite differences, level sets, partial differential equations, segmen-
+tation.
+I. I NTRODUCTION
+T
+HE BASIC idea in active contour models or snakes is to
+evolve a curve, subject to constraints from a given image
+, in order to detect objects in that image. For instance, starting
+with a curve around the object to be detected, the curve moves
+toward its interior normal and has to stop on the boundary of the
+object.
+Let
+be a bounded open subset of , with its boundary.
+Let be a given image, and be a
+parameterized curve.
+In the classical snakes and active contour models (see [9], [3],
+[13], [4]), an edge-detector is used, depending on the gradient
+of the image , to stop the evolving curve on the boundary of
+the desired object. We briefly recall these models next.
+The snake model [9] is: , where
+(1)
+Here, , and are positive parameters. The first two terms
+control the smoothness of the contour (the internal energy),
+while the third term attracts the contour toward the object in
+Manuscript received June 17, 1999; revised September 27, 2000. This work
+was supported in part by ONR under Contract N00014-96-1-0277 and NSF Con-
+tract DMS-9626755. The associate editor coordinating the review of this man-
+uscript and approving it for publication was Prof. Robert J. Schalkoff.
+The authors are with the Mathematics Department, University of Cali-
+fornia, Los Angeles, CA 90095-1555 USA (e-mail: chan@math.ucla.edu;
+lvese@math.ucla.edu).
+Publisher Item Identifier S 1057-7149(01)00819-3.
+the image (the external energy). Observe that, by minimizing
+the energy (1), we are trying to locate the curve at the points
+of maxima , acting as an edge-detector, while keeping a
+smoothness in the curve (object boundary).
+A general edge-detector can be defined by a positive and de-
+creasing function , depending on the gradient of the image ,
+such that
+For instance
+where , a smoother version of , is the convo-
+lution of the image with the Gaussian
+. The function is positive in
+homogeneous regions, and zero at the edges.
+In problems of curve evolution, the level set method and in
+particular the motion by mean curvature of Osher and Sethian
+[19] have been used extensively, because it allows for cusps,
+corners, and automatic topological changes. Moreover, the dis-
+cretization of the problem is made on a fixed rectangular grid.
+The curve
+is represented implicitly via a Lipschitz function ,
+by , and the evolution of the curve is
+given by the zero-level curve at time of the function .
+Evolving the curve in normal direction with speed amounts
+to solve the differential equation [19]
+where the set defines the initial contour.
+A particular case is the motion by mean curvature, when
+div is the curvature of the level-curve of
+passing through . The equation becomes
+div
+A geometric active contour model based on the mean curva-
+ture motion is given by the following evolution equation [3]:
+div
+in
+in
+(2)
+where
+edge-function with ;
+is constant;
+initial level set function.
+1057–7149/01$10.00 © 2001 IEEE
+
+---PAGE---
+
+CHAN AND VESE: ACTIVE CONTOURS WITHOUT EDGES 267
+Its zero level curve moves in the normal direction with speed
+and therefore stops on the desired
+boundary, where vanishes. The constant is a correction term
+chosen so that the quantity div
+remains always positive. This constant may be interpreted as a
+force pushing the curve toward the object, when the curvature
+becomes null or negative. Also,
+is a constraint on the area
+inside the curve, increasing the propagation speed.
+Two other active contour models based on level sets were
+proposed in [13], again using the image gradient to stop the
+curve. The first one is
+in
+where is a constant, and and are the maximum and
+minimum values of the magnitude of the image gradient
+. Again, the speed of the evolving curve becomes zero on the
+points with highest gradients, and therefore the curve stops on
+the desired boundary, defined by strong gradients. The second
+model [13] is similar to the geometric model [3], with
+.
+Other related works are [14] and [15].
+The geodesic model [4] is
+(3)
+This is a problem of geodesic computation in a Riemannian
+space, according to a metric induced by the image . Solving
+the minimization problem (3) consists in finding the path of
+minimal new length in that metric. A minimizer will be ob-
+tained when vanishes, i.e., when the curve
+is on the boundary of the object. The geodesic active contour
+model (3) from [4] also has a level set formulation
+div
+in
+in
+(4)
+Because all these classical snakes and active contour models
+rely on the edge-function , depending on the image gradient
+, to stop the curve evolution, these models can detect only
+objects with edges defined by gradient. In practice, the dis-
+crete gradients are bounded and then the stopping function
+is never zero on the edges, and the curve may pass through
+the boundary, especially for the models in [3], [13]–[15]. If the
+image is very noisy, then the isotropic smoothing Gaussian
+has to be strong, which will smooth the edges too. In this paper,
+we propose a different active contour model, without a stopping
+edge-function, i.e. a model which is not based on the gradient
+of the image
+for the stopping process. The stopping term is
+based on Mumford–Shah segmentation techniques [18]. In this
+way, we obtain a model which can detect contours both with or
+without gradient, for instance objects with very smooth bound-
+aries or even with discontinuous boundaries (for a discussion on
+different types of contours, we refer the reader to [8]). In addi-
+tion, our model has a level set formulation, interior contours are
+automatically detected, and the initial curve can be anywhere in
+the image.
+The outline of the paper is as follows. In the next section we
+introduce our model as an energy minimization and discuss the
+relationship with the Mumford–Shah functional for segmenta-
+tion. Also, we formulate the model in terms of level set functions
+and compute the associated Euler–Lagrange equations. In Sec-
+tion III we present an iterative algorithm for solving the problem
+and its discretization. In Section IV we validate our model by
+various numerical results on synthetic and real images, showing
+the advantages of our model described before, and we end the
+paper by a brief concluding section.
+Other related works are [29], [10], [26], and [24] on active
+contours and segmentation, [28] and [11] on shape reconstruc-
+tion from unorganized points, and finally the recent works [20]
+and [21], where a probability based geodesic active region
+model combined with classical gradient based active contour
+techniques is proposed.
+II. D
+ESCRIPTION OF THE MODEL
+Let us define the evolving curve in , as the boundary of an
+open subset of (i.e. , and ). In what follows,
+/105/110/115/105/100/101denotes the region , and /111/117/116/115/105/100/101denotes the
+region .
+Our method is the minimization of an energy based-segmen-
+tation. Let us first explain the basic idea of the model in a simple
+case. Assume that the image
+is formed by two regions of ap-
+proximatively piecewise-constant intensities, of distinct values
+and . Assume further that the object to be detected is repre-
+sented by the region with the value . Let denote its boundary
+by . Then we have inside the object [orinside ( )],
+and outside the object [or outside ( )]. Now let us
+consider the following “fitting” term:
+where is any other variable curve, and the constants , ,
+depending on , are the averages of inside and respec-
+tively outside . In this simple case, it is obvious that , the
+boundary of the object, is the minimizer of the fitting term
+This can be seen easily. For instance, if the curve is outside
+the object, then and . If the curve is
+inside the object, then but . If the curve
+is both inside and outside the object, then and
+. Finally, the fitting energy is minimized if ,
+i.e., if the curve is on the boundary of the object. These basic
+remarks are illustrated in Fig. 1.
+In our active contour model we will minimize the above fit-
+ting term and we will add some regularizing terms, like the

@@ -1,0 +1,798 @@
+CVPR 2022 Open Access Repository (https://openaccess.thecvf.com/content/CVPR2022/html/Yang_Focal_and_Global_Knowledge_Distillation_for_Detectors_CVPR_2022_paper.html)
+ [wordlim: 200] Crawled: 4 months ago; 
+
+Focal and Global Knowledge Distillation for Detectors     
+
+Zhendong Yang, Zhe Li, Xiaohu Jiang, Yuan Gong, Zehuan Yuan, Danpei Zhao, Chun Yuan; Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2022, pp. 4643-4652
+
+Abstract
+
+Knowledge distillation has been applied to image classification successfully. However, object detection is much more sophisticated and most knowledge distillation methods have failed on it. In this paper, we point out that in object detection, the features of the teacher and student vary greatly in different areas, especially in the foreground and background. If we distill them equally, the uneven differences between feature maps will negatively affect the distillation. Thus, we propose Focal and Global Distillation (FGD). Focal distillation separates the foreground and background, forcing the student to focus on the teacher's critical pixels and channels. Global distillation rebuilds the relation between different pixels and transfers it from teachers to students, compensating for missing global information in focal distillation. As our method only needs to calculate the loss on the feature map, FGD can be applied to various detectors. We experiment on various detectors with different backbones and the results show that the student detector achieves excellent mAP improvement. For example, ResNet-50 based RetinaNet, Faster RCNN, RepPoints and Mask RCNN with our distillation method achieve 40.7%, 42.0%, 42.0% and 42.1% mAP on COCO2017, which are 3.3, 3.6, 3.4 and 2.9 higher than the baseline, respectively. Our codes are available at https://github.com/yzd-v/FGD.
+
+Related Material
+    [pdf] [arXiv]
+
+[bibtex]
+
+@InProceedings{Yang_2022_CVPR, author = {Yang, Zhendong and Li, Zhe and Jiang, Xiaohu and Gong, Yuan and Yuan, Zehuan and Zhao, Danpei and Yuan, Chun}, title = {Focal and Global Knowledge Distillation for Detectors}, booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, month = {June}, year = {2022}, pages = {4643-4652} }--------------------------------------------------------------------------------
+Focal and Global Knowledge Distillation for Detectors (https://openaccess.thecvf.com/content/CVPR2022/papers/Yang_Focal_and_Global_Knowledge_Distillation_for_Detectors_CVPR_2022_paper.pdf)
+ [wordlim: 200] 
+Focal and Global Knowledge Distillation for Detectors
+
+Zhendong Yang*1,2  Zhe Li2  Xiaohu Jiang1  Yuan Gong1  
+Zehuan Yuan2  Danpei Zhao3  Chun Yuan†1  
+1Tsinghua Shenzhen International Graduate School   2ByteDance Inc  
+3BeiHang University  
+
+{yangzd21,jiangxh21,gong-y21}@mails.tsinghua.edu.cn   {lizhe.axel,yuanzehuan}@bytedance.com  
+zhaodanpei@buaa.edu.cn   yuanc@sz.tsinghua.edu.cn  
+
+## Abstract
+
+Knowledge distillation has been applied to image classification successfully. However, object detection is much more sophisticated and most knowledge distillation methods have failed on it. In this paper, we point out that in object detection, the features of the teacher and student vary greatly in different areas, especially in the foreground and background. If we distill them equally, the uneven differences between feature maps will negatively affect the distillation. Thus, we propose Focal and Global Distillation (FGD). Focal distillation separates the foreground and background, forcing the student to focus on the teacher’s critical pixels and channels. Global distillation rebuilds the relation between different pixels and transfers it from teachers to students, compensating for missing global information in focal distillation. As our method only needs to calculate the loss on the feature map, FGD can be applied to various detectors. We experiment on various detectors with different backbones and the results show that the student detector achieves excellent mAP improvement. For example, ResNet-50 based RetinaNet, Faster RCNN, RepPoints and Mask RCNN with our distillation method achieve 40.7%, 42.0%, 42.0% and 42.1% mAP on COCO2017, which are 3.3, 3.6, 3.4 and 2.9 higher than the baseline, respectively. Our codes are available at https://github.com/yzd-v/FGD.
+
+<visual_element id="e1">
+Figure 1 visualization: a small input image of a bird on the left is connected by dashed arrows labeled “Teacher” and “Student” to four heatmap panels on the right. The top row is labeled “Spatial attention” and “Channel attention”; the bottom row shows corresponding student maps. Yellow rectangles highlight the foreground region in the spatial maps.
+</visual_element>
+
+<visual_element id="e2">
+Table 1 compares different distillation areas for RetinaNet Res101-Res50. Columns under “distillation area” are fg, bg, split; metrics are mAP and mAR. Rows and values:
+- × × (fg, bg, split) → 37.4, 53.9
+- ✓ × → 39.3, 55.6
+- × ✓ → 39.2, 55.8
+- ✓ ✓ × → 38.9, 55.1
+- ✓ ✓ ✓ → 39.4, 56.1
+</visual_element>
+
+## 1. Introduction
+
+Recently, deep learning has achieved great success in various domains [8, 9, 22, 24]. To get better performance, we usually use a larger backbone, which needs more compute resources and inferences more slowly. To get over this, knowledge distillation has been proposed [11]. Knowledge distillation is a method to inherit the information from a large teacher network to a compact student network and achieve strong performance without extra cost during inference time. However, most distillation methods [10, 27, 33, 34] are designed for image classification, which lead to trivial improvements for object detection.
+
+*This work was performed while Zhendong worked as an intern at ByteDance.  
+†Corresponding author
+
+4643--------------------------------------------------------------------------------
+Focal and Global Knowledge Distillation for Detectors (https://arxiv.org/abs/2111.11837)
+ [wordlim: 200] Published: 4.9 years ago; Title: Focal and Global Knowledge Distillation for Detectors ... However, object detection is much more sophisticated and most knowledge distillation methods have failed on it. ... We experiment on various detectors with different backbones and the results show that the student detector achieves excellent mAP improvement.
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection - ScienceDirect (https://www.sciencedirect.com/science/article/abs/pii/S1051200424004470)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 months ago; 
+
+## Digital Signal Processing
+
+Volume 156, Part B, January 2025, 104822
+
+# FSIC: Frequency-separated image compression for small object detection
+
+https://doi.org/10.1016/j.dsp.2024.104822Get rights and content
+
+## Abstract
+
+The existing image compression methods are designed for the human visual system. They can achieve good compression quality for low-frequency components of the image that are important to human vision. However, for object detection models, both high and low-frequency components are essential. As a result, the detection metrics on the compressed images obtained by current methods will decline. Particularly for small object detection, the lack of high-frequency signals makes it difficult to distinguish the targets from the background. In this paper, we propose a frequency-separated image compression model, named FSIC. During the training process, the compression of low-frequency components only employs MSE loss, while the compression of high-frequency components additionally incorporates a detection loss. Fritsche et al. [12] proposed to separate the low-frequency components (LFC) and high-frequency components (HFC) of the input image when performing image super-resolution reconstruction with neural networks and train them in different ways. In this work, we first investigate the compression performance of existing compression networks on LFC and HFC using object detection task results as the evaluation metric. Then we propose the frequency-separated image compression model (FSIC) which extends the joint training framework by incorporating a frequency separation learning strategy to train the compression network.
+
+We conduct frequency separation on the VisDrone dataset [13] and utilize the existing learning-based compression method [6] to compress the original image, LFC, and HFC respectively. Then we use YOLOv5 [14] to perform detection on them and get the following findings:
+
+  * •
+
+Both the LFC and HFC of an image are utilized by the object detection model.
+
+  * •
+
+Existing learning-based compression methods using MSE as the loss function demonstrate favorable compression performances on LFC, but their compression performances on HFC are not satisfactory.
+
+Based on the above findings, we propose FSIC. Specifically, we employ a linear filter to separate the LFC and HFC of the input image in the training process. Then, the MSE loss is used to guide the compression of both LFC and HFC. The compression of HFC is further optimized through joint training with a detection model. FSIC exhibits excellent compression performance for object detection tasks on the small object dataset. For extremely high compression ratios, our model has advantages compared with existing compression methods. Moreover, the encoding speed of FSIC is faster than that of the compared learning-based compression models.
+
+Encoders and decoders respectively complete the transformation of images to latent
+
+## Datasets
+
+In object detection, objects smaller than 32×32 pixels are considered small objects. To verify the compression performance of FSIC for small object detection tasks, we compare it with other image compression methods on two classic small object detection datasets, VisDrone [13] and DOTA [37]. The images in the dataset are scaled to 640×640 to avoid the impact of image resizing in the detection model.
+
+## Conclusion & future work
+
+We find that under the existing framework of learning-based image compression models, the MSE loss is insufficient in guiding the compression of HFC. So the compression performance on small object detection tasks is poor. Therefore, we propose a compression model (FSIC) that incorporates frequency separation. It innovatively applies detection loss on the HFC of the image during the training process. This approach offers a novel solution for achieving effective compression while preserving
+--------------------------------------------------------------------------------
+CVPR2026-Papers-with-Code/CVPR2022-Papers-with-Code.md at main · amusi/CVPR2026-Papers-with-Code · GitHub (https://github.mosekj.com/amusi/CVPR2026-Papers-with-Code/blob/main/CVPR2022-Papers-with-Code.md)
+ [wordlim: 200] Crawled: 3 weeks ago; 
+
+Decoupled Knowledge Distillation
+
+  * Paper: https://arxiv.org/abs/2203.08679
+  * Code: https://github.com/megvii-research/mdistiller
+  * 中文解读：https://mp.weixin.qq.com/s/-4AA0zKIXh9Ei9-vc5jOhw
+
+# 目标检测(Object Detection)
+
+BoxeR: Box-Attention for 2D and 3D Transformers
+
+  * Paper: https://arxiv.org/abs/2111.13087
+  * Code: https://github.com/kienduynguyen/BoxeR
+  * 中文解读：https://mp.weixin.qq.com/s/UnUJJBwcAsRgz6TnQf_b7w
+
+DN-DETR: Accelerate DETR Training by Introducing Query DeNoising
+
+  * Paper: https://arxiv.org/abs/2203.01305
+  * Code: https://github.com/FengLi-ust/DN-DETR
+  * 中文解读: https://mp.weixin.qq.com/s/xdMfZ_L628Ru1d1iaMny0w
+
+Accelerating DETR Convergence via Semantic-Aligned Matching
+
+  * Paper: https://arxiv.org/abs/2203.06883
+  * Code: https://github.com/ZhangGongjie/SAM-DETR
+
+Localization Distillation for Dense Object Detection
+
+  * Paper: https://arxiv.org/abs/2102.12252
+  * Code: https://github.com/HikariTJU/LD
+  * Code2: https://github.com/HikariTJU/LD
+  * 中文解读：https://mp.weixin.qq.com/s/dxss8RjJH283h6IbPCT9vg
+
+Focal and Global Knowledge Distillation for Detectors
+
+  * Paper: https://arxiv.org/abs/2111.11837
+  * Code: https://github.com/yzd-v/FGD
+  * 中文解读：https://mp.weixin.qq.com/s/yDkreTudC8JL2V2ETsADwQ
+
+A Dual Weighting Label Assignment Scheme for Object Detection
+
+  * Paper: https://arxiv.org/abs/2203.09730
+  * Code: https://github.com/strongwolf/DW
+
+AdaMixer: A Fast-Converging Query-Based Object Detector
+
+  * Paper(Oral): https://arxiv.org/abs/2203.16507
+  * Code: https://github.com/MCG-NJU/AdaMixer
+
+Omni-DETR: Omni-Supervised Object Detection with Transformers
+
+  * Paper: https://arxiv.org/abs/2203.16089
+  * Code: https://github.com/amazon-research/omni-detr
+
+SIGMA: Semantic-complete Graph Matching for Domain Adaptive Object Detection
+
+  * Paper(Oral): https://arxiv.org/abs/2203.06398
+  * Code: https://github.com/CityU-AIM-Group/SIGMA
+
+## 半监督目标检测
+
+Dense Learning based Semi-Supervised Object Detection
+
+  * Paper: https://arxiv.org/abs/2204.07300
+
+  * Code: https://github.com/chenbinghui1/DSL
+
+--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection - researchr publication bibtex (https://researchr.org/publication/DaiSCGYS25/bibtex)
+ [wordlim: 200] Crawled: 2 weeks ago; 
+
+# FSIC: Frequency-separated image compression for small object detection
+
+Chengjie Dai, Tiantian Song, Qiang Chen, Hanshen Gong, Bowei Yang, Guanghua Song. FSIC: Frequency-separated image compression for small object detection. Digital Signal Processing, 156:104822, 2025. [doi]
+
+  * Abstract
+  * Authors
+  * BibTeX
+  * References
+  * Bibliographies
+  * Reviews
+  * Related
+  *   * @article{DaiSCGYS25,
+      title = {FSIC: Frequency-separated image compression for small object detection},
+      author = {Chengjie Dai and Tiantian Song and Qiang Chen and Hanshen Gong and Bowei Yang and Guanghua Song},
+      year = {2025},
+      doi = {10.1016/j.dsp.2024.104822},
+      url = {https://doi.org/10.1016/j.dsp.2024.104822},
+      researchr = {https://researchr.org/publication/DaiSCGYS25},
+      cites = {0},
+      citedby = {0},
+      journal = {Digital Signal Processing},
+      volume = {156},
+      pages = {104822},
+    }--------------------------------------------------------------------------------
+dblp: Zehuan Yuan (https://dblp.org/pid/227/3298.html)
+ [wordlim: 200] Crawled: yesterday; 
+      * BibTeX
+      * RIS
+      * RDF N-Triples
+      * RDF Turtle
+      * RDF/XML
+      * XML
+      * plain text
+
+dblp key:
+
+      * conf/cvpr/YangLJGYZY22
+
+    * ask others
+
+      * Google
+      * Google Scholar
+      * Semantic Scholar
+      * Internet Archive Scholar
+      * CiteSeerX
+      * PubPeer
+
+    * share record
+
+      * Bluesky
+      * Reddit
+      * BibSonomy
+      * LinkedIn
+
+persistent URL:
+
+      * https://dblp.org/rec/conf/cvpr/YangLJGYZY22
+
+Zhendong Yang, Zhe Li, Xiaohu Jiang, Yuan Gong, Zehuan Yuan, Danpei Zhao, Chun Yuan:
+Focal and Global Knowledge Distillation for Detectors. CVPR 2022: 4633-4642
+  * Image: Conference and Workshop Papers
+
+[c25]
+
+    * view
+
+      * electronic edition via DOI
+      * unpaywalled version
+      * details & citations
+
+authority control:
+
+      *  
+
+    * export record
+
+      * BibTeX
+      * RIS
+      * RDF N-Triples
+      * RDF Turtle
+      * RDF/XML
+      * XML
+      * plain text
+
+dblp key:
+
+      * conf/cvpr/WuJSYL22
+
+--------------------------------------------------------------------------------
+dblp: Zhendong Yang (https://dblp.org/pid/14/1820.html)
+ [wordlim: 200] Crawled: last week; 
+    * share record
+
+      * Bluesky
+      * Reddit
+      * BibSonomy
+      * LinkedIn
+
+persistent URL:
+
+      * https://dblp.org/rec/conf/cvpr/YangLJGYZY22
+
+Zhendong Yang, Zhe Li, Xiaohu Jiang, Yuan Gong, Zehuan Yuan, Danpei Zhao, Chun Yuan:
+Focal and Global Knowledge Distillation for Detectors. CVPR 2022: 4633-4642
+
+[c8]
+
+    * view
+
+      * electronic edition via DOI
+      * unpaywalled version
+      * details & citations
+
+authority control:
+
+      *  
+
+    * export record
+
+      * BibTeX
+      * RIS
+      * RDF N-Triples
+      * RDF Turtle
+      * RDF/XML
+      * XML
+      * plain text
+
+dblp key:
+
+      * conf/eccv/YangLSSYY22
+
+    * ask others
+
+      * Google
+--------------------------------------------------------------------------------
+Focal and Global Knowledge Distillation for Detectors — deep analysis — HypePaper (https://hypepaper.app/analyses/4afe25b8-c97f-43c8-a0da-9661c18a1462)
+ [wordlim: 200] Published: 4.9 years ago; Crawled: 3 weeks ago; 
+# Focal and Global Knowledge Distillation for Detectors
+
+Zhendong Yang, Zhe Li, Xiaohu Jiang, Yuan Gong, Zehuan Yuan, Danpei Zhao et al. · CVPR 2022 · arXiv:2111.11837
+
+## HypePaper analysis — preview
+
+How this analysis was made: a language model wrote it on August 22, 2026, working from the paper’s own text. Check anything you plan to rely on against the paper.
+
+### What problem does this paper attempt to solve?
+
+The paper addresses the limited effectiveness of conventional knowledge distillation for object detection. Knowledge distillation has worked well for image classification, where a student model can imitate the teacher’s output logits or intermediate representations. Object detection is more difficult because its feature maps simultaneously encode foreground objects, background regions, multiple object scales, spatial locations, channels, and global relationships among pixels.
+
+The paper identifies three closely related problems:
+
+  1. Foreground–background imbalance. Detection feature maps contain many more background pixels than foreground pixels. 
+The central problem is therefore how to transfer useful knowledge from a large teacher detector to a smaller student detector while avoiding noisy, imbalanced, and uniformly weighted feature matching. The proposed solution must also be general enough to work with two-stage detectors, anchor-based one-stage detectors, anchor-free one-stage detectors, and instance-segmentation models.
+
+### What related research exists?
+
+#### Object detection architectures
+
+The paper situates its method within three major CNN-based detection paradigms:
+
+  * Two-stage detectors, such as Faster RCNN and Mask RCNN, which use a Region Proposal Network followed by an RCNN head. They generally achieve strong accuracy but require more computation.
+  * Anchor-based one-stage detectors, such as RetinaNet, SSD, and YOLOv3, which directly predict classification and localization outputs from feature maps using predefined anchor boxes.
+  * Anchor-free one-stage detectors, such as FCOS, RepPoints, and CenterNet, which predict object locations or key points without predefined anchor boxes.
+
+Although their detection heads differ, all these systems consume feature maps. This motivates the paper’s feature-level distillation design, which can be inserted at the feature or neck level without depending on the specific detection head.
+
+#### Knowledge distillation for classification
+
+The paper reviews the origins of knowledge distillation in image classification:
+
+  * Hinton et al. introduced the use of teacher outputs as soft labels to transfer “dark knowledge” from a large model to a smaller one.
+  * FitNet demonstrated that intermediate feature representations can also guide the student.
+  * Attention-transfer, feature-transformation, and similarity-based methods further improved classification distillation by emphasizing feature importance or relational structure.
+
+However, the paper argues that these approaches cannot be transferred directly to detection because detection features have severe foreground–background imbalance and contain spatially heterogeneous information.
+
+#### Knowledge distillation for object detection
+
+Several earlier detector-distillation methods are discussed:--------------------------------------------------------------------------------
+dblp: Danpei Zhao (https://dblp.org/pid/41/7950.html)
+ [wordlim: 200] Published: 3 months ago; Crawled: 2 months ago; 
+dblp key:
+
+      * conf/cvpr/YangLJGYZY22
+
+    * ask others
+
+      * Google
+      * Google Scholar
+      * Semantic Scholar
+      * Internet Archive Scholar
+      * CiteSeerX
+      * PubPeer
+
+    * share record
+
+      * Bluesky
+      * Reddit
+      * BibSonomy
+      * LinkedIn
+
+persistent URL:
+
+      * https://dblp.org/rec/conf/cvpr/YangLJGYZY22
+
+Zhendong Yang, Zhe Li, Xiaohu Jiang, Yuan Gong, Zehuan Yuan, Danpei Zhao, Chun Yuan:
+Focal and Global Knowledge Distillation for Detectors. CVPR 2022: 4633-4642
+  * 2021
+  * Image: Conference and Workshop Papers
+
+[c12]
+
+    * view
+
+      * electronic edition via DOI
+--------------------------------------------------------------------------------
+Amazing-Incremental-Object-Detection-with-Knowledge-Distillation/README.md at main · CtCCtV/Amazing-Incremental-Object-Detection-with-Knowledge-Distillation · GitHub (https://github.com/CtCCtV/Amazing-Incremental-Object-Detection-with-Knowledge-Distillation/blob/main/README.md)
+ [wordlim: 200] Crawled: last month; 
+
+Knowledge distillation can be used for incremental/continual/continuous/lifelong learning to avoid catastrophic forgetting.
+
+## Papers
+
+### 2022
+
+  * Focal and Global Knowledge Distillation for Detectors (CVPR 2022) [paper] [code]
+  * Localization Distillation for Dense Object Detection （CVPR 2022） [paper] [code]
+  * Decoupled Knowledge Distillation （CVPR 2022）[paper] [code]
+  * Knowledge Distillation for Object Detection via Rank Mimicking and Prediction-guided Feature Imitation （AAAI 2022）[paper]
+  * Overcoming Catastrophic Forgetting in Incremental Object Detection via Elastic Response Distillation (CVPR 2022) [paper] [code]
+  * Class-Incremental Learning by Knowledge Distillation with Adaptive Feature Consolidation (CVPR 2022)[paper] [code]
+
+### 2021
+
+  * G-DetKD: Towards General Distillation Framework for Object Detectors via Contrastive and Semantic-guided Feature Imitation (ICCV 2021) [paper]
+--------------------------------------------------------------------------------
+GitHub - bkw0622/Awesome-Knowledge-Distillation-for-Object-Detection · GitHub (https://github.com/bkw0622/Awesome-Knowledge-Distillation-for-Object-Detection)
+ [wordlim: 200] Crawled: last month; 
+
+Name  | Name  | Last commit message  | Last commit date
+--- | --- | --- | ---
+README.md  | README.md  |    |  
+
+
+# Awesome Knowledge Distillation for Object Detection
+
+### research flow
+
+### (CVPR2017) Mimicking very efficient network for object detection
+
+### (CVPR2019) Distilling object detectors with fine-grained feature imitation
+
+### (CVPR2021) General instance distillation for object detection
+
+### (CVPR2021) Distilling object detectors via decoupled features
+
+### (NeurIPS2021) Distilling object detectors with feature richness
+
+### (CVPR2022) Focal and global knowledge distillation for detectors
+
+### (AAAI2022) Rank Mimicking and Prediction-guided Feature Imitation
+
+### (ECCV2022) Prediction-Guided Distillation
+
+### (ICLR2023 accepted) Masked Distillation with Receptive Tokens
+
+
+## About
+
+No description, website, or topics provided.
+
+### Resources
+
+Readme
+
+Activity
+
+### Stars
+
+3 stars
+
+### Watchers
+
+1 watching
+
+### Forks
+
+0 forks
+
+## Releases
+
+## Packages
+
+## Contributors
+
+You can’t perform that action at this time.--------------------------------------------------------------------------------
+FSIC: Frequency-separated image compression for small object detection | Article Information | J-GLOBAL (https://jglobal.jst.go.jp/en/detail?JGLOBAL_ID=202502286335317016)
+ [wordlim: 200] Published: 1.8 years ago; Crawled: 2 weeks ago; 
+
+Art
+
+J-GLOBAL ID：202502286335317016   Reference number：25A0207519
+
+# FSIC: Frequency-separated image compression for small object detection
+
+FSIC:小物体検出のための周波数分離画像圧縮〖JST機械翻訳〗
+
+Author (6)：
+
+Dai Chengjie
+
+About Dai Chengjie
+
+  * Search "202350000983830824"
+  * Search "Dai Chengjie"
+
+(School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China)
+
+About School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China
+
+  * Search "201551000096994539"
+  * Search "School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China"
+
+, 
+
+Song Tiantian
+
+About Song Tiantian
+
+  * Search "202550001103599925"
+  * Search "Song Tiantian"
+
+(Department of Mathematics, the University of Manchester, Manchester, M13 9PL, UK)
+
+About Department of Mathematics, the University of Manchester, Manchester, M13 9PL, UK
+
+  * Search "201751000115403800"
+  * Search "Department of Mathematics, the University of Manchester, Manchester, M13 9PL, UK"
+
+, 
+
+Chen Qiang
+
+About Chen Qiang
+
+  * Search "202350000982034994"
+  * Search "Chen Qiang"
+
+(Shanghai FinShine Technology Ltd, Shanghai, 201203, China)
+
+About Shanghai FinShine Technology Ltd, Shanghai, 201203, China
+
+  * Search "202351000191070842"
+  * Search "Shanghai FinShine Technology Ltd, Shanghai, 201203, China"
+
+, 
+
+Gong Hanshen
+
+About Gong Hanshen
+
+  * Search "202350000989008620"
+  * Search "Gong Hanshen"
+
+(Shanghai FinShine Technology Ltd, Shanghai, 201203, China)
+
+About Shanghai FinShine Technology Ltd, Shanghai, 201203, China
+
+  * Search "202351000191070842"
+  * Search "Shanghai FinShine Technology Ltd, Shanghai, 201203, China"
+
+, 
+
+Yang Bowei
+
+About Yang Bowei
+
+  * Search "202350000982910085"
+  * Search "Yang Bowei"
+
+(School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China)
+
+About School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China
+
+  * Search "201551000096994539"
+  * Search "School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China"
+
+, 
+
+Song Guanghua
+
+About Song Guanghua
+
+  * Search "202350000990192647"
+  * Search "Song Guanghua"
+
+(School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China)
+
+About School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China
+
+  * Search "201551000096994539"
+  * Search "School of Aeronautics and Astronautics, Zhejiang University, Hangzhou, 310027, China"
+
+Material：
+
+Digital Signal Processing  (Digit Signal Process)
+
+About Digital Signal Processing
+
+  * Search "W1600A"
+  * Search ISSN,ISBN,CODEN
+  * Detailed information
+
+Volume： 156  Issue： PB  Page： Null  Publication year： 2025 
+JST Material Number： W1600A  ISSN： 1051-2004  Document type： Article
+Article type： 原著論文  Country of issue： Netherlands (NLD)  Language： ENGLISH (EN)
+
+Abstract/Point：
+
+Abstract/Point
+Japanese summary of the article(about several hundred characters).
+All summary is available on JDreamIII(charged).
+On J-GLOBAL, this item will be available after more than half a year after the record posted.   * Detailed information
+
+, 
+
+quality
+
+About quality
+
+  * Search "quality"
+  * Detailed information
+
+, 
+
+HF
+
+About HF
+
+  * Search "HF"
+  * Detailed information
+
+, 
+
+*image
+
+About image
+
+  * Search "image"
+  * Detailed information
+
+, 
+
+LF
+
+About LF
+
+  * Search "LF"
+  * Detailed information
+
+, 
+
+*image compression
+
+About image compression
+
+  * Search "image compression"
+  * Detailed information
+
+, 
+
+component
+
+About component
+
+  * Search "component"
+  * Detailed information
+
+, 
+
+*object detection
+
+About object detection
+
+  * Search "object detection"
+  * Detailed information
+
+, 
+
+frequency component
+
+About frequency component
+
+  * Search "frequency component"
+  * Detailed information
+
+, 
+
+deep learning
+
+About deep learning
+
+  * Search "deep learning"
+  * Detailed information
+
+Semi thesaurus term：
+
+Thesaurus term/Semi thesaurus term
+Keywords indexed to the article.
+All keywords is available on JDreamIII(charged).
+On J-GLOBAL, this item will be available after more than half a year after the record posted. In addtion, medical articles require to login to MyJ-GLOBAL.
+
+Author keywords (3)：
+
+Image compression
+
+About Image compression
+
+  * Search "Image compression"
+  * Detailed information
+
+, 
+
+Deep learning
+
+About Deep learning
+
+  * Search "Deep learning"
+  * Detailed information
+
+, 
+
+Small object detection
+
+About Small object detection
+
+  * Search "Small object detection"
+
+JST classification (1)：
+
+JST classification
+Category name(code) classified by JST.
+
+Graphic and image processing in general 
+
+(JE04010I)
+
+About Graphic and image processing in general
+
+  * Search "JE04010I"
+  * Search "JE04"
+
+Terms in the title (2)：
+
+Terms in the title
+Keywords automatically extracted from the title.
+
+物体検出
+
+About 物体検出
+
+  * Search "物体検出"
+  * Detailed information
+
+, 
+
+画像圧縮
+
+About 画像圧縮
+
+  * Search "画像圧縮"
+  * Detailed information--------------------------------------------------------------------------------
+CVPR 2022 | 针对目标检测的重点与全局知识蒸馏(FGD) (https://www.eepw.com.cn/zhuanlan/202203/213179.html)
+ [wordlim: 200] Published: 4.6 years ago; Crawled: last month; 
+
+# 专栏中心
+
+EEPW首页 > 专栏 > CVPR 2022 | 针对目标检测的重点与全局知识蒸馏(FGD)
+
+# CVPR 2022 | 针对目标检测的重点与全局知识蒸馏(FGD)
+
+发布人：计算机视觉工坊 时间：2022-03-19 来源：工程师
+
+作者丨美索不达米亚平原@知乎（已授权）
+
+来源丨https://zhuanlan.zhihu.com/p/477707304编辑丨极市平台
+
+本文介绍我们CVPR2022关于目标检测的知识蒸馏工作: Focal and Global Knowledge Distillation for Detectors，只需要30行代码就可以在anchor-base, anchor-free的单阶段、两阶段各种检测器上稳定涨点，现在代码已经开源，欢迎大家试用～
+
+文章链接：https://arxiv.org/abs/2111.11837
+
+代码链接：https://github.com/yzd-v/FGD
+
+Image: 图片一、针对问题1. 目标检测中前背景不平衡问题
+
+前背景的不平衡对于目标检测而言是一个重要的问题，这个问题同样影响着知识蒸馏。
+
+知识蒸馏旨在使学生学习教师的知识，以获得相似的输出从而提升性能。为了探索学生与教师在特征层面的差异，我们首先对二者的特征图进行了可视化。可以看到在空间与通道注意力上，教师与学生均存在较大的差异。其中在空间注意力上，二者在前景中的差异较大，在背景中的差异较小，这会给蒸馏中的学生带来不同的学习难度。
+
+Image: 图片
+
+为了进一步探索前背景对于知识蒸馏的影响，我们分离出前背景进行了蒸馏实验，全图一起蒸馏会导致蒸馏性能的下降，将前景与背景分开学生能够获得更好的表现。
+
+Image: 图片
+
+针对学生与教师注意力的差异，前景与背景的差异，我们提出了重点蒸馏Focal Distillation：分离前背景，并利用教师的空间与通道注意力作为权重，指导学生进行知识蒸馏，计算重点蒸馏损失。
+
+2.全局信息的丢失
+
+如前所述，Focal Distillation将前景与背景分开进行蒸馏，割断了前背景的联系，缺乏了特征的全局信息的蒸馏。为此，我们提出了全局蒸馏Global Distillation：利用GcBlock分别提取学生与教师的全局信息，并进行全局蒸馏损失的计算。
+
+Image: 图片二、整体框架
+
+FGD仅需要获取学生与教师的特征图，便可完成重点蒸馏损失与全局蒸馏损失的计算，可以很方便的应用到各种类型的检测器上。
+
+Image: 图片三、实验结果
+
+我们对anchor-based与anchor-free的单阶段与二阶段检测器进行了实验，在COCO2017上学生检测器均获得了大幅的AP和AR提升。
+
+Image: 图片
+
+我们采用了具有更强的检测器对学生进行蒸馏，发现当使用更强的模型作为教师进行蒸馏时，FGD为模型能带来更大的性能的提升。例如RetinaNet-R50在ResNet-101和ResNeXt-101的老师蒸馏下，分别可达到39.7和40.7的mAP。
+
+Image: 图片
+
+对于使用FGD蒸馏完成后的学生模型，我们再次进行了注意力的可视化。可以看到，经过FGD训练后的学生，空间注意力和通道注意力的分布与教师都非常相似，这表明学生通过蒸馏学到了教师的知识并获得了更好的特征，由此实现了性能的提升。
+
+Image: 图片四、更多蒸馏设置
+
+我们已将代码开源：https://github.com/yzd-v/FGD
+代码基于MMDetection实现，易于复现，且已添加更多的教师与学生蒸馏设置，相关结果也在代码中给出，欢迎大家使用。

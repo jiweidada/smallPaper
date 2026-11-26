@@ -1,0 +1,69 @@
+arXiv:2410.08582v1  [cs.CV]  11 Oct 2024
+DeBiFormer: Vision T ransformer with
+Deformable Agent Bi-level Routing Attention
+NguyenHuu BaoLong ⋆ 1, Chenyu Zhang ⋆ 1, Yuzhi Shi 1, Tsubasa Hirakawa 1,
+Takayoshi Yamashita1, Tohgoroh Matsui 1, and Hironobu Fujiyoshi 1
+Chubu University, Kasugai, Japan
+maclong01@gmail.com
+{zhang1121, shi, hirakawa}@mprg.cs.chubu.ac.jp
+{takayoshi, matsui, fujiyoshi}@isc.chubu.ac.jp
+Abstract. Vision Transformers with various attention modules have
+demonstrated superior performance on vision tasks. While u sing sparsity-
+adaptive attention, such as in DAT, has yielded strong resul ts in image
+classiﬁcation, the key-value pairs selected by deformable points lack se-
+mantic relevance when ﬁne-tuning for semantic segmentatio n tasks. The
+query-aware sparsity attention in BiFormer seeks to focus e ach query on
+top-k routed regions. However, during attention calculati on, the selected
+key-value pairs are inﬂuenced by too many irrelevant querie s, reducing
+attention on the more important ones. To address these issue s, we pro-
+pose the Deformable Bi-level Routing Attention (DBRA) modu le, which
+optimizes the selection of key-value pairs using agent quer ies and en-
+hances the interpretability of queries in attention maps. B ased on this,
+we introduce the Deformable Bi-level Routing Attention Tra nsformer
+(DeBiFormer), a novel general-purpose vision transformer built with the
+DBRA module. DeBiFormer has been validated on various compu ter
+vision tasks, including image classiﬁcation, object detec tion, and seman-
+tic segmentation, providing strong evidence of its eﬀectiv eness.Code is
+available at
+https://github.com/maclong01/DeBiFormer
+Keywords: Vision Transformer,Self-Attention Mechanism,Image Recog-
+nition
+1 Introduction
+The Vision Transformer has recently demonstrated signiﬁca nt promise in the
+realm of computer vision [
+15,29,44]. It can capture long-range dependency in
+data [ 29,41], and is almost leading to a convolution-free model more ﬂex ible for
+ﬁtting tons of data [ 44]. In addition, it enjoys high parallelism, which beneﬁts
+training and inference for large models [ 11,41]. The computer vision community
+has observed a surge in the adoption and development of Visio n Transformers
+[1,14,15,29,44,45].
+⋆ Equal contribution.
+
+---PAGE---
+
+2 NguyenHuu B. et al.
+Fig. 1. Vanilla attention and its sparse variants are illustrated i n the diagram: (a)
+vanilla attention functions globally, leading to increase d computational complexity and
+substantial memory footprint. (b)-(c) Multiple strategie s strive to reduce complexity
+by incorporating sparse attention with various handcrafte d patterns, such as local
+window [ 50] and dilated window [ 45,40,24]. (d) Deformable attention [ 47] facilitates
+image-adaptive sparsity by deforming the regular grid. (e) Bi-level routing attention
+[56] begins by searching for top-k (k = 3 in this case) relevant re gions and subsequently
+attends to the union of these regions. (f) In our approach, we realize bi-level routing
+attention, where the initial step involves searching for to p-k (k = 1 in this case) relevant
+regions. Subsequently, attention is directed to the union o f these regions by deforming
+regular grid attendance via top-k relevant regions.
+To improve attention, numerous pieces of research have used thoughtfully
+crafted, eﬃcient attention patterns in which each query sel ectively focused by
+a smaller portion of key-value pairs. As shown in Figure 1, among the various
+representation approaches, some include local windows [ 50] and dilated windows
+[45,40,24]. In addition, some research has taken a diﬀerent path throu gh sparsity
+adaptation to data in their methodology, as demonstrated in the works of [ 5,47].
+However, despite the varying strategies for merging or sele cting key and value
+tokens. These tokens are not semantic for queries. With this approach, when ap-
+plied to other downstream tasks for pretrained ViT [ 41] and DETR [ 1]. Queries
+do not originate from semantic-region key-value pairs. Con sequently, compelling
+all queries to focus on insuﬃcient sets of tokens may not yiel d the most optimal
+results. Recently, with the dynamic query-aware sparsity a ttention mechanism,
+queries are focused by the most dynamic semantically key-va lue pairs, which is
+referred to as bi-level routing attention [ 56]. However, in this approach, queries

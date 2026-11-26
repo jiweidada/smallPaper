@@ -1,0 +1,90 @@
+Journal of Machine Learning Research 13 (2012) 723-773 Submi tted 4/08; Revised 11/11; Published 3/12
+A Kernel Two-Sample Test
+Arthur Gretton∗ ARTHUR .GRETTON @GMAIL .COM
+MPI for Intelligent Systems
+Spemannstrasse 38
+72076 T¨ubingen, Germany
+Karsten M. Borgwardt† KARSTEN .BORGWARDT @TUEBINGEN .MPG .DE
+Machine Learning and Computational Biology Research Group
+Max Planck Institutes T¨ubingen
+Spemannstrasse 38
+72076 T¨ubingen, Germany
+Malte J. Rasch‡ MALTE @MAIL .BNU .EDU .CN
+19 XinJieKouWai St.
+State Key Laboratory of Cognitive Neuroscience and Learning,
+Beijing Normal University,
+Beijing, 100875, P .R. China
+Bernhard Sch¨olkopf BERNHARD .SCHOELKOPF @TUEBINGEN .MPG .DE
+MPI for Intelligent Systems
+Spemannstrasse 38
+72076, T¨ubingen, Germany
+Alexander Smola§ ALEX @SMOLA .ORG
+Yahoo! Research
+2821 Mission College Blvd
+Santa Clara, CA 95054, USA
+Editor: Nicolas Vayatis
+Abstract
+We propose a framework for analyzing and comparing distributions, which we use to construct sta-
+tistical tests to determine if two samples are drawn from different distributions. Our test statistic is
+the largest difference in expectations over functions in the unit ball of a reproducing kernel Hilbert
+space (RKHS), and is called themaximum mean discrepancy (MMD). We present two distribution-
+free tests based on large deviation bounds for the MMD, and a t hird test based on the asymptotic
+distribution of this statistic. The MMD can be computed in quadratic time, although efﬁcient linear
+time approximations are available. Our statistic is an instance of an integral probability metric, and
+various classical metrics on distributions are obtained wh en alternative function classes are used
+in place of an RKHS. We apply our two-sample tests to a variety of problems, including attribute
+matching for databases using the Hungarian marriage method , where they perform strongly. Ex-
+cellent performance is also obtained when comparing distributions over graphs, for which these are
+the ﬁrst such tests.
+∗. Also at Gatsby Computational Neuroscience Unit, CSML, 17 Queen Square, London WC1N 3AR, UK.
+†. This work was carried out while K.M.B. was with the Ludwig-Maximilians-Universit¨at M¨unchen.
+‡. This work was carried out while M.J.R. was with the Graz University of Technology.
+§. Also at The Australian National University, Canberra, ACT 0200, Australia.
+c⃝2012 Arthur Gretton, Karsten M. Borgwardt, Malte J. Rasch, Bernhard Sch¨olkopf and Alexander Smola.
+
+---PAGE---
+
+GRETTON , BORGWARDT , RASCH , SCH ¨OLKOPF AND SMOLA
+Keywords: kernel methods, two-sample test, uniform convergence boun ds, schema matching,
+integral probability metric, hypothesis testing
+1. Introduction
+We address the problem of comparing samples from two probability distribution s, by proposing
+statistical tests of the null hypothesis that these distributions are equal again st the alternative hy-
+pothesis that these distributions are different (this is called the two-sample pr oblem). Such tests
+have application in a variety of areas. In bioinformatics, it is of interest to co mpare microarray
+data from identical tissue types as measured by different laboratories, to detect whether the data
+may be analysed jointly, or whether differences in experimental procedur e have caused systematic
+differences in the data distributions. Equally of interest are comparisons b etween microarray data
+from different tissue types, either to determine whether two subtypes of ca ncer may be treated as
+statistically indistinguishable from a diagnosis perspective, or to detect diff erences in healthy and
+cancerous tissue. In database attribute matching, it is desirable to merge data bases containing mul-
+tiple ﬁelds, where it is not known in advance which ﬁelds correspond: the ﬁelds are matched by
+maximising the similarity in the distributions of their entries.
+We test whether distributions p and q are different on the basis of samples drawn from each of
+them, by ﬁnding a well behaved (e.g., smooth) function which is large on the points drawn from p,
+and small (as negative as possible) on the points from q. We use as our test statistic the difference
+between the mean function values on the two samples; when this is large, the samp les are likely
+from different distributions. We call this test statistic the Maximum Mean Discrepancy (MMD).
+Clearly the quality of the MMD as a statistic depends on the class F of smooth functions that
+deﬁne it. On one hand, F must be “rich enough” so that the population MMD vanishes if and only
+if p = q. On the other hand, for the test to be consistent in power,F needs to be “restrictive” enough
+for the empirical estimate of the MMD to converge quickly to its expectation as the s ample size
+increases. We will use the unit balls in characteristic reproducing kernel Hilbert spaces (Fukumizu
+et al., 2008; Sriperumbudur et al., 2010b) as our function classes, since these will be shown to satisfy
+both of the foregoing properties. We also review classical metrics on distrib utions, namely the
+Kolmogorov-Smirnov and Earth-Mover’s distances, which are based on different function classes;
+collectively these are known as integral probability metrics (M ¨uller, 1997). On a more practical
+note, the MMD has a reasonable computational cost, when compared with othe r two-sample tests:
+given m points sampled from p and n from q, the cost is O(m + n)2 time. We also propose a test
+statistic with a computational cost of O(m +n): the associated test can achieve a given Type II error
+at a lower overall computational cost than the quadratic-cost test, by lookin g at a larger volume of
+data.
+We deﬁne three nonparametric statistical tests based on the MMD. The ﬁrst tw o tests are
+distribution-free, meaning they make no assumptions regarding p and q, albeit at the expense of
+being conservative in detecting differences between the distributions. The third test is based on the
+asymptotic distribution of the MMD, and is in practice more sensitive to differences in distribution at
+small sample sizes. The present work synthesizes and expands on results of Gretton et al. (2007a,b)
+and Smola et al. (2007),1 who in turn build on the earlier work of Borgwardt et al. (2006). Note that
+1. In particular, most of the proofs here were not provided by Gretton et al. (2007a), but in an accompanying technical
+report (Gretton et al., 2008a), which this document replaces.
+724

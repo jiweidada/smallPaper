@@ -1,0 +1,33 @@
+258｜新增观测中心移动：必要几何面事前协议（2026-10-21）
+状态：仅编写258/259；未运行259、合成测试、语法编译或任何模型/训练。
+
+问题与固定输入
+原pre宽高、原FDR节点及残差单位不变，只允许中心每轴±4真实input px。计算原GO主组是否有可修复且GT完整位于“原pre框四边外扩4px”观察窗的槽。oracle位移不是可部署预测函数，不证明新增像素信息、学习收益或创新。244的F4主k4=2/0、mixed NOT passed原结论保留，不改rho救方向。
+仅同16 BASE24 development prediction缓存：A/seed1、B/seed2，各batch00…07×4图。复用237完整validate_batch、manifest、235并列兼容审计与metadata；固定原saved GO，禁止改用Windows重建owner。原own final Hungarian只作身份复现与描述性对照，不运行新分配实验。237 SHA：20a98d07a57def68399fa71338e05388b6cf7f359117a44d89ceaaabf7ff348d。
+228的shape与prediction input SHA连接：batch03=512²、05=544²，其余640²。真实归一化移动界=(4/W,4/H)，没有640equiv筛选；不读原图、输入image tensor、heldout、checkpoint。
+
+解析式（全部FP32缓存值提升FP64，转换成真实像素坐标）
+r=(c,w,h)，GT=(cg,wg,hg)；native R=4、up=.5、W端点±4。原四边支持等价于：
+  dc=cg−c；a=(w−|wg−w|/2, h−|hg−h|/2)；逐轴 |dc|≤a。
+任一a<0（wg>3w或hg>3h）则任意中心也不可解，位移记NA。
+否则中心可行矩形为[cg−a,cg+a]，原中心投影：
+  delta=sign(dc)·max(|dc|−a,0)，rho_min=max(|delta_x|,|delta_y|)。
+rho_min≤4为可修复；原outside且可修复才算新增。等号属于闭支持；有限softmax未必能精确实现端点。独立对应角点偏移式核验原支持，核验投影后原wh不变、支持成立。固定1e−9px仅标近边界/检查算术残差，不放宽主比较。
+
+观察窗与标签
+O4=[cx−w/2−4,cy−h/2−4,cx+w/2+4,cy+h/2+4]，永远固定于原pre。完整可见用四边闭比较；另报area(GT∩O4)/area(GT)、partial/none。另报O4与输入图[0,W]×[0,H]相交后的有效可见性和名义/有效差异；主screen按题设O4，若图外造成差异就不能称实际完整观测。
+尺寸可行时，“O4完整可见”已蕴含rho_min≤4，二者不是独立证据；保留交叉格以分开尺寸不可解与窗口不足。合成覆盖该关系。
+主cohort=保存final GO∩actual-input min GT边<4px∩原final native FP32 IoU==0∩原supportoutside。IoU调用原box_ops，不用oracle后框重选；无效框不冒充IoU0。A/B原主组1170/1066仅核对身份，差异关闭结论而非改定义。
+“all”仅全部GO槽；own只作描述。逐seed/batch/image报all/actual_sub4/IoU0_outside/main的槽数、uniqueGT曝光数、尺寸不可解、原支持、最小位移、可修复×完整可见四格、可见比例及近边界；保存全配对npz和主命中身份。GO重复GT不当独立样本。无original_sub4明确标签就NA；自然原图H/L、完整Mosaic/Mixup来源/逆变换、原图像素内容仍缺，source_ids不能替代。
+
+唯一必要screen
+所有前置通过后，两seed主组各≥1个“原outside→rho4可修复且O4完整可见”才通过必要screen；一侧=mixed未通过，两侧0=neither未通过。不换rho/主组/输入/GO，不用own或all阳性覆盖主阴性。有效输入窗仍完整的命中另报。前置失败=error_no_method_conclusion。
+通过只允许继续判断实际观测与中心函数，不是训练批准/AP/创新。最强实际设计控制：相同已有像素的自由中心头，以及相同crop仅末层校正；本探针不运行。194的AutoFocus/CornerNet等局部重读先例保留，不重造宽主张。pre几何原生已用GO，不能假设存在pre-own与GO双L1冲突。
+
+实现与资源
+259仅解析几何+冻结237验证；无网格试移、all300容量、DN/aux实验、loss/gradient或模型。真实cache前合成：尺寸不可解、零移动、rho恰等/略大、可见不可修复、可修复不全可见、可修复且完整、y轴、512/544/640及非方图像素、输入边界裁剪、原生端点、237并列拒绝案例。
+CPU torch，空CUDA；各BLAS线程2、torch2/interop1，affinity[13,15]、below_normal，继承内存guard。复用链只导入定义、不调旧main、不生成pyc。记录来源/协议/cache/生产链SHA before/after；历史文件不写。所有NA在JSON为null，npz为NaN+可行性mask。
+未来仅新建260_BASE24_pre_center_observation_probe，禁止覆盖。输出00输入合成、16批JSON/npz、01结果、02输出SHA；目录创建后的错误写FAILED。原生matcher16次只为身份检查，model/grad/update均0。
+命令形态（未执行，解释器待root采用现有CPU环境）：
+  <CPU-Python绝对路径> -B "<V2>\259_BASE24_pre_center_observation_probe.py"
+可加 --synthetic-only：不读prediction tensor内容、不建260。以上不是已验证可直接启动的命令。

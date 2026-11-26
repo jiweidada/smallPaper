@@ -1,0 +1,805 @@
+【同一研究目标，最新事实与版本优先级】
+上一段第3轮模型调用失败，8份完整回答原封保存在324；不是科学停止。下面全体专家看到相同资料，不新增训练、不操作远端或heldout。主控已完成一项原先不存在的实际扣量诊断322，并完成Gcal合成320；不是只开会或只写计划。318/319在读取真实输出前锁定，B323独立复核76源与18输出SHA及所有计数。
+
+当前版本以317为准：N/S/Gcal/R四臂、各6小头轮×2seed=48 head epochs；G不是Claude初提center核/noNull，也不κ永远0。G生成用同mass-reference/cap的固定d_out+10个可训练class κ_c(init0，仅正常detloss，无额外校准标签)，所有臂共同learned Cθ/κθ association辅助计划照旧。N控制density-only，S保完整逐实例属性，G允许简单类别null校准，R是逐candidate可学习解释。root选择更强4臂是为了排除已有密度扣减组合及全局校准这两个具体解释，不以“48”获得同意为目标，也不增加第5臂；专家可以反对，但须说清具体变量，不仅维护原三臂数字。
+
+真实新证据322：仍沿旧32开发输入×2模型seed、原centre供应、oracle m、κ0（非新自然/intersect/M0、非学得Gcal）。删除在全图无同类IoU≥.5合法边的条件，既定两窗GT去重后，primary tiny Geo0受影响A129/224、17/18图，B198/344、15/22图。按图relative核投影释放.242648/.135073；比32次同类别同数量uniform随机删除多.0136025/.0122104。covered tiny对应bad−random为−.162767/−.067267，原始释放仍正；它表示比随机少释放covered质量，不是原TP下降。全尺度Geo0 bad−random A负/B小正，不能扩成全尺度强选择性。受影响阈值事前1e−8；零分母NA0，空组不补0；两个seed同32输入，不伪独立。仍无AP/模型forward/梯度/更新/solver，未改旧判据。它从“共存”推进到“具体固定算子确消耗”并显示有限条件身份信息；尚不知道是否学得会或有效。
+
+320 root真实跑过：G仅多10标量，初态R/G residual/hidden一致，aux/gen分离，未饱和κ有det梯度、严格饱和0；9合成forward2autograd0optimizer。311已有20合成forward7autograd，N/S/R初态/同接口/守恒通过。都是数学/实现合同，不是学习或AP证据。M0 solver/native loss adapter/native融合parity与GPU计费尚未完成，不声称训练命令已经可跑。317是落实到标签、输入、前向、loss、步数、末端评价和机械读法的实施方案，工程状态明列，不把找研究线偷换为已部署。
+
+保留全部旧阴性：276所选top8回收池tiny Geo0新增0（不推所有旧候选都无几何）；284旧centre a tiny13/14,c tiny66/93只是共存，276intersect c82/137不能换口径；289真实固定H-L差分主组mixed停止；290成熟EMA ROI12轮正式gate全拒绝、raw不胜degraded，但固定旧身份不等本自由出生；300联合代理全Geo0按图A正B负，coveredtiny也有变化，不立joint必要或OT新颖性。不得借新候选复活旧读出。
+
+原文增量边界：2015已密度生成，2025§IV Eq9已有部署密度衰减，SuperGlue/MESH已有null/容量；IterDet/PS-RCNN/E2E已有history/补集/条件。新假设仅是含错P经受限可学习实例解释后剩余作为唯一条件接口，是否胜自由set与固定几何+class校准；不是density、阶段、减法或solver首创。另要诚实：原DEIM本身没有本G密度扣减模块。322是拟议补全路径的可测失效，不是已证明原DEIM因这个原因漏检；N与S对照必须排除“先造问题再修复”的解释。若R不胜N/S/G，撤回对应特异优势。
+
+请各位逐个回应：1是否已足够提出一条值得申请有限训练的具体主线；2真正方法增量还剩什么，最强反对是什么；3两项新真实结果改变/不改变什么；4当前最强simple是否充分，若修订必须明确不增无穷臂；5训练将回答哪个不能由更多oracle表回答的问题；6按现目标是否可交主线提案，或确实还缺哪一个关键前提。不要把专家共识/小正数当AP，不要求训练前证明收益；也不得因两项失败就结束或硬凑。每人先结论，再回应前人具体论点。
+
+
+【296_A_单位实例残余补全_具体实现提案.txt】
+296｜单位实例残余补全：具体实现与有限学习预算提案
+2026-10-21。仅设计，没有实现训练代码、模型构建、前向、训练、检查新数据或远端动作。推荐将“质量参考独立分配→行容量截断→超额退null→类别残余参与四query生成”作为一次有限学习比较；不将联合OT、原图crop、固定四槽或求解器本身当创新。293/294的oracle结果不作为这版成立前提，联合重分配留待后续独立扩展。
+
+一、为什么此刻值得有限学习，而不是继续旧固定读出
+真实284密度原窗：合法条件同时包住额外几何遗漏的tiny为13/14；无合法解释条件包住遗漏中心的tiny为66/93。说明“已有框覆盖范围不等于已解释实例”有实际位置；这些集合重叠，不能相加当收益。276真实回收所有take4 tiny Geo0新增为0，所选top8旧几何池也无tiny Geo0可命中；因此本方案必须生成新几何，不再把旧pre/aux候选重排当主线。密度窗完整tiny Geo0166/318、理想每图四槽上限和62/75，仅说明资源面。
+284采用预测中心在W内的供给；以下改为正面积相交，不能把13/14、66/93写成新定义的实测计数。本轮亲读276/01_results.json summaries.{A,B}.windows.A_density.wrong_conditions.all_unexplained：相交口径中无解释条件覆盖tiny Geo0为82/137；不与284求并。这可说明相交条件并非空构想，仍不能替代新M0/自然图训练集统计。这里不新增几何资格门槛。
+279/289固定重心及H−L差分未达到主条件，295保留停止；290旧成熟EMA ROI精修主accepted0且raw未胜degraded也保留。这些不证明新实例头能学会，但当前要回答的是可学习单位质量/对应是否比同监督history-map更好，冻结oracle无法回答；有明确强对照和小额闭合预算后，有限学习是合适的下一证据。
+
+二、先闭合供给、全局解释和局部遗漏三个集合
+1) 全局检测器：BASE24 seed1/2 last_epoch23各自checkpoint['model'] raw，原native eval640，无DN/训练增强。保留原300框与300×10 logits，全程detach。fullP指其原生flatten(query,class) top300再严格score>.001得到的candidate实例；同query异类可同时存在，不按query合并，不先perclass100，不按GT筛选。每个candidate提供一单位，不是每个query一单位。
+2) 窗：640输入平面64×64固定网格，密度分数是原final300框中心数；取最高分、并列row-major最早格，严格复用262.choose_without_GT中A_density语义，不用GT/新头挑窗。640恰为10×10；每图一窗，无halo。局部RGB把同一物理W映射回原RGB后采为128²；只读自然图，禁止从Mosaic source_ids伪造原图映射。所有臂共享同像素和坐标。
+3) 前向供给P_W={p∈fullP:area(box_p∩W)>0}。不要求中心在W；保留未clip的局部相对框坐标，不能裁框后改IoU/供应身份。非有限/非正面积框fail closed报错；模型正常框仍按全部相交实例保留，不按分数额外剪枝。该筛选只依预测和W，部署无GT。
+4) 一次性全图M0：在fullP×全图native有效GT上，合法边为同类且原生FP32 IoU≥.5，求lex(最大匹配数，最小原生matcher cost，固定索引次序)。cost以全图归一化框计算，沿native matcher的2·focal-class(α=.25,γ=2)+5·L1−2·GIoU；类别边已限制同类。candidate对应原q的该真类cost，不另发明距离。第三级按candidate的原flatten index排序，最小化owner-GT-index向量（未匹配记最大哨兵），不是简单相加索引，也不用epsilon扰动第一二级。实现可用最大基数后精确cost+确定性lex精化；原FP32 cost是有限二进制数，需保存矩阵/hash和完整owner数组。此处是缓存标签的确定性，不宣称新匹配算法；实现尚缺，不能把普通Hungarian调用冒称已完成三层lex。
+5) M0完全不看W或新head。令G_W为完整位于W的native GT，E_W={g∈G_W:g被M0匹配}，U_W=G_W\E_W。每个j∈P_W，若M0(j)=g∈G_W，解释目标为该g的单位散射K_g；否则目标null=1。null表示“没有本地完整实例解释”，可包括窗外/跨界真GT owner、重复候选、无合法边、容量未匹配，绝不都叫全局FP；不再按border GT ignore或在前向删掉它。
+闭合证明：若g完整在W且M0有合法owner p，IoU(p,g)≥.5保证p与g正面积相交，g⊂W于是p∈P_W。因此每个全局已解释的完整GT在局部都有供应，且M0一对一，理想逐类质量恒等式成立：m*−Σ_j T*_j=Σ_(g∈U_W)K_g。旧“P中心在W”不具备此保证。M0一次固定消除了newhead变化反过来改变遗漏标签的自引用，三臂共享同U_W；不是270允许原owner随局部输出择解的版本。
+限制也固定：fullP M0覆盖不等于正式P100/COCO greedy覆盖，某GT可能被M0解释却在perclass100或greedy后丢失，因而不是本头补集。此版聚焦新几何/Geo0出生，不宣称处理全部评价FN；不能看到结果后改M0为有利口径。partial GT不进密度或新增几何正目标，其owner进null；这是完整实例任务定义，不是说可见partial像素是背景真相。
+
+三、网络接口和前向公式（拟实现，尚无代码）
+接口 ResidualCompletionHead(rgb[B,3,128,128], P_box[B,J,4], P_class[B,J], P_score[B,J], valid[B,J]) → {pred_boxes[B,4,4], pred_logits[B,4,10], mass, independent_plan, cap_plan, null, residual}。J可变，padding只mask不存在项；GT、M0、U_W从不传forward。
+RGB trunk：三组3×3 stride2 padding1 Conv(3→32→64→128)+GroupNorm(8组)+SiLU，记输出f3；再f=f3+SiLU(GN8(Conv3×3,128→128,stride1,padding1(f3)))，得到f[B,128,16,16]。不用预训练小头、不用BN依赖batch统计，不拼全局query特征；局部输入自身是新增观察。三臂RGB结构/宽度相同，固定2D正弦位置编码。
+10类mass头1×1 conv：m_ci=softplus(z_ci)，不是sigmoid前景概率，单格可>1。目标m*_ci=Σ_(g∈G_W,class=c)K_gi。K_g按292/293的16²格中心双线性四点散射，越界邻点夹到边界格累加，总和严格1；不Gaussian、不max归一化、不除网格数，单位是每格实例mass。训练不将GT mass送forward。
+候选编码a_j=Linear128(SiLU(Linear15→128([未clip局部xyxy四维,10类onehot,score一维])))；图像key k_i=W_k f_i。C_ij=−<W_q a_j,k_i>/sqrt(128)+d_out(x_i,box_j)，d_out为点到框外的逐轴非负距离除原预测wh之和；λgeometry固定1。κ_j=Linear128→1(SiLU(Linear256→128([a_j,mean_i f_i])))，只作null代价。只连自身预测类，ε=1，null参考质量1；所有尺寸固定，不随开发计数调。
+令mbar=stopgrad(m)用于分配质量支路，以保留明确单位监督；共享RGB trunk仍受检测/assoc梯度，不能说m完全不受其它训练影响，只有mass-head专属参数仅从density loss直接更新。
+独立分配（以logsumexp实现）：K_ij=mbar_ci exp(−C_ij)，K0_j=exp(−κ_j)，p_ij=K_ij/(K0_j+Σ_l K_lj)，p0_j=K0_j/同分母。零质量行无连接，无供应时r=mbar。
+一次行cap与退null：u_ci=Σ_(j:class=c)p_ij；a_ci=1(u=0)，否则min(1,mbar_ci/u_ci)；T_ij=a_ci p_ij；z_j=p0_j+Σ_i(1−a_ci)p_ij；r_ci=mbar_ci−Σ_jT_ij≥0。每列ΣT+z=1，每行ΣT≤mbar；超额只退null，不被OT强行迁往另一位置。浮点末端clamp_min(0)只处理数值，不改变数学定义。无迭代solver。
+统一生成接口：设b=mbar（N_density、H22_density）或b=r（R_residual），v_i=log1p(b_:i)∈R^10；cross-attention value为W_v f_arm,i+W_r v_i，key为W_k f_arm,i。每层每head的attention logit加log(Σ_c b_ci+η/256)，η=1e−4为整窗总floor质量。N/H同样使用stopgrad(m)，不能让它们独有直接改变mass的梯度通路；R唯一将此显式density prior换成扣除解释后的r。class vector进value，总量仅偏置空间；不能只让R得到显式密度先验再归因于解释，AFWD等已有密度引导不是这里的新变量。相同floor总量避免随分格数膨胀；不宣称实际改分辨率严格等价。
+四个learned query，d128、4heads、2层pre-LayerNorm self-attn/cross-attn、FF128→512→128(GELU)、dropout0；最终共享Linear128→10类别头和MLP128→128→128→4(ReLU)框头，输出10类sigmoid logits和自由local cxcywh。中心初始化2×2位置(.25/.75)，wh初始化(.25,.25)W；bbox四维raw输出加对应固定reference的inverse_sigmoid后sigmoid，后续允许全W中心/宽高变化，没有±4px/oldwh限制。框边可越W，不靠GT裁框；映射全图后沿native后处理。query embedding std.02，Xavier其它线性层；分类末层weight=0、bias=logit(1e−4)，零训练时新分数低于.001；bbox末层零初始化结合上述reference。mass-head weight=0、bias=softplus_inverse(1/256)，初始每类整窗质量1、总10，不让默认softplus(0)产生1774个实例质量。null末层weight/bias均0；W_q初始0、W_k随机Xavier，使C起点为固定geometry项而后能学习，其他公共初态逐项复制。三臂共享相同初始公共权重文件，不按独立随机数调用顺序碰巧初始化。
+
+四、三臂与监督公平
+N_density（简称N）：同crop、同四槽、相同固定U_W目标、密度/assoc监督；生成读RGB f与显式mbar类别value+总量logbias，不读P/history/r。P仍进入辅助association分支以获得相同额外GT监督，不能通过共享forward张量偷传到生成；训练中aux梯度塑造f是各臂共同设置。它是对已有检测无条件、但有同等density prior的强simple，不是弱化成纯RGB。
+H22_density（简称H）：共享N的mbar生成通路，额外得到原始计数和分数加权history两组各11通道。令cell_i为W的16×16等面积格，a_ij=area(cell_i∩box_j)/area(cell_i)，按未clip框与格子的精确矩形面积计算，不用中心point/binary采样，避免tiny框在格内却全零。Hraw_ci=Σ_(j:class=c)a_ij，Hscore_ci=Σ_(j:class=c)score_j·a_ij，两组各再附total=Σ_c，合22通道，raw数量可>1，不逐图归一或按GTmask。一个3×3 stride1 Conv(22→128)加到16² RGB f得到f_H，再供生成key/value；conv零初始化，其余公共初态相同。m/C/κ的公共辅助分支仍从原RGB f计算，不从history污染的分支另给额外监督。此为强IterDet-style适配，计数与score加权一次都给它，不新增臂、不以二者较差者作对照。
+R_residual（简称R）：RGB f不变，统一density接口中唯一改mbar→r，P只经独立分配/cap的类别残余参与生成，不再额外拼P token/history。三个arm都构造m、C、κ、p、Tcap、z并使用相同L_mass/L_assoc；N/H中的r不进入检测计算，三个arm都有显式密度value/logbias。这样R−N才排除“只是显式density prior”，R−H再排除一般可学习历史条件。各arm参数/实际FLOPs/训练与部署时延分别列出；N/H部署可删仅aux association分支，较低成本要如实作为强对照优势。
+最强外参E8→4：以N_density为底的同crop、同显式density接口、同监督普通8query补集检测头，训练用8槽匹配全部U_W，推理按max-class score选4个query（并列query index），再同全局融合。它有两倍输出中间槽但最终4query，同算子成本统计须包含R的关联与cap；若E8→4更快或等成本而复制收益，不能声称R具有效率/方法特异优势。此臂为核心比较有保留信号后必须面对的后续12 head epochs（6×2）上限，未包含本次36，也未获执行授权；不让第一轮无限扩臂。普通全GT局部检测可作后续训练目标外参，本次先隔离解释机制。
+
+五、固定损失与四槽溢出
+局部目标是完整U_W中全部GT，不先按tiny/大小/分数挑4。局部native Hungarian在4×|U_W|上以cost_class2、bbox5、giou2匹配；|U_W|>4时匹配min(4,N)，其余GT保留于target/归一化分母和统计，不改成负例或伪称都已监督。计数与sum min(4,N)单列，四槽容量不是可被loss魔法突破的保证。空U_W时全部四query为分类负项，box loss安全为0。
+L_det重用native DEIMCriterion.loss_labels_mal及loss_boxes：MAL正类target=stopgrad(IoU)^1.5，负类权重sigmoid(logit).detach()^1.5；其余系数与BASE24 recipe一致，L_det=L_MAL+5L1+2(1−GIoU)。newhead matcher的α=.25/γ2与MAL的γ1.5不要混淆。分母沿原生max(1,Σ|U_W|)，而非仅matched数；先在独立adapter直接调用这两函数，避免native full criterion创建GO/aux/FGL/DN支路。4slot无FGL/DDF/denoising、多层aux或新score校准变量。
+L_mass=Σ_ci[m_ci−m*_ci+m*_ci log((m*_ci+1e−8)/(m_ci+1e−8))]/max(1,|G_W|)，m*=0项按0log0=0；每窗再batch均值。这是单位mass KL/Poisson偏差，允许密集多实例同格。
+L_assoc用同M0：本地解释j→g时ℓ_j=−Σ_i K_gi log(Tcap_ij+1e−8)；其余j为−log(z_j+1e−8)。分别对解释组/null组求均值，再对非空组均值，避免多数null直接淹没正组；J=0时0。两个组都为同前向计划的监督，不按GT移除前向供应。三臂相同loss、权重和batch；L_total=L_det+L_mass+L_assoc，λ均1，六轮内不调。
+R_residual在严格过载u>mbar区域对u的残余导数为0；u=mbar是min/clamp折点，所选子梯度由实际算子决定，不能无条件说为0。单条件或全部饱和时assoc对C/κ也可能失去信号，不能承诺aux总能解冻。必须在训练日志记录mass损失/总量误差、association解释/null分组、饱和行比例及各模块梯度是否非零，而不是只看detloss下降。该日志用于解释已进行的有限学习，不是新增冻结AP前置门槛。共享f可被多项loss更新，sg(m)只截数值支路，不能假装是完全独立估计器。
+
+六、拟新文件、缓存与真正的源码接点
+拟新独立目录英文小论文/code/unit_instance_completion_20261021_v1/，目前不存在实现；拟文件head.py（RGB/mass/association/cap/三接口/4decoder）、targets.py（全图M0、完整GT、单位scatter）、cache.py（自然数据/全局raw/窗/crop）、criterion_adapter.py（native matcher+MAL/boxes）、train_head.py、evaluate.py、configs/locked.json、tests/test_contracts.py。新数据和实验账本独立放data/unit_instance_completion_20261021_v1/，seed{1,2}/arm{N_density,H22_density,R_residual}分目录。此为拟路径，不是可执行命令已验证的宣称。
+只读native来源：code/local_candidates_20261004_v2/native/engine/deim/{deim.py,dfine_decoder.py,matcher.py,deim_criterion.py,postprocessor.py}及HGNetv2/HybridEncoder；模型工厂按288与08 recipe。source/package/checkpoint SHA沿现有BASE24 manifest锁定。新head在冻结全局forward之后作为独立模块执行，不改原decoder内部pre/attention/PMF，不修改旧源。
+全局读取自然RGB→native PIL Resize640→float32/255；一次缓存每图每seed原pred_boxes/logits、fullP身份、W、真实原图WH、source SHA、native GT/annotation_id、完整集、M0/成本身份和U_W。裁片自然原图edge坐标为[(x0+(u+.5)W_width/128)·orig_width/640, 同y]，减.5转像素中心索引，float32双线性border-replicate，无额外锐化/核/抗混叠，RGB/255；128²缓存存float32并hash，采样版本固定。H/L术语不在本轮混用，所有arm用同crop缓存。原图每图一次解码可供两个rawseed选择各自W，同seed三臂共享。不得把现有32增强曝光作为3235自然图已缓存；当前需要新缓存，必须计首次检测器开销。
+sample_plan development固定3235自然图作为本次全部head训练集；不触isolated heldout3236图，不用其元数据/像素选策略。三臂每seed全3235图一窗，含U_W空窗，不能按GT正例采样改变曝光。两个global seed可能选不同W/M0，所以三臂在同seed严格配对；两seed是模型重复，不是两批独立自然图。
+
+七、六轮训练和独立末端评估（可申请预算，尚未授权/执行）
+训练原全局零更新，两个raw全局模型各缓存3235次，共6470个首次全局forward；三臂共享。局部head为6轮×3arm×2seed=36个head epochs，绝不是36个完整检测器epochs。每arm每seed3235×6=19410个crop曝光，六个run共116460；batch16、drop_last=False→每轮203步、每run1218步、合7308 optimizer steps。单图一窗，无翻转/Mosaic/Mixup/随机颜色或重新采窗，首轮便于审计。缓存费用另计。
+AdamW lr1e−4、betas(.9,.999)、weight_decay1e−4，bias/norm不decay；前100步线性warmup从1e−5到1e−4，随后cosine到1e−5，6轮终止；clip_grad_norm1，FP32。head初始化seed分别2026102101/2026102102；同global seed下N_density/H22_density/R_residual公共参数逐项复制同初态、共用每轮shuffle文件，各run独立optimizer，数据顺序相同。没有warmstart旧ROI头，没有EMA/best选轮、resume已有优化器或中途调参；断点仅恢复本run完整状态及既定shuffle位置，不能偷偷加步。
+训练仅看已锁训练日志用于实现故障/NaN停止，不依据val选择epoch或调损失。6轮末对三个arm固定last一次独立native val548评估，两个global seed各548个冻结forward可在所有arm间共用，共1096；评估crop/head另计。只在协议和代码冻结、训练结束后执行，当前不读取val图像/标注开发新规则。这里“独立”指head训练集与末端评估数据隔离，不假称该历史公开val从未被项目看过。
+融合必须拼原global300×10 logits+新增4×10 logits，以及对应304框，重新走原PostProcessor flatten top300→严格>.001，再由原native COCO evaluator每图每类max100；无NMS/新的去重、温度、gate、score倍率或额外topK。四query可产生多类candidate，与原生同query异类语义一致，不假称只追加4个class实例。新增head低分是否进入预算、挤掉了谁必须记录，不能给它绕过原预算。
+参数量/显存/总耗时/GPU小时目前NA：网络尚未实现，没有测量来源；不得挪用旧53k ROI头耗时，也不能称小头近零成本。已知预算下限是6470缓存全局forward+1096末评全局forward+116460训练crop曝光+评估head与128²采样成本，运行设备/墙钟须在获准实现后以固定小synthetic benchmark实测并锁定上限，再提交具体执行申请。
+
+八、训练前锁定主指标、保留/混合/阴性含义
+主效用：原native APs及AP，R_residual分别对N_density、H22_density和同seed全局baseline逐项报告，不只取较弱对照。机制指标：原final300任意类IoU<.5的完整窗tiny Geo0中，新增真类TP和.5/.75几何覆盖；同时报全部GT、FP、原TP新增/丢失、进入post300/perclass100的新candidate数。M0-unmatched、Geo0和正式greedy FN单列，不互换。每图保存固定身份，图为配对单位；两seed共享自然图，不能假装1096独立样本。
+模型量：单位mass总量/类误差、null对应、错误条件(a/c类)是否仍误扣遗漏质量、R是否被decoder使用；用于解释，不以oracle图不同或loss下降取代检测收益。
+若R在两个seed上相对N/H有同向APs改善、AP无系统性损失，且观察到真实tiny Geo0新几何而非只有分数变化，可保留进入完整配方与E8→4外参预算讨论；六轮的微小正数不等于方法成立，需把逐图差、95%配对图bootstrap区间与两seed离散度一起交审，区间跨零不能包装显著。无任意0.2pp门槛，也不要求这次短训先“证明论文”。
+若三个头都能补全而R不胜同监督N/H，则局部新头可学但本单位残余增量未成立；不能把普通补全收益记给R。若R对两对照方向mixed，完整报mixed，不自动加轮/改η/改供给或M0；若R两seed均无几何或效用优势，停止该精确参数化。若所有头训练尚未形成有效新框，说明本6轮/网络/配方未给学习证据，不证明任意生成器不可行，也不自动追加训练。实现合同不通过属于工程失败，修复不能隐瞒为方法阴性或悄改协议。
+
+九、相对原文究竟剩什么，为什么仍值得付有限算力
+本轮已直接打开并读IterDet原文§3式1：H_xy=Σ_b1[(x,y)∈b]，一层history卷积与骨干早期特征相加，随机GT分成old/new训练补集。它已覆盖检测历史条件化和补集监督；H22适配补上十类/总计数、score加权、精确cell面积和本任务真实M0标签，并共享显式density通路，不能把原作歪成硬擦除mask。来源：https://arxiv.org/html/2005.05708v1#S3 。
+已直接读Iter-E2EDET§3.2式2–4/算法1：accepted/noisy划分、关系编码及先匹配accepted再匹配剩余GT；其§3.3末层框identity也明确。故M0-first、条件query、新框与局部预算这些组合区别本身不足立新。来源：https://arxiv.org/html/2203.07669v1#S3.SS2 。PS-RCNN自然遗漏监督、SuperGlue容量/null、MESH可学质量/OT仍按264/270覆盖，本文没有重新逐式亲读后二者，不能扩大本轮查新完成范围。
+本次真正要检验的是“含错历史的实例解释量”接口：同类单位视觉质量可多实例同格；每个已有candidate至多解释一个实例单位，允许非本地解释为null；用一趟容量截断限制重复消耗，把已具备的显式density prior换成类别残余value与总残余空间偏置。它直接约束部署前向的量及生成接口，区别于让普通history卷积自由学会忽略错条件。它是明确且可失败的归纳偏置，不是已有结果已证明的效果或新颖性；若N_density或H22_density同监督复制它，就没有理由继续主张该机制优势。
+当前建议：可以准备上述36 head epochs的有限比较申请，理由是作用面有真实资产、供给/目标闭合、实现变量明确且有强simple；不是因为用了新名字或oracle非零。正式训练代码、合成合同、实现计费和运行申请仍未完成；此文不授权训练，也不声称命令已经可启动。
+
+十、实现前必须完成的有限合同（不是追加自然数据筛选）
+同类合法M0 owner在完整W时必在相交供给；outside/partial owner为null而非FP；同query异类candidate不合并；M0不随W/newhead变化；scalar0GT/0P/密集同格/边界scatter单位质量；独立计划列和、cap行界、退null守恒、无供应r=m；同cost质量拆分后聚合计划不变；三臂GT/辅助监督/cache SHA相同；三臂统一sg(m)与value/logbias接口；H22精确cell面积及score两组各11通道；4槽N>4完整target保留；empty loss安全；固定参数/同RGB下N_density的pred_boxes/logits对P扰动严格不变（其aux可变，训练过程不要求相同）；H/R输入不含GT；新低logit初态完整融合与baseline逐字段parity；native MAL/boxes adapter逐项对照原函数；全部全局参数无grad且state不变。梯度饱和/共享trunk路由仅合成核对实现，不要求先有冻结AP。上述代码和单测尚未写，不虚构通过。
+
+
+【264_B_检测结果条件化补全_原文候选对照.txt】
+264｜检测结果条件化补全：原文候选对照
+日期：2026-10-21。B独立只读查新；只新增本文件。未运行模型、训练、预测缓存统计或远端任务。
+
+结论先行
+“把已有检测集合输入网络，只补尚未被它解释的实例”有直接原文先例，不能把它或隐藏已匹配预测训练作为当前主创新。最直接的是IterDet；Iter-E2EDET还覆盖了已接受预测的集合关系编码和优先匹配后的剩余GT监督。局部64px、四个追加槽和冻结全局模型是明确的实施区别，但目前不足以独立支持实质方法增量。C的联合择解修正有必要，却不能以二部图匹配性质立新。
+本轮另外读到2026年CTRP原文，其“易检对象推断困难对象”和掩蔽重建也必须纳入，不能只列AutoFocus。下面区分它实际重建什么，不把题名中的missing entities等同自由生成漏检框。
+
+一、所核本地方案及事实边界
+已亲读255_双结果完整回交_含DN与独立复核.txt所保留246第三轮B/C/Claude完整发言。方案为L=D(U4,E(I_W),Enc(P_W))；P_W含与窗相交的原框、类别/分数/位置；原检测器冻结，部署保留原预测并添加L。B的固定剩余GT被C改为：在类别一致、IoU≥.5的原预测边上，lex优化(-|M_P|,-|M_L|,Σ局部匹配native cost)，允许原框在等覆盖数解中改变GT归属。Claude又提出用enc/pre/aux与final的差异选择窗口，尚未据此证明漏检可补。
+这里沿用255的真实背景数：A3末框有几何覆盖而真类未过预算/分数1886/1923；A8额外FP729/475。它们提示排序和错误条件需要面对，但不是本补全方案已恢复的数量。没有用这些数推断“预测稀疏处必然有更多自然漏检”。
+
+二、最直接原文，而非主题类比
+
+[1] IterDet: Iterative Scheme for Object Detection in Crowded Environments，arXiv 2005.05708，2020。
+亲读原文§3、式1和训练/推理段：
+  H_xy(P)=Σ_(b∈P) 1[(x,y)∈b]； B_t=D'(I,H(P_<t))；最终输出∪_t B_t。
+历史图经过一层卷积，与骨干早期图像特征相加。训练将GT随机拆成B_old、B_new，用B_old构成H，只对B_new施加检测监督。因此“让网络知道已检测实例，只产生补集”和以随机缺失条件训练，都已经实际实现。当前输入由栅格历史换为带类别分数的set tokens、全图迭代换为固定局部四槽，并不能独占这个机制。
+原文：https://arxiv.org/html/2005.05708v1#S3
+作者维护仓库：https://github.com/filapro/iterdet
+源码范围：已读仓库README和transforms.py；关键history detector源码请求未取得，未声称逐行核验了历史生成实现。上述机制结论来自已亲读的方法原文。
+
+[2] Progressive End-to-End Object Detection in Crowded Scenes，arXiv 2203.07669，2022（本报告不靠未核会议信息作判断）。
+亲读§3.2式2–4、算法1与§3.3。按分数分为accepted D^h与noisy D^l；对noisy框i，选择accepted邻居，编码位置与IoU，
+  R_i=T(MaxPool(U(E(b_i,N_i)))+F(q_i))， q'_i=R_i+e_i。
+算法1先匹配D^h，删除它所匹配的GT，再匹配D^l到剩余GT。故“已接受集合→新query条件、原覆盖优先的补集监督”已做。实际区别：本文先固定第一次匹配；当前C允许原框在最优覆盖面内重新归属。另外其Sparse-RCNN实例最后一层框直接继承上一层，实际是固定框的识别更新，不应说它已经实现任意四个新框的几何补全。
+原文：https://arxiv.org/html/2203.07669v1#S3.SS2
+作者仓库：https://github.com/megvii-research/Iter-E2EDET
+源码范围：已核作者仓库身份/README，未声称本轮审过训练实现。公式、assignment及identity box结论来自原文。
+
+[3] PS-RCNN: Detecting Secondary Human Instances in a Crowd via Primary Object Suppression，arXiv 2003.07080，2020。
+亲读§3.1–3.3。第一分支对全部GT训练；实际检出GT组成G_d，其余G_m用于第二分支。以实例形状mask抑制G_d对应特征，第二分支专找G_m，最后取两支预测并集；另以最高分辨率特征做RoIAlign。它已经实现“第一次检测后的自然遗漏监督”，所以不能把用真实遗漏代替IterDet随机GT补集本身称新。区别是显式抹除共享特征、人体mask及RCNN提案，而当前保留RGB并输入预测集合。本轮未取得并核作者代码。
+原文：https://arxiv.org/html/2003.07080v1#S3.SS1
+
+[4] Completing Missing Entities: Exploring Consistency Reasoning for Remote Sensing Object Detection，IEEE TIP 35:569–584，2026，DOI 10.1109/TIP.2025.3648164。
+取得的是作者Peng Sun上传的出版社全文转录，带IEEE页码/DOI；亲读§III-A/B/C、§IV-C/G，非仅摘要。MRRL掩蔽目标像素块；预训练检测器给出未遮挡对象及masked/困难区域提案，KNN构关系提案。式2以类别L_u、关系区域特征F_p和空间先验S等为输入，输出masked对象语义L_m与重建特征F_rec；式10显式包含B_u、B_m。§IV-C说部署帮助低置信困难对象；不能据此称它已从无提案位置生成自由新框，也不能反过来声称推理使用GT框。§IV-G明确展示错误条件会向邻近对象传播。
+作者原文：https://www.researchgate.net/publication/399708797_Completing_Missing_Entities_Exploring_Consistency_Reasoning_for_Remote_Sensing_Object_Detection
+出版社身份：https://doi.org/10.1109/TIP.2025.3648164
+作者仓库：https://github.com/sunpeng96/CTRP_mmrotate
+实际读到的作者配置：https://raw.githubusercontent.com/sunpeng96/CTRP_mmrotate/master/CTRP_for_Remote_Sensing_Object_Detection/configs/ctrp/ctrp_rotated_faster_rcnn_r50_fpn_1x_dota_le90.py
+源码范围：配置明确两stage、CTRPRotatedFasterRCNN与CRTrRotatedStandardRoIHead、初始/精修RoI框头。核心head请求未取得；仓库README仍写提供demo、完整代码待发布，不能据目录存在宣称完整训练复现。式9网页转录有排版瑕疵，本文不依赖其逐字符数学正确性；没有补写原文未明确的自由框生成或补集匹配机制。
+
+[5] Introspective False Negative Prediction for Black-Box Object Detectors in Autonomous Driving，Sensors 21(8):2819，2021。
+亲读出版社PDF§3.1–4.3：用固定黑箱检测器的FN制作监督数据，独立网络预测FN类别、中心、宽高。式2–3为Feature_FN=Φ(I;Θ)、O_FN=ψ(Φ(I;Θ))，输入是图像，未显式条件化当前检测集合。故“原检测器不改、另训专补真实FN的轻网络”已有；当前P_W输入是实差，但它又必须面对[1]/[2]。本轮未核作者代码。
+原文PDF：https://mdpi-res.com/d_attachment/sensors/sensors-21-02819/article_deploy/sensors-21-02819-v2.pdf?version=1618821399
+出版社：https://www.mdpi.com/1424-8220/21/8/2819
+
+三、逐变量判断与应保留的强控制
+已覆盖：检测历史作为输入；只监督未解释对象；随机隐藏已解释目标；从首轮自然遗漏构造第二分支标签；已接受预测先占GT、剩余预测再分配；利用相邻已检对象的几何/语义关系。不是只有“名称相似”。
+尚未在上述原文见到的精确组合：冻结既有全局检测器，单个64px新RGB视图、四自由槽、真实含错预测集合条件，以及在原覆盖最优面上联合决定补全标签。其剩余差别主要是预算/接口和监督细节，当前不应宣称已找到足够强的独立方法贡献；也不等于证明这种组合无用。
+必须把“集合条件是否有用”与“只训遗漏是否有用”分开：
+  A 同crop无条件四槽、所有窗内GT训练，同融合/NMS/score校准；
+  B 同crop无条件四槽、完全相同的C式补集分配；
+  C 同crop条件四槽、真实P_W，其他同B。
+A是普通再检测强基线，B排除收益仅来自FN专门化，C−B才指向条件输入。还应有同预算局部IterDet history-map输入，以排除只是旧条件化方案改成tokens。三类都不能以oracle高分或不同topK/NMS给候选优待。人工隐藏训练另列，不把隐藏容易目标的提升当自然遗漏迁移。
+
+四、一个具体可实施的残余修订：区分“必需条件”与“无解释力的错误条件”
+我建议不把当前基础补全结构硬称新，若继续，只留下这一更窄研究问题：真实错误条件能否让局部补全抑制本应发现的实例，而有监督的条件干预可避免它？[4]提供了直接失败机制；当前FP资产说明应查，但尚未证明本数据存在该空间耦合。
+
+保留同一D和四槽，不新增遮挡像素或抹除图像。只改变条件训练关系。定义训练图E(P,G)中p→g当类别相同且IoU≥.5；判条件是否有解释边时用该图的全部GT，不能因GT在窗外就把真实条件误标无效：
+  无合法解释边条件p_f：degree(p_f)=0；删除它不改变可匹配GT解释。
+  必需条件p_t：p_t只连完整位于窗内的g_t，且g_t只连p_t（孤立的真匹配边）。删除它确实让原覆盖少1，不依赖任意最大匹配择解。
+对同一I_W形成P、P\{p_f}、P\{p_t}。自然遗漏标签仍用C式分配；p_t删除时同时从模拟原输出删去，p_f分支只改变条件输入。基准检测损失训练原条件与p_t分支；额外只对无效条件要求集合输出一致：
+  L=L_det(P)+L_det(P\{p_t})+λ D_set(L(P), stopgrad L(P\{p_f}))。
+D_set在四槽之间最小置换匹配，比较类分布并对前景比较框；不得按原槽ID硬对齐。为避免“网络忽略所有条件”伪满足一致性，p_t分支须检查确需补出的g_t；若自然剩余已超过四槽，不把该分支漏g_t硬当不响应。这里的孤立边条件只用于构造可解释干预，不是部署GT输入，也不宣布其对拥挤含歧义对象充分。
+
+具体改变的是错误检测条件对新框生成的作用，不是增加GT数量、改变原检测框或重定义最大匹配。无合法解释边不等于毫无视觉信息，尤其定位稍差的真物体框；强制稳定是待测归纳偏置，不是由图论推出的最优预测定理。它仍属于条件干预/一致性训练，本文未证明其文献新颖性，不将普通regularizer换名宣称新主线。最强新增控制是同输入、同三条件视图预算的随机condition dropout，以及上述条件头仅做检测损失；若二者复制效果，这个修订就没有特异增量。若只是最终score的学习NMS获益，也必须收回“改善新框生成”的主张。
+
+最低成本下一步不是训练：接C已锁窗口，用现有development预测与GT仅数两类干预是否存在，以及无效条件与自然未覆盖GT是否空间相交；分别列类别错、定位不足、背景FP。必须单列“该GT任何原预测都无合法边”和“仅因匹配容量而未覆盖”，不得把某一解的unmatched全当自然唯一漏检。同时列孤立真边删除与自然遗漏的尺寸/可见性差异。若窗口内无错误条件与自然遗漏共存，这一修订没有现实前提；若只存在人工隐藏样本，也不能以此申请自然漏检补全训练。该计数不是AP、像素可辨识性或学习成功证据，本轮未执行。
+
+五、查新范围与当前取舍
+已亲读五篇方法原文，其中2026 CTRP为作者上传出版社全文；不是五篇都读到/验证了完整源码。公开检索未取得的关键实现与全文数学排版缺口已逐项注明。检索无结果不构成不存在更近工作的证据。
+当前基础补全候选可继续做已授权的零前向作用面核查，但不能凭“已有检测集合条件化”立新，也不能因局部上界阳性立即进入训练。最值得区分的实际变量是：自然含错条件对生成的影响，是否超出普通遗漏专门化、旧history map和同预算条件dropout。若没有这项额外作用，就应把它归为已有方法的低预算适配，并继续寻找不同主线。
+
+
+【309_B_单位密度检测近邻原文补核.txt】
+309｜单位密度检测近邻原文补核
+2026-10-21；Astra B。只读公开原文与296/303，仅新增本文；无模型、训练、缓存重算或heldout读取。
+
+结论先行：保留296＋303的N_density / S_set_density / R_residual作为一个可失败的具体设计比较，但必须收窄主张。单位实例密度、允许未分配、密度引导检测、已选框引发密度减少、从密度恢复新框，均不能作为本方法独占增量。当前未发现这两篇原文直接实现R的全部输入—解释—残余—生成路径；这只表示未被本次具体公式对照直接覆盖，不是新颖性或学习收益已经成立。建议保留现有三臂，不因查到近邻再堆OT或额外模块，也不把300联合代理结果移作R的证据。
+
+一、实际阅读范围与可复核来源
+1. Chenyang Zhao, Jia Wan, Antoni B. Chan, Density-based Object Detection in Crowded Scenes，arXiv:2504.09819v1，2025-04-14。
+   https://arxiv.org/html/2504.09819v1
+   本轮直接打开并亲读HTML全文的III-A至III-D、IV，核到式1–9。未取得/审查作者源码；原文称代码和模型随后公开，不能假称已复现其实现。
+2. Zheng Ma, Lei Yu, Antoni B. Chan, Small Instance Detection by Integer Programming on Object Density Maps，CVPR 2015，3689–3697。
+   官方论文入口：https://www.cv-foundation.org/openaccess/content_cvpr_2015/html/Ma_Small_Instance_Detection_2015_CVPR_paper.html
+   官方全文PDF：https://www.cv-foundation.org/openaccess/content_cvpr_2015/papers/Ma_Small_Instance_Detection_2015_CVPR_paper.pdf
+   官方extended abstract：https://www.cv-foundation.org/openaccess/content_cvpr_2015/app/2B_038_ext.pdf
+   全文PDF直开多次超时，另一个CVF域403；已通过官方PDF的搜索索引亲读§3.1–3.5真实正文、式1–9，且成功直接打开官方1页extended abstract核对流程。不是仅据标题/摘要猜测；但没有完成全文PDF逐页视觉核验，没有作者代码。可复检查询为“Small Instance Detection”＋“3.3”/“Bounding Box Estimation”，限定cv-foundation.org。
+3. 本地设计身份：
+   296_A_单位实例残余补全_具体实现提案.txt
+   SHA256 7dd909843afb9536c0fc12c92ad2326d2519c1a1b6fc66bf2aa484f5ce94caa7
+   303_A_固定标签与强对照选择说明.txt
+   SHA256 fd8c0285e46b77dd913190c49669d71323bd98b3bc7d3feb6bc8a2ca3c4e35e1
+
+二、2025原文真正已经做了什么
+III-A：a=1_m为GT单位质量，b为预测anchor密度；式1为
+ min_{π≥0}〈C,π〉+εH(π)+KL(π1,a)+KL(πᵀ1,b)。
+式2补边际损失。III-B的C依GT与预测框IoU、GT间重叠及FPN层差；III-C/D从π解码正负标签与权重。
+关键补充是IV：式8 T_i=.5+.3f(d_i)，式9 d_i←d_i exp[−IoU(b_i,b_t)²/σ]；选定b_t后降低剩余proposal密度，再作密度相关NMS。
+因此“它只有训练分配，我们才在部署解释”不准确：已有部署候选条件下的密度衰减。不过其IV调整现有proposal的保留过程，未把像素类别剩余质量送入新位置生成器。上述判断限已读方法，不推断未取得源码。
+
+三、2015并不是外部检测集合条件下的残余补全，但覆盖了密度→新实例的大原理
+§3.3式5–8：滑窗计数n_i=w_iᵀf，恢复非负整数位置图
+ s*=argmin_{s∈Z_+}||Ws−n||₁+λ|1ᵀs−n_c|。
+§3.4用密度分区及低密度位置删减缩小搜索域；§3.5式9在已求位置处，以框内密度积分接近C_b及参考尺寸先验估框。已读核心流程没有外部已有检测P、P的解释/null、固定未解释GT目标，也没有“扣除已检测解释后再生遗漏”的循环。
+不能把式8的计数重建误差Ws−n直接改称本文r=m−e：前者是在联合恢复全部整数位置时比较窗口计数，后者给已有候选分配解释量后改变下一生成器的前向输入。另一方面，若本设计只剩从密度图取峰/拟合单位框，就已落入这条早期路径；仅改成神经四query没有足够解释。
+
+四、保留的是哪个实际变量，而非把阶段名称互换
+按296原式，部署只用RGB得到每格类别质量m、已有候选P_W和可学习对应C、null代价κ。mbar=stopgrad(m)，每候选独立分配
+ p_ij=mbar_ci exp(−C_ij)/[exp(−κ_j)+Σ_l mbar_cl exp(−C_lj)]，
+ u_ci=Σ_{j:class=c}p_ij，T_ij=p_ij min(1,mbar_ci/u_ci)，
+ r_ci=mbar_ci−Σ_jT_ij=max(mbar_ci−u_ci,0)。
+u=0时比例取1，截去质量退回该候选null；没有联合重新运输，也没有新优化求解器。R把r的类别向量送value、总量送空间attention bias，随后四槽可以生成原框池以外的几何。N用同mbar；303的S既用同mbar，也让生成query直接读取相同逐实例P token。三者同固定M0补集标签及mass/association辅助监督。
+
+实质可检验假设应写成：在相同RGB、预测集合信息、单位质量监督、补集标签和输出预算下，把条件信息限定为“每候选至多一单位、含null、逐格不过度消耗的解释后剩余”，是否比自由集合条件融合更有利于自然遗漏的新几何生成。比较的是受限前向接口，不是首次使用密度或首次补漏。
+相较2025的软边际GT→anchor分配，本式输入有误的部署候选、解释的对象是局部视觉质量，且超额仅退null；相较2015的全部位置整数反演，本式生成目标是相对于同一固定P/M0的补集。但这些差别本身只能构成方法假设，不能凭变量更名证明必要性。
+
+五、具体可证伪读数、强对照与不能解决的反例
+303的S是必要核心：保留每个候选的框、类别、score关联，不能只用聚合history图作唯一对照。若S复制或优于R，应撤回单位残余接口的特异优势；不能改为只报R胜N/H。若三臂都补到新框，则那部分共同收益属于局部补全头。R若只改善已有框的排序/重复控制而未显示自然Geo0新几何，不能将收益叙述为本次提出的“残余新生”机制。这里沿296已有读数，不增加效应门槛。
+
+一个有解释力且无需发明额外训练目标的检查是：冻结已训练头的RGB/m，逐项删除某个条件p_j。按当前独立式，其他候选的p不变，并有
+ Δr_ci=[mbar_ci−u_ci+p_ij]_+−[mbar_ci−u_ci]_+，0≤Δr_ci≤p_ij。
+可把实际Δr与该候选M0解释GT的单位核、以及相邻未解释GT核分别对照，识别它是否扣中了已解释实例，还是只在任何框附近做抑制；随后必须看生成框和正式效用，不能把Δr方向当AP。这是本式可直接核验的机制预测，不是新增执行或训练授权。
+
+同样重要的反例：两相邻实例a/b，a已有合法框、b遗漏；若a的解释p把质量放到b，cap仍允许耗尽b，只保证r非负，不保证扣对实例。重复候选也可能增加u并把更多质量吃满；本式不具有重复条件不变性，null学习失败会造成误扣。软密度过估可产生虚假剩余。故不能写“单位守恒自动解决错上下文”，必须让R面对S及已锁的误扣/原TP损失读数。
+
+最终建议：修改贡献表述，保留N/S/R这一有限、对照明确的候选。已有原文足以否决“单位密度＋未分配＋残余检测”的宽泛创新说法，尚不足直接判定这一个受限生成接口与所读算法同式。是否值得后续投入，须依既定学习比较回答；本报告不把未被逐式覆盖等同创新成立，也不把300 oracle运输代理或2015/2025论文的效果移植成本项目收益。
+
+
+【316_C_固定解释对照及完成条件核查.txt】
+316｜C：固定几何解释对照及完成条件核查
+2026-10-21。创建前确认316编号未占，315留给A。只读309原文核查、313共同材料、301结果复核、292协议及299的geometry_cost/conditional/cap_once定义，依据主控回交的Claude新建议与新增null校准问题作设计判断。没有读取新预测、重算oracle、运行代码/训练或访问heldout/远端。306/304历史三臂提案不改，本文明确提出训练前版本修订。
+
+决定：现在应采用N/S/G/R四臂，而非维护三臂数量。G选“固定几何cost＋可训练每类null偏置”，不是center kernel/noNull，也不保持κ永远为0。每类κ_c共10个标量、初始化0、由G正常检测loss训练；公共可学习Cθ/κθ的关联辅助分支及loss照常保留。这个选择只强化同一个G，不新增第五臂。它能直接面对固定密度衰减和简单null校准这个新替代解释；仍不把所有疑问打包成无限前置实验。
+
+一、新原文为什么改变对照理由
+309已核2025 Density-based Object Detection in Crowded Scenes的部署Eq9：选定框b_t后，d_i←d_i exp[−IoU(b_i,b_t)^2/σ]，再参与现有proposal筛选。2015 Small Instance Detection by Integer Programming on Object Density Maps则已由单位密度恢复位置并估框。因此“看到旧框后降低密度，再由密度产生框”不能单独立新；减法与乘法也不是边界，因为r=m−min(m,u)可写成m乘非负剩余比例。
+但这不等于两篇已逐式实现当前R：2025的d_i属于已有proposal，2015处理全部整数位置恢复；当前是同一含错P下的类别质量、单位解释/null与自然补集新生。原文差别允许形成具体候选，不能替代强控制。
+原三臂即使R胜N和S，仍可能只是固定几何衰减先验比自由set attention更容易在六轮内使用，而非学会了按内容拒绝错误解释。G正好隔离这个替代解释。原文补足发生在首次训练前，修改核心比较有实质理由，不是看到训练结果后救R。309原建议维持三臂可以修正，不能把先前结论当不可更改的门槛。
+
+二、为何不用center-K1/noNull/noScore作为主强控制
+固定中心核需另定带宽、截断与归一方式；一个条件框包含遗漏中心，不保证其中心核在该处有足够质量。因此284的c类共存不能推出这种核必定误扣，更不能借一个可能几乎不触发的核制造R优势。特别是预测类别错误时，类内解释根本不扣真实类别质量；“框盖住了GT”不是扣量证书。
+删除null也改变单位供应和解释自由度，使控制弱于已经存在的I_cap。主G应沿同m参考、同类连接、同ε=1、同rowcap/退null及同残余读取，仅固定cost为同一d_out。这样不用新核或新幅度，且实际检验一般几何解释能否复制效益。
+
+三、锁定G：固定几何，加最小可学习类别null校准
+令mbar=sg(m)，只连条件j的预测类c_j；位置x_i和未clip预测框b_j沿296/306：
+  d_ij=max(x1_j−x_i,0,x_i−x2_j)/w_j
+       +max(y1_j−y_i,0,y_i−y2_j)/h_j。
+G的生成计划为
+  K^G_ij=mbar_{i,c_j}exp(−d_ij)，K^G_0j=exp(−κ^G_{c_j})；
+  p^G_ij=K^G_ij/(K^G_0j+Σ_lK^G_lj)，p^G_0j=K^G_0j/(同分母)；
+  u^G_ic=Σ_{j:c_j=c}p^G_ij，a^G_ic=min(1,mbar_ic/u^G_ic)，u=0取1；
+  T^G_ij=a^G_{i,c_j}p^G_ij，z^G_j=p^G_0j+Σ_i(1−a^G_{i,c_j})p^G_ij；
+  r^G_ic=mbar_ic−Σ_jT^G_ij=(mbar_ic−u^G_ic)_+。
+κ^G为10个不依图像、实例或score的自由实数；全部初始化0、采用共同学习率/clip规则、作为bias不做weight decay。只由G的正常L_det学习，不加新标签、专门校准loss、val拟合或逐图估计。N/S/R的现有参数、公式和loss不因增加G而改变。
+它允许一个全局null校准作为所有κ_c相等的特例，也允许各类不同校准；不能只因G不曾调整拒绝强度，就把R的收益归为候选级拒绝。对固定m/d，有∂p^G_ij/∂κ_c=p^G_ij p^G_0j（同类），所以严格未饱和行的∂r^G_ic/∂κ_c=−Σ_j p^G_ij p^G_0j。该类可以学习整体多解释或少解释，不能单独拒绝同类中的某个错误候选。κ→负大时趋向退null、保留m，因而G也能趋向忽略几何条件。
+严格过载行的残余导数为0，折点子梯度依实现。若κ_c整个短训都因饱和没有有效梯度，必须如实报告，不能宣称已经穷尽排除所有全局校准；但不为此事前新增oracle或第五臂。这个限制同样不能被当作“G不能学习”的定理，未饱和位置及后续m/共享特征变化均可能提供路径。
+
+不选“共同aux κ输出按类平均后detach”：它随图像/候选组成变化，已借入学习到的外观及score信息，且平均范围、空类和跨batch状态还需额外定义。它并非简单的全局/每类校准，R−G的语义反而不清。10个直接标量是更小且可审的控制；当前不同时保留多个G版本择优。
+
+四、G必须有两条明确计划，不能把辅助loss接错
+所有臂共同的trainable辅助计划仍是
+  (T_aux,z_aux)=cap(mbar,Cθ(P,f),κθ(P,f))，
+共同L_assoc仍根据同M0作用于T_aux/z_aux。N、S不把该计划送入生成；R把它的残余送入生成。G另外用上述d_out/κ^G计算r^G，送入完全相同的类别value和总量attention bias。
+不能为了“G是固定解释”把它的L_assoc换成固定G计划：那会改变监督途径，并在mbar被detach时使原Cθ/κθ失去共同训练信号。也不能把G的κ^G接到额外GT null目标后仍称只有检测loss校准。两条路径的作用与参数须在实现中明确命名。
+G生成不显式用score加权，但P本身仍来自同score阈值/top300；公共关联训练也使用同15维含score输入。因此不能笼统写成“G完全没有score信息”。所有arm的局部RGB、m、辅助loss、M0补集、四query、输入曝光、原生融合与整体GT预算都相同。
+R−G仍是包级差异：可学习图像/候选cost、候选级null以及它们进入生成后的检测梯度，相对于固定几何＋每类校准；不能据其正值单独宣布“κ识别FP成功”或“某个单模块有因果效益”。它至少排除了κ永久0这个明显更简单的解释。
+
+五、300已经提供了什么，为什么不再索要oracle表
+已亲读299：geometry_cost正是上述逐轴框外距离/wh和，conditional是m exp(−C)加κ=0的null参考质量1，cap_once是一趟容量截断及超额退null。因此300的I_cap确是G在κ^G=0时的同式算子特例；现有合成与真实缓存已经支持其可计算、可行且不只是“无定义的新设想”。
+边界必须保留：300使用GT oracle m、旧centre供给和已冻结增强窗；本G使用预测m、新intersect供给和待采自然图，κ_c还将学习。300不是G新头的真实效果，也不能用其J−I_cap差值证明G好坏，更不能将旧计数重命名为新M0数据。
+再画一张GT-m oracle表不能判断可学习R是否胜可学习G，且当前没有需要这张表解决的数学未定义处。最小新增无训练工作只是在已有311原型上接G，并验证两项接口：
+  1) 初始化Cθ=d_out、κθ=0、κ^G=0时，R/G残余、hidden states和预测一致；不能仅依低分/零框头让输出parity天然成立。
+  2) 固定同m/P，改变θC/θκ只改变G的aux计划而不改变G生成计划；改变κ^G在预定未饱和合成例中确有生成梯度，在严格饱和例中按实际算子报告零。无P时仍保留m。
+其余列守恒、行界、empty/padding、m detach/共享f梯度等沿已有合同，不重建一套自然数据资格清单。本轮只写建议，不修改或执行311。
+
+六、选择四臂及具体成本，三臂只能回答更窄问题
+推荐一次N/S/G/R四臂：N回答同crop/密度/补集训练本身；S回答普通逐实例条件集；G回答固定几何解释加类别校准；R是待检验自适应解释。新增文献让G成为具体强替代，不能仅为保住“三”而撤掉S，退回缺乏一般集合控制；也不宜撤掉N后再声称条件机制对无条件局部头有增量。
+若算力绝对只容许三臂，S/G/R能回答结构化自适应是否胜两个条件控制，却不能完成当前含N的完整效益归因；应如实收窄目标，而非让它自动代替四臂结论。当前优先一次四臂，避免先跑旧三臂再用见结果的方式追加G。
+原每run六轮/1218步/19410crop不变。四臂双seed变为48个head epochs、9744 optimizer steps、155280训练crop曝光；比36轮多12轮、2436步、38820曝光。公共冻结raw缓存6470次全局forward与末评1096次全局forward可共享，不因G增加；G自己的训练/末评head计算与分析费用必须新增，不是零成本。
+G部署可删仅供辅助的可学习association分支，只留m、几何计划、10个κ和decoder；训练仍含共同aux加一条G计划。参数/FLOPs/墙钟应分别记训练与部署，不能用相同epoch声称相同算力。当前没有这些新增实测成本，不虚构GPU小时。
+
+七、完成条件应随真正对照更新，不用共识或oracle结束主线
+若沿306的机械方向规则，加入G后应把R−G也纳入同等主比较：两seed×三control(N/S/G)×两个指标(APs、tiny Geo0新增TP@.5)，共12项严格正才记该有限学习方向保留；不是原8项过了、G再只作描述。正式v3须在训练前锁定这个修改，不在训练后选择对照或阈值。总体AP、FP、原TP损失及成本仍全部披露，方向通过不等于净效益、显著性或发表成立。
+若G复制R，即使R胜N/S，也只能支持一个更简单的几何密度补全方案，不能继续以候选级自适应解释作实质增量。若R胜G但不胜S，通用条件集合已足够，不能以学到null为由抬高贡献。若R同时胜N/S/G且有真实新几何，才支持进一步投入；仍需按配对不确定性与实际代价判断，不把微小正数包装完成论文。
+当前“具体可审”可由四臂定义、最小G合成接线及真实预算完成；“主线已验证”必须等待授权后的固定学习结果，不能由311合成可导、300 oracle差异或专家支持替代。无需继续索要一张不能回答学习比较的新oracle表，也不因为尚未训练就否定该候选值得一次有限验证。
+
+原文边界来源：309已归档2025 Eq9及2015方法核查，未新增声称已核作者代码。
+https://arxiv.org/html/2504.09819v1
+https://www.cv-foundation.org/openaccess/content_cvpr_2015/papers/Ma_Small_Instance_Detection_2015_CVPR_paper.pdf
+
+
+【317_A_单位解释残余补全_四臂有限验证方案_v3.txt】
+317｜单位解释残余补全：N/S/G/R四臂有限验证方案v3
+2026-10-21。当前拟提交的有限验证配方，以本v3替代306三臂安排；296、306及历史阴性原文均保留，不覆盖。仅方案，训练代码/自然缓存/计费未完成，无新增训练、模型执行、自然数据计算或训练授权。完整共同模块与损失沿296，S精确接口沿304。G的最终训练前定义采用316修订：固定几何C=d_out＋10个可训练per-class null代价κ_c，取代315建议中的永远κ=0；315保留为历史审查。没有第五臂或新loss。本文汇总可独立审查的四臂接口、预算与去留。
+
+1．要回答的具体问题
+给同一局部RGB、显式10类单位密度、现有candidate集合及完全相同的辅助监督，学习逐candidate的对应/null，是否比普通集合融合和固定几何扣减加简单类别校准更有利于生成真实遗漏几何？N_density、S_directP_density、G_geom、R_residual分别控制density-only、自由P条件、几何解释加类别null校准、逐candidate可学解释。原图重读、单位质量、密度下降、补集监督和密度生成新框均已有先例，不作独占创新；本版不含联合OT。
+2025 DG-NMS式9已使已选框衰减其余proposal密度；2015原文已从密度恢复实例。G把结构化扣减放到当前同一生成器，并允许每类null基准校准，避免R仅胜一个失调的固定null对手。R−G检验C_content与逐candidate κθ相对几何＋类别κ_c的包级增量，包含各自检测梯度路径；不是κ单因果，也不单独分离score和视觉内容的作用。
+旧284的13/14、66/93及276相交82/137属于旧缓存/供给描述，不是本新自然M0的已验证作用面；中心落点核是否吃到遗漏GT更不能由框包含其中心推出。276旧候选回收tiny Geo0新增为0、289固定差分mixed、290旧ROI主阴性、300 oracle代理非AP均保留。它们支持提出可失败问题，不预测本R必胜。
+
+2．底座、数据与固定目标：四臂完全相同
+全局为BASE24两个last_epoch23的checkpoint['model'] raw，native eval640，原参数/状态及输出detach；训练缓存、末端评估与拟部署同raw，无EMA切换。每图保留原300框和300×10 logits。fullP=原native sigmoid flatten top300后score严格>.001的candidate实例；同query异类不合并，不先perclass100。
+只用sample_plan development3235自然训练图，不读隔离heldout3236。一图一窗W：640平面64²格上原final300预测中心数最多格，row-major解并列；不用GT/newhead选窗。按原图同物理位置采RGB128²，采样、归一化及图像SHA接口沿296；无Mosaic/Mixup、随机增强、额外halo或重新选窗。每seed的四臂共用同一已冻结crop及缓存。
+P_W包含fullP中box与W正面积相交的全部实例，保留未clip局部xyxy和score，不按GT、中心或额外分数阈值过滤；非有限/非正框报错。M0在fullP×全图native有效GT上一次确定，同类且native FP32 IoU≥.5合法，lex最大覆盖/最小native matcher cost/固定索引。cost按2 focal class+5 normalized L1−2 GIoU，α.25/γ2。M0不看窗或新头，缓存一次。
+G_W只取完整落入W的GT，U_W=G_W减M0已解释GT。每完整GT在16²格中心双线性散射一单位同类质量K_g，边界质量保留，多实例可叠加，m*=ΣK_g。某candidate的M0 owner若在G_W，其association目标为K_g；否则目标null=1。完整GT的合法owner必相交W，因而m*−ΣT*=Σ_(g∈U_W)K_g闭合。null表示无本地完整实例解释，不等于全局FP。
+M0不是P100/COCO greedy正式FN；U_W不等于Geo0。全final300任何类框均无IoU.5边的GT必未被M0解释，故主机制聚焦其新生。原native有效GT处理、完整/partial和overflow定义沿296，不事后改M_dep、标签或GT组。
+
+3．共同网络、初始化和可实施接口
+RGB128²→三层stride2 Conv/GN/SiLU→残余Conv块，输出f为16²×128；1×1 softplus头输出m∈R_+^(10×256)，mbar=stopgrad(m)。初始每格每类1/256，即每类整窗质量1；不把默认softplus零输入误当合理实例总量。四个learned query，d128/4heads、2层preLN、FF512/dropout0；最终10类logits和自由local cxcywh。2×2中心(.25/.75)、wh=.25W作初始reference；框可自由移动/改变尺度，边缘可越W。无FGL/DDF/DN。
+共同candidate编码a_j=MLP15→128→128([未clip xyxy4、onehot10、sigmoid score1])；不加rank/query ID或序列位置。共同可学习aux分支
+ C^A_ij=d_out(i,j)−〈W_q a_j,W_k f_i〉/sqrt128，
+ κ^A_j=MLP256→128→1([a_j,mean_i f_i])。
+d_out为cell中心到预测框外的逐轴非负距离分别除该预测框宽高再求和；所有坐标同一W局部坐标，不clip框。ε=1，null参考质量1，仅候选自身预测类别连接。
+给定C/κ与mbar的共同算子：
+ Z_j=exp(−κ_j)+Σ_l mbar_(c_j,l) exp(−C_lj)，
+ p_ij=mbar_(c_j,i) exp(−C_ij)/Z_j，p0_j=exp(−κ_j)/Z_j；
+ u_ci=Σ_(j:c_j=c)p_ij，a_ci=min(1,mbar_ci/u_ci)，u=0时a=1；
+ T_ij=a_(c_j,i)p_ij，z_j=p0_j+Σ_i(1−a_(c_j,i))p_ij；
+ r_ci=mbar_ci−Σ_(j:c_j=c)T_ij=[mbar_ci−u_ci]_+。
+零质量格无分配；J=0时r=mbar、association loss为0；以logsumexp和safe-empty实现。超额只退null，不重新运输。严格u>mbar处的残余对u导数为0；相等处是实际算子的子梯度边界，不能保证aux总能解冻。
+拟接口分为encode_rgb、predict_mass、encode_candidates、make_plan、generate、compute_losses，仅为待实现接口名，不是可运行命令：model forward只接受RGB与预测P/窗坐标，不接GT/M0/U_W；targets只进入compute_losses。返回pred_boxes/pred_logits以及明确区分的plan_aux和plan_gen，避免G把固定计划误作可学习aux目标。新目录与源码点沿296拟code/unit_instance_completion_20261021_v1，尚未建立完整训练实现。
+
+4．四臂唯一改变的生成信息路径
+共同mass接口：类别向量log1p(b_ci)经投影加入图像attention value；空间attention logit加log(Σ_c b_ci+1e−4/256)。四臂均保留原RGB f的key/value通路。
+N_density：b=mbar，生成不读取P。P只供共同aux分支；固定RGB/参数下改变P不得改变N的pred_boxes/logits。
+S_directP_density：b=mbar。在每层self-attention后、image-attention前加query→同a_j P-token cross-attention，2层独立d128/4heads/preLN/dropout0；输出投影weight/bias零初始化。额外h_c=log1p(n_c)，n_c为P_W该类实例数，恰10维；Linear10→128无bias、weight零初始化，广播加到4query初态一次。无额外total、无归一化、无rank。J=0直接skip零残差；padding不计数，不放dummy，不调全mask softmax。S接口严格沿304。
+G_geom：b=r^G。生成专用C^G=d_out固定，κ^G_j=κ_(c_j)，κ∈R^10为额外的10个可训练类别标量、初始全0；沿相同make_plan/cap，Z^G_j=exp(−κ_(c_j))+Σ_l mbar_(c_j,l)exp[−d_out(l,j)]。null参考质量仍为1，null权随κ_c变化，并非无null。κ_c只经该G正常L_det学习，使用同head学习率/clip，作为bias不weight decay；不接L_mass/L_assoc，不加校准loss、不复制或平均aux κθ，也不依据GT/每图统计初始化。它对全图同类candidate共享，不能逐实例拒绝；κ_c→−∞时该类分配趋零、r^G趋mbar，可趋向忽略几何条件。无score系数/可学温度/中心核。另用同可学习C^A/κ^A构造plan_aux，供同L_assoc；其输出不进生成。G固定的是几何对应规则，RGB/m/decoder/aux及类别null标量仍训练。
+R_residual：b=r^A。生成和L_assoc共用可学习plan_aux；P只经这一残余接口影响生成，不另拼token/history或另加query。R使用依候选/图像的C_content与κθ，G使用固定C几何与每类共享κ_c。二者的输出使用与梯度路径构成联合比较，不能解读为仅null参数有效。
+四臂同sg(m)：截断mass数值支路，不隔离共享RGB参数。G的检测损失经plan_gen只更新κ_c，不经mbar更新m-head或经plan_gen更新aux Cθ/κθ，但仍经图像f通路更新RGB主干；G的L_assoc经可学习plan_aux更新f和aux参数。R有det→Cθ/κθ路径。所有arm同辅助目标/权重，不宣称梯度逐项相同。严格饱和等情形可使G的κ_c检测梯度为零，必须记每类更新/梯度；若κ_c未学动，不能声称已充分排除全局null校准这一解释。
+公共初态逐项复制：query std.02；分类末层weight0、bias logit(1e−4)；box末层0；W_q=0、W_k Xavier、aux κθ末层weight/bias0，G的10个κ_c也全0，其余初始化沿296。于是G/R初始C/κ数值、plan_aux/plan_gen、r、生成输出和aux loss同值；参数化和梯度不同，训练后可分化。S/N在P-crossattention与count零初始化时生成同值。初始newhead分数低于.001，正式融合有效输出应与global一致；这些是待核parity合同，不能写成已有实测。300 I_cap只对应κ_c=0的初始算子特例，且使用oracle mass/旧供给，不能验证后续校准G或其学习效果。
+G/R共有基础参数结构，G另加10个生成类别标量，不再称训练参数严格相同；无第二个可学习content计划网络。G额外跑几何＋类别null计划，部署可删仅aux的candidate编码/association并保留κ_c；R不能删其生成所用分支。S新增参数133888只是304代数计数，全部实际参数与FLOPs/时延仍待实现核验。
+
+5．共同损失与日程
+全部U_W进入4×|U_W| native Hungarian，匹配min(4,|U_W|)；超过4不挑有利GT，完整目标仍进原native归一化分母，overflow单列。L_det=原MAL(γ1.5，正IoU.detach软目标)+5L1+2GIoU，matcher同2/5/2、α.25/γ2；不用完整GO/FGL/DN criterion。空补集保留安全分类负项。
+L_mass采用296的单位质量KL/Poisson偏差；L_assoc对本地owner用−Σ_i K_gi log(T^A_ij+1e−8)，其余用−log(z^A_j+1e−8)，分别求组均值再对非空组平均。四臂都用可学习plan_aux，不给R独有GT；L_total=L_det+L_mass+L_assoc，权重均1。记录mass误差、正/null关联loss、饱和率、相应梯度及检测loss，G另记10个κ_c值/梯度/更新；不以detloss下降或κ参数存在替代正式效果/已完成校准。
+6轮固定last，不做best选轮/中途调参。AdamW lr1e−4、betas(.9,.999)、wd1e−4，bias/norm不decay；前100步1e−5→1e−4 warmup，再cosine至1e−5，clip1、FP32。head seed2026102101/2026102102，对应全局两seed；四臂同公共初态、同每轮shuffle，独立optimizer/run目录。无EMA、旧ROI warmstart或延长训练。故障续跑只恢复该run完整状态及规定总步数。
+训练仅development3235；六轮后固定native val548独评，不以其调标签、窗、核或超参。历史研究已用该val，不称全新未见测试集。global300+new4的框/logits统一concat→native sigmoid flatten top300→score严格>.001→每类max100；不改温度、gate、NMS，不给新头保底槽位，同query多类语义保留。
+
+6．核算与成本边界
+按batch16、drop_last=False，每轮ceil(3235/16)=203步；每run6×203=1218步，6×3235=19410 crop曝光。四臂×两seed共8run，因此48 head epochs、8×1218=9744 optimizer steps、8×19410=155280 crop曝光。相对306增加G两run：12 head epochs、2436步、38820 crop曝光；没有增加单run轮数。
+首次3235×2=6470张图级冻结global前向曝光，四臂共享每seed的预测/M0/crop；末端548×2=1096张图级global曝光亦共享。实际模型函数调用数随batch实现，不将图级曝光冒称已测调用数。训练/末端local crop与head、M0、文件读写及评价/CI分析均需另外计费，不重复全局缓存来虚增四臂成本，也不漏计缓存成本。
+训练参数、显存、FLOPs、单图时延、总GPU小时和总墙钟仍NA；48头轮不等于48完整检测器轮，不按小参数量推低耗时。拟独立数据目录按seed/arm/run隔离，所有源/CP/图像/cache/配置/公共初态保存SHA；raw global零grad、state不变。已有311原型及旧合同是实现基础，不等于完整四臂自然训练链；本v3接线、训练实现/预检与真实计费仍待完成审查，本文没有经过验证的启动命令。
+
+7．事前指标、12项方向规则与失败转向
+主B定义不变：给定seed，原final300框对GT任意类最大IoU<.5、GT完整在固定W且native640输入短边<4；在最终统一后处理输出中，按同真类score顺序IoU.5匹配新增覆盖的unique GT数。B是tiny Geo0正式新增TP，不是candidate数、oracle容量、所有M0补集或AP。全GT Geo0与.75另报，不换主组。
+逐seed对N/S/G分别算ΔAPs=APs_R−APs_control和ΔB=B_R−B_control。两seed×三control×两主指标共12项必须全部严格>0，才记“有限学习方向保留”；零不算正。不是比各control平均或选最弱者，不把一个seed的正数抵另一seed负数。这是同向筛查，不是显著性或等效结论；微小全正也不证明效益或方法成立。
+每seed baseline/N/S/G/R完整保存并列表12项COCO：AP、AP50、AP75、APs、APm、APl、AR1、AR10、AR100、ARs、ARm、ARl；另列B、FP、原TP新增/丢失、新candidate入选/挤出、资源。R−baseline及R−N/S/G的总体AP任何负值全披露，主方向过关不能掩盖相对global损失；不增总体AP新gate，也不称自动批准完整配方。
+配对图CI沿306：同548图抽样索引作用于各arm/seed，1000次bootstrap、seed2026102103；重复图使用新的评价image_id，按重采样数据集重算AP/APs，不平均逐图AP；B按对应图计数，95%百分位区间。仅分析冻结预测，不新forward；两seed同图不当1096独立样本。区间跨零报告不确定性，不用短训推出显著或等效。
+若R胜N/S但不胜G，说明当前证据未支持逐candidate可学解释比几何＋类别null校准更有用，不能把G/R共同收益记给精细内容对应。若R胜G但不胜S，则受限残余接口未胜一般P条件融合。若所有头都能补而R无特异优势，收益属于共同补全头；若所有头未学成，报告本6轮配方无可行性证据，不外推任意生成不可行。若G的κ_c因饱和等原因未得到实际更新，须明确校准控制未有效学习；不临时改为aux借值或放宽主判据。
+任一主方向zero/negative使12项规则不成立，按实际组合报mixed或不支持；不扩轮、不改M0/η/窗/score/子组救R。G若表现更好，可另提几何＋类别校准的研究解释并审查先例，不能自动改主臂或把它换名为已成功主线。E8→4、共享解释量的学习融合及内容/null拆分仅在保留信号后另审，不追加本轮。工程合同失败则报告实现失败并修复可审查的错误，不能冒作科学阴性或暗改科学目标。
+
+8．待实现合同与历史身份
+必要合同：native loss/后处理parity、M0闭合与索引稳定、scatter单位质量、plan行/列/null守恒、empty/overflow、S空P和排列/count接口、四臂sg(m)、N无P生成通路、global无grad/state改变。已有311合同按其原始记录继承，不重写成全未做，也不能当作新Gcal已通过。
+本v3新增合同：G/R初态残余、decoder hidden states、预测及aux同值，不能仅凭零初始化末层让预测天然相同；固定f/m/P改变θC/θκ只能改变G的aux计划，不能改变G生成计划；改变κ_c须在预定未饱和例中有正常生成梯度，严格饱和例按实际算子记录零；κ_c只接detloss且optimizer无decay。最小接线可复用311，不另建oracle数据资格表。本轮仅读316，未执行这些新合同，尚未实施的项不得记作已通过。
+296 SHA256 7dd909843afb9536c0fc12c92ad2326d2519c1a1b6fc66bf2aa484f5ce94caa7。
+304 SHA256 e37d4095df7682be0a80d2b119628e17a972fd5c91898e2b6bc30a1a9316c744。
+306历史v2 SHA256 821b43ec2ee1c256e229425d0863f1d4197e2fc469e6251eb75fc1638590e3f0。
+309原文补核 SHA256 17df4c183734ccf97237fc002501b8eb8494a060e5368366bf79c401cffa7e36。
+315固定几何审查 SHA256 bce066d1599a4ab815bb3ead346e155e3bf2d4ddbb7d5cf5e9bfe4c07095e023。
+316_C_固定解释对照及完成条件核查.txt SHA256 983f63f40dc3468baad50c379bc679c8556616f9af367d12bc191a5c28dee1d0；已亲读并核SHA，G的最终10类κ校准及双计划按此稿。
+以上同位于C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2。本文只更新当前拟采用的四臂配方和预算，未改历史文件或实验结论。
+
+
+【318_B_固定几何消耗无合法边条件_事前协议.txt】
+318｜固定几何消耗无合法边条件：事前协议
+2026-10-21；只新增318/319。先由主控审查、运行合成，再由主控运行真实缓存；B不运行。默认新输出322_BASE24_fixed_geometry_false_context，禁止覆盖历史结果。320编号由另一合成任务使用；此处仅避让输出命名，不改变科学参数。
+
+问题与范围
+检验一个窄前提：原固定几何独立分配中，在全图GT没有同类IoU≥.5合法边的条件，是否实际消耗完整tiny Geo0处的oracle质量。不是检验AP、学习能力或R能否胜固定控制；无合法边不等于背景，也可能是错类或定位不足。即使有作用面，也不能证明学习C/κ能正确拒绝这些条件。主控后续训练G已拟改为固定d_out加可训练每类κ_c；本诊断仍严格κ=0，只描述原初始固定geometry风险，不能当Gcal训练后的效果或失败。
+严格沿300原A/B各batch00–07，共16批64输入曝光、263固定A_density/B_residual两窗、原centre在窗供给；不换296自然图/相交供给/M0定义。完整可见GT、原actual_input_sub4、primary Geo0身份均继承300/284。primary Geo0指原final300任何类框均无IoU≥.5几何边，不是fullP类别遗漏或正式COCO FN。跨seed为相同开发输入，不伪称独立64张自然图。
+
+现有资产与最小重建
+300各批NPZ存mass、GT_weights、GT_ids、condition_flat、I_cap residual/null，未存独立p；其结果与284共存计数不能直接回答删除效应，所以需319。
+只读取300原16个NPZ，以及同批263/284/300 JSON与固定索引/清单。263提供原native fullflatten top300且score>.001的P_boxes_xyxy/P_flat；284提供对全图GT的all_P_legal_neighbors及full_image_no_legal_P。无需重新算IoU、读244 NPZ、PT/logits、图片或checkpoint，也不导入旧torch脚本。
+原生合法边身份直接继承已锁284的FP32计算；300身份与263/284逐项一致必须验证。所有实际读取文件SHA执行前后核对，300原source_unchanged与完成状态也须成立；继承链的PT/图片只保留历史哈希来源，不重新打开。脚本明确这一区别，不冒称本轮重新读了全部上游原文件。
+锚定：299 SHA c3ba865bd804e7257b6f379bc237035d56e1c5e4d65fcd97d7fb1e2a163b6526；300的00/01/02 SHA分别5d13f97c269436ba30530dd907e41592d7264b66e6d58d0b7b2eb0854c496022、3578581c438d5ee0fe39d6008e2fbab45709b27284489c5e80ede7f4931915d3、089733fb15fba0a15654f0f8d146e8013ec2405fe48cab4815bb34b3ce0daa7c。263/284三清单SHA在319固定。两种窗均不按新结果选择。
+
+算子与数值合同
+grid=16，epsilon=1，kappa=0。每个完整GT在16²格作原单位双线性散射，边界夹邻点累加；直接读取300的m与K_g，再核m=Σ_g K_g、各核和1、身份与类一致，不改变原散射。
+C_ij=Σ_axis max(boxlow−point,point−boxhigh,0)/(boxhigh−boxlow)。非有限/非正面积条件沿原规则C=+inf，因此p=0、null=1。零m行p=0。
+p_ij=m_ci exp(−C_ij)/(1+Σ_l m_cl exp(−C_lj))，只连候选自身类别。
+u_ci=Σ_j p_ij；一趟cap的残余r=[m−u]_+。重建r与cap后的逐条件null必须逐项吻合300 I_cap，沿原绝对容差2e−8；不通过视实现失败，不继续效果读数。NumPy FP64直接指数式等价于299的logsumexp，禁止新优化或调用solver。
+U_bad={j∈原窗供给：284全图合法邻居集合为空}。不依据该候选是否包住遗漏GT筛选，不限制为284的c见证。
+删除后r_del=[m−u+Σ_(j∈U_bad)p_j]_+，Δr=r_del−r≥0。同时从保留条件重新求和检查等价；核Δr不超过被删除独立质量、r_del≤m与删除cap列/行合同。无强行active-face归零。代数校验容差1e−12×(1+总m+条件数)，与作用面阈值分开。
+
+主读数与受影响定义
+每个完整GT，d_g=<K_g,m*真类>；这里m=m*。记录原投影、删后投影、raw Δ_g=<K_g,Δr真类>，以及比例Δ_g/d_g。d_g≤0或非有限为NA，不当0；合法单位核正常应d_g>0，若非有限输入则fail closed。不是除全窗总残余，故不继承300 normalized attention的NA。
+“受影响”在读取结果前固定为raw Δ_g>1e−8；比例用于效应量而不另换门槛。未受影响的合法0读数保留在均值内。报告所有完整GT、primary Geo0、geometry covered、primary完整tiny Geo0、covered tiny；不把GT核重叠投影和叫解释对象数。
+每窗和每seed保存全部GT行、原始/比例mean/median/min/max及q05/q25/q75/q95，受影响GT曝光唯一数、输入数与分母；按图先对其GT求均值再跨图汇总，不把GT池均值冒称图均值。两个窗的合并表以(batch,image,GT)去重，若GT在两窗出现，其数值取两窗均值；受影响集合按任一窗raw>阈值取并。相同窗可能被两策略同时选中，完整标明，不能当两个独立输入。seed间不把GT曝光身份混成独立观测。
+
+强简单随机控制
+每窗每次对各类别，从全部原供给候选中无放回均匀删除与U_bad相同数量；不排除bad候选，保留同query异类独立candidate。32次固定随机实验，基础seed=2026102105。
+每次使用PCG64(SeedSequence([2026102105,seed编号1或2,batch,image_index,窗编号0或1,重复编号0..31]))；候选按原供应顺序，选中索引排序记录。随机输入身份不依赖运行先后。bad为空则随机同为空；某类全bad则该类随机删全部。
+逐GT保存32次raw/比例，报告bad减去32次随机均值的paired差，同时保存32次面板/图均值分布；负差合法。随机重复不是32个独立数据集，不计算伪统计功效、显著性或AP。额外比较仍在同一固定cohort，无事后挑有利subset。
+
+唯一预设停止读法
+仅当A/B两seed的所有primary完整tiny Geo0 raw Δ_g均≤1e−8且受影响图均为0，停止当前“无合法边条件实际消耗该组质量”的动机。任一primary分母为空/NA则不能把空集合当无作用面。两seed非零或混合均如实报告；没有最小受益比例、必须胜随机、训练准入或AP门槛。随机控制决定“是否比随便删同类条件更特异”的解释力度，不改变此停止口径。观察到扣除也不是已救回检测。
+
+合成与执行
+先合成后读任何真实JSON/NPZ：空质量、空供给、单条件解析值、过容量删少量仍零/删全部恢复、类别隔离、框内/框外cost及尺度等价、无效框null、删除重算与一趟cap一致、全图合法邻居不被本地遗漏误删、随机class数/固定seed/无放回、单位核与正d_g、NA/负paired差、两窗去重及受影响并集。任何失败停止，不放宽容差。
+仅标准库+NumPy；CPU2线程，MKL_THREADING_LAYER=SEQUENTIAL，Windows BelowNormal、affinity[13,15]，每批前available RAM>8GiB。逐批释放NPZ。无torch/scipy导入、solver、模型、CP、图像、梯度、更新、远端、heldout。
+输出00_sources_and_synthetic.json、16个逐批JSON、01_results.json、02_output_sha256.json；失败留FAILED.json和已完成批。保存源SHA、输出SHA、输入/预测原SHA、GT/candidate身份、随机删除名单及算子校验误差。预计秒级至一分钟，实际时间/峰值RSS由主控执行记录，不承诺速度。
+
+
+【323_B_无合法边删除诊断结果复核.txt】
+323｜无合法边删除诊断结果独立复核
+2026-10-21；Astra B。只读322现有JSON、源/输出文件SHA与既有284/300身份表，仅新增本文。未反序列化NPZ/PT、加载图片或模型、重新分配/求解、训练、读取heldout。哈希核验涉及NPZ文件字节，不读取其数组内容。只读审计进程为BelowNormal、affinity[13,15]。
+
+结论
+接受322有效完成，未发现本次范围内的实现或汇总错误。结果比284的空间共存更进一步：在既定oracle质量与κ=0固定几何算子中，删除“全图同类IoU≥.5合法邻居为空”的条件，确实释放了部分完整tiny Geo0处的质量。318的“两seed全部无作用面”停止条件不触发。
+但相对同类删除数量匹配的随机控制，额外释放较小；这不是已找到能在部署识别该条件的规则，不是R或Gcal效果，更不是AP/召回提高。作用面继续保留，不追加新的训练资格门槛。
+
+一、执行、身份与数值核验
+322 state=complete，12.905999999959022秒；16批、64模型输入曝光、128窗、4096次随机删除。14项合成合同全true，PT/model/CP/image/forward/gradient/update/solver/heldout计数全部0。NumPy1.26.4；2线程、MKL SEQUENTIAL、BelowNormal、affinity[13,15]，起始空闲RAM23.361GiB。
+独立重算76个实际源SHA全部一致；18个输出SHA全部一致；01列出的16个批artifact与02索引一致。318/319与执行前冻结SHA一致，没有修改κ、名单、阈值或科学参数。
+逐批JSON核64图的input/prediction/source_ids等身份与284/300完全一致；128窗的cell、原centre供给condition_flat保持一致。逐窗重新用284的全图合法邻接空集核Ubad，128/128吻合，没有只取c类包住遗漏中心的事后见证，也未把有窗外合法邻居的条件误删。
+逐窗记录的I_cap复现最大绝对误差：residual 6.661338147750939e−16，null 4.440892098500626e−16，远低于原2e−8。2073个GT窗行的比例算式核验误差0；bad减随机均值的算式误差最大6.661338147750939e−16。4096个已保存随机删除名单均无放回、均来自原供给，且每类删除数量与Ubad一致；本轮未重新抽样。
+
+二、主组与随机对照：同一GT、同一输入口径
+原始效应为Δ_g=<K_g,r_del−r>；比例为Δ_g/d_g，d_g=<K_g,m*真类>。受影响按执行前固定raw Δ_g>1e−8。比例不是全窗归一attention，也不是被恢复的对象比例。
+下表使用两个窗合并后以(batch,image,GT)去重的曝光身份；同GT出现两窗时先均值，受影响身份按任一窗超过阈值取并，再每图均值、跨图平均。输入分母是该组非空的图，不是默认32。
+
+cohort / seed             受影响GT/总GT   受影响图/有该组图  按图raw释放   按图比例释放  比例bad−random
+primary tiny Geo0 / A     129/224         17/18             .139705437    .242648041    +.013602528
+primary tiny Geo0 / B     198/344         15/22             .101745865    .135072584    +.012210394
+covered tiny / A           13/18           8/11             .080287844    .162490141    −.162767261
+covered tiny / B            8/13           5/9              .039369326    .062349277    −.067266743
+全部完整GT / A            405/587         27/31             .103983796    .178413221    −.069764866
+全部完整GT / B            499/749         24/29             .102451400    .149189395    −.028923974
+
+上述唯一GT/图计数已从逐批GT行独立取并复核，与主表一致。A/B各32个总输入，主组受影响图实际分别占17/32与15/32；17/18、15/22是条件分母，不能混用。
+primary tiny的GT池比例均值A .165784684、B .155944877；GT中位数仅.004748066、.004877184，q95为.745245152、.847853003。按图均值与GT池均值不是同一量，且分布偏斜，不能仅用大的按图均值暗示普遍大幅释放。
+同类随机删除的primary tiny按图比例均值为A .229045513、B .122862190；因此大部分释放并非bad身份独有。32次随机面板按图均值范围A [.215726605,.247212362]、B [.108215896,.137584966]，各自存在高于bad删除的重复。32次不是独立数据样本，这些范围不是置信区间或显著性证据。
+全尺度Geo0的按图比例bad−random为A −.027715121、B +.002387515；不能从tiny主组两seed小正差推广成全部遗漏都有特异优势。covered tiny的负差表示bad删除相对随机少释放该组质量，与较少误删有合法解释条件的读法相容；但A仅18个GT/11图、B仅13个GT/9图，且核可能重叠，不足以证明可靠的实例选择性或检测净收益。
+
+三、NA、重复与输入依赖
+128窗均有选窗身份，window NA=0；其中10窗无完整GT，54窗无primary tiny GT。这些空组不补0进入其组均值。2073个实际GT窗行的d_g均可判定，比例分母NA=0；不能套用300全窗残余归一化的31/34个NA，因为本次分母不同。
+两选窗策略同cell的输入为A24/32、B21/32。合并表已去重，同窗两策略不算两张独立图；随机删除列表仍按协议各窗编号生成，合并仅取相应GT的平均。
+A/B八批input SHA逐项相同：这是同32个开发输入上的两个模型状态，不是64个独立图。GT身份是增强输入曝光内身份，不是跨源原图GT身份；不能跨seed相加成独立样本量。
+
+四、确切获得与仍未获得
+获得：在固定P、GT oracle m、d_out、κ0的相同算子里，仅删除指定条件即可改变r，因此已确认实际质量消耗路径，超出了“框和遗漏共处一窗”的描述。它支持继续检验候选自适应解释能否减少误扣的动机。
+未获得：Ubad由全图GT判定，属于oracle条件删除反事实，部署不能直接使用；无合法边也不等于纯背景。原供给为centre在窗，质量为完整GT单位散射，不能直接转写成新自然输入/相交供给/学习质量的效果。后续Gcal已有可学习每类κ_c，其训练后是否仍消耗这些位置尚未测；R也未证明能学会识别或拒绝Ubad。释放残余不保证四槽生成新几何、正确类别进入预算、FP受控或正式AP提高。
+据此保留“κ0固定几何确有可被oracle删除释放的tiny遗漏质量”这条窄前提；overrandom幅度modest与covered tiny小样本必须同时呈现。318不是训练通过gate，不因该诊断非零更改任何旧失败结论或预先承诺R胜Gcal。
+
+关键SHA256
+318协议：1a5592415f5ee00fa5624f92ebb05515e6b64802cf0302ef60bc0d33f77ee368
+319脚本：84ae2c6223b710f5c07b024ce3d36a898fe81198be42daa71a83d23e2b60ae3b
+322/00_sources_and_synthetic.json：4a83a0f615762c04d61de92a27a3c1e2ee41d7660226841a22e347be1a29ae87
+322/01_results.json：30dda9f4131581968106b5ce374a075fc256ee474d627fafd4ae578a074e80f1
+322/02_output_sha256.json：a47d69e785d787ecbd038d5b295f639574567c3578f36231a0880a98f6466312
+
+【320真实合成结果】
+{
+  "state": "complete",
+  "scope": "synthetic operator/routing contracts; no learnability or AP claim",
+  "sources": {
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\320_geometry_calibrated_core\\gcal.py": "7674580516778a640853253b35653af2e8506e22c5a6cd4bebe88aff9d0c358b",
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\320_geometry_calibrated_core\\test_gcal.py": "3db6699e4f9b287558c677dd7979263566e0be775232c0ececb7e045bbca7dfa",
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\311_unit_instance_core\\core.py": "8cd5dbc61052c7d3c3b4058b4d25b150b906ecc06c6eb005793c737cef3f17ef",
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\311_unit_instance_core\\test_core.py": "824da320119bb66b96da7a8fc0aa436904c0c9ee7b2b7fded0faca57c8c3b13e"
+  },
+  "synthetic_fixture_parameter_writes": true,
+  "inherited_311_tests_not_rerun": true,
+  "class_null_optimizer_contract": "det-only, no weight decay; no optimizer implemented",
+  "resources": {
+    "threads": 2,
+    "interop": 1,
+    "affinity": [
+      13,
+      15
+    ],
+    "priority": "BelowNormal",
+    "free_RAM_GiB": 23.29718780517578,
+    "torch": "2.5.1+cpu",
+    "torch_file": "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\code\\dn_pre_frozen_diagnostic_20261020_v1\\runtime\\torch\\__init__.py",
+    "executable": "D:\\Anaconda\\python.exe",
+    "no_user_site": true,
+    "mha_fastpath": false,
+    "MKL_THREADING_LAYER": "SEQUENTIAL"
+  },
+  "heads": {
+    "extra_parameters": 10,
+    "common_weight_initial_plan_and_hidden_parity": true,
+    "common_weight_nonzero_readout_parity": true,
+    "initial_score_below_threshold": true,
+    "learned_aux_change_does_not_change_G_generation": true,
+    "class_null_changes_only_corresponding_residual_class": true,
+    "class_null_does_not_change_aux_plan": true,
+    "empty_P_safe_and_R_parity": true,
+    "column_row_clip_contracts": true
+  },
+  "gradients": {
+    "detection_class_null_grad_nonzero": true,
+    "class_null_gradient": [
+      -0.00016290292842313647,
+      0.0001790509995771572,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "detection_fixture_affected_rows_strictly_unsaturated": true,
+    "detection_mass_head_grad_none": true,
+    "detection_shared_trunk_grad_nonzero": true,
+    "detection_feature_grad_nonzero": true,
+    "detection_learned_aux_grad_none": true,
+    "strict_overload_zero_kappa_gradient": true,
+    "equality_subgradient_not_assumed": true,
+    "no_optimizer_or_auxiliary_task_loss": true
+  },
+  "counts": {
+    "synthetic_head_builds": 2,
+    "synthetic_head_forwards": 9,
+    "synthetic_autograd_calls": 2,
+    "optimizer_steps": 0,
+    "real_image_reads": 0,
+    "checkpoint_loads": 0,
+    "native_imports": 0,
+    "global_detector_forwards": 0,
+    "heldout_reads": 0
+  },
+  "seconds": 0.07806550001259893,
+  "sources_unchanged": {
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\320_geometry_calibrated_core\\gcal.py": true,
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\320_geometry_calibrated_core\\test_gcal.py": true,
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\311_unit_instance_core\\core.py": true,
+    "C:\\Users\\jiwei\\Desktop\\小论文投稿\\英文小论文\\持续寻找研究主线_20261020_v2\\311_unit_instance_core\\test_core.py": true
+  }
+}
+【322真实总汇的固定字段摘录；完整结果保留原目录】
+{
+  "state": "complete",
+  "counts": {
+    "npz_batches": 16,
+    "images": 64,
+    "windows": 128,
+    "random_deletions": 4096,
+    "PT_loads": 0,
+    "model_builds": 0,
+    "checkpoint_loads": 0,
+    "image_reads": 0,
+    "forwards": 0,
+    "gradients": 0,
+    "optimizer_steps": 0,
+    "solver_calls": 0,
+    "heldout_reads": 0
+  },
+  "seconds": 12.905999999959022,
+  "interpretation": "both_seeds_nonzero_descriptive_scope_only",
+  "stop_current_motivation": false,
+  "oracle_mass": true,
+  "fixed_initial_geometry_kappa0_only": true,
+  "Gcal_effect": false,
+  "AP": false,
+  "learnability_proven": false,
+  "training_gate": false,
+  "training_authorized": false,
+  "panels": {
+    "A": {
+      "A_density": {
+        "primary_Geo0_tiny": {
+          "GT": 166,
+          "inputs": 18,
+          "affected_GT": 104,
+          "affected_inputs": 17,
+          "raw_image_mean": 0.14674280147765564,
+          "relative_image_mean": 0.25531393935852176,
+          "relative_bad_minus_random_image_mean": 0.015385227103800045
+        },
+        "geometry_covered_tiny": {
+          "GT": 14,
+          "inputs": 9,
+          "affected_GT": 12,
+          "affected_inputs": 7,
+          "raw_image_mean": 0.09870287209945747,
+          "relative_image_mean": 0.2078366975356894,
+          "relative_bad_minus_random_image_mean": -0.19385967507707436
+        },
+        "primary_Geo0": {
+          "GT": 297,
+          "inputs": 25,
+          "affected_GT": 227,
+          "affected_inputs": 21,
+          "raw_image_mean": 0.14740693310522077,
+          "relative_image_mean": 0.2630906984642419,
+          "relative_bad_minus_random_image_mean": -0.031962859646542066
+        }
+      },
+      "B_residual": {
+        "primary_Geo0_tiny": {
+          "GT": 145,
+          "inputs": 17,
+          "affected_GT": 84,
+          "affected_inputs": 12,
+          "raw_image_mean": 0.13279706250993095,
+          "relative_image_mean": 0.23567159465141038,
+          "relative_bad_minus_random_image_mean": 0.014409334145485132
+        },
+        "geometry_covered_tiny": {
+          "GT": 15,
+          "inputs": 9,
+          "affected_GT": 10,
+          "affected_inputs": 5,
+          "raw_image_mean": 0.075389726421073,
+          "relative_image_mean": 0.15285887177476506,
+          "relative_bad_minus_random_image_mean": -0.1477725789190269
+        },
+        "primary_Geo0": {
+          "GT": 255,
+          "inputs": 25,
+          "affected_GT": 181,
+          "affected_inputs": 19,
+          "raw_image_mean": 0.13318534586936523,
+          "relative_image_mean": 0.24161464600841537,
+          "relative_bad_minus_random_image_mean": -0.01995831612310306
+        }
+      },
+      "two_windows_GT_deduplicated": {
+        "primary_Geo0_tiny": {
+          "GT": 224,
+          "inputs": 18,
+          "affected_GT": 129,
+          "affected_inputs": 17,
+          "raw_image_mean": 0.13970543725649176,
+          "relative_image_mean": 0.24264804059424977,
+          "relative_bad_minus_random_image_mean": 0.013602527554650126
+        },
+        "geometry_covered_tiny": {
+          "GT": 18,
+          "inputs": 11,
+          "affected_GT": 13,
+          "affected_inputs": 8,
+          "raw_image_mean": 0.08028784408633119,
+          "relative_image_mean": 0.16249014095991435,
+          "relative_bad_minus_random_image_mean": -0.16276726079946235
+        },
+        "primary_Geo0": {
+          "GT": 367,
+          "inputs": 26,
+          "affected_GT": 258,
+          "affected_inputs": 21,
+          "raw_image_mean": 0.13534625264005498,
+          "relative_image_mean": 0.24128306774594213,
+          "relative_bad_minus_random_image_mean": -0.027715120840582617
+        }
+      }
+    },
+    "B": {
+      "A_density": {
+        "primary_Geo0_tiny": {
+          "GT": 318,
+          "inputs": 21,
+          "affected_GT": 183,
+          "affected_inputs": 15,
+          "raw_image_mean": 0.11073660012383835,
+          "relative_image_mean": 0.1476191595829913,
+          "relative_bad_minus_random_image_mean": 0.014605225129107488
+        },
+        "geometry_covered_tiny": {
+          "GT": 11,
+          "inputs": 8,
+          "affected_GT": 7,
+          "affected_inputs": 5,
+          "raw_image_mean": 0.04414066276498377,
+          "relative_image_mean": 0.06957474346077967,
+          "relative_bad_minus_random_image_mean": -0.05417750936377203
+        },
+        "primary_Geo0": {
+          "GT": 517,
+          "inputs": 25,
+          "affected_GT": 349,
+          "affected_inputs": 19,
+          "raw_image_mean": 0.1318608829217375,
+          "relative_image_mean": 0.18768044109329565,
+          "relative_bad_minus_random_image_mean": 0.0038088969605474905
+        }
+      },
+      "B_residual": {
+        "primary_Geo0_tiny": {
+          "GT": 213,
+          "inputs": 18,
+          "affected_GT": 120,
+          "affected_inputs": 11,
+          "raw_image_mean": 0.1023197795891023,
+          "relative_image_mean": 0.11805885604653926,
+          "relative_bad_minus_random_image_mean": 0.009843719571529444
+        },
+        "geometry_covered_tiny": {
+          "GT": 7,
+          "inputs": 6,
+          "affected_GT": 2,
+          "affected_inputs": 2,
+          "raw_image_mean": 0.0006356478861630312,
+          "relative_image_mean": 0.001891514090357208,
+          "relative_bad_minus_random_image_mean": -0.05732686943183852
+        },
+        "primary_Geo0": {
+          "GT": 354,
+          "inputs": 25,
+          "affected_GT": 229,
+          "affected_inputs": 15,
+          "raw_image_mean": 0.09561265888298848,
+          "relative_image_mean": 0.11907102600976621,
+          "relative_bad_minus_random_image_mean": -0.004642360130502112
+        }
+      },
+      "two_windows_GT_deduplicated": {
+        "primary_Geo0_tiny": {
+          "GT": 344,
+          "inputs": 22,
+          "affected_GT": 198,
+          "affected_inputs": 15,
+          "raw_image_mean": 0.10174586532133321,
+          "relative_image_mean": 0.13507258369848466,
+          "relative_bad_minus_random_image_mean": 0.012210394167597373
+        },
+        "geometry_covered_tiny": {
+          "GT": 13,
+          "inputs": 9,
+          "affected_GT": 8,
+          "affected_inputs": 5,
+          "raw_image_mean": 0.03936932605338757,
+          "relative_image_mean": 0.06234927660465252,
+          "relative_bad_minus_random_image_mean": -0.0672667425784102
+        },
+        "primary_Geo0": {
+          "GT": 566,
+          "inputs": 26,
+          "affected_GT": 382,
+          "affected_inputs": 19,
+          "raw_image_mean": 0.12184748545231248,
+          "relative_image_mean": 0.17227601877428148,
+          "relative_bad_minus_random_image_mean": 0.002387515355503177
+        }
+      }
+    }
+  }
+}
+【上一段最后四份完整回应】
+
+【前段第2轮 Codex A · 结构与信息路径 完整原答；其中36轮建议与新四臂比较请具体回应】
+回应C首轮“R_fix仍有cap拒绝”、B首轮“无合法边分层不能穷尽null任务”：**我保留306三臂、36个head epochs的有限学习申请，修订贡献表述，不增加第四臂。**C使我进一步明确：固定核对照也有容量拒绝，不能用于单独识别null的贡献；B的分层反例也改变了我的机制判读。
+
+按共同记录，276所测回收未新增tiny Geo0，284作用面非空，289主组mixed并停止，290旧ROI训练阴性，300联合代理mixed且无遗漏特异性。311只验证核心合成接口，完整原生融合尚未实现；以上不是本轮独立核验。
+
+依据309，2025 §IV Eq9已有部署密度衰减，2015已有密度恢复位置与估框。因此，“先扣再生成”不足立新。值得检验的变量仍是：**P只能经单位/null/cap形成的剩余影响生成，是否比同信息自由融合更有效。**
+
+这条限制也有具体风险。设同一RGB包含两个同类实例，\(m=(1,1)\)。条件集合甲是第一处的三个重复框，乙是第二处的三个重复框；M0分别留下另一处为补集。若关联学错，两组中每个候选均给出
+\[
+p_j=(0.4,0.4),\qquad p_{0j}=0.2，
+\]
+则两组均有\(u=(1.2,1.2)\)、\(r=(0,0)\)。R的生成输入完全相同，却面对不同补集目标；S仍能区分框的位置。这里密度甚至准确，失败来自对应错误经饱和截断抹去了条件差异。这是条件性反例，不是自然数据实测或不可学习定理。
+
+因此，我仍不同意把固定衰减臂升为首次学习必需项：当前首先要回答的，是这种信息压缩是否值得采用。若S复制R，应停止该精确接口的优势主张；若R胜S，也只能支持整体接口，不能证明可学拒绝不可替代。
+
+接受B的\(z=p_0+b\)拆分，但它只定位退回环节；κ趋势仍受代价平移不变性限制。K100保持诊断地位，相同上界允许正式TP改善，不增门槛。尚缺自然M0缓存、原生适配、真实成本及相对学习收益。最强反对就是上述信息损失可能超过约束收益；有界三臂比较值得回答它，311或专家支持都不能代答。
+
+【前段第2轮 Codex B · 数据与可实施设计 完整原答；其中36轮建议与新四臂比较请具体回应】
+回应A本轮“不同条件集经饱和截断得到同一残余、丢失补集身份”的反例，以及C首轮“固定核仍有容量拒绝”：**我保留306的N/S/R与36个小头轮次申请，但把对应学习能否纠正误扣列为核心风险。**A改变了我的判断：风险不只是信息压缩，还包括错误压缩后的直接学习信号消失。
+
+按共同记录，276所测回收无tiny Geo0新增；284作用面非空但不证因果；289主组mixed并停止；290旧ROI训练阴性；300联合代理mixed、无遗漏特异性。311只证核心合成接口可实施，完整原生融合尚未完成；以上非本轮独立核验。
+
+**对反例的进一步限定。**A例中两行均严格过载，检测损失经这些残余行返回C、κ的直接梯度为零。关联监督和共享RGB参数仍可改变后续状态，因此不是不可学习定理，却说明检测损失未必能立即纠正误扣。另须区分：r=0不等于N；此时类别残余输入为零、空间偏置成为常数，RGB仍可生成框。出现新框不能单独证明解释起作用，残余耗尽也不能推出零召回。这是条件性推论，自然数据上的发生程度未知。
+
+这也收窄Claude此前的“null逃逸”解释：优化可能主动减少解释，也可能暂时困在饱和状态。维持上一段我的意见，\(z=p_0+b\)只定位拒绝环节，κ趋势不能证明梯度因果；K100只作诊断，相同上界仍允许排序改善正式TP。已有日志和候选身份记录足够，不再增加准入清单。
+
+依据309，2025 §IV Eq9已有部署密度衰减，2015已有密度恢复位置及估框。**剩余方法假设是受限解释接口能否胜过同信息自由P-set，而非扣减、密度或solver创新。**完整窗Geo0进入固定补集，自由槽允许产生旧池之外的几何，说明干预能触及失败群体；尚不保证学得会或通过预算。
+
+S仍是首轮最强简单对照。若S复制R，应停止该精确接口的优势主张；若R胜S，也未证明可学拒绝必要，固定几何对照仍是后续部件论证的缺口。最强反对正是误扣与信息损失可能超过约束收益。尚缺自然M0缓存、原生适配、真实计费及相对学习收益；这些支持一次有界检验，不支持预先宣布创新成立。
+
+【前段第2轮 Codex C · 数学与强简单对照 完整原答；其中36轮建议与新四臂比较请具体回应】
+回应A本轮“饱和截断抹去补集身份”，以及B本轮“关联监督仍可能纠正误扣”：**我保留306三臂、36个小头轮次的有限学习申请；但关联监督并不保证能解除饱和。**A改变了我的风险判断：问题可能同时涉及信息丢失与纠偏梯度消失。
+
+按共同记录确认：276所测回收无tiny Geo0新增；284作用面非空；289主组mixed并停止；290旧ROI训练阴性；300联合代理mixed、无遗漏特异性。311只证核心合成接口可实施，完整原生融合尚缺，不能充当学习证据；以上非本轮独立核验。
+
+在A的两格理想化反例中，再令三个重复候选的15维输入完全相同。固定准确密度\(m=(1,1)\)，每候选分配为\((.4,.4)\)，两行均严格过载。由于共享编码不含候选ID，三个候选的分配始终相同；只要仍在该饱和区域，
+\[
+T_{ij}=m_i/3,\qquad z_j=1/3,\qquad r=(0,0)。
+\]
+因此，不仅检测损失经残余返回的梯度为零，**关联损失对共享对应参数也局部不变**。即使M0指定一个owner、另两个为null，其标签差异也不能打破完全相同输入的对称性。共享RGB和密度的后续变化仍可能使系统离开该区域，故这不是不可学习定理，更不是自然数据已出现的结果。
+
+这一反例加强了保留S的理由：首轮应直接检验受限接口的收益能否超过这种损失。我不据此临时添加ID、软化cap或增加训练臂；那些会改变当前版本。尚未解决的是自然条件是否足够可区分，以及关联学习能否把误扣纠正到有用程度。
+
+接受B上一段的两项限定：\(z=p_0+b\)只定位拒绝环节，不证明null逃逸；K100只作诊断，相同上界允许正式TP改善。
+
+309也已收窄贡献边界：2025 §IV Eq9有部署密度衰减，2015有密度恢复位置与估框。阶段、运算形式、密度和solver均不能立新。待验证增量仍是**单位/null/cap后的剩余作为P唯一生成通路，相对自由P-set是否有益**。最强反对正是误扣及梯度平台可能超过约束收益。尚缺自然M0缓存、原生适配、真实计费与相对学习收益；36轮阳性只能支持继续研究整体接口，不能证明null必要或创新成立。
+
+【前段第2轮 Claude · 设计与证据整合 完整原答；其中36轮建议与新四臂比较请具体回应】
+## 当前判断：保留306三臂和36个head epochs，撤回R_fix作为必需项
+
+276、284、289、290、300的既有结论均沿用共同记录，本轮没有重新核验。311只说明接口可以实施，原生完整融合尚未实现。
+
+我撤回首轮的两项要求：一是把48 head epochs作为增量主张的前提，二是要求收益必须集中在无合法边的Geo0分层。理由有两条。C证明了固定核仍保留cap退回，所以R胜R_fix也不能单独归因于null。B给出了重复候选这一反例，说明无合法边分层覆盖不了全部拒绝任务。固定几何对照降为后续的部件论证：只有R胜S之后，才需要它来回答"学习拒绝是否必要"。
+
+## 回应C本轮主张：关联损失在饱和区局部不变
+
+我核过C的推导。三个候选的15维输入完全相同时，饱和区内T=m/3、z=1/3，这两个量对C和κ不变，C的结论成立。但这个结论依赖输入严格相同。306中的a_j含有score，自然重复框的score和几何几乎不会完全一致。在不对称情形下，严格饱和行里T_ij=m_i·p_ij/u_i，它随候选之间的相对分配变化。因此L_assoc仍能把份额推向M0的owner，并把被标为null的重复框推高z。我的修订判断是：真正为零的是B指出的那一项，即检测损失经过r的梯度；关联梯度只在近对称时很弱，并不为零。
+
+这一点有一个设计层面的含义。296初始化时W_q=0、κ=0，所以C_ij只等于d_out。选中的窗口又是预测中心最多的格，tiny框内部的p0接近1，于是两个以上同类重叠候选就会使u>m̄。由此可以推论，R在密集窗口的起步阶段，残余信号几乎全部来自L_assoc利用score和几何差异区分重复框。S则可以通过attention直接使用同样的score差异。这样R−S实际检验的是"带监督的显式重复拒绝"和"自由使用"哪个更好，这正是本线应当回答的问题。
+
+## 回应A本轮主张：饱和抹去补集身份
+
+A的信息损失反例我接受。它和上面的分析是同一风险的两面：S能区分甲、乙两组条件，R只能依靠L_assoc先学会正确对应。我不据此改动R。读法是：若S复制或胜过R，就停止该精确接口的优势主张。
+
+## 仍需证据和未解决的分歧
+
+- 296已经要求记录饱和行比例。我只建议把第0步和每轮末的这一读数并列报告，不新增门槛。
+- 尚缺四项：自然M0缓存、MAL与融合的parity、真实计费，以及R相对S的预算内Geo0新生。
+- 仍有一个分歧：A认为信息压缩可能是主要风险，我更担心早期饱和导致的学习延迟。6轮能否越过这一阶段，目前只能由这次有界比较来回答。
+- 申请与否由用户裁决。

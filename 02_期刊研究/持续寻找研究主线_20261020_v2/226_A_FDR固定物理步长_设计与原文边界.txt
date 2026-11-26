@@ -1,0 +1,178 @@
+226 A：FDR固定最小物理步长——精确设计、原生接线与原文边界
+2026-10-21。只读源码/已有材料并作设计；只新增本文件，未运行模型、统计程序、缓存反序列化、梯度或训练。已读227的Claude首答、217、216、222、228及native。229/230由C准备、root审后决定执行，本文件不重复实施。
+
+一、主判断与需要纠正的前提
+
+这个候选确有不同于217的变量：原参考框的四条base边不动，只给FDR残差的物理单位设下限，使很小的reference不再同时意味着很小的最大修正半径。它与直接clamp pre框不同，也不等于全query的固定端点×2。但最低尺度、残差归一化、扩大分布支持均有直接近邻；max操作或参数化重写本身不是新算法。
+
+最重要的强控制是“每query按同一floor只移动两个端点，内部31节点不变”。它与候选具有完全相同的物理支持，因此支持新增量必被复制。可讨论的剩余变量只有：在相同可达域内，floor把所有内部物理节点与解码Jacobian一起缩放，是否比只扩尾端更适合真实小reference。不能以支持oracle非零或大reference未激活，直接宣称方法增量成立。
+
+227的三处推论需收回：
+1. 旧endpoint2仅扩2端点、内31点不动，不能把seed2负面归因为“大框所有bin普遍粗化”。D-FINE一般超参数讨论也不提供该次实验因果。
+2. reference宽高都高于floor时，同一缓存PMF的代数解码可保持原式；这不等于large GT不受影响。大GT可能分给小reference，全网络中改动也会经后层attention/self-attention及共享训练影响其它query。
+3. 原IoU0的FGL权重为0，不意味着floor“不改变FGL信号”。候选解码框改变后IoU可从0变正、也可从正变0，同时逆映射改变FGL目标；DDF的IoU权重与MAL的IoU软标签也可能变化。
+
+已核定且继续保留：use_uni_set=True时pre几何boxes使用GO g，pre own只供MAL。不是两个L1/GIoU目标冲突。226不以这个错误前提解释floor，也不借通用pre hinge补创新。
+
+二、唯一主定义：真实输入像素，而不是一律除640
+
+root已明确采用k=4输入像素作为主诊断，k=8仅敏感性；二者均不是训练批准或待择优超参。
+真实输入尺寸H×W：
+ δ_x=k/W，δ_y=k/H；
+ s_x=max(w,δ_x)，s_y=max(h,δ_y)；
+ r=(c_x,c_y,w,h)为本次初始pre reference。
+640时才是题设4/640或8/640。228_BASE24开发输入shape_只读元数据.json已证明batch03为512²、batch05为544²，其余640²；各batch输入SHA与预测seal绑定。固定4/640在512只相当3.2px，在544是3.4px，不应称固定4px。
+本设计不另增加640-equivalent筛选，也不事后择较有利的像素定义。历史07的all坏框2335/2149等无需改写；其中使用640换算的旧尺寸分组只能保留原口径，不能直接冒作本轮actual_input_sub4。
+
+保持原生R=4、up=.5、33个distance节点W_j及所有PMF/logit结构。令d_e=Σ_j p_ej W_j。候选F_k：
+ x_L=c_x−w/2−d_L s_x/R；
+ x_R=c_x+w/2+d_R s_x/R；
+ y_T=c_y−h/2−d_T s_y/R；
+ y_B=c_y+h/2+d_B s_y/R。
+零残差期望d_e=0时返回原pre框。这里零残差指期望为0，不是某个bin索引为0；对称网格的全零logits给对称PMF，亦满足这一点。
+
+同步逆映射必须为：
+ d*_L=R(c_x−w/2−g_L)/s_x；
+ d*_R=R(g_R−c_x−w/2)/s_x；
+ d*_T=R(c_y−h/2−g_T)/s_y；
+ d*_B=R(g_B−c_y−h/2)/s_y。
+常见实现错误是只把原bbox2distance中的w换成s_x，却仍减R/2；这会把base半宽也换掉，实际上变成pre-size-clamp版本。若沿原表达式展开，最后项应为Rw/(2s_x)，不是R/2。
+
+物理节点是：
+ X_Lj=c_x−w/2−W_j s_x/R，X_Rj=c_x+w/2+W_j s_x/R；
+Y轴同理。左/上节点按原bin索引在物理坐标中递减，做物理有序插值时须同步翻PMF。新FGL仍在原distance节点W_j上编码d*，无需改变分布头维数或制造新标签GT。
+
+闭支持：
+ I_L=[c_x−w/2−s_x,c_x−w/2+s_x]；
+ I_R=[c_x+w/2−s_x,c_x+w/2+s_x]；
+Y轴同理。原生是s_x=w,s_y=h，所以原闭域包含于floor域。
+对应整框可达条件还可写：
+ |c_gx−c_x| + |w_g−w|/2 ≤ s_x，
+ |c_gy−c_y| + |h_g−h|/2 ≤ s_y。
+这个等价式用来核对四边逆式，非新理论。它针对任意真实GT框的可表示性，不能替代实际预测或一对一检测覆盖。
+
+floor放大的不只是支持：
+ ∂x_L/∂z_Lj = −(s_x/R) p_Lj(W_j−d_L)，右边为正号；
+与原式相比，相同PMF的Jacobian乘α_x=s_x/w。内部节点像素间隔也乘α_x。连续期望仍没有硬像素量化下限，不能把“间隔变宽”直接等同不可精确定位。
+候选输出宽度w_new=w+(d_L+d_R)s_x/R，高度同理；它不普遍保证正宽高。原式也存在这一问题，但floor可能扩大发生区间。冻结诊断必须保留并报告新生负宽/负高、非有限值；不得静默排序边、clamp宽高或删除这些query。这些修补会成为另一个设计。
+
+三、完整原生调用链与准确干预位置
+
+统一源码根：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/dn_pre_frozen_diagnostic_20261020_v1/native/engine/deim/
+参考recipe：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/相位机制论文_20261018/data/source_snapshot/common.yml
+
+A. 输入尺寸和decoder
+deim.py的DEIM.forward约35–38行得到真实x.shape[-2:]，再调用decoder(features,targets)。未来隔离实现须显式传input_hw到DFINETransformer，不能用orig_size或假定P3.shape×8代替真实输入尺寸。只改这一DFINE实例的接口；不对别的decoder无条件塞参数。
+dfine_decoder.py约1017开始为常规forward；当前配置mgsa_groups=0/o2m_t关闭，走此支路。约488行pre_bboxes产生后，保持ref_points_initial=pre_bboxes.detach()，计算同样detach的ref_units=(s_x,s_y)。每个FDR层494行distance2bbox使用原ref四边作为base以及同一ref_units作为残差单位。
+不把ref_points_initial的w/h改成s，不改pre输出，不改encoder anchor或topK，不加GT条件，不改DN扰动生成器。
+各层约508行仍用新inter_ref_bbox.detach()更新下一层attention reference：所以真实新模型后层hidden/PMF/logits会变。缓存末层重解码不是这个新模型的完整forward。
+
+B. utility正逆式
+dfine_utils.py:106–130 distance2bbox增加可选ref_units参数；132–155 bbox2distance同步增加同参数。缺省沿原代码；floor=0或未激活坐标优先走原运算以便bitexact兼容，不用“数学相同”掩盖FP32重排差。
+新inverse后继续原translate_gt和原eps/bin插值，不把GT截到物理支持后当真GT。未clip d*用于支持检查；训练标签仍按原native超界策略编码。ref_units只控制物理单位，weighting_function/Integral/project不变。
+convert_to_deploy约431行缓存的是原W_j，floor在随query的解码中处理；部署路径同样需要真实input_hw，不能只修改训练分支。
+
+C. 输出、普通aux和DN必须携带一致单位
+建议输出显式fdr_ref_units=[B,Q,2]，而非criterion另算一个可能不同的floor：
+— decoder在DN/ordinary尚未split时对全部query统一计算；
+— 常规forward约1060–1068的DN split同时split单位；
+— final训练out约1071处、_set_aux_loss2约1104处、dn_outputs约1085处均附对应单位；
+— criterion loss_local第345–355行按同一idx取ref_points与fdr_ref_units，再送bbox2distance；
+— ordinary fgl_targets和fgl_targets_dn继续分别缓存、每次forward清空；各层共享原initial ref与单位，因此可复用同一目标；
+— 若未来启用_forward_rtdetrv3约934–1014，则其decoder调用、group切片、_pack_group_outputs约907及所有group DN split也必须传相同单位。当前未启用不等于可以让接口静默落回旧解码，应显式支持或拒绝。
+
+D. 损失归属与不可声称的不变性
+criterion约624–695：final/aux/pre boxes按GO，pre/local在没有pred_corners时无FGL项，encoder boxes亦GO；MAL各自own。约701–738的DN沿indices_dn及num_boxes×dn_num_group；不改归一化、GT重复数或DN对应关系。
+loss_local的IoU取outputs.pred_boxes与当前几何GT再detach。floor将改变这个IoU，故FGL权重可能变。DDF分布KL在冻结相同PMF时不变，但matched IoU权重可变；真正训练时teacher与student PMF均可变。MAL软目标也依赖解码后的IoU，不能沿用206“只改GO，own框未动故MAL不变”的结论。
+实际训练需让原matcher/GO由新输出自然重算。本次必要诊断固定原GO/own只为隔离参数化，不冒称完整native损失复现。pre/encoder框在缓存重解码下保持原值；真实训练中GO或共享参数可变，不能声称pre/encoder监督长期不变。
+
+四、最强简单比较：必须同可达域
+
+所有比较使用同一原ref、同一33-bin PMF、相同原GO/GT和实际输入尺寸。
+
+N：原生。
+T2：217的固定全query endpoint2，仅W_0/W_32乘2、内31不动，R4/up.5不变。保留旧两seed训练mixed，不再运行旧训练。它是参考控制而非唯一对照。
+C_k：pre-size-clamp简单控制，r'=(c_x,c_y,s_x,s_y)后用原decode。这同时改变base半宽和残差单位；零d时得到clamp后的pre框。若实施真正pre clamp，pre_outputs与后层attention也相应改变；缓存只报告代数部分。
+F_k：本候选，base仍w/2、h/2，残差单位为s_x/s_y。
+E_k：与F_k完全同支持的endpoint-only控制。令α_x=s_x/w，α_y=s_y/h；每个边e使用对应α_e：
+ W^E_e,0=α_e W_0，W^E_e,32=α_e W_32；
+ W^E_e,j=W_j，j=1,...,31。
+随后仍用原base边±W^E_e,j·w/R或h/R。其每边极值与F_k严格相同，因此全部own可达、any-query可达、同预算最大matching上界、边界敏感性图都应相同。这是预先的数学等价控制，不能把复制当意外阴性。
+
+E_k与F_k不等于同分布参数化。若原均值为d、尾概率差为τ=p_32−p_0：
+ F_k的等效distance均值是αd；
+ E_k的是d+4(α−1)τ。
+F_k缩放内部节点与全部偏移；E_k只改变尾部贡献。FGL的相邻bin/插值权重也可不同。这才是需面对的剩余变量。仅改range阈值的包装不能绕过E_k。
+
+C_k与F_k的差也可精确写出：在同一个PMF均值下，floor左边比clamp左边右移(s_x−w)/2，floor右边比clamp右边左移(s_x−w)/2；即floor保留原base宽。两者可达域一般不互相包含，不能只比较“扩域体积”认定等价。
+这些都是简单代数控制，不宣称任意一个是新方法。既有repair可以作历史参照，不是参数化候选的最强替代。
+
+五、原文实际已覆盖到哪里
+
+1. D-FINE，ICLR2025，亲读本地publisher §4.1 Eq2–5、Appendix A.3/A.4。
+本地：英文小论文/文献_相关原始论文_20261004/_text/105_D_FINE_ICLR2025_Publisher.txt
+公开原文：https://arxiv.org/html/2410.13842v1
+Eq2 d^l=d^0+{h,h,w,w}ΣW(n)Pr^l(n)，已经把base位置与修正残差写成加法，只是尺度使用reference宽高。Eq4端点±2a、内节点曲率c，Eq5按真实相对offset编码；A.4已比较range/curvature与学习参数。候选剩余是把乘子改成max(reference尺寸,真实输入像素尺度)，不是首次分离base与residual，也不是首次调整FDR范围。
+
+2. GFL，NeurIPS2020，亲读本地§3 Eq4–6。
+本地：_text/07_GFL_2020_qualified-and-distributed-boxes__arXiv-2006.04388.txt
+原文：https://papers.nips.cc/paper_files/paper/2020/file/f0bda020d2470f2e74990a07a607ebd9-Paper.pdf
+ŷ=ΣP(y_i)y_i，有限区间与两bin插值目标已有。因而“物理节点＋期望＋一致逆编码”不是新机制。该文所读公式不涉及FDR初始框的最小物理残差单位。作者仓库两个尝试路径返回404，本次不以未取得的源码证明其某个具体归一化实现。
+
+3. FCOS，ICCV2019，当前亲读作者稿§3.1–3.2 Eq1–2与尺度段。
+https://arxiv.org/html/1904.01355v5
+直接以特征位置到GT四边距离回归，exp输出；FPN用[m_(i−1),m_i]控制分配。因此“回归不必以预测小框宽度作唯一物理单位”不是新原则。它不是pre框上的有界有符号分布残差，也未给上述max-floor。不能因都有scale/range就声称公式完全相同。
+
+4. YOLO26，2026-06作者原文，本次重读§3.2.2 Eq1及§3.3.3 Eq4–6。
+https://arxiv.org/html/2606.03748v1
+DFL的最大边距为(K−1)×stride；文中以移除DFL解决有限范围。STAL只在候选筛选阶段把过小GT维度替换为固定参考尺度，真实回归GT不变。它直接覆盖“最小尺度＋不膨胀真实GT”的动机，但作用对象是候选mask，非有符号残差解码单位。当前方法保留有限FDR与原GT，并让小reference也能作固定像素量修正。不能把STAL的正分配保证移植成floor的检测保证，也不能把DFL范围问题当首次发现。
+
+5. SABL，ECCV2020，亲读本地§3.2。
+本地：_text/78_SABL_ECCV2020_ECVA.txt。
+先把proposal候选区域按σ>1扩张，分bucket，再以bucket中心作细回归；bucket宽度用于目标归一化。扩大proposal相对局部域、粗细定位与不同单位已有。它的bucket分类+连续offset不同于单一有限PMF期望，也没有这里的固定像素floor；但“对边界回归另设局部尺度”不能作为独占创新。
+
+综合：所读原文未见与F_k完全相同的max-floor FDR公式，这只是限定阅读范围内的差别。当前贡献厚度仍取决于E_k对照：在同支持下，内部物理标度有没有实际必要性，而不是凭一个新符号。若只有支持扩张成立，最多是条件端点扩张的合理工程方案，还不足以自行宣布值得训练的新主线。
+
+六、一次最低成本必要诊断的精确边界
+
+数据白名单：
+C:/Users/jiwei/Desktop/小论文投稿/英文小论文/data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3/{A,B}/frozen_predictions/development/batch00_predictions.pt … batch07_predictions.pt。
+各seed32输入，共64模型-输入曝光；配对/GT/分母来自各侧development/batchXX_analysis.json。输入尺寸只读228并核source SHA。不得读heldout或checkpoint，不新forward，不把这批重复开发资产称独立验证。
+
+固定k4主、k8敏感性；不因结果切主k，不增加新floor。N/T2/C_k/F_k/E_k全部报告，不挑图、类别、GT数≤300或小reference才报结果。以下是229/230应回答的内容，而非本文件已执行的数字：
+
+A. 数据/代数先验检查
+原PMF＋原ref的N解码须复现缓存各层普通/DN框；误差容差由C在执行前按native浮点路径锁定，不能用新结果调整。核zero-d恒等、正逆映射、单位/节点顺序、N⊂F_k、F_k支持=E_k支持、large-ref代数不变。缓存已有无效框和新生无效框分别列，避免静默修正。
+这些失败属于实现或精度问题；不能伪装成方法阴性。
+
+B. 可达必要面：固定原GO与全部300query分开
+主集合为原final GO中actual_input_sub4、IoU=0且原own支持外；全尺寸IoU0且支持外、原GO全体、原good IoU≥.5均另列。报告outside→inside数量、唯一GT数、按seed/batch/image及N>300分层；不能把重复曝光当新增GT。该主集合与C的229预先对齐，尚未读取任何floor结果。
+另对本图全部真实GT列原any-query不可达→新可达；这是无身份约束oracle。若再列same-class/固定q,m_g容量界，必须另标，不把any-query计数称完整assignment，也不再运行222的修复流程来重复主任务。
+F_k与E_k各项理论上相同。T2/C_k不同，逐GT重叠与差集比总数更有用。
+
+C. 固定缓存PMF的几何变化
+分别重解码普通final/aux以及DN各FDR层。固定原GO/own/DN身份，只比较对同一原GT的IoU、corner/cxcywh L1、原5L1+2GIoU、.5/.75越阈值双向数与invalid情况。pre/encoder原输出不由F_k改变；C_k对pre的额外变动单报。
+按真实GT尺寸和ref是否floor激活交叉分组，并报整个GT集合，防止把“大reference unchanged”换成“大GT unchanged”。
+不得称这些表为AP，也不得当完整新模型输出：后续层attention/PMF仍是原网络缓存。对于无效框不把clamp后的合法框冒作原式；几何损失的有效性与全部invalid分母同时保留。
+
+D. 与目标/权重变化有关的最少说明
+至少保存原/新IoU权重和新逆映射的bin/插值变化，尤其旧IoU0→新正。可以列FGL旧权重与重算权重两个描述，必须以重算权重说明实际损失语义；不据固定旧零权重宣称候选无FGL。
+不需要为了这个必要诊断立即做全模型梯度/独立Adam步，也不要求先冻结AP上涨。若C在229/230只做支持与几何，FGL数值回放可明确未做，不能填推测值。
+
+事前去留，不采用Claude的“个位数”“range2一大半”新幅度门槛：
+— k4必要screen要求两seed主集合各至少有一个新支持槽。两seed均无新支持则停止本精确k4的“修复这些极小坏框支持”理由；仅一seed非零记mixed、不通过双seed必要screen，不能以k8自动替主。非零只证明必要作用面，不是幅度、有效监督或训练结论。
+— F_k与E_k支持相同是必须通过的等价校验，绝不作为候选胜出的指标。若固定PMF下框与目标也完全复制，收回本缓存支持“内部标度有独立作用”的主张；若不同，完整报告双向几何代价，差异本身不是收益。
+— 不以冻结几何必须净涨作训练资格，也不以单步局部梯度为AP证明。新生invalid或广泛旧good损害是当前参数化应处理的具体事实；不得事后clamp后换名宣布通过。
+— 即使必要面存在，若没有超出同支持E_k的机制解释和文献增量，本轮仍只完成候选诊断，不自动申请训练。
+
+七、原图差分更新pre中心与floor的额外变量
+
+UI A的原图差分方案若保持低分辨率同位置crop，利用原图crop新增内容预测Δc，再更新pre中心，它改变的是中心估计的信息来源；floor只改变同一已有预测分布的物理单位，不读取新像素。两者能用不同观测区分，不能说都是“支持救援”就等价。
+
+但仅有BASE24 refs/PMF/GT不足以无训练证明图像差分头能预测有效Δc。需要与该增强输入严格对应的原图、resize/crop/Mosaic/MixUp来源映射及可用观测特征；GT最优中心移动只给oracle，不是可部署差分函数。194已记录Mosaic可能先resize丢失细节、多来源混合等接口。若这些对应关系未具备，本轮floor缓存不能冒充原图信息证据；也不据A3三阶段无覆盖断言缩放丢信息。
+此项只说明额外变量及数据前提，不替代226的floor任务。
+
+结论：固定真实像素残差单位是一项具体可实施的参数化假设，旧217、147、07各自阴性不直接等同它；但它的支持域被E_k精确复制。下一步最有价值的是一次同支持强控制下的既有缓存诊断，判断是否存在值得继续解释的内部标度作用，不能把可达性上涨、未激活大reference或公式不同直接当作训练主线成立。
+

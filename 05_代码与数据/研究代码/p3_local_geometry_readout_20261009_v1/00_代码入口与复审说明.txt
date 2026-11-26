@@ -1,0 +1,66 @@
+P3 预测框相对九点几何读出：代码与复审说明
+日期：2026-10-09
+状态：新增独立候选实现；CPU 接口验收通过；未训练，未证明 AP 收益。
+
+一、先澄清“代码有没有改好”
+本目录现在有实际可执行的模型代码，不再只有设计规格：
+  readout.py：256→32 投影、九点双线性读取、544→128→4 零初始化残差。
+  model.py：在原始 z0=enc_bbox_head(selected)+anchor 后加入 delta，先生成编码器辅助框，再 detach 送入 decoder。
+  integration.py：绑定只读原生源码、严格加载基线/公共初始化、注册 P3ReadoutDEIM。
+  prepare.py：生成六组配置及身份回执；只读数据和初始化，不导入 torch、不构建优化器。
+  configs/：BASE、CENTER、SPATIAL，各 seed1/seed2。
+  test_cpu.py / test_connections.py：已执行的 CPU 工程验收入口。
+本目录没有训练循环或远程启动入口。原生训练器/评价器的完整接入、GPU AMP、显存与耗时验收仍是开训前事项。
+
+二、与当前目录已有 fine_residual 的区别
+核查发现 fine_residual_geometry_20261008_v5 已实现，另有 fine_residual_screen24_20261009_v2 的本地启动记录。
+之前笼统回答“改进模型代码还没有实现”不够准确：已有旧候选实现；尚未实现的是本次新九点规格。
+旧 fine_residual：融合前投影 P3、按入选 P3 token 的固定 3×3 整数邻域读取、只改 P3 查询，新增 35,396 参数。
+旧 fused_residual 是它的融合后特征同结构对照。
+本目录：原混合编码器输出 P3，再经 decoder.input_proj，按预测框中心/宽高取九个双线性位置；对全部原 Top300 查询计算残差，新增 78,500 参数。
+三者不能混用名称、配置、权重或效果结论。本次没有查询远端状态或改变旧 24 轮任务；本地记录不等于当前实时状态。
+本次没有修改旧候选、共享 engine、旧协议或旧失败材料。
+
+三、复审后的关键决定
+1. 保持原均匀 640 输入。该方案检验 P3 中已保留信息的读出，不声称恢复缩放时已经消失的细节。
+2. 九点由 z0.detach().sigmoid() 给出，偏移为 {-0.75,0,+0.75}×预测宽高，先行后列。
+3. P3 读取发生在有效掩码和 enc_output 前，来源为已做 decoder.input_proj 的原 memory 前 H×W 项，不再运行编码器。
+4. 保留 z0 的原始加法，不通过 logit(sigmoid(z0)) 重建。零残差时在已测 CPU 路径上与原生输出逐位一致。
+5. CENTER 也保留九次读取和相同 78,500 参数，只让九个位置重复中心。它控制额外参数量，但不声称所有有效函数容量完全相同。
+6. 新头直接接受原 encoder 辅助 L1/GIoU 和原 GO 匹配并集的框监督；保留原参考框 detach。
+   decoder 损失不经参考坐标直接回传新头。共享特征仍可接受原网络其他损失，训练后分类和 Top300 也可能间接改变。
+7. 新模块初始化用独立 CPU RNG 保存/恢复作用域，不推进共同模型初始化/数据增强随机流。不同训练动态仍可能造成后续 AMP 跳步等分歧，需实际记录。
+8. 图外取 border；被动观察器单独统计图像范围外、触及边界复制、边界后重复位置。重复位置不等于独立信息数。
+9. 增加 78,500 参数；固定 640/300 query 的卷积和线性估算为 73,472,000 MAC，不含采样、激活、偏置和访存，不作为实测速度。
+
+四、CPU 工程证据
+engineering_attempt2.json：37 项通过，11 次完整检测器前向，均为合成输入。
+覆盖完整 640 推理、训练分支的 DN 和原生 criterion、混合空目标、矩形输入、全空目标、梯度、严格状态加载/复制、初始化随机流与共享源码身份。
+CENTER/SPATIAL 的输出层都从原 encoder 框损失获得非零梯度；零初始化第一步前面投影/隐藏层梯度为零，符合链式法则。
+engineering_connections.json：12 项通过，0 次完整检测器前向，2 次 decoder 输入接口调用。
+读取真实公共初始化并检查 SHA/严格键集；用无参数的已知 delta 替身检查非零信号连通，不改基线权重或模拟学习；核对原 P3 切片、边界统计。
+上述验收没有优化器构造/step、GPU、真实研究图像模型前向、AP 评价或训练权重更新。新建测试对象的 BN 训练缓冲和部署副本会按原生接口改变，不写回任何旧权重。
+
+五、保留的失败与部署边界
+engineering_attempt1.json 保存第一次工程失败；test_cpu_attempt1.py.txt 保存对应测试版本。
+首次错误要求原生 deploy() 转换前后逐位一致。原生转换包含卷积/BN 合并、FDR 常量预计算，不能直接要求同一浮点计算顺序。
+第二次新增原基线同条件转换对照，发现：未转换的两臂逐位一致；转换后的两臂也逐位一致。
+但按原 query 行比较，转换前后最大框坐标差达 0.8625000，logit 差 0.0026436，两臂完全相同。不能把大框差直接称为微小数值误差，也不能据此认定框的位置真的发生同幅漂移：尚未分解 query 排序/身份变化与数值变化。
+通过的是“新增零残差分支与原生部署路径相容”的限定检查，不是部署前后预测等价或部署 AP 认证。
+正式实验主终点使用原生未融合 EMA 的 eval 路径，不以 deploy() 替代。若将来要部署，需独立的训练权重、候选身份和后处理匹配核验。
+本次第二次运行是新代码工程验收的调试，原失败保留；没有重跑任何已关闭的科学检查。
+
+六、使用范围
+在本目录、既有 py310 环境运行：
+  python -X utf8 -B prepare.py --output <全新的配置输出目录>
+只准备配置，不启动训练；本次已经生成 prepared_local，可直接阅读。
+程序调用先 integration.activate_local_snapshot()，再导入 model.P3ReadoutDEIM(recipe, arm)。
+加载原生初始化用 integration.load_baseline_state；恢复本候选状态必须 model.load_state_dict(..., strict=True)。
+arm 不是权重张量的一部分，因此恢复时同时核对 arm、seed、配置 SHA；不能把 CENTER 权重静默装成 SPATIAL。
+训练端应先验证完整 engine、评价依赖与数据身份，再在构建配置模型前调用 register_components；详细执行边界见实验计划。
+
+Material Passport
+type=code_experiment; mode=implementation_and_preparation; status=CPU_ENGINEERING_ACCEPTED_NOT_TRAINED
+scope=单主代理内联；无子代理、其他任务消息、SSH/DSH；独立新目录。
+inputs=source_binding.json、local_paths.json、plan_binding.json 及既有机制规格。
+verification=工程通过不代表科学效果、主要根因或创新成立。

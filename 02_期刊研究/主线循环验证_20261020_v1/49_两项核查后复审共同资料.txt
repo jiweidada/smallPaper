@@ -1,0 +1,348 @@
+本包按已完成事实整理，供设计使用，并非预选或否决清单。旧报告的停止建议针对该精确版本及当时口径；提出真正不同的干预时，请说明改变了哪个作用变量、旧反例为何不能直接覆盖它。方法初案可以仍是有根据的假设，随后用强对照和有限核查决定投入。
+
+[D0 DN已完成]Material Passport
+Origin Skill: academic-research-suite / experiment-agent
+Origin Mode: run；本地冻结诊断及描述性解释
+Origin Date: 2026-10-20T18:17:39.156788-07:00
+Verification Status: UNVERIFIED（没有独立第三方复核；本地原损失/梯度与资产完整性校验通过）
+Version Label: dn_pre_frozen_v1
+
+结果：存在局部干扰，但方向依赖批次和种子；当前不支持把DN稳定有害作为新训练主线。
+建议：按计算前已写下的跨批/跨seed一致性口径，停止优先投入“DN稳定损害普通初始化→固定末层阻断”的训练解释。保留原始数据，不新增训练。这个建议不是证明所有阶段或所有条件下都不存在干扰。
+
+实际执行与对照口径
+两份VisDrone BASE24 last.pth，在线原模型而非EMA，last_epoch=23，旧132轮配方第24轮。原模型和criterion均严格加载；末层AdamW参数ID、形状、组别和状态映射核验通过。
+每seed使用同一组development batch00/batch01，各4张增强输入：GT数分别[516,365,209,360]与[110,41,182,251]。不是随机抽取的新验证集，不能当独立留出。
+ordinary pre boxes沿原indices_go/num_boxes_go；DN pre沿indices_dn/(num_boxes*dn_num_group)，损失为5L1+2GIoU。不去重、不改匹配、不改变归一化。虚拟比较冻结本次原模型产生的对应。
+原生全模型总损失求导用于计算clip_max_norm=.1的全局裁剪；只在克隆的末层W/b上，从同一历史AdamW状态计算包含/删除当前DN pre末层梯度的局部虚拟一步。评估时其他参数、输入特征、参考输入及匹配保持固定。
+DN额外损失 = 含DN更新后的普通pre损失 - 去掉DN末层更新后的普通pre损失。正值表示DN相对于该对照增加局部损失；不一定表示含DN更新后的总损失比更新前升高。
+这是原损失差，不是AP或百分点。模型前向及原参数梯度为FP32；所得FP32虚拟权重的缓存末层损失用FP64求值，避免小差相减的FP32舍入。
+
+跨批主表（全部ordinary匹配；以10^-4为单位显示，即原始损失差乘10^4）
+seed | 更新批次→评估批次 | DN额外损失×10^4 | 局部作用 | 普通配对曝光数
+1 | 00→01 | +0.729204 | 不利 | 683
+1 | 01→00 | -1.420694 | 有利 | 1135
+2 | 00→01 | +1.465050 | 不利 | 682
+2 | 01→00 | +1.287104 | 不利 | 1138
+
+输入锚点IoU<.5组（仍沿原完整num_boxes_go计算该组损失贡献）
+seed | 更新批次→评估批次 | DN额外损失×10^4 | 配对曝光数
+1 | 00→01 | +0.812792 | 590
+1 | 01→00 | -0.603636 | 866
+2 | 00→01 | +1.703151 | 567
+2 | 01→00 | +0.842944 | 833
+
+解释：seed1两个方向相反，seed2两个方向都不利。困难组同样没有消除seed1的方向反转。不能用3/4多数票认定稳定有害，也不能把相反结果平均掉。
+单步损失差绝对值虽小，但它们与部分去DN更新本身的单步下降量相当，不能据绝对数值小就宣布“没有作用”。seed2的00→01中，两种Adam局部更新均使全组损失相对原点升高；该行的正差表示DN额外增加损失，不代表删DN就必然实现下降。
+
+补充：全局裁剪联动（看到主结果后登记的探索性分解，不替代主表）
+固定原含DN裁剪系数，计算直接删除DN梯度的差；再计算删除梯度后重新求裁剪系数带来的差。两项严格相加等于主差值。这是指定顺序的局部分解，不是唯一的训练因果占比。
+seed | 更新→评估 | 直接项×10^4 | 裁剪联动项×10^4 | 含DN/去DN裁剪系数比
+1 | 00→01 | +0.604111 | +0.125093 | 0.733605
+1 | 01→00 | -1.458613 | +0.037919 | 0.907287
+2 | 00→01 | +0.475168 | +0.989882 | 0.462934
+2 | 01→00 | +1.022729 | +0.264376 | 0.849630
+例如seed2的00→01，裁剪联动项占该顺序分解总差的67.57%。不能把全部差值归结为DN梯度方向与普通梯度相反。
+另一个描述事实：seed2生成批01的同批普通/DN末层梯度余弦为正（约+.06393），但01→00的跨批DN作用不利。只看生成批同批余弦，不一定识别跨批局部影响；这不是新的优化算法或检测收益证据。
+
+核验与资源
+本机torch2.5.1+cpu，2线程、CPU亲和[13,15]、Below Normal；未使用GPU，未连接远程或操作其他任务/监测。四次原模型前向均完成；原生求导后不调用optimizer.step，不写回参数。
+checkpoint SHA前后保持一致；模型参数和BN缓冲前后哈希一致；缓存末层重建pre框与原框最大差为0；原pre损失差为0；缓存末层参数梯度与原生梯度最大差低于1e-6。
+CPU使用原存档的整数DN种子，但不是历史CUDA随机流的逐位回放。两模型本次DN输入框噪声逐位相同已核验。两批原增强输入的文件SHA、浮点输入SHA核验通过，没有打开heldout预测。
+只执行局部克隆参数反事实，非完整模型同时更新的训练反事实；固定上游时，删DN pre损失与仅阻断末层梯度在这个检查里等价，不能证明保留上游梯度的价值。
+
+不能据此声称
+不能证明DN长期训练有害，不能证明关闭DN会提升AP，不能证明冲突只在pre末层，不能证明有限FDR支持域或最终漏检已由该路径造成，也不构成跨数据集泛化。
+没有p值、置信区间或等效性结论：只有两个模型seed和两个重复使用的开发批次，双向比较相关；配对曝光不是独立GT。未按最终失败者筛选，困难组由pre之前锚点定义。没有采用10%等事后数值门槛。
+
+文件与复现
+01：计算前锁定资产与口径；02：实现SHA、合成检查及运行前核验；03：原始全部反事实；04/05：事后明确登记的裁剪分解；06/07：CSV主表及完整明细；09：数值和资产核验；seed1/seed2：缓存activation、锚点、生产匹配、梯度、末层Adam状态及完成回执。
+运行命令：D:\Anaconda\python.exe -s -X utf8 -B 英文小论文\code\dn_pre_frozen_diagnostic_20261020_v1\run.py（已成功执行；输出目录为追加创建，不能覆盖重跑）。
+补充分解命令：同Python执行decompose_clip.py，仅读取缓存，无新模型执行。
+
+后续已查：有限Adam端点的一阶强简单对照复制八项符号，未展示有限端点门控的额外价值；见英文小论文/论文圆桌讨论_20261020_DN诊断后_Astra重议_v1/22_第三轮后的低成本证据更新.txt。Adam首矩差0.1Δg不推出真实位移固定为十分之一；clip_max_norm=.1是范数上限，不是再乘.1；final到pre.detach会让自动微分路径与重新前向反事实不同，零内积不能证明路径无害。
+
+[D1 来源分配已完成]覆盖488原可训练张量10231995参数，两seed各8批；来源−原方案-0.0002562059/+0.0002625494，来源−同预算固定比例-1.285e-6/-6.817e-6，各4好4差；原生重选敏感性也混合。当前不新增训练。原数据10/06_结果解释与下一步建议.txt。单图单query多GT回归不存在，12642对曝光0例；不同层和分类/几何角色的目标不同是另一件事，如提需另给实际数字并面对Stable-DINO/MS-DETR等先例。
+
+[D2 后处理已完成]Material Passport: academic-research-suite / experiment-agent; cached exploratory CPU evaluation; no detector training.
+两个种子的缓存后处理筛查已完成；当前每query仅保留最高类别的方案不继续。
+时间UTC 2026-10-21T05:22:03.122892+00:00
+对象：original_stem12 EMA第12轮，548张val。不是预训练BASE24、C96或UAVDT。
+N原展平top300；D原N内每query留最高类、不补位；R所有query最高类补至预算300。评分>.001，COCO maxDets1/10/100每图每类；原GT0 sentinel保留。
+旧原生重放门槛未通过的文件完整保留。CPU新协议在D/R结果前登记，N重复计算的12指标、逐类和匹配结果完全相等；不称原生GPU复现，不将两套协议混用。
+seed | N AP | D AP | R AP | R-N(pp) | R-D(pp) | R-N APs(pp)
+1 | 6.128496 | 5.150665 | 5.190986 | -0.937510 | +0.040320 | -0.838841
+seed1 IoU.5 R对N新增/丢失GT=419/3087；新增query检出432个TP；原N被删除次高类条目里有3333个TP。新条目背景标签(anyclass maxIoU<.1)=35263。
+原N重复query名额总计79648，补入新query同数79648。逐类、尺寸得失和GT分母见原始JSON。实际fresh匹配受每类100截断，一些补位框不进入评估，因此条目TP数不能当GT净增益或AP分解。
+2 | 7.908137 | 6.682200 | 6.738981 | -1.169156 | +0.056781 | -0.919108
+seed2 IoU.5 R对N新增/丢失GT=502/3021；新增query检出545个TP；原N被删除次高类条目里有3361个TP。新条目背景标签(anyclass maxIoU<.1)=32302。
+原N重复query名额总计76004，补入新query同数76004。逐类、尺寸得失和GT分母见原始JSON。实际fresh匹配受每类100截断，一些补位框不进入评估，因此条目TP数不能当GT净增益或AP分解。
+预先判据：R须在两个seed均优于N和D且有新GT；目前两个seed均不胜N，当前方案触发停止。
+解释：删除次高类别的损失远大于补位收益，不能将所有重复query条目当作无用占位。补位比仅删除稍好，只约束此具体后处理版本，不证明所有预算设计无效，也不证明低AP旧模型等于成熟96轮模型。
+实际CPU计算、无新模型前向、无训练步；未访问远端/GPU/监测/队列。下一轮需如实回交阴性结果，不改阈值或选类挽救本版本。
+结果SHA256 556a7bea232075c5bd58358b993e8a7c08582c4e702a4c6b439bef2619403941
+
+[D3 top-k已实算]Material Passport: academic-research-suite / experiment-agent; frozen CPU audit; exploratory, not independently replicated.
+top-k排序与成员替换的冻结核查；两seed各development00/01；原损失与历史Adam，一次克隆虚拟端点，不是实际训练轨迹。
+seed | ordered_changed/2400 | missing_members/2400 | retained_rank_changed | membership retention
+1 | 2081/2400 | 38/2400 | 2043 | 98.416667%
+seed1 encoder shortside_lt4: 原maxIoU>=.5的GT曝光数6，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 encoder shortside_ge4: 原maxIoU>=.5的GT曝光数376，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 final shortside_lt4: 原maxIoU>=.5的GT曝光数22，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed1 final shortside_ge4: 原maxIoU>=.5的GT曝光数452，其基点最佳source site换出数1；这不是最终GT丢失数。
+2 | 1855/2400 | 19/2400 | 1836 | 99.208333%
+seed2 encoder shortside_lt4: 原maxIoU>=.5的GT曝光数6，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 encoder shortside_ge4: 原maxIoU>=.5的GT曝光数418，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 final shortside_lt4: 原maxIoU>=.5的GT曝光数16，其基点最佳source site换出数0；这不是最终GT丢失数。
+seed2 final shortside_ge4: 原maxIoU>=.5的GT曝光数463，其基点最佳source site换出数0；这不是最终GT丢失数。
+旧data10基点topk_indices、全参数梯度范数、裁剪系数、虚拟位移范数、fixed/native跨批几何端点均重现（原始标量相等或指标差<1e-12）。
+同成员逆序控制：1200个ordered槽全部变化，但inverse-permute后框最大误差5.36e-7至2.77e-6，logit误差2.36e-5至9.49e-5。实际learn_query_content=False。不是比特级等变，不能冒充AP复现。
+结论：原77–84%是旧八批有序槽统计，新两批是86.71%/77.29%；新两批实际成员仅1.58%/.79%换出，绝大部分为集合内重排。不支持从有序槽数推出严重候选集合流失。已覆盖tiny的最佳site在这些输入均未换出，但tiny分母仅6/6（encoder）与22/16（final），不能推广所有GT/训练阶段。
+模型/检查点SHA前后不变，CPU2线程BelowNormal，未使用GPU/远端/监测；20次模型前向、4次全参数求导、真实训练步0。完整索引和每图原始表保存于topk_membership_frozen。
+
+[D4 U已筛查]非均匀相对方差U额外样本内partial-rank-.0898/-.1146，16批方向均负；score>=.3仅-.0276/-.0692。未证明AP或非线性LQE缺陷，GaussianYOLOv3/GFLv2/D-FINE先例强，当前不为多加一个方差输入开训；不再为无论结果怎样都不能改变方法决定的U统计循环加表。
+
+[D5 新的未展开术语：DDF而非DN/FGL]Material Passport: academic-research-suite / experiment-agent; cache-only output-coordinate derivative audit, no model inference/training.
+DDF matched-positive几何方向新核查（探索性）：BASE24两个seed、development00-07、两个aux层，始终用同前向原GPU union。不是网络参数梯度或优化端点，不是AP。
+原代码loss_local的DDF正项权重为student detachedIoU；负项为teacher maxsigmoid但无GT几何，不在本表。原T=5与自然对照T=1固定同权重、归一化。闭式KL梯度已对Torch独立合成验证。
+seed | 配对层曝光 | active(studentIoU>0) | teacher worse | teacher worse的IoU权重占比 | T1/T5负内积 | teacher worse中T5负内积
+1 | 12582 | 7813 | 3309 | 42.984488% | 2674/2629 | 2496/3309
+2 | 12702 | 8236 | 3548 | 42.319345% | 2887/2859 | 2689/3548
+负内积指∇(5L1+2GIoU)·∇DDF<−1e-12，仅在输出corner logits处；直接沿-DDF更新时对几何目标的一阶方向不利。共享网络雅可比、全局裁剪、Adam历史、后层互相影响均未包含，不能据此推网络训练有害。
+T5负内积没有多于T1，teacherbetter组T5反而更少。因此不以当前数据优先投入“高温破坏几何”的假设。
+最终教师并非每个query/GT都更准，teacherworse组在两个seed约占43%的studentIoU正权重且多呈逆几何方向。频次本身不证明禁用蒸馏能提升最终检测；teacherworse简单门控已有很强先例，不能认作新原理。
+最近原文风险：Distilling Object Detectors with Task Adaptive Regularization, arxiv2006.13108，作者摘要已明确根据师生谁表现更合理自适应转移bbox知识；本轮只读摘要，不声称核实全部公式。Localization Distillation CVPR2022/后续TPAMI已有分布KD；D-FINE §4.2已提出GO-LSD。
+原始完整分组/每批数据及来源SHA见ddf_geometry_cache_audit/02_results.json；32层批次条目，框重构误差最大8.895e-8；模型前向0、训练步0。
+可以从这一新观测提出方法，也可以否决它；不能把teacher worse门控、PCGrad、Wasserstein或换KL损失本身直接认作首创。若提新DDF方法，需要具体解释和简单teacherbetter才蒸馏、半权/关掉DDF、T1等相比多出哪种可检验知识。D-FINE原文§4.2已实际读到其GO-LSD/DDF，源码loss_local第337–385行已逐行核对；teacher_corners与同前向最终corners逐值相等。
+
+[可用旧资产目录，状态以D0–D5为准]
+共同资料 v2｜2026-10-20｜由主助手整理，不是专家共识。事实按来源和旧实验协议分别列，不能混成一套96轮结果。旧文档的“运行中/下一步”仅是当时历史，不代表当前授权。
+
+A1 C的已完成96轮证据（统一best_stg2独立项目COCO）
+VisDrone test-dev C-baseline APs seed0/1=+0.836978/+0.669pp；C-Cmean seed0/1/2=+0.836978/+0.164133/+0.163016pp；rank16-rank16mean=+0.205045/+0.267242/+0.571461pp。C17440新增参数，rank166176；时延微差不作排名。输入mean与四offset同时改变输入信息和优化，rank16只对齐最大线性秩上限，未识别纯位置/容量机制。8–16px诊断档的C-Cmean test-dev AP=+0.690/+0.379/+0.426pp；其余尺寸并非全同向。score>=.3 IoU.5共同检出条件中心误差略降，但小目标AP75 seed1 C-Cmean为-.182pp，不能说全面定位改善。平移1/2/4/8/32px seed0未见一致抗平移优势。
+A2 已做过O8，不能再当新路径：batch8 seed1固定96配对，O8仅neck接收改后P3，骨干深层吃raw P3；O8-C8 AP+.034423/APs+.027865/APl-1.698841pp。单seed不同batch。C大目标“代价”尚未确认：40预测2000图像配对bootstrap，14个主差值区间均跨0；test-dev C-baseline共同seed均值APl-.468603pp CI[-3.669521,2.794583]；C-Cmean三seed-1.599450 CI[-4.024986,.817670]。不是纯噪声/等效证明，不以尺度代价作既定立项前提。
+
+A3 BASE12小目标失败的阶段资产（不要混COCOsmall、输入短边、sqrt面积）
+outputs/stem_joint_error_analysis_20261011_v2/本轮错误核对.txt：548val、每seed38759GT、固定12轮；COCOsmall26586个，IoU.5原生漏检seed1/2=13102/13197；其中三个已观察阶段均无几何覆盖10305/10397，早期有最终无564/527，最终有框但真类未通过top300/评分1886/1923。输入短边<4px的漏检4197/4303，三个阶段从未覆盖4029/4147，占96.00%/96.37%。这些阶段只是选中的300个encoder框、首层pre与最终，不能据此说整个dense pool不存在。
+outputs/sod_error_onset_20261010_v1/新目标与首项诊断结果.txt：同类BASE12旧诊断，短边<4GT5096，IoU.75全阶段无覆盖5003/5027；仅中心或仅宽高替换GT单独修复仍达不到.75的失败4435/5012、4503/5035。只是相关分解，不是特征唯一根因。
+
+A4 完整编码器池筛查已做，不能再当待执行首项
+固定32val图、BASE132 EMA、640、GT<=300、短边<4 GT329/seed；最大一对一几何覆盖IoU.5：seed1 TopK92→全有效池107→最终119；seed2 82→102→121。全池-TopK仅+4.56/+6.08pp，未达事前10pp优先级门槛，未晋级TopK改造。IoU.75 8→11→20、6→6→20。fullpool是GT辅助oracle，不是部署方案；未选token不受与入选query相同监督。最终覆盖超过池表明后层能改进一部分，不能因最大匹配不同就说同一query被修好。
+
+A5 回归范围与实际监督配对资产（最需要与旧失败区分）
+下面附原始说明全文。BASE12冻结EMA、FP32 train-mode增强fixture、普通最终local-loss配对、GT<=300且输入短边<4；不是历史优化轨迹，不是独立GT曝光。
+seed1:1970回归配对，IoU0的1094，其中1077在当前query闭合FDR表达范围外；526为自身不可达而别query严格可达（MAL身份一致312），551所有300query均不可达。
+seed2:2079、1240、1223；543别query可达（MAL一致338），680全不可达。
+FGL直接系数.15*detach(IoU)/normalizer；L1、GIoU与DN仍有监督，不能写成目标完全没有几何梯度。未测模型总梯度。约98.5%零IoU配对在自身固定支持范围外。
+旧干预1：outputs/fdr_tail12_20261011_v2/two_seed_fixed12_decision_v32.json，统一FDR endpoint2固定12 EMA gate失败。candidate-baseline seed1 AP+.290775/APs+.212887/smallAP75+.002115pp；seed2 AP+.138943/APs-.373524/smallAP75-.338883pp。不能再提统一范围乘2为新主线，也不证明特定重新锚定/坐标参数化无效。
+旧干预2：support_matching12_20261011_v1 seed1完成4轮seed2完成5轮时用户换方向，非完整12失败。状态STOPPED_USER_REDIRECT_TO_ORIGINAL_STEM；不能引用为已经否定支持感知匹配。
+本机当前工作副本 D:/BaiduNetdiskDownload/DEIM_1572862469/engine/deim/dfine_decoder.py 的静态结构（非声称与所有旧归档SHA同一）：首层pre_bbox生成ref_points_initial=pre_bboxes.detach()；后续各层pred_corners累计；distance2bbox(ref_points_initial, integral(pred_corners,project), reg_scale) 始终用初始参考；attention的ref_points_detach则每层更新为inter_ref_bbox.detach()。所以“读取范围随层更新”和“FDR坐标固定”是不同状态。dfine_utils.py中distance2bbox按固定reference的宽高缩放离散偏移，weighting_function支持有限。若候选依赖此点，需先核对历史冻结源码，不可从当前工作副本推全部旧实验。
+
+A6 采样集中假设已停止
+outputs/decoder_sampling_geometry_20261011_v5/two_seed_decision_v1.json：8个source-GT选图/seed，短边<4GT134/seed，最终失败eligible85/93，符合多数P3 heads联合nearconstant/samestencil条件0/85、0/93，未达25%gate；12数值控制通过。仅否定该具体集中假设，不否定所有注意力。
+
+A7 Stem消融与初始化混淆
+outputs/stem_both_controls_primary_review12_20261011_v1/两种子Stem消融结论.txt：增强stem-attention_spatial_mean固定12 s1 ΔAP-.824708/APs-.166990；s2+.525147/+.717393混合。增强stem-early_final_downsample s1+.397850/+.168682；s2+1.845899/+1.185576正向，但原HGNetstem本来就在concat后下采样，不能把晚下采样当相对原版创新。增强vs随机原stem APs+.158207/+1.829522；仍低于预训练BASE12。初始化差异不得当结构因果。
+
+A8 UAVDT36真实失败/收益混合（6份同轮EMA、CPU FP32、仅val）
+见英文小论文/data/07_第二数据集_20261017/第36轮候选覆盖与排序筛查_20261019_v1/summary/第36轮筛查结论_候选缺失还是排序匹配.txt。
+5153帧、87719GT、每图300输出，maxGT/frame30；非96最终或test。AP70 s0 base83.734441/C83.400550/mean82.660120；s1 base83.931472/C83.493197/mean81.967071，C-base-.333891/-.438275pp。
+AP恒等分解：C-base s0几何-.444602、排序+.110561、greedy+.000150；s1-.052440、-.386020、+.000186pp，不是因果。greedy不是显著瓶颈。
+同TP70176约80%召回，FP基线8315/8254，C9044/8729，多729/475；0.5–0.7IoU多373/176，背景IoU<.1多226/257，duplicate差-9/+7很小。
+640sqrt面积<32GT57546；全300池最大一对一覆盖C-base：IoU.5 -.821951/-.017377pp；.70 -.465714/+.239808；.75+.557815/+.488305（净321/281GT）；.80+.384041/+1.484030；.85+1.047857/+.967921。>=32组.75为-.619759/-1.186491（不是COCOAPl）。按序列小目标.75差：M0204 GT1112 +3.776978/+5.935252；M0402 5054 -1.028888/-2.255639；M0501 4491 -6.524159/+2.115342；M0603 24018 +1.432259/+.349738；M1002 10141 +1.518588/-1.518588；M1003 12730 +.989788/+2.388060。缺少可信共同条件，不能按有利序列包装泛化。
+全6份逐GT per_GT_geometry_and_ranks.npz、per_image_profiles.npz和result.json已在models/seed{0,1}_{baseline,c,c_mean}。原始UAVDT GT/属性包本地已有，原始trackID可用性尚未核实；不能先假设可以做时序对齐，也不能把普通跨帧融合当新方法。
+最终6个96任务结果本场不核查；不改主终点AP70，不干扰训练。
+
+A9 最新联合匹配探针按协议停止，不能继续原方案讨论
+data/08_匹配聚合覆盖探针_20261019_v1/isolated_v3/结果说明_整数表与停止理由.txt：24轮baseline seed1/2各64增强输入，heldout32。容量内M/T78/2925、84/2925（2.667/2.872%）；U*与末层锚定D/B425/3416、506/3429；低发生率门槛未触发。质量gate触发：U0→U* pairIoU .337842→.336735/.341326→.339655，普通直接loss13.455770→13.506822/13.408031→13.444910，双seed同时变差；DN所有遗漏GT仍有正槽。是冻结代理与资源停止，不是训练AP因果无效。覆盖求解本身是现成Hungarian，不构成新算法。
+
+可复用的数据/代码：outputs/native_selection_analysis12_20261011_v5/actual_six/{original_stem,native_stem_scratch,highfreq_rgb}_seed{1,2}各有description、selection_description、per_GT.npz、selection_per_GT.npz，548图38759GT。NPZ有annotation/category/image ID、原面积、nativeTP、各阶段maxIoU、bestquery、真类logitmargin、neighborhood各层sites与selected数、rank interval、cutoffmargin等。dense8400sites选300；未选dense是未回归anchor priors，不是dense检测框；不同模型query ID不可强行一一对应。另有A4 dense encoder框独立采集包、A5监督系数/范围逐曝光数据。可只用CPU分析既有文件，尚无本场新增统计。
+
+
+[旧原文核查范围，避免伪称通读]
+原文查新边界：下附10月19已读取原文段落范围，非穷尽查新。这里的摘述是主助手读原文的释义，专家不得伪称自己已通读。
+新增N1 D-FINE原文 https://arxiv.org/html/2410.13842 §4.1式2–5与§4.2：残差分布以初始框为参考；非均匀bin、IoU加权FGL、跨层分布蒸馏已知。因此“离散回归”“分布不确定性校准”“调整范围”本身不新。
+新增N2 Decoupled DETR https://arxiv.org/html/2310.15955v1 §3.2.1–3.2.3：已拆分类/回归crossattention、taskawarequery初始化、分类IoU对齐loss。不能仅把定位和分类分支拆开称新。
+新增N3 LN-DETR ECCV2024 Effective Lymph Nodes Detection in CT Scans using Location Debiased Query Selection and Contrastive Query Learning https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/05850.pdf PDF5–8§3.2–3.3：encoder与decoder都预测IoU，用IoU×class选query/最终输出；DN查询作contrastive anchor。故encoder初始质量与最终分数对齐、DN对比学习已有。
+新增N4 TransVOD https://arxiv.org/html/2201.05047v2 §III-B/C：已有跨帧TemporalQueryEncoder与TemporalDeformableDecoder，coarse-to-fine temporalqueryaggregation，普通时序融合不是新。
+另需精查而未全文核对的2026近邻：QCAR doi10.1016/j.neucom.2026.134465（querycalibratedattention与visibilityawareanisotropicregression，publisher正文访问失败，仅索引摘要）；不得声称没有先例。检索日期10月20，不把未来11月issue等同已获录用日期。
+
+
+原始文献核查说明（2026-10-19洛杉矶；非系统综述/专利查新证明）
+只采用论文作者/会议/出版社材料。阅读范围明确到PDF页（1起）与节；“已核查这些段落”不等于通读全部论文或复现作者代码。下述内容为释义，不能据此宣称检索穷尽或候选首创。各PDF、提取正文、SHA见primary_sources_manifest.json和primary_sources_additional.json；P14首次下载SSL失败，第二次同一官方URL成功，原失败记录保留。
+
+[P01/P15] DEIM，CVPR2025；P15为arXiv:2412.04234v3含补充材料。
+https://arxiv.org/html/2412.04234v3
+已核查P01 PDF4–5页§3.2–3.3；P15 PDF12页/补充材料第2页Table12及邻文、PDF6页日程说明。
+原文已提出用Mosaic/MixUp增加每图目标和Dense O2O监督、MAL处理低质量匹配。补充Table12在24轮下把平均目标数约10/25/50对应AP报告为51.7/52.5/52.2，作者将最后下降推测为正负不平衡及分布偏移；训练半程后关闭Dense O2O也已存在。因此“越密越好是错的”“强增强可能损伤”本身不是新发现。Table12没有把平均50时的下降归因于超过300query；不能用它证明硬容量饱和机制。我们若研究增强，必须超过这一已知现象，并区分实例数量、可见像素、普通/DN路径和实际正匹配身份。
+
+[P02] D-FINE，ICLR2025。https://arxiv.org/abs/2410.13842
+已归档出版社PDF17页；方法与当前代码中的FDR/GO-LSD/LQE不能改名当新贡献。其分布精细化并不自动证明分布方差就是校准概率。本轮未完整复核其所有公式，若候选依赖具体不确定性解释，必须补页级原文和代码验证。
+
+[P03] GFLv2，CVPR2021，arXiv:2011.12885，PDF3–4页§3.2、Figure3/4。
+https://arxiv.org/abs/2011.12885
+使用四边回归离散分布的Top-k及均值统计，经小型DGQP预测IoU质量，并与类别分数相乘；设计还明确讨论尺度鲁棒性。因此“从回归分布提取不确定性→预测IoU→重排分数”已有很近先例，不能直接当新方法。
+
+[P04] Rank-DETR，NeurIPS2023；归档v1 PDF3–5页§3.2–3.4。
+https://arxiv.org/abs/2310.08854
+已有针对DETR分类置信和定位质量失配的排序架构、GIoU-aware分类损失和高阶匹配代价，高IoU AP也是明确目的。因此“DETR框准分低”“高IoU排序优化”不是新的问题定义。
+
+[P05] TIDE，ECCV2020，作者更新附录E版；PDF5–8页错误分类与oracle段，附录保留。
+https://www.ecva.net/papers/eccv_2020/papers_ECCV/html/849_ECCV_2020_paper.php
+已系统区分分类、定位、同时错误、重复、背景、漏检等检测错误，并用修正oracle估计AP空间。项目新诊断的前缀最大匹配定义不同，但“做错误分解/找oracle提升”本身不是算法创新，也不证明因果。
+
+[P06] SNIP，CVPR2018，PDF5–6页方法/有效尺度区间。
+https://openaccess.thecvf.com/content_cvpr_2018/html/Singh_An_Analysis_of_CVPR_2018_paper.html
+多尺度训练仅对各尺度有效尺寸区间内实例反传，跨尺度共同覆盖目标；不能把按尺寸筛监督或尺度合适才训练当新原则。它不是DEIM普通查询与DN两条路径的容量审计。
+
+[P07] NWD，arXiv:2110.13389，已归档2021版PDF；本轮核查摘要及方法关于IoU对tiny尺度敏感的论点。
+https://arxiv.org/abs/2110.13389
+将框视作二维高斯，用归一化Wasserstein距离缓解小框IoU敏感性，并用于分配/NMS/损失。不要把“高低IoU指标不同/小框IoU脆弱”或更换距离函数包装成新的定位机制。
+
+[P08] DQ-DETR，ECCV2024，归档v4 PDF5–9页§3及§3.4/动态查询。
+https://arxiv.org/abs/2404.03507
+已有类别计数、密度引导特征增强及动态查询数，兼顾目标数量与查询位置。普通“密集图多给query、稀疏图少给query”不可主张新。当前查到最新版为v6，本文归档读的是v4，差异未逐版比较。
+
+[P09] RT-DETRv3，归档arXiv:2409.08475v1 PDF3–5页§3.1–3.4；WACV2025正式论文链接可用，版本不混同。
+https://arxiv.org/abs/2409.08475
+已有训练期CNN一对多辅助头增强encoder监督、多query组与共享decoder辅助分支增强decoder监督，推理保持原分支。因此“给encoder加密集监督、推理零成本”已有直接近邻；若最后方案等同辅助头/多组，就放弃新颖性主张。
+
+[P10] Scale Match，WACV2020，PDF5页§4–4.1、式3（PDF9页全文归档）。
+https://openaccess.thecvf.com/content_WACV_2020/html/Yu_Scale_Match_for_Tiny_Person_Detection_WACV_2020_paper.html
+明确处理预训练数据与tiny目标数据间对象尺度分布错配，通过图像尺度变换使分布对齐。换数据集后尺寸不同不是新发现，简单缩放匹配不是新方法。
+
+[P11] Scale-aware AutoAug，CVPR2021，PDF3–5页§3.2及Pareto Scale Balance。
+https://openaccess.thecvf.com/content/CVPR2021/papers/Chen_Scale-Aware_Automatic_Augmentation_for_Object_Detection_CVPR_2021_paper.pdf
+已定义图像级zoom-in/out和框级尺度感知增强搜索，且搜索评价惩罚受损尺度、权衡各尺度AP。不能以“按目标尺寸调增强”“别伤中大目标”本身为新颖性。
+
+[P12] Multivariate Confidence Calibration，CVPRW2020，PDF3–5页§3、条件校准定义及多变量方法。
+https://arxiv.org/abs/2004.13546
+将位置/宽高/类别与置信共同用于检测后校准；明确测量位置与尺度相关校准误差。故“尺寸条件化校准”“框属性辅助评分”已有近邻。单调全局score变换不改变排序时不会改善AP；ECE变好也不等于AP提高。
+
+[P13] Cal-DETR，NeurIPS2023，PDF4–5页§3.3.1–3.3.2。
+https://arxiv.org/abs/2311.03570
+已有DETR内部不确定性估计、uncertainty-guided logit modulation及logit-mixing正则，检查域内/域外校准。不能把泛称“DETR不确定性校准”当新方向，也不能把DSH适配器名字当不同模型家族的独立证据。
+
+[P14] LiG-DETR，2026-10-07 arXiv预印本v1；PDF14页原件已归档，已核查HTML全文方法§3.2–3.4（PDF对应方法页待下面摘录核对）。
+https://arxiv.org/html/2610.09511v1
+已有局部放大后特征重组回全局、保留上下文的选择性高分辨率读取，以及基于encoder proposal分数累计质量选择query数量。未宣称同行评审通过，结果为作者报告、未复现。但公开先例足以使普通全局/局部细节读取、分数累计自适应query方案失去轻易宣称新颖的基础。
+
+[P16] DQSA-DETR，IEEE Access 2026，DOI10.1109/ACCESS.2026.3728183。
+https://ieeexplore.ieee.org/abstract/document/11670322/
+本轮只核到出版社索引的摘要：密度引导特征、动态query预算、质量感知分类三者均已提出。全文未取得（网页418），不能推断其具体公式或它未做哪些对照。用于风险标记，不作已读全文。
+
+[P17] MR-DETR，Pattern Recognition Letters201(2026)52–57，DOI10.1016/j.patrec.2026.01.004。
+https://www.sciencedirect.com/science/article/abs/pii/S0167865526000048
+本轮仅出版社索引摘要/Highlights可用，网页403，未取得全文；摘要已声明按目标密度调整query，故普通自适应query方向仍需核这篇，不得声称没有近邻。
+
+[本轮新补原文范围]
+SalienceDETR https://arxiv.org/html/2403.16131 ，已读摘要/引言及§3相关部分：已有尺度无偏查询过滤与初始化稳定性设计；普通选择稳定不是空白。
+AQS-IDETR doi10.1016/j.imavis.2026.106097 仅出版社摘要/Highlights，已有无需训练的自适应query和分数噪声稳定性分析，全文未核。
+Distilling Object Detectors with Task Adaptive Regularization https://arxiv.org/abs/2006.13108 ：只读作者摘要，已明确根据师生相对表现选择知识与bbox蒸馏、逐渐减小KD；公式未读，不能声称简单teacher质量筛选新颖。
+GaussianYOLOv3 https://arxiv.org/html/1904.04620v2 §3.3 Eq10已实际读到平均定位不确定性乘objectness/class评分。
+新增精查原文：Chen等 Learning Efficient Object Detection Models with Knowledge Distillation，NIPS2017，官方PDF第4–5页§3.3式4已实际读取。https://proceedings.neurips.cc/paper/2017/file/e1e32e235eee1f970470a3a6658dfdd5-Paper.pdf 。其teacher-bounded项根据师生对GT误差比较决定是否额外回归GT，不是逐bin KL门控。它已覆盖“老师有时给错误方向、学生超过老师后不应继续拉”的动机；不能据此直接说任何新DDF设计公式等同，但必须作为强近邻/简单对照。
+新目标预算从本场起计算，旧topk/DDF缓存核查均是已完成输入，不占未来两项的新额度。
+
+=== 两项核查事前登记（未看新结果时）===
+登记于读取新候选的数值输出之前。对应当前用户目标的最多两项核查，旧 D0–D5 不计入。
+
+候选一：在真实未 detach 的 corner 新增残差坐标汇总普通正项 DDF 梯度，按 query 拼接可达的 r0/r1（原正项不回传到教师 r2）。分别保护 aux0、aux1、final 的原 union、原分母 5L1+2GIoU 一阶方向，求距离原正项梯度最近的三个半空间交集投影。所有约束停止求导；其余损失、负项 DDF、DN、匹配、归一化、原 T5 不变。增量仅可能是累计路径上逐层约束相对单总损失约束的价值，投影本身已有 PCGrad 先例。
+
+候选二：把教师 T1 实际解码概率在非均匀距离坐标上平移到 GT 距离，再用相邻 bin 的线性质量拆分重采样。越界质量截断，统计截断质量及均值偏差，不能声称仍严格保形或对齐 GT。使用 q=normalize(r^(1/T)) 作为 T5 的 KL 目标，这样 KL 极小点的 T1 分布才是 r。直接移动 T5 概率不具备该性质。不声称有限网络 Adam 步单调保护几何。
+
+真实数据触发：旧 D5 的 teacherworse 约占 raw student-IoU 正权重和的 43%，其中约 75% 的输出坐标 DDF 梯度与几何梯度相反；这不是归一化总梯度份额或训练损害证明。
+
+最近原文：D-FINE §4.1–4.2 已有累计分布与 GO-LSD，LD CVPR2022 已有定位分布 KL，Chen NIPS2017 §3.3 Eq4 已有 teacher-bounded GT 回归，PCGrad NIPS2020 §2 已有冲突投影。TAR 只读到摘要，重定位软目标查新未穷尽。不得据此宣称不存在先例。
+
+统一资产：BASE24 online seed1/seed2，各 development00/01，4 图/批，两个 seed 复用同一 8 张增强输入。所有配方、488 个可训练张量、历史 AdamW 状态、当前 LR、全局 .1 裁剪均沿原代码。使用旧重播 DN seed，不要求恢复历史随机流。所有虚拟端点各自从同一原参数出发，不累计，不保存模型。
+
+固定有限对照：original、half_positive、off_positive、teacherbetter_gate（教师 IoU > 学生 IoU）、single_total（同残差坐标，单个各层总几何约束）、multi_layer（候选一）、matched_norm（逐 query 与 multi_layer 正梯度范数一致的原方向缩放）、relocated_target（候选二）、GT_two_bin（和候选二相同 T5、正项权重和分母，用 GT 两点物理分布，温度目标同样校正）。不搜索阈值/温度/学习率。
+
+一次共享原生前向减少资源，但两候选分别计一项核查，即启动后 auditsUsed=2。两种子各做 00→01 和 01→00 的跨批虚拟 Adam。只读复制的优化器状态，原参数/缓冲恢复并校验 SHA；不调用真实 optimizer.step，不操作远端。
+
+主要评估：固定原物理 encoder query，固定评估批的原 union 和分母，最终层 G=5L1+2GIoU（双精度统计）及不加 IoU 权重的 FGL CE。附原 IoU 权重 FGL、MAL、IoU、各层几何和更新/裁剪幅度。原生重新选 query 作为敏感性评估，必须重新按原 matcher/union 求对应，不能沿用旧 query 序号对应。零步 functional 重播验证数值底噪。
+
+继续申请训练的事前筛选：候选在每个 seed 的两方向、按评估分母汇总的 G 上，相对 original 及各自关键简单对照均至少下降 1e-5；不加权 FGL CE 每个 seed 不恶化超过 1e-5；MAL 不恶化超过 1e-3；原生重选后的重新匹配 G 不得反转方向。候选一关键对照 single_total 和 matched_norm，候选二关键对照 GT_two_bin；此外不能被 half/off/gate 在 G 和不加权 FGL 两项同时支配。此门槛只决定是否值得申请训练，不宣称统计显著、AP 收益或证明创新。任一必要项不满足则本次暂不申请该候选训练，完整阴性结果回专家。原始结果未出来前冻结代码 SHA，结果出来后不得改门槛/换名救活。
+
+实现合成单测：小矩阵半空间 QP 的可行性、恒等、正交和零梯度；两残差前后层耦合反例；非均匀线性重采样质量守恒/未截断均值、温度逆变换。先合成后真实。
+
+资源：隔离 CPU torch2.5.1，2 线程、低优先级、固定自身 CPU 亲和，空闲 RAM <8GiB 即退出。两项合计最多 15 分钟；无 GPU、无训练、无新预测数据集。冻结历史源及证据不修改。
+
+
+=== 最近原文 ===
+本轮新增原文阅读，供结果复审，不改已经登记的两项数值核查和门槛。
+
+1. GEM，NIPS2017，§3 Eq8，PDF p4：最近梯度的多半空间 QP 已存在，公式与候选一的投影子问题同形。区别是原文保护过去任务的参数梯度，而候选一作用于同一检测器的新增 corner 残差、逐 query 保护多个解码层。因而不能把 QP 或“约束多个目标”当新算法。必须证明累计残差的坐标选择和逐层约束比单总损失投影/减权有不可替代的价值。
+https://proceedings.neurips.cc/paper_files/paper/2017/file/f87522788a2be2d171666752f97ddebb-Paper.pdf
+
+2. PCGrad，NIPS2020，§2.3，PDF p4：负内积触发单侧正交投影，按随机任务顺序重复。候选一使用同一 query 上联合残差坐标与精确小 QP；“随机序列投影 vs 精确交集投影”是实现区别，不自动构成检测方法贡献。
+https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf
+
+3. BTKD++，IJCV2026，2026-07-08 已发表；已直接读取出版社正文 §3.3.2、§4.1，而非只看摘要。原文按 easy/hard 判断教师偏差，保护非偏差子空间的概率，并在偏差子空间按标签重分配概率。检测扩展将连续回归量转成固定范围上的离散截断高斯，GT 为单 bin，回归也做纠偏。因此“用 GT 修正教师、保留其他暗知识、扩展到回归”已被覆盖。
+候选二的确切不同：不人为高斯化坐标，使用 D-FINE 的原始 33-bin 非均匀预测，在物理距离上平移全部概率质量并相邻插值，T5 目标经逆温度校正。它不是 BTKD++ 的偏差两位置概率再分配；但共享纠偏原则，剩余贡献必须是物理分布形状本身比 GT 两点监督更有价值。平移后截断可破坏均值和形状，没有普遍几何保护保证。
+https://link.springer.com/article/10.1007/s11263-026-02924-x
+
+4. D-FINE，§4.1/4.2：原文已有非均匀分布累计、联合匹配、FGL 与末层向前层的 DDF。LD，CVPR2022，§3.2 Eq3–4：已有边缘概率分布的温度 KL。两篇均是方法的直接基底，不得将“定位分布蒸馏”重新申报为贡献。本次通读相关段落没有看到上述联合残差 QP 或物理平移规则；这只是限定阅读范围内的区别，不是穷尽查新证明。
+https://arxiv.org/html/2410.13842
+https://arxiv.org/pdf/2102.12252
+
+判断原则：相同研究动机不等于公式等价。GEM 的 QP 子问题确实同形，BTKD++ 的教师纠偏原则相同但具体概率操作不同；分别准确陈述。任何候选最终仍须通过已经登记的强简单对照。
+
+
+=== 完整数值结果（所有对照/阴性）===
+两项 DDF 冻结核查：完整结果与事前门槛
+
+耗时 248.23 秒；2 seed × 2 development 批，各 4 图，同一 8 张增强输入。新训练 0，远端操作 0。
+G 和 FGL 均是损失（越低越好），不是 AP。Δ 均为同 seed、同输入、同 Adam 状态的候选减 original。按评估分母汇总，不逐图平均。
+
+seed | arm | G | ΔG | 不加权FGL | ΔFGL | MAL | 原生重选且重匹配G
+1 | original | 3.0339576613 | +0.0000000000 | 16.3403530415 | +0.0000000000 | 0.3520926680 | 3.0043168571
+1 | half_positive | 3.0339829916 | +0.0000253303 | 16.3396415354 | -0.0007115061 | 0.3521058058 | 2.9959011884
+1 | off_positive | 3.0340058358 | +0.0000481745 | 16.3389684385 | -0.0013846029 | 0.3521187284 | 2.9991380792
+1 | teacherbetter_gate | 3.0339531844 | -0.0000044769 | 16.3401098157 | -0.0002432258 | 0.3521034357 | 3.0009222308
+1 | single_total | 3.0339653508 | +0.0000076894 | 16.3408634104 | +0.0005103689 | 0.3521006469 | 3.0042343319
+1 | multi_layer | 3.0339598205 | +0.0000021592 | 16.3409451935 | +0.0005921520 | 0.3521045324 | 3.0037707743
+1 | matched_norm | 3.0339596851 | +0.0000020238 | 16.3403245676 | -0.0000284738 | 0.3520951667 | 3.0015490153
+1 | relocated_target | 3.0339765974 | +0.0000189361 | 16.2515906941 | -0.0887623473 | 0.3517430001 | 2.9962540376
+1 | GT_two_bin | 3.0305482328 | -0.0034094285 | 16.6969499599 | +0.3565969184 | 0.3531455596 | 2.9938066367
+2 | original | 2.8236637079 | +0.0000000000 | 16.1433240712 | +0.0000000000 | 0.3573512696 | 2.8066413947
+2 | half_positive | 2.8240455593 | +0.0003818514 | 16.1473715332 | +0.0040474619 | 0.3573560531 | 2.8079630515
+2 | off_positive | 2.8243595954 | +0.0006958875 | 16.1514668664 | +0.0081427951 | 0.3573721713 | 2.8071333250
+2 | teacherbetter_gate | 2.8237476875 | +0.0000839796 | 16.1448601429 | +0.0015360717 | 0.3573484333 | 2.8097871279
+2 | single_total | 2.8236769726 | +0.0000132647 | 16.1437101993 | +0.0003861281 | 0.3573501292 | 2.8077741801
+2 | multi_layer | 2.8236812476 | +0.0000175397 | 16.1438217603 | +0.0004976891 | 0.3573503697 | 2.8072004603
+2 | matched_norm | 2.8236681685 | +0.0000044606 | 16.1434304091 | +0.0001063378 | 0.3573510047 | 2.8068769782
+2 | relocated_target | 2.8233517628 | -0.0003119452 | 16.0886747413 | -0.0546493300 | 0.3571613182 | 2.8113593749
+2 | GT_two_bin | 2.8226253511 | -0.0010383568 | 16.3979029016 | +0.2545788304 | 0.3587011057 | 2.8162496953
+
+逐候选判定：
+multi_layer: 本次暂不申请训练
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "original", "difference": 2.15915967816116e-06, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "single_total", "difference": -5.530288803790029e-06, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "matched_norm", "difference": 1.3533836318302406e-07, "passed": false}
+未通过：{"seed": 1, "check": "native_rematching_G_no_reversal", "control": "matched_norm", "difference": 0.0022217589962290063, "passed": false}
+未通过：{"seed": 1, "check": "FGL_unweighted_CE_noninferior_screen", "control": "original", "difference": 0.0005921520153400195, "tolerance": 1e-05, "passed": false}
+未通过：{"seed": 1, "check": "not_simultaneously_dominated_G_FGL", "control": "teacherbetter_gate", "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "original", "difference": 1.7539669697974603e-05, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "original", "difference": 0.0005590655398441946, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "single_total", "difference": 4.274956823202558e-06, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "matched_norm", "difference": 1.3079056303766379e-05, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "matched_norm", "difference": 0.0003234820869555399, "passed": false}
+未通过：{"seed": 2, "check": "FGL_unweighted_CE_noninferior_screen", "control": "original", "difference": 0.0004976890899328623, "tolerance": 1e-05, "passed": false}
+relocated_target: 本次暂不申请训练
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "original", "difference": 1.8936062007313126e-05, "passed": false}
+未通过：{"seed": 1, "check": "G_gain_ge_1e-5", "control": "GT_two_bin", "difference": 0.003428364547845675, "passed": false}
+未通过：{"seed": 1, "check": "native_rematching_G_no_reversal", "control": "GT_two_bin", "difference": 0.0024474009081223436, "passed": false}
+未通过：{"seed": 2, "check": "native_rematching_G_no_reversal", "control": "original", "difference": 0.004717980137606048, "passed": false}
+未通过：{"seed": 2, "check": "G_gain_ge_1e-5", "control": "GT_two_bin", "difference": 0.0007264116412581956, "passed": false}
+
+诊断与核验（原始整数/误差，所有批次，不挑样本）：
+{"seed": 1, "batch": 0, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 1135, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0012142240447063773, "multi_positive_gradient_norm": 0.0011835153017279681, "multi_minus_single_norm": 0.00015536458280799036, "original_opposes_layer_counts": [155, 236, 262], "multi_modified_queries": 291, "matched_norm_max_abs_error": 1.0842021724855044e-19}, "diagnostics": [{"layer": 0, "pairs": 1135, "teacherbetter": 443, "desired_edges_out_of_support": 1428, "total_edges": 4540, "relocated_clipped_mass_sum": 1513.314697265625, "relocated_GT_mean_absolute_error_sum": 59359.3046875, "relocated_GT_mean_max_error": 456.9569091796875, "relocated_two_bin_L1_sum": 4551.0859375, "inverse_temperature_recovery_max_error": 3.5762786865234375e-07, "full_native_ddf_reconstruction": 0.09059498459100723}, {"layer": 1, "pairs": 1135, "teacherbetter": 386, "desired_edges_out_of_support": 1428, "total_edges": 4540, "relocated_clipped_mass_sum": 1513.314697265625, "relocated_GT_mean_absolute_error_sum": 59359.3046875, "relocated_GT_mean_max_error": 456.9569091796875, "relocated_two_bin_L1_sum": 4551.0859375, "inverse_temperature_recovery_max_error": 3.5762786865234375e-07, "full_native_ddf_reconstruction": 0.006293844431638718}]}
+{"seed": 1, "batch": 1, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 683, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0009457561189369827, "multi_positive_gradient_norm": 0.0009218079930423385, "multi_minus_single_norm": 0.00011635692648374871, "original_opposes_layer_counts": [136, 180, 194], "multi_modified_queries": 215, "matched_norm_max_abs_error": 6.776263578034403e-20}, "diagnostics": [{"layer": 0, "pairs": 683, "teacherbetter": 194, "desired_edges_out_of_support": 795, "total_edges": 2732, "relocated_clipped_mass_sum": 859.6974487304688, "relocated_GT_mean_absolute_error_sum": 14218.921875, "relocated_GT_mean_max_error": 318.2153015136719, "relocated_two_bin_L1_sum": 2655.73388671875, "inverse_temperature_recovery_max_error": 2.980232238769531e-07, "full_native_ddf_reconstruction": 0.04921127110719681}, {"layer": 1, "pairs": 683, "teacherbetter": 187, "desired_edges_out_of_support": 795, "total_edges": 2732, "relocated_clipped_mass_sum": 859.6974487304688, "relocated_GT_mean_absolute_error_sum": 14218.921875, "relocated_GT_mean_max_error": 318.2153015136719, "relocated_two_bin_L1_sum": 2655.73388671875, "inverse_temperature_recovery_max_error": 2.980232238769531e-07, "full_native_ddf_reconstruction": 0.0036414023488759995}]}
+{"seed": 2, "batch": 0, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 1138, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.001069483943912972, "multi_positive_gradient_norm": 0.0010341074169216264, "multi_minus_single_norm": 0.00015480287221242292, "original_opposes_layer_counts": [226, 319, 360], "multi_modified_queries": 410, "matched_norm_max_abs_error": 5.421010862427522e-20}, "diagnostics": [{"layer": 0, "pairs": 1138, "teacherbetter": 447, "desired_edges_out_of_support": 1235, "total_edges": 4552, "relocated_clipped_mass_sum": 1328.2314453125, "relocated_GT_mean_absolute_error_sum": 34434.40625, "relocated_GT_mean_max_error": 276.5337219238281, "relocated_two_bin_L1_sum": 4782.1181640625, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.0670623630285263}, {"layer": 1, "pairs": 1138, "teacherbetter": 393, "desired_edges_out_of_support": 1235, "total_edges": 4552, "relocated_clipped_mass_sum": 1328.2314453125, "relocated_GT_mean_absolute_error_sum": 34434.40625, "relocated_GT_mean_max_error": 276.5337219238281, "relocated_two_bin_L1_sum": 4782.1181640625, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.00641130656003952}]}
+{"seed": 2, "batch": 1, "checks": {"global_gradient_norm_native_FP32_original_vs_previous": 0.0, "global_clip_factor_original_vs_previous": 0.0, "parameter_update_L2_norm_original_vs_previous": 0.0, "base_topk_exact_previous": true, "zero_final_boxes_max_error": 0.0, "zero_geometry_abs_error": 0.0, "zero_unweighted_FGL_abs_error": 0.0}, "residual_stats": {"pairs": 682, "residual_coordinate_dimension": 264, "original_positive_gradient_norm": 0.0008642847177496276, "multi_positive_gradient_norm": 0.0008414861618265472, "multi_minus_single_norm": 0.00011010259417947867, "original_opposes_layer_counts": [140, 195, 207], "multi_modified_queries": 228, "matched_norm_max_abs_error": 8.131516293641283e-20}, "diagnostics": [{"layer": 0, "pairs": 682, "teacherbetter": 195, "desired_edges_out_of_support": 795, "total_edges": 2728, "relocated_clipped_mass_sum": 865.485107421875, "relocated_GT_mean_absolute_error_sum": 17965.45703125, "relocated_GT_mean_max_error": 526.677978515625, "relocated_two_bin_L1_sum": 2739.51708984375, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.045850969851017}, {"layer": 1, "pairs": 682, "teacherbetter": 192, "desired_edges_out_of_support": 795, "total_edges": 2728, "relocated_clipped_mass_sum": 865.485107421875, "relocated_GT_mean_absolute_error_sum": 17965.45703125, "relocated_GT_mean_max_error": 526.677978515625, "relocated_two_bin_L1_sum": 2739.51708984375, "inverse_temperature_recovery_max_error": 4.172325134277344e-07, "full_native_ddf_reconstruction": 0.0035436961334198713}]}
+
+关键局限：Two checkpoints, same8 augmented inputs, reused development only. No independence, significance, convergence or AP evidence. Projection guarantee only residual-coordinate direct first-order step; transported target clipping may destroy GT mean/shape.
+两项预算已用完。不得改门槛、继续温度/阈值搜索或给本版本换名后再筛。结果交回四专家；没有候选通过是允许的终点。
+
+本地可只读：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/主线循环验证_20261020_v1/ddf_candidates_frozen.py（真实执行源码）、ddf_candidates_frozen/01_protocol.json、02_results.json、03_summary_and_decisions.json、04_all_pooled_metrics.csv、seed1/seed2/integrity.json。旧43/44为上一场原始讨论。

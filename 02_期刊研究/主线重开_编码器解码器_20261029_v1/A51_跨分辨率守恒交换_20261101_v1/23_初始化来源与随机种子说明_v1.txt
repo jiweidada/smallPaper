@@ -1,0 +1,21 @@
+A51初始化链与随机种子的具体含义（只读溯源，无新模型前向/优化器更新）
+
+公共初始化文件common_init_10class.pth的SHA为2c6e0f9c6765fc7ba069c2292e0884bb86924d2232a952499fcd251cc57b47e6，A42、A43和本轮资产沿用同一内容。
+当前读取该文件的元数据：seed=20261031，source_checkpoint_sha256=35340a45101d24a094becf8776aeaa327c9e6b37453e5e81dfd2923c134c4619；还保存new_class_parameters列表。读取的是权重字典与元数据，没有实例化或执行整检测器。
+
+A42/bootstrap_remote.py与bootstrap_common_init.py显示的生成过程
+1. 以固定d8752b75源码配置构建80类ECDet-S，严格加载标记为ecdet_s_coco_official.pth的检查点；选择ema.module/model/root_state_dict由保存记录明确。
+2. 用初始化seed20261031构建10类模型，继承形状一致的权重；只允许score_head和denoising_class_embed等类别相关项形状不符而保留统一随机初始化。
+3. 在正式VisDrone训练前保存公共10类初始状态与上述来源元数据。A43/prepare_local.py复制这个文件，另行保留旧B12供蒸馏实验使用。
+
+本轮A51/runtime_A51.py调用的是native.create_components('B')后安装新交换模块；没有调用build_teacher，也不加载A42/A43/A49训练完成的B12作为M/Q训练起点。旧A49 B12用于本轮基线比较，A50也曾用于冻结诊断，这与M/Q初始化用途不同。
+
+三种seed应分开写
+- 公共10类初始化生成seed：20261031（由旧元数据和脚本确认）。
+- 本轮训练/数据流seed：20261101（B、M、Q一致）。
+- 本轮新增交换模块初始化seed：20261102（M、Q一致，状态字节SHA0d0893eaeaffee583e038c95b4b3dc9fce5eaaae4fcf3fe5f0a9a1197891ae6b）。
+M/Q正式训练均重新加载公共初始状态，未沿用容量检查的临时更新。不能把三个seed说成同一个生成过程，也不能把现有12轮短验证描述成复现论文COCO训练配方。
+
+证据位置
+A42_ECDet三组最小验证_20261031_v1/bootstrap_remote.py、bootstrap_common_init.py；A43_ECDet三组蒸馏最小验证_20261031_v1/prepare_local.py与local_source_preparation.json；本轮M_startup/initialization.json、Q_startup/initialization.json、local_module_init_consistency_v1.json。
+本次核查范围是已有本地来源链和保存元数据，没有重新审计外部预训练检查点的全部训练数据组成。

@@ -1,0 +1,89 @@
+Published as a conference paper at ICLR 2025
+Decoder Layer
+Decoder Layer
+Decoder Layer
+TeacherTeacher
+StudentStudent
+StudentStudent
+Localization 
+Knowledge
+Localization 
+Knowledge
+Localization 
+Knowledge
+Localization 
+Knowledge
+   DDF Loss Weight
+   Self-Distillation
+   DDF Loss Weight
+   Self-Distillation
+              Unmatched Prediction
+              Matched Prediction
+              Unmatched Prediction
+              Matched Prediction
+αkαk
+βkβkβkβk
+αkαk
+0                        N/2                         N 
+0                        N/2                         N 
+0                        N/2                         N 
+0                        N/2                         N 0                        N/2                         N 
+0                        N/2                         N 
+×Ku ×Ku ×Ku
+×Km ×Km ×Km
+Figure 3: Overview of GO-LSD process. Localization knowledge from the final layer’s refined
+distributions is distilled into shallower layers through DDF loss with decoupled weighting strategies.
+4.2 G LOBAL OPTIMAL LOCALIZATION SELF -DISTILLATION
+Global Optimal Localization Self-Distillation (GO-LSD) utilizes the final layer’s refined distribu-
+tion predictions to distill localization knowledge into the shallower layers, as shown in Figure 3. This
+process begins by applying Hungarian Matching (Carion et al., 2020) to the predictions from each
+layer, identifying the local bounding box matches at every stage of the model. To perform a global
+optimization, GO-LSD aggregates the matching indices from all layers into a unified union set.
+This union set combines the most accurate candidate predictions across layers, ensuring that they
+all benefit from the distillation process. In addition to refining the global matches, GO-LSD also
+optimizes unmatched predictions during training to improve overall stability, leading to improved
+overall performance. Although the localization is optimized through this union set, the classification
+task still follows a one-to-one matching principle, ensuring that there are no redundant boxes. This
+strict matching means that some predictions in the union set are well-localized but have low confi-
+dence scores. These low-confidence predictions often represent candidates with precise localization,
+which still need to be distilled effectively.
+To address this, we introduce Decoupled Distillation Focal (DDF) Loss, which applies decoupled
+weighting strategies to ensure that high-IoU but low-confidence predictions are given appropriate
+weight. The DDF Loss also weights matched and unmatched predictions according to their quantity,
+balancing their overall contribution and individual losses. This approach results in more stable and
+effective distillation. The Decoupled Distillation Focal Loss LDDF is then formulated as:
+LDDF = T 2
+L−1X
+l=1
+ KmX
+k=1
+αk · KL
+
+Prl(n)k, PrL(n)k
+
++
+KuX
+k=1
+βk · KL
+
+Prl(n)k, PrL(n)k
+!
+αk = IoUk ·
+√Km√Km + √Ku
+, β k = Confk ·
+√Ku√Km + √Ku
+, (6)
+where KL represents the Kullback-Leibler divergence (Hinton et al., 2015), andT is the temperature
+parameter used for smoothing logits. The distillation loss for thek-th matched prediction is weighted
+by αk, where Km and Ku are the numbers of matched and unmatched predictions, respectively. For
+the k-th unmatched prediction, the weight is βk, with Confk denoting the classification confidence.
+5 E XPERIMENTS
+5.1 E XPERIMENT SETUP
+To validate the effectiveness of our proposed methods, we conduct experiments on the COCO (Lin
+et al., 2014a) and Objects365 (Shao et al., 2019) datasets. We evaluate our D-FINE using the stan-
+dard COCO metrics, including Average Precision (AP) averaged over IoU thresholds from 0.50 to
+0.95, as well as AP at specific thresholds (AP 50 and AP75) and AP across different object scales:
+small (APS), medium (APM ), and large (APL). Additionally, we provide model efficiency metrics
+by reporting the number of parameters (#Params.), computational cost (GFLOPs), and end-to-end
+latency. The latency is measured using TensorRT FP16 on an NVIDIA T4 GPU.
+6

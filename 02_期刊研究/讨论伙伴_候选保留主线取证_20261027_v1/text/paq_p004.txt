@@ -1,0 +1,126 @@
+semantic bases for constructing object queries. Together,
+these components enable queries to adapt to image content
+while preserving global semantic consistency and promot-
+ing balanced optimization.
+Query Representation via Shared Patterns.We represent
+object queries using a dual formulation comprising content
+queriesQ C ={q C
+1 , . . . , qC
+n } ∈R n×d and base patterns
+QP ={q P
+1 , . . . , qP
+m} ∈R m×d, wherenandmdenote
+their respective quantities anddis the embedding dimen-
+sion. Base patterns act as shared semantic primitives, while
+each content queryq C
+i is expressed as a convex combination
+of these patterns:
+qC
+i =
+mX
+j=1
+wD
+ij qP
+j , (4)
+whereW D ∈R n×m contains the dynamic combination
+weights. Eachw D
+ij reflects the contribution of patternq P
+j to
+queryq C
+i , constrained byw D
+ij ≥0and Pm
+j=1 wD
+ij = 1to en-
+sure a valid convex mixture. The learning of object queries
+is thereby transferred to the learning of shared base patterns.
+This formulation allows gradients from matched queries to
+flow through shared patterns, thereby promoting parame-
+ter sharing and alleviating the winner-take-all dynamic ob-
+served in independently optimized queries. This pattern-
+based construction thus mitigates the representation-side
+imbalance by enabling more uniform gradient propagation
+across queries.
+Content-Aware Weight Generator.The content-aware
+weight generator module produces dynamic weightsW D
+by processing multi-scale encoder features through three
+lightweight components: feature extraction, multi-scale
+feature fusion, and weight generation. This module enables
+the learned patterns to be adaptively combined according to
+the input image.
+Feature extraction.Given unflattened multi-scale fea-
+ture mapsS i ∈R hi×wi×d from the encoder outputs, we
+first apply a1×1convolution followed by a dilated con-
+volution with ReLU activation to enlarge the receptive field
+and capture long-range dependencies that are essential for
+multi-object detection. This step enhances the non-linear
+ability of encoder features while maintaining efficiency.
+Multi-scale feature fusion.We perform top-down fu-
+sion by upsampling higher-level (lower-resolution) fea-
+tures to match the spatial resolution of lower-level (higher-
+resolution) ones, and then combine them through element-
+wise addition. The fused features are refined using
+lightweight channel attention [35] and spatial attention [13]
+to emphasize informative regions, while skip connections
+preserve low-level feature details. This process is applied
+progressively from top to bottom, producing an enhanced
+feature representationZ∈R h2×w2×d that encodes com-
+prehensive multi-scale contextual information.
+Weight generation.The enhanced featuresZare spa-
+tially aggregated using average pooling to obtain compact
+feature representations ˆZ∈R d. A two-layer MLPF w with
+layer normalization and ReLU activation then transforms
+these features into dynamic weights:
+WD =softmax(F w( ˆZ)). (5)
+The softmax operation ensures that each row ofW D sums
+to one, forming valid convex combinations that adaptively
+blend base patterns from the input image.
+3.3. Quality-Aware One-to-Many Assignment
+While the pattern-based module alleviates representation-
+side imbalance, the supervision-side imbalance caused by
+one-to-one matching remains a limiting factor for efficient
+optimization. Conventional DETR-based models [2] adopt
+a one-to-one Hungarian matching scheme, where each
+ground-truth object supervises only a single prediction.
+While this formulation ensures end-to-end bipartite match-
+ing, it inherently limits the number of positive samples per
+object, leading to sparse supervision and slower conver-
+gence. Recent variants [1, 4, 19, 45] extend this paradigm
+to one-to-many matching to provide richer learning signals.
+Building on these insights, we propose a quality-aware one-
+to-many assignment strategy that dynamically determines
+both the number and selection of positive samples for each
+ground-truth instance based on prediction quality.
+Dynamic Positive Sample Selection.Given a set of predic-
+tions ˆP={ˆp1,ˆp2, . . . ,ˆpn}, where eachˆpi = (ˆbi,ˆci)repre-
+sents a predicted bounding box and its classification confi-
+dence, and ground-truth objectsG={g 1, g2, . . . , gm}, we
+define a quality score for each prediction–ground-truth pair:
+si,j =IoU( ˆbi, gj)−γˆci, (6)
+whereγcontrols the trade-off between localization accu-
+racy and classification confidence. Highers i,j values indi-
+cate higher-quality predictions.
+For each ground truthgj, the number of assigned positive
+predictionsk j is adaptively determined as:
+kj = max
+
+
+
+
+X
+i∈top-k(s·,j )
+si,j
+
+
+, l
+
+ , (7)
+where top-k(s ·,j)indexes the top-kpredictions with the
+highest quality scores, andldenotes the minimum num-
+ber of positives per instance. This formulation allows the
+supervision strength to adapt to the confidence–localization
+consistency of predictions.
+Training Strategy.Our quality-aware assignment natu-
+rally prioritizes high-IoU but under-confident predictions,
+encouraging the model to focus on informative yet chal-
+lenging samples. We apply this dynamic assignment in the
+25507

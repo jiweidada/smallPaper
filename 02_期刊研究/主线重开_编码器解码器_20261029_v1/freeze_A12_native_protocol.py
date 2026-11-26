@@ -1,0 +1,27 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import hashlib
+import json
+import tarfile
+root=Path(__file__).resolve().parent
+out=root/'A12_原生边界分布诊断_v1'
+asset=json.loads((out/'asset_selection.json').read_text(encoding='utf-8'))
+assert asset['selected_images']==12 and asset['selected_tiny_GT']==263
+assert not (out/'protocol.json').exists()
+load=json.loads((root/'official_assets_v1'/'Dome_DETR_2dde3bc_v1'/'strict_model_load.json').read_text(encoding='utf-8'))
+source=root/'official_assets_v1'/'Dome_DETR_2dde3bc_v1'/'source'
+def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+source_files=['src/zoo/dome/dome_decoder.py','src/zoo/dome/dome_utils.py','src/zoo/dome/matcher.py']
+p={'utc':datetime.now(timezone.utc).isoformat(),'status':'FROZEN_BEFORE_A12_MODEL_PREDICTIONS','question':'After controlling class,edge,bin and physical spacing,does phase-corrected distribution spread identify large actual tiny-edge errors better than raw variance?','scientific_basis':'A11 source interpolation and gradient audit establishes a possible representation confound only;not a diagnosed native model failure. Native Dome has no UGS UM/UR;this does not claim to fix a nonexistent entropy-loss bug.','source_commit':'2dde3bc1946a3e9fad9abd0612b59fc39bd6b861','source_hashes':{n:sha(source/n) for n in source_files},'loader_sha256':sha(root/'dome_probe_loader.py'),'state_digest':load['state_digest'],'checkpoint_sha256':load['weight_sha256'],'source_math_summary_sha256':sha(root/'A11_坐标插值相位与分布扩散审计_v1'/'summary.json'),'dataset':'Official VisDrone2019-DET-val;12 images and263 GT sqrt area<8 at800-square,prediction-blind selection. Not blind test.','input_asset_sha256':asset['archive_sha256'],'preprocessing':'Exact existing author loader:800-square torchvision bilinear antialiasTrue,float32/255,noImageNet normalization.','seed':2026103012,'phase_forward_cap':13,'budget':'One plain native pass on first image,then12 instrumented native passes. No warmups,model modifications,fits,optimizer or interventions. Prior200-forward phase remains closed.','observations':'Non-mutating hooks onIntegral and innerTransformerDecoder;source raw boxes/logits plus3 layer corner logits/projection means and fixed initial reference.','gates_before_interpretation':['Strict1033-key checkpoint state and source hashes','First native identity exactrawboxes/logits equality','CPU author distance2bbox reconstruction max difference<=2e-6 normalized','No weights or source changes','All selected image hashes match','At least2GiB free before modelCUDA;leave other jobs unchanged'], 'matcher':{'weight_dict':{'cost_class':2,'cost_bbox':5,'cost_giou':2},'use_focal_loss':bool(load['config'].get('use_focal_loss',False)),'alpha':.25,'gamma':2.},'matching_scope':'Unmodified author matcher numeric class;registry decorator omitted. Nonpositive-size raw queries excluded and counted;validGT matchedone-to-one. Diagnostic pairing,not AP.','primary_cohort':'MatchedGT sqrt area<8 at800-square;final-layer four edges. Exclude source-relative GT targets outside bin support.','primary_signals':'Variance V in physicalpixel² versus V-(mu-w_left)(w_right-mu) in same units. Clamp only roundoff negatives >=-1e-10;lower valuesfail.','pairs':'Within eachimage,GTclass,edge side andpredictedmean bininterval;physical binwidth ratio<=2. Good edgeerror<=.5pixel,bad>=1pixel. All such pairs;higher spread shouldidentifybad. Ties=.5.','aggregation':'Per-image pair discrimination then equal-image mean;2000 prefix bootstrap resamples,seed20261030121. Correlated edges/pairs are not independent samples.','bootstrap_seed':20261030121,'minimum_data':'At least8 imagesand8prefixes with pairs,120tinyGT,200 comparable good/bad edgepairs. Otherwise inconclusive,not automatic extension.','primary_gate':'Mean corrected-minus-raw-variance discrimination>=.10 andbootstrap lower>0;secondary corrected-minus-entropy mean>=0. This is a resource-prioritization gate,not confirmatory significance,novelty or AP evidence.','stop':'Exactly13 full forwards at most;fixeddata,seed,thresholds,pairing andmetric. No post-result head/metric/subset/threshold search. No module training from observation alone.','not_claimed':['NativeDome uses entropy minimization','Correctedspread iscalibratedpredictiveuncertainty','Architecture cause ofA9','Detectionortraining gain','Novelalgorithm','Training memoryfeasibility']}
+(out/'protocol.json').write_text(json.dumps(p,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+for name in ('a12_capture_native_distributions.py','a12_distribution_analysis.py'):
+    data=(root/name).read_bytes();(out/name).write_bytes(data)
+files=['protocol.json','asset_selection.json','prediction_blind_val_sources.tar.gz','a12_capture_native_distributions.py','a12_distribution_analysis.py']
+(out/'freeze_manifest.json').write_text(json.dumps({'files':[{'file':n,'sha256':sha(out/n)} for n in files]},indent=2)+'\n',encoding='utf-8')
+with tarfile.open(out/'prediction_blind_val_sources.tar.gz') as tar:
+    assert len(tar.getmembers())==24
+    for r in asset['cases']:
+        assert hashlib.sha256(tar.extractfile('images/'+r['file']).read()).hexdigest()==r['image_sha256']
+        name=Path(r['file']).stem+'.txt'
+        assert hashlib.sha256(tar.extractfile('annotations/'+name).read()).hexdigest()==r['annotation_sha256']
+print(json.dumps({'status':p['status'],'cases':12,'tiny_GT':263,'cap':13,'matcher_focal':p['matcher']['use_focal_loss'],'source_asset_members_verified':24}))

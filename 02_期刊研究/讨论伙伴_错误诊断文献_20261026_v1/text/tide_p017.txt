@@ -1,0 +1,39 @@
+TIDE: A General Toolbox for Identifying Object Detection Errors 17
+Table 3: Errors over thresholds. Evaluating the error types at different foreground IoU
+thresholds (tf ) using Mask R-CNN detections on COCO.
+tf AP E cls Eloc Eboth Edupe Ebkg Emiss EFP EFN
+0.5 61.7 3.3 6.2 1.2 0.2 4.1 7.0 16.6 15.3
+0.6 57.1 2.7 10.6 1.2 0.0 3.5 7.3 16.5 18.3
+0.7 49.7 2.1 18.1 0.9 0.0 2.7 7.0 15.0 23.9
+0.8 36.1 1.3 31.6 0.6 0.0 1.4 6.9 12.9 32.1
+0.9 12.0 0.2 55.1 0.1 0.0 0.3 4.9 9.7 33.2
+0.05. All our analysis in our main paper is done with an IoU threshold (tf ) of 0.5, but
+it’s worth looking at higher thresholds because of this metric.
+In Tab. 3 and Fig. 8 we evaluate the error types over the IoU thresholds 0.5, 0.6, 0.7,
+0.8, and 0.9 using Mask R-CNN detections on COCO. As expected, the error type that
+responds most strongly to higher IoU thresholds is localization error (Fig. 8a), since
+increasing the threshold just makes it harder to localize to the ground truth. We also see
+that false negatives start mattering more than false positives at higher IoU thresholds
+(Fig. 8b).
+Thus, COCO and CityScape’s average over IoU threshold metric is biased heavily
+toward localization errors and to a lesser extent false negatives. This is why Mask
+Scoring R-CNN, which rescores its masks in a way that better calibrates localization
+at the expense of other error types (see Tab. 2 in the main paper), is so effective. Their
+approach makes no signiﬁcant difference atAP50, but at the higher thresholds that are
+biased more toward localization, they get a huge boost, leading to a big improvement in
+AP 0.5:0.95. Moreover, many aspects of YOLACT / YOLACT++ are much worse than
+other methods, which we can see by its detector performance in Fig. 11, but it localizes
+masks on par with other instance segmenters which give it a boost in performance in
+AP 0.5:0.95 for instance segmentation. Whether this is a desirable trait for a metric is
+up to the dataset maintainers, but designers need to take this into consideration when
+prioritizing areas of improvement.
+B Implementation Details
+Here we discuss design choices and implementation details that weren’t able to fully
+explain in the main paper.
+B.1 Deﬁning the Missed GT Oracle
+As we noted in the main paper, creating a deﬁnition for “ﬁxing” false negatives is a
+tricky subject. We outlined two strategies to do so: remove true negatives (i.e., lower
+NGT ) or add true positives (i.e., add a detection). We chose the former because the latter
+required us to choose a score for this new detection. In this section, we elaborate why
+choosing the right score is difﬁcult and may lead to false conclusions. We do this by
+evaluating several reasonable techniques for choosing this score.

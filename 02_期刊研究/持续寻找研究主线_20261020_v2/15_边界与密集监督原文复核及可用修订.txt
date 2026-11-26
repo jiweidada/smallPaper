@@ -1,0 +1,24 @@
+本轮新增的原文/源码核对，供剩余专家补答和候选修订。不是新增数值结果，不将未做检查说成已完成。
+
+1. 边界路线的实际最近原文
+BorderDet ECCV2020，12_BorderDet原PDF（项目已有）及_text正文§3.2–3.3已读。它从粗框四边按位置做双线性采样，各边独立通道最大池化，结合原点特征，再做细框/类别预测。因此“粗框决定边界读取，再修框”确实已有。
+https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123460528.pdf
+SABL ECCV2020，78_SABL原PDF（项目已有）及_text正文§3.1–3.2已读。它RoIAlign→二维特征按方向加权聚合→四边特征→桶分类和桶内偏移。因此“每边专门特征/范围加细回归”已有，但不等于明确成对内外差分。
+https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123490392.pdf
+A的成对内外均值差、零初始化和生成FDR初始参考的位置是具体剩余差别。线性拼接已经包含差分作为权重约束，不能声称扩大表达能力。concat输入2C若直接接4输出，其参数自然是差分C的两倍；不能同时原通道数和参数量都声称完全相同，需定义压缩/共享权重或显式报告成本。
+Claude所说“GT不与条带相交就必无信息”不成立：骨干特征有超过采样点的感受野。精确条带相交表只能是读取几何位置的描述，不能是候选是否具备目标信息的必要条件。不能据几何相交0直接证明没有特征信号。若做虚拟分支更新，可直接检验实际特征的跨批可用性，比无限加相交表更有判别力。
+历史fine_residual_20261008_v4/geometry.py已在旧阶段核过：P3细节在encoder原初框头之前残差加入；两个候选训练被用户停止于10/17轮，不是当前pre首层条带差分。它不是完全相同的结构，但不能忘记此项目已尝试局部高分辨率几何残差且没有完成正证据。
+
+2. 密集监督路线的实际最近原文
+RT-DETRv3 WACV2025，项目“专家组_20261007_RTDETRv3_WACV2025_arXiv2409.08475v1.pdf”，原§3.1、§3.3已读：在多尺度encoder输出接PP-YOLOE式独立CNN辅助头，ATSS→TaskAlign分配，分类VFL+几何DFL，训练使用、推理丢弃。不能写成原文没有处理encoder稀疏监督。Claude的剩余差别是直接复用原enc_bbox_head且只补几何、中心位点一GT取舍；这更像对稀疏监督机制的具体拆分，尚未证明它超过全任务密集监督。
+https://arxiv.org/abs/2409.08475
+Co-DETR ICCV2023已归档，原文§3.2–3.3：辅助一对多head的encoder监督，并按正坐标生成额外decoder queries。与“直接只监督原回归头”不是严格同公式，但共享主原则，不可把增加encoder几何正样本当新原理。
+https://openaccess.thecvf.com/content/ICCV2023/papers/Zong_DETRs_with_Collaborative_Hybrid_Assignments_Training_ICCV_2023_paper.pdf
+冻版dfine_decoder.py _get_decoder_input约828–850行：先enc_score_head对dense memory分类，再topk，enc_bbox_head只对gather后的memory计算框。未入选位点没有这一次直接框监督，但头是共享的，仍有经其他位点/decoder cross-attention的间接学习，不能说其回归头从未被训练。
+Claude建议“同分数分档下入选框比未选框差就否定监督缺口主因”不能识别因果；topk本身由分数和图内竞争决定，且当前入选不是历史入选频率。最多描述表，不足以得出欠训练是否是主因。若要测这个设计，更直接的是同预算独立虚拟步：新增几何vs同位点分类+几何vs简单更多位点/随机同预算，评价另一批的原生指标和原目标保真。需要事前定义中心冲突与完整参数/当前Adam，不能自动承诺通过。
+
+3. 可用的另一处已核源码事实（不是新机制结果）
+原enc proposal的特征和参考坐标可有差异：decoder初始content=enc_topk_memory.detach()，位置由sigmoid(enc_bbox_head(memory)+anchor)给出，而后者可偏离原memory网格中心。DINO则content静态learnable、只用encoder初始化位置，原§3.4已核。因此若要重访初始化，必须面对DINO静态内容/直接采样回归中心/原本已存在的cross-attention三种强简单对照，不宜仅提出新query门控。
+原MAL代码loss_labels_mal：matched真类target=IoU^gamma、weight=1，其他类weight=p^gamma。因此IoU0 matched真类也被压低分数，是DEIM设计本身，不能把读出这条公式当新发现或无效性证明。DEIM原CVPR2025§3已有低质量匹配的MAL动机；是否对tiny优化造成特定问题需要实际检验，不能凭公式反过来保证换focal有用。
+
+请剩余B/C先修订前人具体设计、补清方法增量和最低成本判别，不要只把以上近邻名称当否决票。也可从这些实质变量之外提出更好的方法。没有达到训练资格时新目标保持活动，且当前不训练、不远程、不监测。

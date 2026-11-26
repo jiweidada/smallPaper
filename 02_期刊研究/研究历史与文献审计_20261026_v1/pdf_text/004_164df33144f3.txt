@@ -1,0 +1,131 @@
+FSDC-DETR: A Frequency-Spatial Domain
+Collaborative DETR for Small Object Detection
+Aiwen Liu1 , Chengguang Zhu1(/envel⌢pe), Gang Wang1, Dandan Zhu2 , Haodong
+Lin1 , Yan Wang4, Huiyu Zhou3 , and Zhengyi Pan1
+1 Micro-Intelligence, Shanghai 201100, China
+nevereverinsomnia@gmail.com, chengguang.zhusjtu@gmail.com,
+{roy.wang,haodong.lin,eric.pan}@micro-i.com.cn
+2 East China Normal University, Shanghai 200241, China
+ddzhu@mail.ecnu.edu.cn
+3 University of Leicester, Leicester LE1 7RH, UK
+hz143@leicester.ac.uk
+4 Chongqing Normal University, Chongqing 401331, China
+Abstract.Small object detection (SOD) remains a challenging task in
+real-world applications. Despite recent advances, existing detectors re-
+main limited by rigid processing that entangle spatial aggregation with
+implicit frequency aliasing and truncation, leading to inadequate preser-
+vation of high-frequency components for SOD. To tackle these limita-
+tions, we propose a Frequency-Spatial Domain Collaborative Detection
+Transformer (FSDC-DETR), a novel collaborative framework that ex-
+plicitly models complementary spatial and frequency representations.
+Specifically, we first introduce Dual-Branch Frequency-Spatial Adaptive
+Fusion (DBFSAF) to enhance frequency diversity and adaptively cap-
+ture frequency-spatial domain discriminative representations. Building
+on these representations, a frequency-spatial interaction scheme is fur-
+ther explored within the hybrid encoder to enable progressive feature
+propagation to the decoder. In particular, structure-aware frequency-
+spatial aggregation is achieved through Shunt Frequency-Spatial Fea-
+ture Fusion (SFS-FF), establishing bidirectional interaction and pro-
+gressive cross-scale propagation between frequency and spatial repre-
+sentations for coherent discriminative modeling. Meanwhile, informative
+high-frequency responses are preserved during scale transitions through
+Frequency-Spatial Dynamic Downsampling (FSD-Down), thereby mini-
+mizing frequency degradation throughout multi-scale fusion for the pre-
+cise SOD. Experimental results demonstrate that FSDC-DETR achieves
+state-of-the-artperformance,improvingAPby6.4onVisDrone-DET2019
+and 6.6 on AITODv2, with gains of 6.8 and 6.9 AP for small objects. The
+code is available athttps://github.com/nevereverinsomnia/FSDC-
+DETR.
+Keywords:small object detection·detection transformer·frequency-
+spatial collaborative modeling·multi-scale feature fusion
+⋆ Aiwen Liu, Chengguang Zhu, and Gang Wang — Equal contribution.
+
+---PAGE---
+
+2 Liu et al.
+1 Introduction
+Object detection is a fundamental task in computer vision that has witnessed
+significant progress in recent years, supporting a wide range of applications such
+as industrial defect detection [12,37,79,90], aerial surveillance [11,22,39,80],
+remote sensing [2,34,53,54], medical lesion analysis [16,73,88], and autonomous
+systems [13,52,75,83]. Most of these advances have been driven by Convolu-
+tional Neural Network (CNN)-based detectors, which typically rely on a se-
+ries of manually designed components, such as anchor box generation and non-
+maximum suppression (NMS), and remain heavily dependent on human exper-
+tise [18,27,49,63]. These components often require extensive task-specific tuning,
+making the overall detection pipeline complex and inefficient in real-world appli-
+cations. More recently, the end-to-end Transformer-based Detection Transformer
+(DETR) framework has been introduced to largely alleviate these limitations by
+reformulating object detection as a direct set prediction problem [4]. Subsequent
+DETR-based variants have further improved the detection accuracy while sig-
+nificantly improving inference efficiency [25,35,43,92]. However, these advances
+are primarily designed for generic object detection and still face substantial chal-
+lenges when applied to small object detection (SOD), particularly in scenarios
+such as industrial defect detection and aerial imagery acquired from unmanned
+aerial vehicles (UAVs) and satellites.
+0.0 0.1 0.2 0.3 0.4 0.5
+Low frequency     High frequency
+0.00
+0.05
+0.10
+0.15
+0.20Frequency response
+Channel 0
+Channel 1
+Channel 2
+Channel 3
+Channel 4
+(a)CNN
+0.0 0.1 0.2 0.3 0.4 0.5
+Low frequency     High frequency
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25Frequency response
+Channel 0
+Channel 1
+Channel 2
+Channel 3
+Channel 4 (b)ViT
+0.0 0.1 0.2 0.3 0.4 0.5
+Low frequency     High frequency
+0.00
+0.05
+0.10
+0.15
+0.20Frequency response
+Channel 0
+Channel 1
+Channel 2
+Channel 3
+Channel 4 (c)DEIMv2
+0.0 0.1 0.2 0.3 0.4 0.5
+Low frequency     High frequency
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30Frequency response
+Channel 0
+Channel 1
+Channel 2
+Channel 3
+Channel 4 (d)FSDC-DETR
+Fig. 1:Frequency response analysis of different backbone architectures.
+SOD focuses on identifying and localizing objects with extremely limited
+spatial extent in images [68,77]. Although spatially limited, these objects play
+a critical role in real-world applications. The challenges of SOD mainly stem
+from insufficient feature representation capacity in the model backbone, key in-
+formation loss in the deeper layers of feature hierarchies, and frequency-domain
+aliasing during multi-scale feature fusion. As a result, small objects often experi-
+ence feature loss and inadequate representation, which leads to reduced detection
+accuracy. RT-DETR [92] improves inference efficiency by decoupling intra-scale
+and cross-scale interactions, yet it does not explicitly model frequency-domain
+representations. As a result, high-frequency details are implicitly attenuated dur-
+ing feature aggregation and downsampling, leading to the loss of fine-grained in-
+formation critical for SOD tasks. As illustrated in Fig. 1(a)-(b), CNN and Vision
+Transformer (ViT) backbones exhibit substantially different frequency response

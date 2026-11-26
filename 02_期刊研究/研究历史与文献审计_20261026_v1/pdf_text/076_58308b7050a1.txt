@@ -1,0 +1,230 @@
+FULLY CONVOLUTIONAL SIAMESE NETWORKS FOR CHANGE DETECTION
+Rodrigo Caye Daudt 1,2, Bertrand Le Saux 1, Alexandre Boulch1
+1DTIS, ONERA, Universit´e Paris-Saclay, FR-91123 Palaiseau, France
+2LTCI, T´el´ecom ParisTech, FR-75013 Paris, France
+ABSTRACT
+This paper presents three fully convolutional neural network
+architectures which perform change detection using a pair of
+coregistered images. Most notably, we propose two Siamese
+extensions of fully convolutional networks which use heuris-
+tics about the current problem to achieve the best results in our
+tests on two open change detection datasets, using both RGB
+and multispectral images. We show that our system is able to
+learn from scratch using annotated change detection images.
+Our architectures achieve better performance than previously
+proposed methods, while being at least 500 times faster than
+related systems. This work is a step towards efﬁcient process-
+ing of data from large scale Earth observation systems such
+as Copernicus or Landsat.
+Index Terms — Change detection, supervised machine
+learning, fully convolutional networks, Earth observation.
+1. INTRODUCTION
+Change Detection (CD) is one of the main problems in the
+area of Earth observation image analysis. Its study has a long
+history, and it has evolved alongside the areas of image pro-
+cessing and computer vision [1, 2]. Change detection sys-
+tems aim to assign a binary label per pixel based on a pair
+or sequence of coregistered images of a given region taken
+at different times. A positive label indicates the area corre-
+sponding to that pixel has changed between the acquisitions.
+While the deﬁnition of ”change” may vary between applica-
+tions, CD is a well deﬁned classiﬁcation problem. Changes
+may refer, for example, to vegetation changes, urban expan-
+sion, polar ice melting, etc. Change detection is a powerful
+tool in the production of maps depicting the evolution of land
+use, urban coverage, deforestation, and other multi-temporal
+types of analysis.
+Programs such as Copernicus and Landsat make available
+large amounts of Earth observation imagery. These can be
+used in conjunction with advanced supervised machine learn-
+ing algorithms that have been on the rise for the past decade,
+especially in the area of image analysis. It is therefore of in-
+terest to ﬁnd efﬁcient ways to make use of the available data.
+In the context of change detection there is a lack of large anno-
+tated datasets, which limits the complexity of the models that
+can be used. Nevertheless, there are available pixelwise anno-
+tated change detection datasets available that can be used to
+train supervised machine learning systems that detect changes
+in image pairs, such as the Onera Satellite Change Detection
+dataset1 presented in [3] and the Air Change dataset [4].
+In this paper we present three Fully Convolutional Neural
+Network (FCNN) architectures that perform change detection
+on multi-temporal pairs of images Earth observation images.
+These architectures are trained end-to-end from scratch using
+only the available change detection datasets. The networks
+are tested in both the RGB and multispectral cases when pos-
+sible. They are extensions of the ones presented in [3], which
+was the ﬁrst CD method to be trained end-to-end, to a fully
+convolutional paradigm. This improves both the accuracy
+and the inference speed of the networks without increasing
+the training times. We present fully convolutional encoder-
+decoder networks that use the skip connections concept in-
+troduced in [5]. We also propose for the ﬁrst time two fully
+convolutional Siamese architectures using skip connections.
+This paper is organized as follows. Section 2 explores
+other works that were used for inspiration or comparison dur-
+ing the development of this work. Section 3 describes in detail
+the three proposed FCNN architectures for change detection.
+Section 4 contains quantitative and qualitative comparisons
+with previous change detection methods. Finally, Section 5
+contains this work’s concluding remarks.
+2. RELA TED WORK
+The history of change detection began not long after aerial
+images became possible [1, 2]. The proposed techniques
+have followed the tendencies of computer vision and image
+analysis: at ﬁrst, pixels were analyzed directly using manu-
+ally crafted techniques; later on, descriptors began to be used
+in conjunction with simple machine learning techniques [6];
+recently, more elaborate machine learning techniques (deep
+learning) are dominating most problems in the image analy-
+sis ﬁeld, and this evolution is slowly reaching the problem of
+change detection [7, 8, 9, 10, 11, 3, 12].
+Due to the limited amount of available data, most of these
+methods use various techniques based on transfer learning,
+1http://dase.grss-ieee.org/
+
+---PAGE---
+
+Input 1 + Input 2
+Output
+2C🡒16🡒16
+16🡒32🡒32
+32🡒64🡒64🡒64
+64🡒128🡒128🡒128
+256🡒128🡒128🡒64
+128🡒64🡒64🡒32
+64🡒32🡒16
+32🡒16🡒2
+32🡒32, up 2
+128🡒128, up 2
+16🡒16, up 2
+64🡒64, up 2
+Max-Pool. 2x2
+Concat.
+Max-Pool. 2x2
+Max-Pool. 2x2
+Concat.
+Concat.
+Concat.
+Max-Pool. 2x2
+(a) FC-EF.
+Input2
+Output
+C🡒16🡒16
+16🡒32🡒32
+32🡒64🡒64🡒64
+64🡒128🡒128🡒128
+384🡒128🡒128🡒64
+192🡒64🡒64🡒32
+96🡒32🡒16
+48🡒16🡒2
+32🡒32, up 2
+128🡒128, up 2
+16🡒16, up 2
+64🡒64, up 2
+Max-Pool. 2x2
+Concat.
+Max-Pool. 2x2
+Max-Pool. 2x2
+Concat.
+Concat.
+Concat.
+Max-Pool. 2x2
+C🡒16🡒16
+16🡒32🡒32
+32🡒64🡒64🡒64
+64🡒128🡒128🡒128
+Max-Pool. 2x2
+Max-Pool. 2x2
+Max-Pool. 2x2
+Input1 (b)FC-Siam-conc.
+Input2
+Output
+C🡒16🡒16
+16🡒32🡒32
+32🡒64🡒64🡒64
+64🡒128🡒128🡒128
+256🡒128🡒128🡒64
+128🡒64🡒64🡒32
+64🡒32🡒16
+32🡒16🡒2
+32🡒32, up 2
+128🡒128, up 2
+16🡒16, up 2
+64🡒64, up 2
+Max-Pool. 2x2
+Concat.
+Max-Pool. 2x2
+Max-Pool. 2x2
+Concat.
+Concat.
+Concat.
+Max-Pool. 2x2
+C🡒16🡒16
+16🡒32🡒32
+32🡒64🡒64🡒64
+64🡒128🡒128🡒128
+Max-Pool. 2x2
+Max-Pool. 2x2
+Max-Pool. 2x2
+Input1 (c) FC-Siam-diff.
+Fig. 1. Schematics of the three proposed architectures for change detection. Block color legend: blue is convolution, yellow is
+max pooling, red is concatenation, purple is transpose convolution. Red arrows illustrate shared weights.
+taking as a starting point networks that have been trained on
+larger datasets for different problems. This is limiting in many
+ways, as it assumes similarities between these datasets and
+the relevant change detection data. For example, most of the
+networks have been trained on RGB images, and cannot be
+transfered for SAR or multispectral images, which is the case
+of the dataset presented in [3]. These methods also avoid end-
+to-end training, which tends to have better results for success-
+fully trained systems. For this reason, the focus of this paper
+is algorithms that are able to learn solely from the available
+change detection data, and can therefore be applied to any
+available datasets.
+Using machine learning for comparing images is not a
+new idea. Convolutional Neural Networks (CNNs) are a fam-
+ily of algorithms especially suited for image analysis, and
+have been applied in different contexts for the comparison of
+image pairs [13, 14, 7]. Recently, fully convolutional archi-
+tectures (FCNNs) have been proposed for problems that in-
+volve dense prediction, i.e. pixel-level prediction [15, 5, 16].
+Despite achieving state-of-the-art results in other Earth ob-
+servation problems [17], these techniques have not yet been
+applied to CD to the best of our knowledge. The usefulness
+of such ideas in the context of Earth observation and their
+superiority over patch based, superpixel based and other ap-
+proaches has already been studied [18]. Siamese architectures
+have also been proposed in different contexts with the aim of
+comparing images [19, 14]. To our knowledge, the only time
+a fully convolutional Siamese network was proposed previ-
+ously was by Bertinetto et al. in [16] to tackle the problem of
+object tracking in videos. Despite achieving good results, the
+architecture that was proposed in that work is speciﬁc to that
+problem and was not used as an inspiration to this work.
+3. PROPOSED APPROACH
+The work presented in this paper aimed to propose FCNN
+architectures able to learn to perform change detection solely
+from change detection datasets without any sort of pre-
+training or transfer learning from other datasets. These archi-
+tectures are able to be trained end-to-end, unlike the majority
+of recent works on change detection. These fully convolu-
+tional architectures are an evolution of the work presented
+in [3], where a patch based approach was used. Moving the
+patch-based architectures to a fully convolutional scheme
+improves accuracy and speed of inference without affecting
+signiﬁcantly the training times. These fully convolutional
+networks are also able to process inputs of any sizes given
+enough memory is available.
+Two CNN architectures were compared in [3]: Early Fu-
+sion (EF) and Siamese (Siam). The EF architecture concate-
+nated the two patches before passing them through the net-
+work, treating them as different color channels. The Siamese
+architecture processed both images separately at ﬁrst by iden-
+tical branches of the network with shared structure and pa-
+rameters, merging the two branches only after the convolu-
+tional layers of the network.
+To extend these ideas we used the concept of skip connec-
+tions that were used to build the U-Net, which aimed to per-
+form semantic segmentation of images [5]. In summary, skip
+connections are links between layers at the same subsampling

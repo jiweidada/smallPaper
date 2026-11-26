@@ -1,0 +1,37 @@
+16 D. Bolya et al.
+This isn’t a huge issue, as the relative magnitudes of each error type can still be compared.
+However, it’s something that needs to be kept in mind while analyzing performance.
+Second, and a related issue is that summing the ∆APa for each error typea does
+not result in 100−AP . For instance, consider the special error types (FP and FN),
+which should account for all the error in the model. If we use the numbers from the
+same Tab. 2 for Mask R-CNN (ﬁrst row), adding theAP50 with∆APF P and∆APF N
+(58.1 + 15.9 + 17.8) yields 91.8, not 100. Similarly, for YOLACT++ we have (51.8 +
+10.7 + 27.7) 90.2, which is again not 100. More concretely, forO ={o1,...,o n} this
+means in general
+AP +∆APo1 +... +∆APon̸= 100 (6)
+This is a direct result of not computing errors progressively (Fig. 2 in the main paper),
+where the errors sum to 100, and in fact is an odd property of AP explained in Sec. 2.3 of
+the main paper: ﬁxing multiple errors at once gives a bigger boost inmAP than ﬁxing
+each error on their own.
+Both of these issues have an underlying cause that we can see if we write out the
+same expression as in Eq. 6 but with progressive error:
+AP +∆APo1,...,on = 100 (7)
+which begs the question, how can we relate ∆APa +∆APb to∆APa,b? It turns out
+that they differ by (∆APa−∆APa|b).
+To show this, we ﬁrst split each term into its deﬁnition:
+∆APa,b =APa,b−AP ∆AP a +∆APb =APa +APb− 2AP (8)
+Then we rearrange the terms for the left equation to get it in terms of AP:
+AP =APa,b−∆APa,b (9)
+Then, substitute 1 AP into the right equation in Eq. 8 to get
+∆APa +∆APb =APa +APb−AP−APa,b +∆APa,b (10)
+We can then group APa−AP and−(APa,b−APb) and substitute them with the
+deﬁnitions for∆APa and−∆APa|b respectively (if collecting the terms a different way
+we could swapa andb here). This leaves us with the following:
+∆APa +∆APb =∆APa,b + (∆APa−∆APa|b) (11)
+Since the∆APa|b >∆AP a in most cases (following the reasoning given in Sec. 2.3),
+this means∆APa,b >∆AP a +∆APb in most cases.
+Oddities like this are why such great care needs to be taken when working withAP ,
+since the properties it has are not intuitive.
+A.2 AP 0.5:0.95
+The primary metric used in the COCO and CityScapes challenges isAP 0.5:0.95, or the
+average ofmAP across 10 IoU thresholds starting from 0.5 to 0.95 with increments of

@@ -1,0 +1,168 @@
+DetRefiner: Model-Agnostic Detection Refinement with Feature Fusion
+Transformer
+Soichiro Okazaki1 Tatsuya Sasaki1 Hiroki Ohashi1
+1Hitachi, Ltd. Research and Development Group, Japan
+{soichiro.okazaki.xs, tatsuya.sasaki.gb, hiroki.ohashi.uo}@hitachi.com
+Abstract
+Open-vocabulary object detection (OVOD) aims to detect
+both seen and unseen categories, yet existing methods often
+struggle to generalize to novel objects due to limited inte-
+gration of global and local contextual cues. We propose
+DetRefiner, a simple yet effective plug-and-play framework
+that learns to fuse global and local features to refine open-
+vocabulary detection. DetRefiner processes global image
+features and patch-level image features from foundational
+models (e.g., DINOv3) through a lightweight Transformer
+encoder. The encoder produces a class vector capturing
+image-level attributes and patch vectors representing local
+region attributes, from which attribute reliability is inferred
+to recalibrate the base model’s confidence. Notably, De-
+tRefiner is trained independently of the base OVOD model,
+requiring neither access to its internal features nor retrain-
+ing. At inference, it operates solely on the base detector’s
+predictions, producing auxiliary calibration scores that are
+merged with the base detector’s scores to yield the final re-
+fined confidence. Despite this simplicity, DetRefiner con-
+sistently enhances multiple OVOD models across COCO,
+LVIS, ODinW13, and Pascal VOC, achieving gains of up
+to +10.1 AP on novel categories. These results highlight
+that learning to fuse global and local representations offers
+a powerful and general mechanism for advancing open-
+world object detection. Our codes and models are avail-
+able athttps://github.com/hitachi-rd-cv/
+detrefiner.
+1. Introduction
+Object detection aims to localize and categorize visual in-
+stances by predicting bounding boxes and class labels. Con-
+ventional detectors [1, 34] and more recent Transformer-
+based models [2, 49] have achieved remarkable progress by
+learning powerful visual representations and global context
+modeling. However, their label spaces are typicallyclosed,
+constrained to a fixed set of categories defined during train-
+Figure 1. Qualitative comparison onLVISbetween the baseline
+detector (Grounding DINO-T [29]) and the proposedDetRefiner.
+DetRefiner significantly improves detection performance (AP r:
+19.9→30.0 / AP all: 27.4→34.1), successfully detecting more
+objects and producing better calibrated scores (e.g.,fork,knife,
+painting,polo shirt). For visualization, a box score threshold of
+0.3 and an IoU threshold of 0.3 are applied for class-wise NMS.
+ing. This closed-world assumption severely limits scalabil-
+ity in practical applications, where new concepts continu-
+ally emerge, long-tail categories are common, and unseen
+objects frequently appear in the wild [11, 44].
+Open-vocabulary object detection (OVOD) addresses
+this limitation by coupling region localization with text-
+based classification, typically leveraging large-scale vision–
+language pretraining (VLP) models [16, 32]. These mod-
+This CVPR Findings paper is the Open Access version, provided by the Computer Vision
+Foundation. Except for this watermark, it is identical to the accepted version;
+the final published version of the proceedings is available on IEEE Xplore.
+6890
+
+
+---PAGE---
+
+els learn joint image–text representations from web-scale
+data and enable category generalization beyond the train-
+ing label set. Building on this foundation, methods such
+as ViLD [10] and RegionCLIP [52] extend pretrained em-
+beddings to the detection setting, aligning region propos-
+als with textual concepts to recognize unseen categories.
+More recent approaches including GLIP [25] and Ground-
+ing DINO [29] jointly optimize grounding and detection
+for stronger open-vocabulary generalization, allowing cat-
+egories to be specified at inference time as natural-language
+prompts.
+Despite this flexibility, OVOD models still struggle with
+semantic alignmentandscore calibration[37, 45, 46, 51].
+The image–text representations learned via pretraining may
+misalign with a detector’s region embeddings, making it
+difficult to reliably match visual features to textual de-
+scriptions [37, 46]. Furthermore, detectors frequently en-
+counter ambiguous or fine-grained categories, where visu-
+ally similar objects correspond to semantically overlapping
+prompts. In such cases, confidence scores often become un-
+stable and poorly calibrated: high scores may be assigned
+to visually or semantically incorrect detections, while cor-
+rect predictions—especially for rare or unseen categories—
+receive low confidence [45, 51].
+We address these issues by introducingDetRefiner, a
+lightweight, detector-agnostic plug-and-play module that
+post hocrefines OVOD predictions. DetRefiner operates
+purely on the outputs of existing detectors at inference time
+and jointly reasons about image-level and box-level confi-
+dence. It produces semantically aligned and well-calibrated
+confidence scores for ambiguous, fine-grained, and rare or
+unseen categories.
+Concretely, DetRefiner fuses global and local features
+extracted from DINO [3, 39] using a compact Transformer-
+based encoder [43], producing aclass vectorthat captures
+global scene semantics and apatch vectorthat encodes local
+region evidence. These embeddings jointly predict refined
+confidence scores, which are used to recalibrate the base
+detector’s predictions and correct classification inconsisten-
+cies. To further improve semantic alignment, calibration,
+and generalization to rare and unseen categories, we in-
+troduce a distillation-based alignment mechanism [14, 36]
+that transfers semantic knowledge from CLIP-based vision–
+language models [32, 42, 48], encouraging both vectors to
+inherit strong vision–language alignment. In practice, we
+run the base OVOD detector with a zero detection thresh-
+old and refine all candidate boxes in a single forward pass,
+enabling DetRefiner to rescue many low-scored but correct
+boxes while keeping the inference overhead moderate. Fig-
+ure 1 and Figure 3 illustrate how our method improves de-
+tection results on LVIS by producing semantically coherent
+and well-calibrated outputs, while also addressing common
+failure modes.
+Our contributions are threefold:
+1.Lightweight fusion of global and local features.We
+design a 7.5M-parameter Transformer encoder that fuses
+global and local features from DINO [3, 39] into class
+and patch vectors, which recalibrate base detector scores
+without modifying or retraining the detector.
+2.Distillation-enhanced calibration for rare and unseen
+categories.We apply a knowledge distillation loss from
+CLIP-based image features [32, 42, 48] to both class
+and patch vectors, enabling DetRefiner to inherit strong
+vision–language alignment and improve calibration on
+rare and unseen classes.
+3.Consistent gains across diverse detectors and bench-
+marks.Our method consistently improves multiple
+OVOD models [9, 25, 29, 50] on COCO [28], LVIS [11],
+ODinW13 [24, 25], and Pascal VOC [7], achieving up to
++10.1 APimprovement on rare and unseen categories.
+2. Related Work
+2.1. Open-Vocabulary Object Detection
+Open-vocabulary object detection (OVOD) [5, 10, 19, 25,
+29, 31, 47, 52, 53] extends traditional detection by recog-
+nizing categories beyond a fixed label set through vision–
+language alignment. Early methods such as OVR-CNN [47]
+and MDETR [19] ground textual queries to visual regions
+via multimodal pretraining, while ViLD [10] and Region-
+CLIP [52] align region proposals with textual embeddings
+for zero-shot recognition. More recent models, includ-
+ing GLIP [25] and Grounding DINO [29], jointly optimize
+grounding and detection for stronger open-vocabulary gen-
+eralization.
+Our DetRefiner is complementary to these frameworks:
+instead of designing a new detector, it operateson top of
+existing OVOD models and post hoc refines both image-
+and box-level confidence without modifying or retraining
+the base model.
+2.2. Complementary Approaches for OVOD Models
+To mitigate semantic misalignment and unreliable confi-
+dence estimation, recent studies propose complementary
+methods that augment existing detectors. SIC-CADS [8]
+performs image-level confidence calibration using contex-
+tual cues, improving reliability without altering the detec-
+tor but leaving box-level scores unchanged. DVDet [18]
+uses LLM-assisted descriptor generation and conditional
+prompts to expand detector vocabularies and enhance se-
+mantic consistency, yet requires joint training with the base
+detector and access to internal features. CODet [26] lever-
+ages LLM-guided pseudo-labeling based on visual–textual
+co-occurrence to refine box-level predictions during train-
+ing, and it also requires access to the detector’s internal ar-
+chitecture.
+6891

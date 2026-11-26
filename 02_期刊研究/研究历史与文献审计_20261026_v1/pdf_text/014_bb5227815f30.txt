@@ -1,0 +1,171 @@
+Integrating Diverse Assignment Strategies into DETRs
+Yiwei Zhang1,2,5*, Jin Gao1,2,5† , Hanshi Wang1,2,5, Fudong Ge1,2,5,
+Guan Luo1,2,5, Weiming Hu1,2,5,6, Zhipeng Zhang3,4†
+1State Key Laboratory of Multimodal Artificial Intelligence Systems (MAIS), CASIA
+2School of Artificial Intelligence, University of Chinese Academy of Sciences
+3AutoLab, School of Artificial Intelligence, Shanghai Jiao Tong University,
+4Anyverse Robotics
+5Beijing Key Laboratory of Super Intelligent Security of Multi-Modal Information
+6School of Information Science and Technology, ShanghaiTech University
+zhipeng.zhang.cv@outlook.com, jin.gao@nlpr.ia.ac.cn, ywzhang.ai@gmail.com
+Abstract
+Label assignment is a critical component in object detec-
+tors, particularly within DETR-style frameworks where the
+one-to-one matching strategy, despite its end-to-end elegance,
+suffers from slow convergence due to sparse supervision.
+While recent works have explored one-to-many assignments
+to enrich supervisory signals, they often introduce complex,
+architecture-specific modifications and typically focus on a
+single auxiliary strategy, lacking a unified and scalable de-
+sign. In this paper, we first systematically investigate the
+effects of “one-to-many” supervision and reveal a surpris-
+ing insight that performance gains are driven not by the
+sheer quantity of supervision, but by the diversity of the
+assignment strategies employed. This finding suggests that
+a more elegant, parameter-efficient approach is attainable.
+Building on this insight, we propose LoRA-DETR, a flexi-
+ble and lightweight framework that seamlessly integrates di-
+verse assignment strategies into any DETR-style detector.
+Our method augments the primary network with multiple
+Low-Rank Adaptation (LoRA) branches during training, each
+instantiating a different one-to-many assignment rule. These
+branches act as auxiliary modules that inject rich, varied su-
+pervisory gradients into the main model and are discarded
+during inference, thus incurring no additional computational
+cost. This design promotes robust joint optimization while
+maintaining the architectural simplicity of the original de-
+tector. Extensive experiments on different baselines validate
+the effectiveness of our approach. Our work presents a new
+paradigm for enhancing detectors, demonstrating that diverse
+“one-to-many” supervision can be integrated to achieve state-
+of-the-art results without compromising model elegance.
+Code — https://github.com/Z1zyw/LoRA-DETR
+Introduction
+Label assignment, which involves matching predicted ob-
+jects to ground-truth annotations during training, serves as a
+foundational component in object detection methods. It crit-
+ically determines which predictions are treated as positive
+*Work done co-mentored by Prof. Zhipeng Zhang.
+† Corresponding author.
+Copyright © 2026, Association for the Advancement of Artificial
+Intelligence (www.aaai.org). All rights reserved.
+or negative samples, thereby shaping the optimization pro-
+cess and ultimately influencing the detector’s performance.
+Traditional detectors, such as Faster R-CNN (Ren et al.
+2015) and RetinaNet (Lin et al. 2017), typically employ
+hand-crafted rules based on anchors and IoU thresholds for
+this assignment, followed by Non-Maximum Suppression
+(NMS) to eliminate redundant predictions from overlapping
+anchors. In contrast, recent transformer-based frameworks
+like DETR (Carion et al. 2020) have introduced more prin-
+cipled mechanisms of one-to-one matching via the Hungar-
+ian algorithm, which assigns each object query to a unique
+ground-truth target. This approach effectively obviates the
+need for NMS during inference.
+While the one-to-one assignment strategy in DETR-style
+detection frameworks enables a clean, end-to-end formula-
+tion, it inherently limits the number and diversity of positive
+samples during training, resulting in slow convergence. To
+address this limitation, recent studies have explored “one-to-
+many” assignment strategies to enhance supervision. How-
+ever, incorporating these strategies often entails non-trivial
+modifications to the decoder pipeline. Such architectural
+modifications, as observed in certain methods (Zhao et al.
+2024), introduce unnecessary complexity that departs from
+the elegant simplicity of the original DETR design, mak-
+ing them potentially avoidable via more efficient approaches
+that maintain the core structure while delivering comparable
+or superior supervision gains. More interestingly, as we will
+demonstrate in the later section, the benefits of some modifi-
+cation appear to be less significant than previously assumed.
+Moreover, in addition to this limitation, another issue is
+that these methods are typically tailored to a single auxil-
+iary assignment strategy, with their integration mechanisms
+tightly coupled to specific architectures or training proce-
+dures. This absence of a unified design hampers their scala-
+bility and flexibility, particularly when incorporating multi-
+ple assignment strategies is desired.
+Then, how can we devise a more elegant, flexible, and ef-
+fective one-to-many assignment design for object detection?
+To investigate this, we begin with a straightforward de-
+sign inspired by MS-DETR (Fig. 1(b)), adapting the vanilla
+DETR decoder layer (Fig. 1(a)) into a multi-branch struc-
+The Fortieth AAAI Conference on Artificial Intelligence (AAAI-26)
+12943
+
+---PAGE---
+
+(a) DETR
+ (b) MS-DETR
+ (c) Multi-Branches Design
+ (d) LoRA-DETR (ours)
+Figure 1: Different Decoder Architectures. (a) Standard DETR decoder layer, supervised solely by the one-to-one Hungarian
+matching strategy. (b) MS-DETR design that exchanges the positions of the cross-attention and self-attention modules, enabling
+supervision from both one-to-one and one-to-many assignment strategies, where cross-attention is guided by the latter. (c) A
+naive multi-branch extension of (a), where multiple FFNs are independently supervised by different assignment strategies.
+(d) Our proposed LoRA-DETR, which integrates lightweight LoRA branches to support multiple assignment strategies with
+minimal structural overhead. For clarity, the figure simplifies the merge between LoRA and FFN; see Eq. (3) for details. In all
+designs, only the primary branch output is fed to the next decoder layer.
+ture (Fig. 1(c)). In this setup, we integrate parallel feedfor-
+ward networks (FFNs) into the decoder layers and super-
+vise each with either identical or distinct assignment strate-
+gies. The main branch and auxiliary branches respectively
+use one-to-one and one-to-many assignment strategies. Ex-
+perimental results, detailed in Tab. 1, offer valuable insights
+through targeted comparisons. (1) Simplifying MS-DETR
+to a DETR-like structure with an independent auxiliary FFN
+(#2 vs. #3) results in only a negligible performance decline
+(< 0.1%), underscoring that the benefits of decoder modifi-
+cations for one-to-many training have likely been exagger-
+ated. (2) Building on this, experiments with additional aux-
+iliary branches using identical one-to-many strategies (#3,
+#4, #6) demonstrate no further gains and sometimes even
+degradation, revealing that sheer increases in supervision
+quantity can introduce counterproductive noise rather than
+enhancement. (3) In contrast, incorporating diverse assign-
+ment strategies (#3, #5, #7, #8) consistently delivers modest
+yet reliable improvements, suggesting a deeper mechanism
+at play where varied supervisory signals enrich the model’s
+learning dynamics. Collectively, these observations empha-
+size supervision diversity as a pivotal driver for advanc-
+ing DETR performance, often surpassing the value of mere
+architectural expansions in fostering robust generalization.
+Nevertheless, assigning dedicated FFNs to each strategy es-
+calates parameter counts and fosters optimization redundan-
+cies, which can subtly undermine the primary branch’s con-
+vergence efficiency and overall training stability.
+Then, how can we introduce diverse assignment supervi-
+sion in a lightweight yet more effective manner?
+To affirmatively answer the question posed by our
+motivation, we introduce LoRA-DETR, a parameter-
+efficient framework designed to integrate diverse assign-
+# Model Naux Param. Div. Aux. mAP ↑
+1 (a) 0 47.3 43.7
+2 (b) 1 53.6 47.6
+3 (c) 1 53.6 47.5
+4 (c) 2 59.9 47.3
+5 (c) 2 59.9 ✓ 47.7
+6 (c) 3 66.2 47.5
+7 (c) 3 66.2 ✓ 48.0
+8 (c) 5 78.8 ✓ 48.2
+Table 1: Results with different decoder architectures and
+numbers of auxiliary branches. Model correspond to Fig. 1.
+Naux denotes the number of auxiliary branches. Param.
+refers to the number of parameters during training, Div. Aux.
+indicates the use of diverse auxiliary assignment strategies,
+and mAP stands for mean Average Precision.
+ment strategies by leveraging lightweight Low-Rank Adap-
+tation (LoRA) (Hu et al. 2022) branches (see Fig. 1(d)).
+Specifically, we augment the primary FFN with distinct
+LoRA modules, each tailored to a specific assignment strat-
+egy, and jointly optimize them with the primary “one-to-
+one” branch via unified backpropagation. During the train-
+ing phase, these LoRA branches serve exclusively as auxil-
+iary paths, injecting diverse supervisory signals while main-
+taining maximum parameter efficiency. Crucially, they are
+detached during inference, ensuring that our method intro-
+duces no additional computational overhead and the infer-
+ence process remains identical to the standard architecture.
+The LoRA mechanism facilitates the efficient modulation of
+the primary FFN using low-rank residual parameters, which
+12944

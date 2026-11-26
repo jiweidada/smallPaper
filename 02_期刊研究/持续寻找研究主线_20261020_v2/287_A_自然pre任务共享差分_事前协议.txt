@@ -1,0 +1,23 @@
+287｜自然pre任务共享差分，真实前向前冻结（2026-10-21）
+
+问题：在真实BASE24自然图pre框处，相同O4与同一固定读出φ下，H−L是否给出比零移动和HD−L更有用的定位方向？这是新增观测差分的有限诊断，非AP、非完整方法有效性，也非新颖性证明。279单路H差于zero的结论不变；244 F4主筛查不通过的结论不变。
+
+固定资产：279实际参与9图ID=[1,2,3,7,9,10,12,13,14]，来自08 sample_plan development前16与前64 tiny annotation_id的既有名单；不依279效果选图。复用279 manifest逐图SHA与原annotation SHA。两BASE24 seed1/2 last_epoch23 checkpoint['model'] raw，各自9次eval前向；每seed首图额外一次被动hook identity，严格20次上限。不使用EMA、不加载优化器、不resume、不训练、不DN、不Mosaic、不GPU、不远端、不heldout。两模型共享图集，不是两批独立图像。
+
+输入与输出：每图原RGB仅解码一次，共9次；Pillow10.4 RGB无EXIF transpose，BILINEAR Resize640（与torchvision PIL Resize antialias=True合成bitexact），float32/255 CHW。以缓存的原图uint8、L与HD依次处理两模型，读取全部300query；GT不传model或读出。原生eval_spatial_size=640²，8400anchors/topk300；不得把16²crop喂检测器。被动decoder hook保存六tuple字段及公开两字段；第二次hook返回原tuple，与首图原被动捕获的全部字段bitexact。此校验只是被动observer透明性，不是非零pre插入的零分支parity。
+
+读出逐项固定：pre中心c、宽高wh均换算真实640输入像素。O4=[c−wh/2−4,c+wh/2+4]，不裁窗；越出图像的采样沿用border-replicate并报告窗越界标记。16×16网格为每格中心；edge坐标转像素中心时减0.5，float64 bilinear。H采原图位置乘(W0/640,H0/640)；L采原图降为640后的对应位置；HD为L回升原尺寸的对应位置。外圈60点RGB均值b，w=||RGB−b||²，φ=Σwx/Σw；总质量零时φ=c。与278核完全相同，未增加新滤波/核/调参。
+四臂：D=4*tanh((φ(H)−φ(L))/4)；Ddeg=4*tanh((φ(HD)−φ(L))/4)；Hsingle=clip(φ(H)−c,−4,4)，与279单路规则逐query bitexact；zero=0。逐轴。H=L时D严格零。符号、倍率、窗、网格事前锁定，不按结果修改。
+
+匹配与评分：先完成全部300query像素读出，再native-final Hungarian对该图全部有效GT一次匹配，所有臂固定此own；不是旧训练GO。GT按原生ConvertCocoPolysToMask的iscrowd排除、float32 xyxy加法/clamp/正面积筛选，保留原annotation_id。原生未排ignore的语义照用并计数。Resize bbox后cxcywh归一化；强制与原生转换合成检查。N>300未匹配GT单列，绝不GT筛query/crop。
+主报告：native匹配GT中min(wg,hg)<4 inputpx，各图先平均匹配query中心L2误差，再对存在该组的图等权；两seed分别报D/ Ddeg/ Hsingle/ zero、逐图差、胜平负、组规模。所有native-own与279选定64ID组另列，不混成主组、不对未匹配GT杜撰误差。原生pre IoU0组作为预定描述，非更换主群体。基线中心误差是真实pre到GT，不再人为±2。保存每query三重心、质量、四臂delta和全部native输出可复核。
+缓存副指标：固定pre宽高与corner PMF，将最终box中心加delta/640，后验own IoU前后与0.5跨越逐臂报告。不重匹配、不改score、不去重地冒算AP。固定PMF平移等价于末层整体平移；不能说明attention/PMF重算后收益或pre插入优于末层。未执行的真实pre插入需在pre_bboxes产生后、ref_points_initial detach前修改中心，并走原后续层；需独立all-fields零分支parity。相同原像素自由中心头、同crop末层学习校正仍是后续强方法控制，当前未训练。
+
+事前解释：若D对zero与Ddeg两对比在两个seed图等权均为负，可支持继续核真实插入；不能自动批准训练、不能把任意微小负值当有效方法。若方向mixed或D不胜zero，原样报告，不能调符号/倍率或改窗救本版。若Ddeg复制D，优先解释重采样/读出差而非新高频信息。单路H、逐图离散度与rawseed一致性同时给出；没有足够功效阈值，不拟p值。无论结果均不是新颖性判据。
+
+执行与身份：288新脚本，输出289_BASE24_natural_pre_HL_delta（不得覆盖）。作者只运行--preflight：合成像素、差分恒等、旧单路parity、GT转换以及native库导入，不建model、不加载CP、不读真实图。主控审后以--collect-real单次执行。Python必须D:\Anaconda\python.exe -s -X utf8 -B；CPU torch2/interop1、affinity13/15、BelowNormal、RAM持续>8GiB，CUDA_VISIBLE_DEVICES空。0 worker/线程池；每图/每前向前后RAM检查。保存source/package/CP/image前后SHA、counts、全部20次时长；无来源的总耗时估计NA。失败目录保留，不能同目录重试。
+库预检第一次在calflops导入transformers缺包处停止，尚未建model/载CP/读图。沿用旧dn_pre_frozen_diagnostic_20261020_v1/common.py的fail-closed profiler sentinel：只有EMA/simam的__main__演示用calculate_flops，一旦运行到它立即抛错；不替换张量算子、不安装包。该执行环境处理不改变公式或读出。
+
+精确命令（实现后需先看289_preflight.json与脚本最终SHA）：
+& 'D:\Anaconda\python.exe' -s -X utf8 -B 'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\288_BASE24_natural_pre_HL_delta.py' --preflight
+& 'D:\Anaconda\python.exe' -s -X utf8 -B 'C:\Users\jiwei\Desktop\小论文投稿\英文小论文\持续寻找研究主线_20261020_v2\288_BASE24_natural_pre_HL_delta.py' --collect-real

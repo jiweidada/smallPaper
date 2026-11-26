@@ -1,0 +1,200 @@
+ViCrop-Det: SpatialAttentionEntropyGuidedCropping for
+Training-FreeSmall-ObjectDetection
+Preprint,compiledApril30, 2026
+Hui Wang1 Hongze Li1 Wei Chen2 Xiaojin Zhang1,*
+1School of Computer Science and Technology, Huazhong University of Science and Technology
+2School of Software Engineering, Huazhong University of Science and Technology
+Wuhan 430074, China
+chuxiatianyi@gmail.com lhz13012608937@outlook.com
+lemuria_chen@hust.edu.cn xiaojinzhang@hust.edu.cn
+*Corresponding author
+Abstract
+Transformer-based architectures have established a dominant paradigm in global semantic perception; however,
+they remain fundamentally constrained by the profound spatial heterogeneity inherent in natural images.
+Specifically, the imposition of a uniform global receptive field across regions of varying information density
+inevitably leads to local feature degradation, particularly in dense conflict zones populated by microscopic
+targets. To address this mechanistic limitation, we propose ViCrop-Det, a training-free inference framework
+that introduces adaptive spatial trust region shrinkage. Inspired by the use of attention entropy in anomaly
+segmentation, ViCrop-Det leverages the detection decoder’s cross-attention distribution as an endogenous probe.
+By utilizing Spatial Attention Entropy (SAE) to heuristically evaluate local spatial ambiguity, the framework
+executes dynamic spatial routing, allocating a fixed computational budget exclusively to regions exhibiting
+both high target saliency and high cognitive uncertainty. By shrinking the spatial trust region and injecting
+high-frequency localized observations, ViCrop-Det actively resolves spatial ambiguity and recovers fine-grained
+features without requiring architectural modifications. Extensive evaluations on VisDrone and DOTA-v1.5
+demonstrate that ViCrop-Det yields competitive performance enhancements, consistently adding+1-3 mAP@50
+to RT-DETR-R50 and Deformable DETR with a marginal 20-23% latency overhead. On MS COCO, APS
+improves while APM/APL remains stable, indicating precise fine-scale refinement without compromising the
+global spatial prior. Under compute-matched settings, our adaptive routing strategy comprehensively surpasses
+uniform slicing baselines, achieving a highly optimized accuracy-speed trade-off.
+1 Introduction
+Despite their robust performance across standard benchmarks,
+global Transformer architectures continue to face a funda-
+mental bottleneck in localizing microscopic targets within
+unconstrained, dense environments. This limitation is typi-
+cally diagnosed empirically as "attention dilution," wherein the
+global receptive field disproportionately distributes softmax-
+normalized weights across expansive, low-information back-
+ground patches [1, 2]. When a model encounters heavily down-
+sampled, texture-degraded targets, the query embeddings fail
+to extract definitive localized spatial evidence. Consequently,
+the cross-attention probability mass diffuses, approaching a flat,
+uniform distribution across the spatial parameter space. This
+uniform spatial distribution inherently possesses a high Shannon
+entropy [3], serving as a strong empirical indicator of the net-
+work’s cognitive ambiguity and local spatial uncertainty. Forcing
+a definitive bounding box prediction from such a high-entropy
+state inevitably leads to persistent category confusion and ex-
+treme localization drift. While training-free uniform slicing
+methodologies (e.g., SAHI) attempt to recover these targets
+by artificially enlarging the pixel area [ 4], they operate on an
+assumption of spatial homogeneity. By blindly allocating com-
+putational resources to low-uncertainty, smooth background re-
+gions, these brute-force approaches incur severe computational
+overhead and fail to exploit the intrinsic spatial heterogeneity of
+natural images.
+To address this mechanistic gap, we propose a training-free
+inference framework rooted in entropy-guided adaptive spatial
+routing. Inspired by recent findings demonstrating that spatial
+attention entropy can successfully segment unknown objects by
+measuring attention dispersion [ 5], we adapt and expand this
+principle to bounding-box detection by analyzing the endoge-
+nous cross-attention distribution of the Transformer decoder [1].
+Rather than relying on brute-force spatial slicing, our frame-
+work uses Spatial Attention Entropy (SAE) combined with at-
+tention intensity to create a joint ambiguity-saliency heuristic
+score. This allows the model to dynamically isolate localized
+conflict zones that suffer from peak spatial uncertainty but con-
+tain potential target evidence. Treating the inference process as
+a constrained computational resource allocation problem, our
+method executesentropy-guided adaptive spatial routing: it
+actively redirects a strict computational budget exclusively to
+these heuristically identified ambiguous regions. By extract-
+ing localized, high-resolution observations strictly from these
+high-entropy patches and re-evaluating them, the network ac-
+tively breaks the uniform spatial prior. This targeted injection
+of high-frequency visual evidence rectifies local feature repre-
+sentation and instantly resolves spatial ambiguity. Our primary
+contributions are summarized as follows:
+arXiv:2604.26806v1  [cs.CV]  29 Apr 2026
+
+---PAGE---
+
+Preprint– ViCrop-Det 2
+• We transition the challenge of small object detection
+from heuristic spatial scaling to entropy-guided uncer-
+tainty estimation. Building upon insights from anomaly
+segmentation [5], we introduce Spatial Attention En-
+tropy (SAE) over aggregated decoder cross-attention
+as an effective empirical proxy for spatial cognitive
+ambiguity in Transformer detectors.
+• We design a training-free adaptive spatial routing mech-
+anism. By utilizing a joint ambiguity-saliency heuristic
+to dynamically allocate high-resolution computational
+budgets strictly to evidence-rich yet highly uncertain
+regions, the framework systematically bypasses the the-
+oretical blindness and computational redundancy of
+uniform slicing paradigms.
+• Optimized Accuracy-Efficiency Trade-off:Exten-
+sive evaluations on VisDrone [6] and DOTA-v1.5 [7]
+demonstrate that our uncertainty-driven approach
+yields consistent, scale-invariant performance gains
+over robust baseline architectures (RT-DETR [8], De-
+formable DETR [ 9]). Furthermore, under compute-
+matched settings, it comprehensively surpasses uni-
+form slicing baselines, validating the superiority of
+targeted, ambiguity-driven refinement.
+2 RelatedWork
+Attention-based Inference Strategies in Vision Transformers.
+A range of vision transformer approaches leverage attention
+mechanisms for adaptive inference. AdaViT [10] dynamically
+adjusts the number of tokens during inference but requires re-
+training. DVT [ 11] prunes redundant tokens using attention
+scores, and DynamicViT [12] adopts learnable token selection
+policies. Unlike ViCrop-Det’s training-free approach, these
+methods require architectural modifications and retraining. PS-
+ViT [13] uses patch slimming to enhance efficiency, not accuracy.
+TokenLearner [14] learns spatial token aggregation, but is in-
+compatible with fixed pre-trained models. Crucially, none of
+these methods leverage cross-attention from detection decoders
+to guide high-resolution region selection.
+Training-free Multi-scale Inference and Adaptive ROI
+Methods.Existing training-free strategies can be grouped
+into three main categories. (1) Uniform slicing: methods like
+SAHI [ 4] and ASAHI [ 15] divide the image into fixed-size
+grids, treating all regions equally. This wastes computation on
+background regions while failing to focus on attention-dense
+areas. (2) Saliency-based selection: approaches such as CAM-
+based cropping [16] and GradCAM-guided inference [17] rely
+on classification backbones, which do not align well with lo-
+calization needs and often highlight object centers instead of
+boundaries. (3) Feature-level refinement: methods like Fea-
+tUp [18] and LIIF [19] upsample features post hoc but do not
+resolve attention dilution from the original forward pass. In
+contrast, ViCrop-Det uniquely utilizes decoder cross-attention
+entropy to identify ambiguous regions and selectively repro-
+cess them at high resolution. Unlike ClusDet [ 20], SNIP [21],
+SNIPER [22], LSKNet [23], and BAFNet [24], which require
+training or focus on CNNs, our method is Transformer-specific
+and training-free.
+Attention Mechanisms for Object Detection.While at-
+tention visualization has been explored in tools like Token-
+Cut [25] and LOST [ 26], few methods incorporate attention
+information directly into inference. QueryInst [27] conditions
+queries on instance features, but requires training. Cascade R-
+CNN [28] refines detection proposals across stages but lacks
+attention awareness. Dynamic Head [ 29] adapts computation
+based on proposals yet still demands architectural modifica-
+tion. In contrast, ViCrop-Det extracts actionable signals from
+decoder attention: low entropy indicates confident localization
+needing no refinement, while high entropy reveals uncertainty—
+prompting selective high-resolution refinement without modify-
+ing the base model.
+Our approach is orthogonal to token sparsification and dynamic-
+query training [ 30, 31]: they reallocate computation by re-
+designing and training the detector, whereas ViCrop-Det is an
+inference-time, model-agnostic router and can be combined with
+them in practice.
+3 Method
+The overall pipeline is illustrated in Fig. 1. In this section, we
+first formulate the spatial attention entropy as a metric to quantify
+spatial ambiguity (Sec. 3.1). Subsequently, we introduce the
+joint ambiguity-saliency heuristic scoring mechanism (Sec. 3.2).
+Finally, we detail the entropy-guided adaptive spatial routing
+and the corresponding variance reduction process (Sec. 3.3 to
+3.7).
+3.1 Spatial Attention Entropy as an Ambiguity Indicator
+Standard Vision Transformers impose a uniform global recep-
+tive field across the spatial parameter space. While effective
+for macroscopic structures or homogeneous backgrounds, this
+global prior becomes critically sub-optimal in dense, heteroge-
+neous conflict zones containing microscopic targets. To evalu-
+ate the resulting spatial ambiguity without introducing external
+heuristic modules, we analyze the decoder cross-attention distri-
+bution.
+Let the aggregated, normalized cross-attention map over the
+spatial grid P be denoted as a probability distribution pi, where
+i∈ P . This distribution essentially represents the network’s
+posterior spatial hypothesis regarding the target’s location. In
+a theoretically optimal, high-confidence regime, pi approaches
+a Dirac delta distribution centered precisely on the target, max-
+imizing the semantic signal. However, in regions afflicted by
+heavy feature downsampling and severe object entanglement, the
+probability mass disperses. We quantify this spatial dispersion
+by computing the Spatial Attention Entropy (SAE). Specifically,
+we first aggregate the attention across layers, heads, and queries
+to obtain a single attention score per key:
+A[i]= 1
+L Nh Nq
+LX
+l=1
+NhX
+h=1
+NqX
+q=1
+ Al,h
+
+q,i,i∈ P.(1)
+We then normalize it to a probability distribution:
+pi = A[i]+εP
+j∈P
+ A[j]+ε  , ε=10 −8,(2)

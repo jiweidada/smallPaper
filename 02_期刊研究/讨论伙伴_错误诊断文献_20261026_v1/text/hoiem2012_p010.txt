@@ -1,0 +1,55 @@
+10 Diagnosing Error in Object Detectors
+0.136
+0.654
+0.0210.021 0.654
+0.0300.030 0.654
+0.0910.091
+0.673
+0.876
+0.538
+0.0260.026 0.364
+0.008
+0.032 0.364
+0.124 0.319
+0.594 0.319
+0.0120.012
+0.301
+0.115
+0.403
+0.056
+0.397
+0.030
+0.386
+0.0400.0400.386
+0.0200.0200.323
+Fig. 7. Unexpectedly Difﬁcult Detections: We ﬁt a linear regressor to predict conﬁdence (P N)
+based on size, aspect ratio, occlusion and truncation for the FGMR (v4) detector. We show 5
+of the 15 objects with the greatest difference between predicted conﬁdence and actual detection
+conﬁdence. The ground truth object is in red, with predicted conﬁdence in upper-right corner
+in italics. The other box shows the highest scoring correct detection (green), if any, or highest
+scoring overlapping detection (blue dashed) with the detection conﬁdence in the upper-left corner.
+also only a weak correlation with aspect ratio. As can be seen in Figure 7, misses are
+due to a variety of factors, such as unusual appearance, unusual viewpoints, in-plane
+rotation, and particularly disguising occlusions. Some missed detections are actually
+detected with high conﬁdence but poor localization. With a 10% overlap criteria, the
+number of missed detections is reduced by 40-85% (depending on category, detector).
+Conclusions and Discussion: As expected, objects that are small, heavily occluded,
+seen from unusual views (e.g., the bottom), or that have important occluded parts are
+hard to detect. But the deviations are interesting: slightly occluded bicycles and ta-
+bles are easier; detectors often have trouble with very large objects; cats are easiest for
+FGMR when only the head is visible. Despite high sensitivity, the overall impact of oc-
+clusion and many other characteristics is surprisingly small. Even if the gap between no
+occlusions and heavy occlusions were completely closed, the overall AP gain would be
+only a few percent. Also, note that smaller objects, heavily occluded objects, and those
+seen from unusual viewpoints will be intrinsically more difﬁcult, so we cannot expect
+to close the gap completely.
+We can also see the impact of design differences for two detectors. The VGVZ detec-
+tor incorporates more textural features and also has a more ﬂexible window proposal
+method. These detector properties are advantageous for detecting highly deformable
+objects, such as cats, and they lead to reduced sensitivity to part visibility and view-
+point. However, VGVZ is more sensitive to size (performing better for large objects
+and worse for small ones) because the bag-of-words models are size-dependent, while
+the FGMR templates are not. Comparing the FGMR (v2) and (v4) detectors in Figure 6,
+we see that the additional components and left/right latent ﬂip term lead to improved
+robustness (improvement in both worst and best cases) to aspect ratio, viewpoint, and
+truncation.

@@ -1,0 +1,40 @@
+唯一候选 fine_residual：请使用 v5，替代 v3/v4 的阶段记录器
+
+这次自审找到的具体错误
+正式 CocoDetection 的 ConvertCocoPolysToMask 写入 target['orig_size']=[width,height]，原生 PostProcessor 也按这个顺序将坐标还原到原图。
+v3/v4 新增的 StageTrace.begin_batch 却将它与 [height,width] 比较。以前记录器及真实新初始化网络检查均使用正方形原尺寸，这两个数相等，掩盖了错误。
+本轮直接调用正式 CocoDetection、原验证 Resize(640,640) 和 ConvertPILImage，分别读取合成横图、竖图、方图；旧 v4 记录器在前两者上确实报告 Original image size differs from annotation，方图通过。复现记录保存在 engineering_native_sizes/old_failure_reproduction.json。
+只读原验证标注的尺寸元数据可见：548 张图全部 width>height。因此，在所绑定原验证数据路径下，旧版阶段观测会记录错误，无法完成阶段归档，最后会导致包装器拒绝产生完整实验终点。该错误不改变原生预测或原生评价计算；更不能用来解释此前旧基线 AP 或已有漏检。已检查的本地 v3/v4 未启动训练。
+
+修复内容
+StageTrace 现在按 [width,height] 核对原生输入；为保持已约定的归档字段 original_hw 语义，写盘时显式转换为 [height,width]。
+阶段摘要明确写入 native_target_orig_size_order=width_height、stored_original_hw_order=height_width；正式归档校验要求这两个声明。
+不修改原生 target、后处理器、框坐标、损失或模型计算。geometry.py、residual.py、六份模型配置与 v4 完全相同；唯一主候选仍为 fine_residual，baseline/fused_residual 为必要对照。
+v1-v4 原文件与失败材料保留。v5 已重新生成三组两 seed 共六份准备包，身份绑定新的 stage_trace.py；不得把旧准备包与新代码混用。
+
+本轮验证
+45 项已有记录器与训练适配层回归检查重新通过，使用无参数 CPU 小模型和惰性父类占位，不运行真正训练。
+33 项原生数据接口检查通过：横图、竖图、方图；不同原尺寸的混合批次；原生 Resize 后原尺寸保留；旧错误复现；修复后输出逐位一致、输入与 target 不变、无额外前向；original_hw 存储顺序；原生坐标还原；错序/错误尺寸仍被拒绝；合成归档不能当成正式训练结果。
+两类检查共 17 次无参数小模型前向，完整检测器前向为 0，没有读取真实研究图片、训练权重、优化器、梯度或参数更新，没有 CUDA 初始化。
+原生数据检查在 ram_cache=False 下执行，与原方案一致；合成样例中 cache_imgsz=640、原方案为960，但该缓存分支未启用。验证覆盖的是原生图片读取和既定验证变换的尺寸接口，不是训练增强或缓存行为。
+v4 的评价器身份、原生导入/配置、新初始化完整检测器检查作为既有证据引用，未改称本轮重跑或完整训练成功。
+
+此次机制自审的结论
+源码仍显示：新残差参数直接由原 encoder 辅助框损失学习；reference.detach 继续阻断 decoder 损失经参考坐标直接返回新头。已有合成检查仅证明在 P3 入选且承担回归时新输出层存在梯度。
+早期框变化可以通过前向参考坐标影响后续采样，也可能通过下一轮的匹配、分类质量目标和共享特征改变训练。分类质量目标中的 IoU 已 detach，不能把这种跨步耦合说成分类损失直接训练新框分支。
+这仍不是“细节已证实丢失”或“只要初始框改善就能提高 AP”的证明。框更准却最终无净收益时，仍按既定标准否决当前效果主张。
+本轮原先拟补的逐 GT 阶段几何—正式 TP 对照分析尚未实现；发现此归档错误后优先修复，不能把修复本身算作机制得到验证。正式训练结果、阶段收益传播、独立复现、成本与效果都仍待实际证据。
+
+运行入口与已有约束
+当前目录：C:/Users/jiwei/Desktop/小论文投稿/英文小论文/code/fine_residual_geometry_20261008_v5
+prepared_local/<arm>_seed<seed> 为新的配置包，runs 不存在。
+本地评价器由 experiment.py 激活前一轮隔离目录；额外导入依赖在本版 native_import_deps。只导入/配置核验可用：
+python check_native_import.py --bundle prepared_local/baseline_seed1 --extra-python-path native_import_deps --read-configs --output <新的回执路径>
+未来获得训练授权后，仍由 experiment.py train --bundle prepared_local/<arm>_seed<seed> 启动。必须在该子进程提供 native_import_deps 的搜索路径，或使用具有相应依赖的完整环境；本轮未执行训练命令。
+迁移到 Linux 要对实际 pycocoeval .so、新路径重新 prepare；Windows .pyd 不可直接迁移。六组评价包及协议必须一致。
+更完整的评价器来源和身份绑定说明见 v4/00_唯一候选与评价器绑定说明.txt；该文档的模型及评价器部分仍适用，阶段记录入口以本 v5 为准。
+
+研究状态
+上一轮有进展：完整评价器绑定与原生导入/新初始化网络核验。
+本轮有进展：独立核对真实尺寸接口，复现并修复会阻止正式终点归档的错误，重新准备六份实验配置。
+研究目标保持 active。没有新增科学检查，没有训练、远端访问或子代理，不宣称 AP 提升、最有效或创新成立。

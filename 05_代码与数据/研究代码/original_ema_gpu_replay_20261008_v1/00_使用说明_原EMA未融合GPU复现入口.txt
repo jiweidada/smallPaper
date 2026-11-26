@@ -1,0 +1,60 @@
+原132轮EMA的受限GPU复现入口：代码已准备，尚未执行
+
+用途
+仅对应已提交用户确认的第一阶段：在原两台现有GPU上，每seed对固定548张验证图做一次末轮EMA验证，核对原AP/APs 0.02个百分点门槛。
+这是未来的新推理，不是找回了原训练现场预测，不替代候选效果实验，也不会启动六组训练。
+当前授权问题尚无新答复；本轮只编写、读取已存源码/文本身份并执行标准库工程检查，未连接服务器、导入torch、打开权重、运行模型或评价器。
+
+为什么单独写这个入口
+原DetSolver.fit的逐轮验证直接调用evaluate，使用未deploy的EMA模块。
+原DetSolver.val/test_only先module.deploy()并调用stats，再调用evaluate，会包含结构融合与额外统计前向。
+本入口直接严格加载末轮EMA到原模型，用同一原生evaluate(test_only=False)，保持原验证batch4、Resize640、ConvertPILImage、maxDets100及原yolo_metrice分支。
+不把常规test_only的结果混入严格训练验证复现；这项源码区别尚不是此前AP微差的已证实原因。
+
+实际保护
+1. 绑定两份原args/log的LF规范化SHA、原last.pth原始SHA、末轮统计向量和验证标注SHA。
+2. 绑定v5的只读原生源码核验器及完整评价包核验器，核对468个原训练Python源文件；Linux_mask须匹配已识别旧.so的SHA。另一台若不匹配，停止，不自动替换。
+3. 准备包为全新目录；输出为另一全新目录，并拒绝与旧运行、权重、数据、源码、评价包目录重叠。写入前检查路径。
+4. 准备步骤只使用标准库。真正执行仅限Linux、Python3.10、PyTorch2.5.1+cu124、CUDA12.4、单张现有RTX3090；其他实际版本/后端设置另行记录。这不是完全复刻历史驱动和所有环境状态的证明。
+5. 每seed只允许137批、548张图等价前向，前置钩子在第138批执行前拒绝。批大小、通道、尺寸、eval模式、无梯度及无autocast均检查；无预热、无deploy、无统计前向。
+6. 不创建训练dataloader、优化器、scaler或EMA对象；只将原checkpoint中的EMA模块状态严格装入模型。验证前后比较全部模型参数/缓冲的字节摘要，不更新参数或EMA。
+7. 被动包裹原评价器已经调用的prepare_for_coco_detection，复制其实际返回记录，不增加第二次prepare或模型调用，记录548个唯一图像ID。
+8. 一小时监督进程时限；超时只终止它自己新建的子进程组，最多10秒退出宽限，不操作其他训练作业。私有worker要求本次监督进程令牌和父PID，不能直接调用绕过时限。
+9. 原生evaluate仍执行原yolo_metrice统计分支。这里限制的是模型前向与一次完整原生验证，不把原生内部多项统计伪称为只调用了一个底层评价函数。
+10. 完成验证与门槛通过分开记录；退出0但AP/APs超差仍不得进入训练阶段。
+
+prepare：获准远端部署后，在实际Linux路径上建立准备包
+python -B replay_original_ema.py prepare --seed <1或2> --experiment-root <v5隔离代码目录> --native-root <已核对的原训练源码目录> --evaluator-root <实际pycocoeval包目录> --original-args <该seed原run/args.json> --original-log <该seed原run/log.txt> --checkpoint <该seed原run/last.pth> --val-images <原验证images目录> --val-ann <原val.json> --bundle <新准备包目录> --output <新输出目录>
+脚本不会自动上传、安装包、查找服务器或租GPU。原Windows prepared_local和.pyd不能直接作为Linux准备包。
+prepare读取权重原始字节核对SHA，但不反序列化，也不导入torch/评价器。
+
+真正执行：仅在对应范围获得明确授权后
+python -B replay_original_ema.py run-authorized --bundle <已准备的包目录>
+run-authorized这个命令名不等于用户授权；操作方仍需先核对聊天中的明确答复。
+该命令创建新输出、启动有时限的私有worker、记录退出码和是否通过原门槛。既有输出不会被覆盖，也不会自动重跑失败或完成的同目录。
+原生导入、CUDA加载、实际数据读取、完整Linux运行及超时终止行为尚未实机验证；如失败保留日志，不宣称执行成功。
+
+两seed门槛核验：仍不启动训练
+python -B replay_original_ema.py check-replays --outputs <seed1新复现目录> <seed2新复现目录>
+该标准库命令核对完整文件SHA、实际模式和完成状态、两个不同seed、原输入身份、前向预算及原0.02pp门槛，并从保存的12项统计重新计算差值。
+缺seed、重复seed、工程模式、文件变化或任一seed超差均拒绝。
+通过只代表数值前置条件通过，不代表候选有效，也不推导训练授权。只有用户选择允许完整流程，才可另按现成v5协议准备并启动六组训练。
+
+输出
+execution_identity.json：来源、实际环境、未融合路径声明及验证前模型摘要。
+predictions.json、precision_recall.npz、native_metrics.json：本次实际预测及原生评价输出。
+forward_counts.json：实际尝试的图/批前向数。
+completion.json、manifest.json、supervisor.json：完整性、模型状态未变、原门槛、退出/时限结果。
+失败时failure.json和worker_stdout/stderr保留；不把部分输出算成完成。
+
+本轮验证及局限
+38项标准库工程检查通过，另核对完整468文件源码绑定。
+覆盖：137/138批边界、错误模式/尺寸拒绝、原门槛正负方向、两份完整配置只在明示路径/运行字段变化、输入不改写、原YOLO分支保留、代码无deploy/fit/backward/step及惰性优化器等访问、私有worker不能无监督调用、文本换行身份。
+两seed通过、缺seed、重复seed、超差、工程模式、篡改文件等门槛检查使用临时合成回执契约，未产生GPU证据；临时样例不作为正式复现结果交付。
+旧32项版本的工程回执保留为engineering_static_before_gate_completion.json；当前38项回执engineering_static.json绑定最终代码。
+没有实际prepare准备包，也没有实际run-authorized或真实check-replays输入。本轮模型/评价器调用0、权重反序列化0、CUDA初始化0、参数更新0、远端访问0、子代理0。
+
+研究状态
+前轮只有范围准备和状态重核，没有新增科学证据；本轮完成此前尚缺的隔离GPU复现入口及边界检查，属于工程准备进展。
+总体目标仍未完成，主要成因竞争解释与唯一候选净收益依然没有新证据。
+原授权选项仍待答复，未重新发问、未把自动目标续行当成计算许可。

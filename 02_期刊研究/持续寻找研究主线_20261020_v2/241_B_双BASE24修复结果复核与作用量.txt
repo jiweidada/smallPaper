@@ -1,0 +1,83 @@
+241｜B：双 BASE24 单调可达修复结果复核与作用量
+结论：本次复核未发现实质实现或计数错误，接受238的两seed必要screen均true，并保持原门槛不动。它证实固定保存GO预算下存在两个简单U控制未完整复制的受限修复；作用量小，且伴随旧高IoU配对换绑。不能据此写成检测救回、精度优势、创新成立或训练许可。
+
+一、实际读取与核查范围
+完整读取238/01_results.json、00_input_manifest.json、全部16个A/B_batch00–07_assignments.json（含全部64曝光逐图/逐类/逐query）、原16份development analysis.json及235审计。用标准库JSON/Fraction/Counter做只读核查，进程BelowNormal、affinity[13,15]；无torch、无flow求解、无模型、无预测反序列化、无heldout。只对NPZ/预测缓存作字节SHA核验，没有读取其中张量。
+64个来源文件当前SHA均与manifest/运行前后记录一致，32个输出artifact SHA均一致。16批、64次模型输入曝光、12642个GO query槽全部计入。两seed各6629 GT、实际输入sub4各2707 GT；使用相同32个开发增广输入，不能把64曝光说成64独立图。两seed正槽数不同，分别6291/6351。
+原保存G0在每图均与旧development JSON的native_union逐q逐GT完全一致，q集合、每GT multiplicity、类组、分母及各臂预算守恒；没有换成Windows重放G0。235的566个q差异/50曝光逐项一致，全部为已记录最高票并列。原224失败仍保留。
+519个类运输组，3114份非G0已保存exact证书：复核整数primal=dual=packed_cost、q/GT dual尺寸、sum(q_dual)+sum(m_g×GT_dual)、逐层dyadic目标解码、packing base=下层总界+1及packed总值；1557个重复精度域的分配/指标与其原证书域一致。所有逐query IoU/refIoU/nativecost/v按精确有理数求和，与逐图主表一致。全图、逐类预算及每GT支持槽不减均核过。
+边界近边数0，physical64与native32边差0；四个域的分配指标相同。本复核没有重新求解，也没有从NPZ逐边重算dual不等式；该部分最优性依据仍是237执行时逐边验证及其冻结源码。本轮独立复核的是完整保存证书的算术和结果一致性，不冒充第二次求解。
+238记录complete，60.953秒，16批；model/CP/backward/VJP/update/heldout均0，sources_unchanged=true。
+
+二、整体作用量与强控制（所有support均指冻结ref的FDR物理支持内监督槽）
+                         seed1                         seed2
+G0 support               3840/6291                     4025/6351
+G_repair support         3884（+44）                   4063（+38）
+G_repair改owner          113                           90
+实际input-sub4 support   1029→1036 /固定2235槽        1093→1105 /固定2247槽
+G_repair当前IoU总和      1847.363870→1826.350913       1880.551086→1866.225072
+G_repair nativecost      9435.335137→9484.591577       9421.557709→9463.147347
+U_cost support/改owner   3922 /648                     4111 /807
+U_change support/改owner 3922 /202                     4111 /202
+refIoUface support       3861                          4046
+finalIoUface support     3840                          4011
+nativecostface support   3843                          4017
+
+G_repair支持净增占全部正槽约0.70%/0.60%，占原支持外槽44/2451≈1.80%、38/2326≈1.63%。实际sub4支持率提升为7/2235≈0.313个百分点、12/2247≈0.534个百分点；分母是固定正槽预算，不是GT数或检测召回分母。
+U_cost的E外换绑380/519，其中原inside丢失27/30；U_change的E外换绑39/52，原inside丢失已经是0。这一点应准确写：本修订相对U_change排除的主要是“仍留在outside的owner重排”，不能宣称U_change必然破坏旧inside。G_repair在两个seed均不处于U_change相同exact(支持外数,改owner数,nativecost)最优face。受限方法也因此放弃了无限边最优能修复的一部分槽：+44/+38对比+82/+86。
+所有G_repair的oldinside损失、changed-still-outside、禁止边均0，所有GT支持槽不减。这些是算法约束性质，支持原必要screen为true；不能由最优性或性质本身推出训练收益。
+
+逐batch支持净增/改owner/实际sub4净支持增：
+batch       seed1                seed2
+00          14 /30 /1            10 /22 /2
+01           3 / 8 /0             2 / 4 /1
+02           0 / 0 /0             4 / 8 /1
+03           2 / 4 /0             5 /11 /2
+04           9 /27 /3             5 /13 /2
+05           0 / 0 /0             1 / 2 /0
+06          16 /44 /3            10 /28 /3
+07           0 / 0 /0             1 / 2 /1
+有修复的曝光13/32、20/32；这13/20个曝光的当前owner配对IoU总和均下降。不是新增停止门槛，也不是检测性能负结果。
+
+三、为什么tiny净增7/12不等于新target为tiny的修复行4/7
+设T(g)为该GT在真实输入尺寸下min(wW,hH)<4，F(q,g)为物理支持。必须区分：
+（a）repair_from_tiny：原owner是tiny、该q由outside改到inside，7/12行；
+（b）repair_to_tiny：新owner是tiny、该q由outside改到inside，4/7行；
+（c）tiny支持槽净增：Σq[F(q,new_g)T(new_g)−F(q,old_g)T(old_g)]，7/12槽。
+固定各GT multiplicity意味着tiny总槽数不变；本算法任何新outside都只能是原owner未变的outside。因此tiny支持净增恰等于被移走的原tiny outside槽，即(a)。但不等于(b)，因为inside→inside的伴随换绑也能跨tiny/non-tiny cohort。
+精确分解：
+seed1：outside→inside的tiny00/01/10/11 = 36/1/4/3；其中to_tiny=1+3=4。inside→inside的non-tiny→tiny为4，tiny→non-tiny为1，所以tiny净增=4+4−1=7。
+seed2：outside→inside的tiny00/01/10/11 = 26/0/5/7；to_tiny=7。inside→inside的non-tiny→tiny为5、反向0，所以tiny净增=7+5−0=12。
+例如seed1 batch00 image0 q197确实改到tiny GT434，但该整幅曝光tiny支持净增仍为0；仅把新增tiny目标的修复行相加会漏掉预算回补的跨cohort变化。
+按GT计，两seed分别44/38个GT支持槽增加（每个本次均+1），其中tiny GT为7/12。tiny中原无任何inside监督槽、此次首次有inside槽的是5/11个；这仍是监督支持数，不是检测命中数。其余tiny增益发生在已经有某个inside槽的GT上。
+original_sub4在64曝光均无真实标记，全部NA，不能套用C0的原始sub4。batch03=512，batch05=544，其余640；normalized640等效组另列为2065/2090槽，支持922→929、982→993，与actual组不混名。
+
+四、实际to-tiny修复行（GT均为各曝光内编号；IoU针对该q与新旧owner）
+seed batch image q    class oldGT→newGT   oldIoU→newIoU
+1    00    0     197  5     438→434       .173278→.251558
+1    00    3     180  3      28→12        0→.057629
+1    06    3     227  0      36→37        0→0
+1    06    3      97  3     367→366       0→.016130
+2    01    3      79  0     249→246       0→.045250
+2    03    1     203  3     162→165       0→.028879
+2    04    2     136  3     216→217       .012393→.024565
+2    04    3     130  3      50→49        0→.000517
+2    06    3      91  3     367→366       0→.046179
+2    06    3     263  3     137→138       .005940→.013605
+2    07    2     205  1     135→136       0→.007726
+以上11行新配对均IoU<.5；可达不意味着当前框已接近新GT。全部修复的class分布为seed1 {0:1,2:2,3:33,4:3,5:5}，seed2 {0:3,1:1,3:27,4:2,5:5}，主要是class3；不能将整体44/38全部称tiny修复。
+
+五、伴随旧高IoU代价与loss含义
+总113/90次换绑中，真正outside→inside为44/38，另外69/52为原inside→新inside的预算回补。前者当前IoU总和变化+6.992950/+5.028679，成本−33.899120/−20.777786；后者IoU变化−28.005907/−19.354692，成本+83.155561/+62.367425。相加得到整体IoU−21.012957/−14.326013、cost+49.256441/+41.589638。
+69/52个伴随换绑中，旧IoU≥.5的40/21行变为新IoU≥.5仅1/0行；确切39/21行从≥.5降到<.5，13/7行从≥.75降到<.75。例seed1 batch06 image1 q34，GT50→42，IoU .977086→.028329；seed2 batch01 image2 q21，GT181→138，.907073→.021380。它们仍在新GT的物理支持内，说明“支持不丢”不会保护已有高IoU监督配对。
+框和分类分数没有改变，以上不是检测TP损失。nativecost也不是全criterion loss，不能把cost增高等同训练必败；它只揭示本候选选择了更难、较不贴合当前框的监督归属。
+还须面对原生FGL的实际权重：criterion.loss_local用当前配对IoU.detach()乘四边FGL。44/38个outside→inside修复中，旧final IoU恰为0的有34/30行，因此不能说消除了34/30个原本很强的final截断梯度，它们的旧final FGL权重本已为0。伴随配对IoU下降也会压低其FGL权重，任何后续FGL loss下降都需拆开权重变化解释。这里不把final结论推广到aux各层，且L1/GIoU仍可能对这些旧outside配对有非零监督。本轮未回放新loss或计算梯度。
+
+六、圆桌可带走的确切主张
+已支持：跨两套既有BASE24开发输出，固定原保存GO的q/class/m_g预算，单调可达约束有小而真实、非U_change最优face并列造成的作用面；不是只在C0四图出现。实现身份、预算、平台并列兼容和支持计数在本次复核中成立。
+仍未支持：该重分配会改善优化或检测；支持增益足以抵偿旧高IoU监督配对的改绑；tiny是主要受益对象；创新已成立或值得直接训练。本结果保持原必要screen阳性，不新增或倒改gate；若继续方法讨论，必须正面处理这种监督归属代价，不能把支持域数量当成AP代理。
+
+主结果SHA256：32f2b9ce607ccf744e1e25578309dca345a8973a900c5d9604e6b5981fd1e900
+执行脚本237 SHA256：20a98d07a57def68399fa71338e05388b6cf7f359117a44d89ceaaabf7ff348d
+235平台并列审计SHA256：4f2b4f4ef60e3540ab259ac347675395cb293a4788f4711e1974c32b3463b8e9
+完整逐query与证书定位：238_BASE24_saved_GO_repair_probe/{A,B}_batch00–07_assignments.json；全部hash见其00_input_manifest及01_results。仅新增本241文件，不修改历史证据。

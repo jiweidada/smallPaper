@@ -1,0 +1,115 @@
+ 
+ 
+ 
+ 
+ 
+Sensors 2026, 26, 6157 https://doi.org/10.3390/s26196157 
+Article 
+Differentiable Resolution Allocation for Tiny Object Detection 
+in UAV Imagery 
+Ergashevich Halimjon Khujamatov 1, Khasanov Doston 2, Yusupov Sarvarbek Sodikovich 3,  
+Oybek Usmankulovich Mallaev 4, Shakhnoza Muksimova 1, Alisher Mamatov 5, Jinsoo Cho 1,*  
+and Razvan Craciunescu 6,* 
+1 Department of Computer Engineering, Gachon University,  
+Seongnam-si 13120, Gyeonggi-go, Republic of Korea; kh.khujamatov@tuit.uz (E.H.K.);  
+shakhnoza02@gachon.ac.kr (S.M.) 
+2 Department of Data Communication Networks and Systems, Tashkent University of Information  
+Technologies, Tashkent 100084, Uzbekistan; dhasanov@tuit.uz 
+3 Department of Mechanical Engineering Kimyo International University in Tashkent,  
+Tashkent 100121, Uzbekistan; s.yusupov@kiut.uz 
+4 Department of Digital Technologies, Alfraganus University, Yukori Karakamish Street 2a,  
+Tashkent 100190, Uzbekistan; o.mallayev@afu.uz 
+5 Department of Digital Pedagogy and Media Education Development, Republican Scientific and  
+Methodological Center for the Development of Education of the Republic of Uzbekistan,  
+Tashkent 100011, Uzbekistan; a.mamatov1991@gmail.com 
+6 Department of Telecommunications, Faculty of Electronics, Telecommunications and Information  
+Technology, National University of Science and Technology POLITEHNICA Bucharest,  
+060042 Bucharest, Romania 
+* Correspondence: jscho@gachon.ac.kr (J.C.); razvan.craciunescu@upb.ro (R.C.) 
+Highlights 
+What are the main findings? 
+• On the VisDrone2019 validation set, AFWD -Net reaches 49.3% mAP@0.5, 30.4% 
+mAP, and 22.8% 𝐴𝑃𝑆, against 35.2%, 19.6%, and 11.8% for the YOLOv8 -s baseline 
+(11.2 M parameters) under an identical evaluation protocol. The 11.0-point improve-
+ment in 𝐴𝑃𝑆  nearly doubles the baseline ’s small-object accuracy and stems chiefly 
+from the proposed adaptive foveation, with further contributions from wavelet detail 
+recovery and density-conditioned queries. 
+• Learning where to allocate high -resolution computation jointly with the detection 
+objective outperforms both uniform-resolution detectors and fixed, non-differentia-
+ble tiling, at a moderate 15.7 M parameters, and a distilled 7.2 M variant still sur-
+passes all prior methods. 
+What are the implications of the main findings? 
+• Accurate detection of targets under 32 × 32 pixels is achievable within the latency and 
+memory budget of embedded UAV accelerators, making real -time onboard percep-
+tion practical for traffic monitoring, precision agriculture, inspection, and search and 
+rescue. 
+• Restoring high-frequency edge information lost to backbone downsampling, rather 
+than adding model capacity, is the key lever for tiny object recognition, suggesting 
+frequency-domain recovery and learned resolution allocation as general design prin-
+ciples for aerial detectors. 
+  
+Academic Editors: Abdullah Kadri 
+and Hakim Ghazzai 
+Received: 28 July 2026 
+Revised: 18 August 2026 
+Accepted: 21 September 2026 
+Published: 28 September 2026 
+Copyright: © 2026 by the authors. 
+Licensee MDPI, Basel, Switzerland. 
+This article is an open access article 
+distributed under the terms and 
+conditions of the Creative Commons 
+Attribution (CC BY) license. 
+
+---PAGE---
+
+Sensors 2026, 26, 6157 2 of 26 
+ 
+https://doi.org/10.3390/s26196157 
+Abstract 
+Aerial scenes exhibit a mismatch between where computation is spent and where infor-
+mation resides: targets occupy a small, unevenly distributed fraction of the frame, yet de-
+tectors process every region at identical resolution. Tiling and clustering pipelines exploit 
+this sparsity, but the rule deciding which regions deserve magnification is hand-designed 
+and never observes the detection loss. AFWD-Net removes that separation. A coarse den-
+sity estimator, run on a heavily downsampled copy of the frame at negligible cost, pro-
+duces a spatial prior over likely target locations; Gumbel top -K relaxation and a spatial-
+transformer sampler convert this prior into a small set of high -resolution crops whose 
+centers and scales are differentiable, so the gradient that measures detection quality also 
+determines where resolution is allocated. Within each crop, a l earnable wavelet decom-
+position separates approximation from directional detail sub-bands and enhances the lat-
+ter under edge supervision confined to annotated regions, restoring the high-frequency 
+structure that stride downsampling erases, precisely the cue separating a genuine sub-32-
+pixel target from background clutter. Detection queries are seeded from the same density 
+field rather than a fixed lattice, and crop-level predictions are merged by density -cali-
+brated soft suppression. On VisDrone2019-DET the model attains 49.3% mAP@0.5, 30.4% 
+mAP@[0.5:0.95] and 22.8% APS at 15.7 M parameters; a distilled 7.2 M student remains 
+competitive with all compared methods. Experiments on UAVDT, AI -TOD-v2 and 
+SODA-A assess cross-dataset generalization. 
+Keywords: differentiable crop selection; learned resolution allocation; foveated object  
+detection; discrete wavelet transform; Gumbel top-K sampling; density-conditioned  
+queries; aerial imagery; edge deployment 
+ 
+1. Introduction 
+UAVs have become a routine sensing platform for urban traffic monitoring, precision 
+agriculture, infrastructure inspection, environmental surveying, and search and rescue 
+operations [1]. In nearly all of these applications the objects of interest —vehicles, people, 
+livestock, defects, and debris appear small relative to the frame because they are imaged 
+from altitude and at oblique angles. A large fraction of these targets falls within what the 
+literature defines as the small and tiny object regime: objects occupying fewer than 32 × 32 
+pixels, less than roughly one percent of the total image area. At these scales the accuracy 
+of otherwise strong detectors degrades sharply, and closing this gap is widely regarded 
+as one of the defining challenges of a erial computer vision [2]. Here are three difficulties 
+that are compounded in the UAV setting. First, limited pixel coverage yields impover-
+ished feature representations a target only a handful of pixels across simply does not con-
+tain enough signal for a deep network to form a discriminative descriptor [3]. Second, the 
+successive stride convolutions and pooling layers that give modern backbones their large 
+receptive fields also progressively destroy the fine, high-frequency detail on which small-
+object recognition depends, so that by the deeper stages of the network a tiny object may 
+have no distinct spatial footprint at all [4]. Third, objects in aerial scenes are distributed 
+unevenly; they cluster densely in some regions and are absent from large background 
+areas, and occlusion within these clusters tends to be locally concentrated rather than ran-
+domly scattered, producing feature confusion between neighboring instances [5]. The 
+value of a UAV detector is realized only when it runs onboard, in real time, on an embed-
+ded accelerator with a fixed power and memory envelope [6]. This rules out the brute 
+force remedy of simply processing every frame at full resolution, and it penali zes 

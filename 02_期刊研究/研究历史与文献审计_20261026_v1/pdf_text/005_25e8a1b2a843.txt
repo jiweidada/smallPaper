@@ -1,0 +1,203 @@
+DFIR-DETR: Frequency-Domain Iterative Refinement and Dynamic
+Feature Aggregation for Small Object Detection
+Bo Gaoa, Jingcheng Tonga, Xingsheng Chenb, Han Yuc and Zichen Lia
+aSchool of Information Engineering, Beijing Institute of Graphic Communication, Beijing, China
+bSchool of Computing and Data Science, The University of Hong Kong, Hong Kong SAR, China
+cCollege of Computing and Data Science, Nanyang Technological University, Singapore
+ARTICLE INFO
+Keywords:
+Small object detection
+Transformer-based detection
+Frequency-domain feature learning
+Sparse attention mechanism
+Multi-scale feature fusion
+Cross-scene generalisation
+ABSTRACT
+Small object detection in complex scenes exposes a fundamental tension in neural network design:
+backbone attention distributes computation uniformly regardless of content, pyramid necks inflate
+activation magnitudes during upsampling without norm compensation, and bottleneck convolutions
+progressively smooth high-frequency edge components through accumulated spatial filtering. In
+response, we develop DFIR-DETR by tracing each proposed module back to a specific, measurable
+deficiency in the RT-DETR baseline: uniform attention that ignores spatial complexity, norm drift
+that destabilises upsampled features, and spatial convolutions that progressively suppress the high-
+frequencycomponentssmallobjectsdependon.OnNEU-DETandVisDrone,DFIR-DETRachieves
+92.9% and 51.6% mAP50 with only 11.7M parameters and 47.2 GFLOPs, demonstrating consistent
+gains across two qualitatively different detection domains.
+1. Introduction
+Small object detection remains one of the most de-
+manding problems in deep neural network research. Targets
+occupying fewer than32 × 32pixels carry limited texture
+information,forcingthenetworktorelyheavilyonboundary
+signals and long-range contextual cues that standard archi-
+tectures are poorly equipped to exploit. The practical stakes
+differsharplybetweenthetwoapplicationdomainsthiswork
+targets.Onindustrialproductionlines,amicro-defectmissed
+during hot-rolled steel inspection does not stay missed; me-
+chanical stress concentrates at the undetected boundary and
+the failure propagates downstream. Throughput constraints
+are equally unforgiving: frame budgets measured in tens of
+milliseconds rule out the multi-pass strategies that offline
+detectorsrelyonforaccuracy.AerialmonitoringfromUAVs
+presentsastructurallydifferentversionofthesamedifficulty.
+At cruising altitude, a pedestrian or cyclist collapses to 10–
+15 pixels; the surrounding scene is dense and cluttered,
+so both missed targets and spurious detections carry real
+operational cost. What unites the two domains is a shared
+bottleneck: neither can tolerate the loss of high-frequency
+boundary information that deep spatial filtering progres-
+sively introduces. What separates them is everything else:
+background statistics, object formation mechanism, scale
+distribution, imaging geometry. A detector that holds up
+acrossbothishardertodismissasadataset-specificartefact.
+The difficulty is further compounded in cross-scene set-
+tings, where a single model must generalise across domains
+as different as UAV aerial imagery and industrial surface
+inspection.
+A closer examination of modern real-time detectors re-
+veals three structural limitations that bear directly on small
+object performance. First, convolutional backbones allo-
+cate attention computation uniformly across the spatial do-
+main,givingequalweighttouninformativebackgroundsand
+information-dense object boundaries [1]. Second, feature
+pyramidnecksexpandactivationmagnitudesduringupsam-
+pling without compensating normalisation, disrupting gra-
+dientdynamicsanddegradingcross-scalefeaturefusion[2].
+Third,repeatedspatialconvolutionsactasimplicitlow-pass
+filters,attenuatingthehigh-frequencyedgecomponentsthat
+small objects depend upon for accurate localisation [3].
+RT-DETR [4] represents the current state of the art in
+real-timetransformerdetection,combiningaCNNbackbone
+with a hybrid encoder and an end-to-end query based de-
+coder. However, its ResNet backbone applies fixed-budget
+attention without content adaptation, its CCFF neck upsam-
+ples without amplitude control, and its RepC3 bottleneck
+operates entirely in the spatial domain, leaving all three
+limitations unaddressed.
+We propose DFIR-DETR, which introduces three archi-
+tectural contributions corresponding to each identified limi-
+tation. The Dynamic Content-Feature Aggregation (DCFA)
+module parsifies the attention matrix through a dynamic
+Top-K mechanism predicted from local feature statistics,
+reducing complexity from(𝑁 2)to(𝑁𝐾). The Dy-
+namic Feature Pyramid Network (DFPN) introduces norm-
+preserving upsampling together with a dual-path convo-
+lution structure for explicit spatial detail recovery. The
+Frequency domain Iterative Refinement module (FIRC3)
+reformulates feature aggregation as a constrained optimisa-
+tion problem in the spectral domain, where high-frequency
+boundary components can be explicitly reinforced.
+The main contributions of this work are summarised as
+follows:
+•DCFA is introduced as a content-adaptive backbone
+module,whereadynamicTop-Ksparsificationmech-
+anism redistributes attention capacity toward struc-
+turally complex regions, bringing complexity down
+1
+arXiv:2512.07078v4  [cs.CV]  22 May 2026
+
+---PAGE---
+
+from(𝑁 2)to(𝑁𝐾)without sacrificing global
+context modelling.
+•Drawingonan𝐿 1-normconservationargument,DFPN
+is developed with analytically derived amplitude nor-
+malisation during upsampling and a dual-path shuffle
+convolution for explicit fine-grained spatial detail
+recovery across pyramid scales.
+•The bottleneck feature aggregation problem is refor-
+mulated as a frequency-domain least-squares opti-
+misation in FIRC3, granting the network direct and
+learnable access to high-frequency boundary compo-
+nentsthataccumulatespatialfilteringcannotpreserve.
+•On NEU-DET and VisDrone, the proposed archi-
+tecture attains 92.9% and 51.6% mAP50 with only
+11.7Mparametersand47.2GFLOPs,achievingstate-
+of-the-art accuracy while reducing both model size
+and computational cost relative to the baseline.
+The remainder of this paper is organised as follows.
+Section 2 reviews related work on object detection archi-
+tectures, attention mechanisms, multi-scale feature fusion,
+and frequency-domain neural network modules. Section 3
+presents the proposed DFIR-DETR framework and details
+thedesignofDCFA,DFPN,andFIRC3.Section4describes
+the experimental setup, benchmark datasets, ablation stud-
+ies, and comparisons with state-of-the-art methods. Sec-
+tion 5 concludes the paper.
+2. Related Work
+2.1. Object Detection Architectures
+Object detection has undergone two broad
+paradigm shifts over the past decade. Two-stage methods
+such as Faster R-CNN [5] separated region proposal from
+classification, achieving strong accuracy at the cost of in-
+ference speed. One-stage detectors including SSD [6] and
+YOLO[7]collapsedthispipelineintoasingleforwardpass,
+with YOLOv3 [8] demonstrating that multi-scale prediction
+heads could recover much of the accuracy lost by removing
+the proposal stage.
+DETR [9] subsequently recast detection as set predic-
+tion via bipartite matching, discarding both anchors and
+non-maximum suppression. Deformable DETR [10], DN-
+DETR [11], and DINO [12] progressively addressed its
+convergence and accuracy limitations. RT-DETR brought
+this line of work to practical deployment by pairing a hy-
+brid encoder with a query-based decoder, achieving real-
+time throughput while retaining end-to-end training. The
+present work takes RT-DETR as its starting point, leaving
+the decoder unchanged while substantially rethinking how
+features are extracted, fused, and refined prior to decoding.
+2.2. Attention Mechanisms and Sparse
+Computation
+Attention has become the central computational primi-
+tiveinmodernvisionnetworks,yetitsquadraticcostwithre-
+specttosequencelengthremainsapersistentbottleneck.Lo-
+cal window attention [13] confines each token to a bounded
+spatial neighbourhood, improving throughput but weaken-
+ing the long-range dependency modelling critical for small
+objectdetection.Deformableattention[10]maintainslinear
+cost by sampling a fixed number of reference points per
+query, but loses the ability to adapt to local feature com-
+plexity. Token merging approaches [14] combine redundant
+tokens to reduce sequence length, yet the resulting loss of
+positionalspecificityisdetrimentalforlocalisation-sensitive
+tasks. In detection, sparse query designs appear in Sparse
+DETR [15] and Efficient DETR [16], which reduce compu-
+tational load by selecting informative encoder tokens. How-
+ever, these methods fix the sparsification threshold globally,
+whereas the informational density of a feature map varies
+substantially between defect-heavy industrial images and
+sparsely populated aerial frames. DCFA addresses this by
+predicting the retention ratio from local feature statistics,
+making sparsification content-dependent rather than scene-
+agnostic, and pairs the resulting sparse attention with a
+spatial gated linear unit that enriches nonlinear channel
+transformations with neighbourhood context.
+2.3. Multi-Scale Feature Fusion
+Feature pyramids [17] established the principle of com-
+bining semantic richness from deep layers with spatial pre-
+cision from shallow layers through a top-down pathway
+with lateral connections. PANet [18] augmented this with
+a complementary bottom-up path, shortening the informa-
+tion routing distance between low-level detail and high-
+levelsemantics.BiFPN,introducedwithinEfficientDet[19],
+went further by learning scalar weights for each cross-scale
+connection, allowing the network to modulate the relative
+contribution of each resolution level during fusion. Despite
+these refinements, a complication common to all pyramid
+designs has received little attention: upsampling expands
+feature map area by𝑠 2, inflating the𝐿 1 norm of activa-
+tions and disrupting gradient balance between upsampled
+and lateral paths. SlimNeck [20] and Gold-YOLO [21] im-
+provefeatureroutingefficiencybutleavethisamplitudedrift
+uncorrected. DFPN compensates through an analytically
+derived normalisation factor, providing stable cross-scale
+fusion that prior designs do not offer.
+2.4. Frequency-Domain Representations in Neural
+Networks
+Themotivationforincorporatingspectraloperationsinto
+detection networks has both efficiency and representational
+grounds.Phase-awareMLParchitectures[22]demonstrated
+that decomposing image patches into amplitude and phase
+components enables richer spatial modelling than purely
+spatial mixing, establishing that frequency-domain parame-
+terisation captures structure that spatial convolutions miss.
+2

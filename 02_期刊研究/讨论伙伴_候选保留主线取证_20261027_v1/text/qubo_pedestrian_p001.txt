@@ -1,0 +1,88 @@
+Optimized Pedestrian Detection for Multiple and Occluded People
+Sitapa Rujikietgumjorn and Robert T. Collins
+Computer Science and Engineering, The Pennsylvania State University
+sur167@cse.psu.edu; rcollins@cse.psu.edu
+Abstract
+We present a quadratic unconstrained binary optimiza-
+tion (QUBO) framework for reasoning about multiple ob-
+ject detections with spatial overlaps. The method maxi-
+mizes an objective function composed of unary detection
+conﬁdence scores and pairwise overlap constraints to deter-
+mine which overlapping detections should be suppressed,
+and which should be kept. The framework is ﬂexible enough
+to handle the problem of detecting objects as a shape cov-
+ering of a foreground mask, and to handle the problem of
+ﬁltering conﬁdence weighted detections produced by a tra-
+ditional sliding window object detector . In our experiments,
+we show that our method outperforms two existing state-of-
+the-art pedestrian detectors.
+1. Introduction
+Detecting people is a difﬁcult problem due to body pose
+articulation and variation in human shapes and appearances.
+Notwithstanding these difﬁculties, good progress has been
+made on the problem of detecting individual walking pedes-
+trians through the use of statistical machine learning meth-
+ods for training pedestrian object detectors [ 4]. However,
+although the current results are promising, the problem be-
+comes more difﬁcult when there are many people at differ-
+ent locations and scales in a scene. There is still need for
+improvement, and one outstanding problem is how to han-
+dle the detection of multiple occluded people.
+Conventional approaches ﬁnd an object based on run-
+ning a single-object detector on sliding windows through-
+out the image spatially and across scale levels, followed by
+non maximum suppression to remove multiple responses of
+the detector on the same individual at slightly shifted spa-
+tial locations and neighboring scales. However, when mul-
+tiple people are close together or even partially overlapped
+in the image, non-maximum suppression can remove a cor-
+rect cluster of responses, resulting in a missed detection. As
+shown in Figure 1 using the PLS detector [ 20] with its de-
+fault non maximum suppression method, correct candidate
+detections were present that were suppressed by stronger
+(a) (b)
+Figure 1. (a) PLS detector using its default non maximum sup-
+pression method misses one person. (b) Examining candidate ob-
+ject center locations from the PLS detector without non maximum
+suppression shows that candidate detections were generated for
+that person, but they were subsequently suppressed.
+neighboring detections. The aim of this paper is to show
+that quadratic optimization for reasoning about overlapping
+detections can improve the performance of a pedestrian de-
+tection system, especially when there are multiple overlap-
+ping people.
+We propose an approach that reasons directly over the
+space of overlapping object detections by formulating a
+quadratic objective function that contains both unary scores
+measuring the quality of an individual detection, and pair-
+wise scores measuring the joint compatibility of pairs of
+overlapping detections. Loosely speaking, the unary scores
+reward candidates with high detector conﬁdence, whereas
+the pairwise scores impose a penalty for excessive amounts
+of overlap between two candidates. The problem is to ﬁnd a
+binary vector that maximizes the quadratic objective func-
+tion, which is a classic problem of quadratic unconstrained
+binary optimization (QUBO). Although this is an NP-hard
+problem, efﬁcient approximate methods are available that
+yield high quality solutions on large problem sizes.
+An example usage of our framework is shown in Fig-
+ure 2. First, a large set of possible detection candidates
+(Figure 2(b) and 2(f)) is generated, based on shape cover-
+ing of a foreground mask in the top row, or sampling from
+a conﬁdence map produced by a standard pedestrian detec-
+tor (with non-maximum suppression disabled) in the bottom
+row. In both cases, the object conﬁguration that maximizes
+the quadratic objective function is found and shown in Fig-
+ure 2(c) and 2(g). Our framework thus looks for a subset of
+2013 IEEE Conference on Computer Vision and Pattern Recognition
+1063-6919/13 $26.00 © 2013 IEEE
+DOI 10.1109/CVPR.2013.473
+3688
+2013 IEEE Conference on Computer Vision and Pattern Recognition
+1063-6919/13 $26.00 © 2013 IEEE
+DOI 10.1109/CVPR.2013.473
+3688
+2013 IEEE Conference on Computer Vision and Pattern Recognition
+1063-6919/13 $26.00 © 2013 IEEE
+DOI 10.1109/CVPR.2013.473
+3690

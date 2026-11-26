@@ -1,0 +1,202 @@
+IEEE TRANSACTIONS ON IMAGE PROCESSING 1
+ESOD: Efficient Small Object Detection on
+High-Resolution Images
+Kai Liu, Zhihang Fu, Sheng Jin, Ze Chen, Fan Zhou, Rongxin Jiang,
+Yaowu Chen, and Jieping Ye, Fellow, IEEE
+Abstract—Enlarging input images is a straightforward and
+effective approach to promote small object detection. However,
+simple image enlargement is significantly expensive on both
+computations and GPU memory. In fact, small objects are usually
+sparsely distributed and locally clustered. Therefore, massive
+feature extraction computations are wasted on the non-target
+background area of images. Recent works have tried to pick out
+target-containing regions using an extra network and perform
+conventional object detection, but the newly introduced compu-
+tation limits their final performance. In this paper, we propose
+to reuse the detector’s backbone to conduct feature-level object-
+seeking and patch-slicing, which can avoid redundant feature
+extraction and reduce the computation cost. Incorporating with a
+sparse detection head, we are able to detect small objects on high-
+resolution inputs (e.g., 1080P or larger) for superior performance.
+The resulting Efficient Small Object Detection (ESOD) approach
+is a generic framework, which can be applied to both CNN- and
+ViT-based detectors to save the computation and GPU mem-
+ory costs. Extensive experiments demonstrate the efficacy and
+efficiency of our method. In particular, our method consistently
+surpasses the SOTA detectors by a large margin ( e.g., 8% gains
+on AP) on the representative VisDrone, UA VDT, and TinyPerson
+datasets. Code is available at https://github.com/alibaba/esod.
+Index Terms—Small Object Detection, High-Resolution Detec-
+tion, Filter-Then-Detect, Sparse Detection.
+I. I NTRODUCTION
+W
+ITH recent advances in convolutional neural networks
+(CNNs) [1–3] and Vision Transformers (ViTs) [4–6],
+general object detection has promising achieves on public
+Received 10 October 2023; revised 17 July 2024; accepted 6 November
+2024. This work was supported in part by the Fundamental Research Funds
+for the Central Universities, in part by the Alibaba Cloud through the Research
+Intern Program, and in part by Zhejiang Provincial Natural Science Foundation
+of China under Grant LDT23F01013F01. The associate editor coordinating
+the review of this article and approving it for publication was Dr. Fabrizio
+Guerrini. (Corresponding authors: Rongxin Jiang; Jieping Ye .)
+Kai Liu is with the College of Biomedical Engineering and Instrument
+Science, Zhejiang University, Hangzhou 310027, China. Work was done
+during his internship at Alibaba Cloud. (E-mail: kail@zju.edu.cn)
+Zhihang Fu, Sheng Jin, Ze Chen, and Jieping Ye are with Alibaba
+Cloud, Hangzhou 310030, China. (E-mail: zhihang.fzh@alibaba-inc.com,
+jsh.hit.doc@gmail.com, cz265162@alibaba-inc.com, yejieping.ye@alibaba-
+inc.com)
+Fan Zhou and Rongxin Jiang are with the College of Biomedi-
+cal Engineering and Instrument Science, Zhejiang University, Hangzhou
+310027, China, and also with the Zhejiang Provincial Key Laboratory
+for Network Multimedia Technology, Hangzhou 310027, China. (E-mail:
+fanzhou@mail.bme.zju.edu.cn, rongxinj@zju.edu.cn)
+Yaowu Chen is with the College of Biomedical Engineering and Instrument
+Science, Zhejiang University, Hangzhou 310027, China, and also with the
+Embedded System Engineering Research Center, Ministry of Education of
+China, Hangzhou 310027, China. (E-mail: cyw@mail.bme.zju.edu.cn)
+Digital Object Identifier 10.1109/TIP.2024.3501853
+(On Average) Object Number = 54, Pixel Density = 8.1%, Empty Rate = 73.7%
+Fig. 1. Example from VisDrone [18] dataset. This image is uniformly sliced
+into 8 × 8 patches. No object exists in most of the patches (masked in gray),
+while the small objects, e.g., persons, are clustered in one or two patches.
+benchmarks including MS COCO [7, 8] and Pascal VOC [9,
+10]. It has become the foundation for widespread applications,
+such as autonomous driving [11, 12] and security monitor-
+ing [13, 14]. However, detecting small objects ( e.g., less than
+32×32 pixels [7]) remains a challenge [15–17], which hinders
+visual analysis on specialized platforms like unmanned aerial
+vehicles (UA Vs) [18, 19] and panoramic cameras [13, 20].
+To fill the performance gap between detecting small and
+normal-scale objects, researchers have made numerous efforts
+on data augmentation [21, 16], feature aggregation [22, 23],
+model evolution [24, 25], etc. Whereas, the promotion is
+still limited, since the poor pixels occupied by small objects
+lack sufficient visual information to highlight the feature
+representations [26]. A simple but effective solution is to
+enlarge the input image’s resolution to circumvent the size
+problem of small objects [27, 28]. However, simple resolution-
+increasing will inevitably lead to explosions of computation
+and GPU memory, which is not conducive to the fast detection
+of small objects in the real world.
+In fact, most of the computations brought by increased
+resolution are spent on background regions [29, 28]. This kind
+of redundant computation is especially common in practice.
+Taking VisDrone [18] dataset as an example, the targets are
+sparsely distributed on images captured by UA Vs, while small
+objects tend to be concentrated in specific regions, as shown
+in Fig. 1. On average each image contains 54 targets, but those
+targets only occupy 8.1% pixels in total. We divide each image
+into 8 × 8 patches uniformly to further explore the target
+0000–0000/00$00.00 © 2021 IEEE
+arXiv:2407.16424v2  [cs.CV]  17 Dec 2024
+
+---PAGE---
+
+IEEE TRANSACTIONS ON IMAGE PROCESSING 2
+Stem
+Neck
+SparseHead
+ObjSeeker
+AdaSlicer
+output
+input
+feature map objectnessmask
+feature patches
+Fig. 2. Architecture of our generic ESOD detector . ObjSeeker is inserted
+after stem to seek a few regions possibly containing objects (colored grids).
+AdaSlicer then slices the feature map into small patches, and discards the
+background regions. SparseHead applies sparse detection on the patches.
+density distribution. The statistic suggests that over 70% of
+the patches contain no objects. Therefore, it should be more
+computation friendly to filter out the empty regions at first,
+rather than process the whole large image without distinction.
+In order to efficiently eliminate the backgrounds, this paper
+first inserts an ObjSeeker module at the early phase of a base
+detector, to seek the regions that possibly contain objects of
+interest. Then, AdaSlicer adaptively slices the feature map into
+small patches with fixed sizes, discards the numerous but non-
+target feature patches, and feeds the remaining into the follow-
+ing modules for final object prediction. Here, SparseHead ap-
+plies sparse convolutions [30, 31] to the remaining patches to
+further reduce the computation wasted on backgrounds. The
+resulting generic framework ESOD, as shown in Fig. 2, boosts
+modern neural networks in efficiently detecting small objects
+on high-resolution images.
+This idea is motivated by the recent Grounded-SAM1 which
+adopts the “divide and conquer” way to segment salient
+objects with Segment Anything Model (SAM) [32] and then
+endow semantic labels by Grounding-DINO [33]. Our pro-
+posed ESOD coarsely seeks the class-agnostic objects and
+then determines their category labels and finer localizations.
+By doing so, the tremendous computation cost of background
+regions in high-resolution images is significantly saved.
+Indeed, such a filter-then-detect paradigm has recently been
+studied by researchers [29, 34, 35], who usually adopted
+extra independent networks to generate objectness masks, and
+sliced the original image into small patches for conventional
+detectors. However, the newly-introduced computation is non-
+negligible due to the redundant feature extraction on original
+images and sliced image patches. Hence their preliminary
+object-seeking is applied to down-sampled images to save
+computation, whereas small objects with poorer pixels are fur-
+ther filtered. By contrast, our ESOD conducts object-seeking
+1https://github.com/IDEA-Research/Grounded-Segment-Anything,
+and image-slicing at the feature level to avoid redundant fea-
+ture extractions. In this way, we are able to detect small objects
+in original high-resolution ( e.g., 1080P) or even larger images
+while maintaining computation and time efficiency. Therefore,
+the scarce pixel information of small objects is preserved to
+the utmost extent. As a result, our ESOD achieves a new
+state-of-the-art performance on three representative datasets
+including VisDrone [18], UA VDT [36], and TinyPerson [16],
+consistently improving the efficacy and efficiency.
+It is worth noting that ESOD is a plug-and-play optimization
+approach to both CNNs [37, 38] and Vision Transform-
+ers [4, 6]. The AdaSlicer can be easily extended to generate
+attention masks to avoid quadratically increased computation
+on visual tokens of background regions. For more details and
+experiments please refer to Sec. III-C and Sec. IV-D.
+Our contribution can be summarized as follows:
+1) We statistically state the fact of sparsely clustered small
+objects in practice, and conduct feature-level object-
+seeking with adaptive patch-slicing to avoid redundant
+feature extraction and save the computation cost. A
+sparse detection head is adopted to reuse the estimated
+objectness mask for further computation-saving.
+2) We propose a generic framework ESOD that adapts to
+both CNN and ViT architectures, saving detection com-
+putation and GPU memory on high-resolution images.
+3) We surpass state-of-the-art detectors by a large margin
+(e.g., 8% gains on AP) with comparable computation
+cost and inference speed on the representative Vis-
+Drone [18], UA VDT [36], and TinyPerson [16] datasets.
+II. R ELATED WORKS
+A. Small Object Detection
+Inspired by the success of general object detection, many
+works adopt the “divide and rule” idea to address the issue
+of size variation in small object detection (SOD). SNIP [39]
+builds an image pyramid, and at each scale only objects with
+proper medium size are treated as ground truth. SNIPER [24]
+crops several patches with a set of fixed sizes from the original
+image, avoiding explicitly constructing an image pyramid
+for multi-scale training. Whereas time-consuming multi-scale
+testing is required. HRDNet [25] uses a backbone pyramid to
+utilize the image pyramid, where the heavyweight backbone
+processes the small image and vice versa, and then takes a
+multi-scale FPN to fuse extracted features.
+In addition, data augmentation is an effective approach to
+improving the performance of SOD. Simple copy-paste [21] is
+a strong data augmentation method for instance segmentation
+and object detection to address various imbalance problems.
+Yu et al. propose SM [16] and SM+ [40] as pre-training
+strategies to improve the effectiveness of transfer learning
+by aligning the object size distributions between large source
+datasets, e.g., MS COCO [7], and small destination dataset.
+Stitcher [41] shrinks regular images to generate small objects
+during training manually, and selectively feeds the collected
+images to optimize detectors on more small objects.
+In contrast, input image enlarging [27, 42] is more effective
+but lacks efficiency, and our work focuses on saving compu-
+tation and speeding up detection when enlarging images.

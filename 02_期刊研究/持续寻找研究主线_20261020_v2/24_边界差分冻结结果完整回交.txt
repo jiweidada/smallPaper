@@ -1,0 +1,38 @@
+Material Passport
+Origin Skill: academic-research-suite / experiment-agent
+Origin Mode: run；冻结特征、独立新线性分支虚拟单步
+Origin Date: 2026-10-21T07:52:45Z
+Verification Status: 本地合成/输入SHA/原模型与缓冲不变检查通过；没有训练/AP或独立复现证据
+Version Label: boundary_frozen_v2
+
+执行已完成，结果23_boundary_frozen_v2/01_results.json，事前19。两个BASE24 online seed，各固定development00/01，两向跨批。每批4张同640增强输入；原CPU同前向pre union/GT/normalizer，无GPU indices拼接，无heldout。
+仅提取原stem→stage0 P2特征，共4次局部backbone前向，实际P2为[4,64,160,160]，stride4。所有其他模型参数冻结，新W从0做一次fresh-moment AdamW函数端点，原pre头组lr=.0004。其余公式和去留口径见19。不更新任何检测器参数，不写checkpoint，不累计步数。
+
+对照：difference/mean各1024参数；full_concat2048参数，并非同参数。mean_matched、concat_matched只用生成批logit位移RMS配平到difference，评价批不参与。所有臂读取完全相同的4边×2条带×16点。
+主群体：原ordinary pre union中pre IoU==0且GT输入shortside<4；与07的final-IoU0支持外群体不同。seed1/2分别399/401次配对曝光；聚合normalizer1818/1820，两向分子相加/总normalizer，不逐图平均。
+
+各臂相对original的主群体几何贡献差，原始loss单位，正数较差（不是AP或百分点）：
+                      seed1              seed2
+difference            +.001602977377     +.000229820619
+mean                  +.003020235135     -.000626159297
+full_concat           +.004273877456     +.002180188467
+mean_matched          +.000536591794     -.001261912424
+concat_matched        +.000397179857     -.001154585238
+difference在两个seed均比original更差，且均没有胜过配平后的两个简单对照；seed2也没有胜过原mean。
+all ordinary difference-original =+.054919181438 / +.056682989759，两seed均较差。
+
+跨批逐方向的主群体difference-original：
+seed1 00→01 +.003750053791（149曝光），01→00 +.000310948134（250曝光）。
+seed2 00→01 +.002335134932（149曝光），01→00 -.001031887959（252曝光）。
+完整其余分组/所有臂/所有方向原始结果均在JSON，没有删除有利方向。
+
+按事前判据，本版不保留为值得申请训练的特征前提。不调条带宽/学习率/批次拯救此版。
+能说：指定冻结P2、固定pre配对与新W单步检查，没有观察到差分相对于原方案和强简单对照的可迁移优势。
+不能说：浅层特征完全不含边界信息；所有边界回归无用；该方案长期训练必降AP；完整模型联合训练已被反证。这是head-only fresh-state局部检查，不是完整历史Adam网络端点。两批重复开发、不是独立统计验证。一次未通过不结束用户的持续找主线目标。
+
+数学和完整性：零W框最大误差1.11e-16；FP64几何与原生保存FP32损失差最大1.74e-7；原checkpoint/模型状态与BN缓冲SHA保持。条带越图采样点184/912/384/1093，各批分母153600，padding=border统一处理。
+20脚本第一版在合成差分=拼接恒等式处2.6645352591e-15超过绝对2e-15断言，未进入真实缓存/候选计算。原失败21完整保留。22只把这条数值断言改为dot-product浮点舍入上界，另输出23；未改科学门槛或任何实验参数。修订清单03_predata_revision.json、最终SHA04_final_manifest.json。
+
+最近原文15已核：BorderDet/SABL已有边界特征修框；剩余内外差分属于参数化/归纳偏置，concat线性包含它，当前无数字支持其必要性。Claude的未入选中心纯几何辅助仍是未测试候选；RT-DETRv3/Co-DETR已解决密集encoder监督，剩余头共享/只补几何需实质设计与强简单对照，不把它自动当新方法。
+
+圆桌软件限制：25导出回执表明本场首位Astra调用07:43:01启动、07:48:01被软件5分钟上限终止，0完整回答，不是研究结论。上一场B未完成、C未发言也不当共识。不得伪称四位均已审本结果。后续需如实回交完整阴性，再寻真正不同设计；当前不训练、不远程、不监测。
